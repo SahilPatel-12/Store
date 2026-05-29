@@ -125,16 +125,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   React.useEffect(() => {
     if (loggedInUser) {
-      setFullName(prev => prev || loggedInUser.fullName || '');
-      setEmail(prev => prev || loggedInUser.email || '');
-      setPhone(prev => prev || loggedInUser.phoneNumber || '');
+      const user = loggedInUser;
+      setFullName(prev => prev || user.fullName || '');
+      setEmail(prev => prev || user.email || '');
+      setPhone(prev => prev || user.phoneNumber || '');
 
       async function fetchUserAddresses() {
         try {
           const { data, error } = await supabase
             .from('website_store_addresses')
             .select('*')
-            .eq('user_id', loggedInUser.id)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: true });
           
           if (error) throw error;

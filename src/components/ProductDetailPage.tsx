@@ -469,7 +469,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   onChange={(e) => {
                     const checked = e.target.checked;
                     onUpdate && onUpdate({
-                      spiritualSignificance: checked ? "This sacred ritual possesses deep Vedic significance. Recitation of its mantras brings deep peace, spiritual elevation, and divine blessings to the home." : null
+                      spiritualSignificance: checked ? "This sacred ritual possesses deep Vedic significance. Recitation of its mantras brings deep peace, spiritual elevation, and divine blessings to the home." : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -488,7 +488,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       ritualsIncluded: checked ? [
                         { name: "Sankalpa (Sacred Vow)", description: "Expressing the devotee's name, lineage (gotra), and specific prayer intent before the deity.", duration: "10 mins" },
                         { name: "Mantra Recitation", description: "Recitation of sacred Vedic slokas and mantras for purifying the surroundings.", duration: "30 mins" }
-                      ] : null
+                      ] : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -507,7 +507,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       samagriList: checked ? [
                         { name: "Ganga Jal (Holy Water)", quantity: "1 Bottle", description: "Sacred purifying water sourced directly from Gangotri." },
                         { name: "Akshata (Sacred Rice)", quantity: "50 grams", description: "Unbroken rice grains mixed with pure turmeric powder." }
-                      ] : null
+                      ] : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -523,7 +523,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   onChange={(e) => {
                     const checked = e.target.checked;
                     onUpdate && onUpdate({
-                      bookingInstructions: checked ? "Please provide your Gotra, Nakshatra, and full names of family members at the time of booking. It is recommended to perform this ritual in clean traditional attire." : null
+                      bookingInstructions: checked ? "Please provide your Gotra, Nakshatra, and full names of family members at the time of booking. It is recommended to perform this ritual in clean traditional attire." : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -544,7 +544,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         experience: "15+ Years",
                         bio: "Vedic Scholar from Varanasi trained in Shukla Yajurveda rituals.",
                         qualification: "Acharya in Sanskrit & Vedic Liturgy"
-                      } : null
+                      } : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -562,7 +562,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     onUpdate && onUpdate({
                       certificates: checked ? [
                         { name: "Purity Seal & Energized Certification", issuer: "Vedic Purity Board", url: "" }
-                      ] : null
+                      ] : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
@@ -580,7 +580,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     onUpdate && onUpdate({
                       faqs: checked ? [
                         { question: "How will I receive the blessings?", answer: "Sacred prasada (energized elements, threads, and sweets) will be shipped securely to your registered delivery address." }
-                      ] : null
+                      ] : undefined
                     });
                   }}
                   style={{ accentColor: '#f97316' }}
