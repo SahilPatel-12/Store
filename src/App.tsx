@@ -1,0 +1,2352 @@
+import React from 'react';
+import { Search, User, ShoppingBag, Heart, Menu, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProductModal } from './components/ProductModal';
+import type { OrderDetails } from './components/OrderSuccessPage';
+import type { Product, CartItem, LocalOrder } from './types';
+import { supabase } from './lib/supabase';
+import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
+import logo from './assets/My_logo/Frame 16.png';
+
+
+// Dynamically imported page components for optimal compilation and load performance
+const ShopPage = React.lazy(() => import('./components/ShopPage').then(m => ({ default: m.ShopPage })));
+const CategoryPage = React.lazy(() => import('./components/CategoryPage').then(m => ({ default: m.CategoryPage })));
+const ProductDetailPage = React.lazy(() => import('./components/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
+const SearchPage = React.lazy(() => import('./components/SearchPage').then(m => ({ default: m.SearchPage })));
+const CartPage = React.lazy(() => import('./components/CartPage').then(m => ({ default: m.CartPage })));
+const CheckoutPage = React.lazy(() => import('./components/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
+const OrderSuccessPage = React.lazy(() => import('./components/OrderSuccessPage').then(m => ({ default: m.OrderSuccessPage })));
+const UserProfilePage = React.lazy(() => import('./components/UserProfilePage').then(m => ({ default: m.UserProfilePage })));
+const OrdersPage = React.lazy(() => import('./components/OrdersPage').then(m => ({ default: m.OrdersPage })));
+const WishlistPage = React.lazy(() => import('./components/WishlistPage').then(m => ({ default: m.WishlistPage })));
+const AboutUsPage = React.lazy(() => import('./components/AboutUsPage').then(m => ({ default: m.AboutUsPage })));
+const ContactUsPage = React.lazy(() => import('./components/ContactUsPage').then(m => ({ default: m.ContactUsPage })));
+const PoliciesPage = React.lazy(() => import('./components/PoliciesPage').then(m => ({ default: m.PoliciesPage })));
+const AdminPanelPage = React.lazy(() => import('./components/AdminPanelPage').then(m => ({ default: m.AdminPanelPage })));
+const AdminLoginPage = React.lazy(() => import('./components/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
+const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m => ({ default: m.UserAuthPage })));
+
+const categories = [
+  'Rudraksha',
+  'Bracelet',
+  'Murti',
+  'Yantras',
+  'Anklet',
+  'Frames',
+  'Rashi',
+  'Karungali',
+  'Jadi',
+  'Pyrite',
+  'Kavach',
+  'Siddh Range',
+  'Gemstones',
+  'Pyramid',
+  'Necklaces/Mala',
+  'Tower & Tumbles',
+  'Crystal Dome Trees',
+  'Women Bracelets',
+  'Evil Eye',
+  'Gifting'
+];
+
+const initialOrders: LocalOrder[] = [
+  {
+    orderId: 'MANTRA-94812',
+    placedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    total: 108.0,
+    subtotal: 98.0,
+    discount: 0,
+    discountPercent: 0,
+    shipping: 0,
+    tax: 10.0,
+    paymentMethod: 'UPI',
+    deliveryCity: 'Varanasi',
+    deliveryState: 'Uttar Pradesh',
+    fullName: 'Sahil Patel',
+    email: 'sahil.patel@devotion.com',
+    phoneNumber: '+91 98765 43210',
+    addressLine1: '12 Ganga Ghat Marg, Kedar Ghat',
+    pincode: '221001',
+    status: 'Delivered',
+    items: [
+      {
+        product: {
+          id: 'p1',
+          name: 'Panchmukhi Himalayan Rudraksha Mala',
+          price: 19.99,
+          image: '📿',
+          spiritualType: 'Meditation',
+          description: 'Authentic 108+1 beads Panchmukhi (five-faced) Rudraksha Japa Mala sourced from Nepalese foothills.',
+          category: 'Rudraksha',
+          rating: 4.9,
+          reviewsCount: 215,
+          inStock: true,
+          benefits: [],
+          popularity: 95
+        },
+        quantity: 1
+      },
+      {
+        product: {
+          id: 'p14',
+          name: 'Brass Incense & Dhoop Cup Holder',
+          price: 15.99,
+          image: '🏺',
+          spiritualType: 'Aromatherapy',
+          description: 'Artistic brass burner styled for holding agarbatti (sticks) and dhoop cups.',
+          category: 'Incense Holders',
+          rating: 4.7,
+          reviewsCount: 95,
+          inStock: true,
+          benefits: [],
+          popularity: 80
+        },
+        quantity: 2
+      }
+    ]
+  },
+  {
+    orderId: 'MANTRA-92144',
+    placedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+    total: 11.99,
+    subtotal: 11.99,
+    discount: 0,
+    discountPercent: 0,
+    shipping: 0,
+    tax: 0.0,
+    paymentMethod: 'Cash on Delivery',
+    deliveryCity: 'Noida',
+    deliveryState: 'Uttar Pradesh',
+    fullName: 'Sahil Patel',
+    email: 'sahil.patel@devotion.com',
+    phoneNumber: '+91 98765 43210',
+    addressLine1: 'Sector 62, Dev Tower, Suite 404',
+    pincode: '201301',
+    status: 'Delivered',
+    items: [
+      {
+        product: {
+          id: 'p6',
+          name: 'Pure Bhimseni Camphor Tablets',
+          price: 11.99,
+          image: '❄️',
+          spiritualType: 'Aromatherapy',
+          description: '100% organic, chemical-free Bhimseni camphor.',
+          category: 'Camphor',
+          rating: 4.9,
+          reviewsCount: 140,
+          inStock: true,
+          benefits: [],
+          popularity: 90
+        },
+        quantity: 1
+      }
+    ]
+  }
+];
+
+function App() {
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth'>('shop');
+  
+  const [loggedInUser, setLoggedInUser] = React.useState<{ id: string; fullName: string; email: string; phoneNumber: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('mantra_user_session');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | null>(null);
+  const [pendingBuyNow, setPendingBuyNow] = React.useState<{ product: Product; qty: number } | null>(null);
+  const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
+
+  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_admin_auth_session');
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (session && session.isAuthenticated && session.expireTime > Date.now()) {
+          return { username: session.username, loginTime: session.loginTime };
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_admin_auth_session');
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (session && session.isAuthenticated && session.expireTime > Date.now()) {
+          return true;
+        }
+        localStorage.removeItem('ridae_admin_auth_session');
+        localStorage.removeItem('ridae_admin_auth');
+      }
+      return localStorage.getItem('ridae_admin_auth') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  // Lifted stateful catalog products
+  const [productsState, setProductsState] = React.useState<Product[]>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_products');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('ridae_products', JSON.stringify(productsState));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [productsState]);
+
+  const [selectedCategoryName, setSelectedCategoryName] = React.useState<string>('Rudraksha');
+  const [searchQueryTerm, setSearchQueryTerm] = React.useState<string>('');
+  const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
+
+  // Periodically check admin session expiration (session management)
+  React.useEffect(() => {
+    if (!isAdminAuthenticated) return;
+
+    const checkInterval = setInterval(() => {
+      try {
+        const stored = localStorage.getItem('ridae_admin_auth_session');
+        if (stored) {
+          const session = JSON.parse(stored);
+          if (session && session.expireTime && Date.now() > session.expireTime) {
+            alert('Your administrator session has expired. Please log in again.');
+            localStorage.removeItem('ridae_admin_auth_session');
+            localStorage.removeItem('ridae_admin_auth');
+            setIsAdminAuthenticated(false);
+            setCurrentAdmin(null);
+            setCurrentPageState('admin-login');
+          }
+        }
+      } catch (e) {}
+    }, 15000);
+
+    return () => clearInterval(checkInterval);
+  }, [isAdminAuthenticated]);
+
+  // Dynamic Slugification Resolvers
+  const getProductSlug = (product: Product): string => {
+    if ('slug' in product && (product as any).slug) {
+      return (product as any).slug;
+    }
+    return product.name
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/[-\s]+/g, '-');
+  };
+
+  const getCategorySlug = (category: string): string => {
+    return category
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/[-\s]+/g, '-');
+  };
+
+  const getCategoryFromSlug = (slug: string): string => {
+    return categories.find(cat => getCategorySlug(cat) === slug) || 'Rudraksha';
+  };
+
+  const setCurrentPage = (
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth',
+    options?: { categoryName?: string; product?: Product; searchQuery?: string }
+  ) => {
+    // Intercept protected devotee page routing
+    if (page === 'checkout' || page === 'wishlist' || page === 'orders' || page === 'profile') {
+      if (!loggedInUser) {
+        if (page !== 'profile') {
+          alert(`Please log in or register to access ${page === 'checkout' ? 'checkout' : page}.`);
+        }
+        setAuthRedirectPage(page === 'profile' ? null : page);
+        page = 'user-auth';
+      }
+    }
+
+    let path = '/';
+
+    // Determine target path based on page state
+    switch (page) {
+      case 'home':
+        path = '/';
+        break;
+      case 'shop':
+        path = '/product';
+        break;
+      case 'category':
+        const catName = options?.categoryName || selectedCategoryName;
+        path = `/category/${getCategorySlug(catName)}`;
+        break;
+      case 'detail':
+        const prod = options?.product || selectedProduct;
+        if (prod) {
+          path = `/product/${getProductSlug(prod)}`;
+        } else {
+          path = '/product';
+        }
+        break;
+      case 'search':
+        const query = options?.searchQuery || searchQueryTerm;
+        path = query ? `/search?q=${encodeURIComponent(query)}` : '/search';
+        break;
+      case 'cart':
+        path = '/cart';
+        break;
+      case 'checkout':
+        path = '/checkout';
+        break;
+      case 'success':
+        path = '/success';
+        break;
+      case 'orders':
+        path = '/orders';
+        break;
+      case 'profile':
+        path = '/profile';
+        break;
+      case 'wishlist':
+        path = '/wishlist';
+        break;
+      case 'about':
+        path = '/about';
+        break;
+      case 'contact':
+        path = '/contact';
+        break;
+      case 'policies':
+        path = '/policies';
+        break;
+      case 'admin-login':
+      case 'admin':
+        path = '/admin';
+        break;
+      case 'user-auth':
+        path = '/auth';
+        break;
+      default:
+        path = '/';
+    }
+
+    // Set page states
+    if (page === 'admin' || page === 'admin-login') {
+      setCurrentPageState(isAdminAuthenticated ? 'admin' : 'admin-login');
+    } else {
+      if (currentPageState === 'admin' || currentPageState === 'admin-login') {
+        try {
+          localStorage.removeItem('ridae_admin_auth_session');
+          localStorage.removeItem('ridae_admin_auth');
+        } catch (e) {}
+        setIsAdminAuthenticated(false);
+        setCurrentAdmin(null);
+      }
+      setCurrentPageState(page);
+    }
+
+    // Sync options to react states
+    if (options?.categoryName) {
+      setSelectedCategoryName(options.categoryName);
+    }
+    if (options?.product) {
+      setSelectedProduct(options.product);
+    }
+    if (options?.searchQuery !== undefined) {
+      setSearchQueryTerm(options.searchQuery);
+    }
+
+    // Pushes browser state URL if it has changed
+    if (window.location.pathname + window.location.search !== path) {
+      window.history.pushState({}, '', path);
+    }
+  };
+
+  const currentPage = currentPageState;
+
+  // Reactive URL popstate and deep-linking router
+  const handleUrlRouting = React.useCallback((path: string, search: string) => {
+    if (path === '/admin' || path === '/admin/') {
+      if (isAdminAuthenticated) {
+        setCurrentPageState('admin');
+      } else {
+        setCurrentPageState('admin-login');
+      }
+    } else {
+      if (isAdminAuthenticated) {
+        try {
+          localStorage.removeItem('ridae_admin_auth_session');
+          localStorage.removeItem('ridae_admin_auth');
+        } catch (e) {}
+        setIsAdminAuthenticated(false);
+        setCurrentAdmin(null);
+      }
+
+      if (path === '/' || path === '') {
+        setCurrentPageState('home');
+      } else if (path === '/product' || path === '/product/') {
+        setCurrentPageState('shop');
+      } else if (path.startsWith('/category/')) {
+        const catSlug = path.substring(10).replace(/\/$/, '');
+        const categoryName = getCategoryFromSlug(catSlug);
+        setSelectedCategoryName(categoryName);
+        setCurrentPageState('category');
+      } else if (path.startsWith('/product/')) {
+        const prodSlug = path.substring(9).replace(/\/$/, '');
+        const foundProduct = productsState.find(p => getProductSlug(p) === prodSlug);
+        if (foundProduct) {
+          setSelectedProduct(foundProduct);
+          setCurrentPageState('detail');
+        } else {
+          setCurrentPageState('shop');
+        }
+      } else if (path === '/search' || path === '/search/') {
+        const params = new URLSearchParams(search);
+        const q = params.get('q') || '';
+        setSearchQueryTerm(q);
+        setCurrentPageState('search');
+      } else if (path === '/cart' || path === '/cart/') {
+        setCurrentPageState('cart');
+      } else if (path === '/checkout' || path === '/checkout/') {
+        if (loggedInUser) {
+          setCurrentPageState('checkout');
+        } else {
+          setAuthRedirectPage('checkout');
+          setCurrentPageState('user-auth');
+        }
+      } else if (path === '/success' || path === '/success/') {
+        setCurrentPageState('success');
+      } else if (path === '/orders' || path === '/orders/') {
+        if (loggedInUser) {
+          setCurrentPageState('orders');
+        } else {
+          setAuthRedirectPage('orders');
+          setCurrentPageState('user-auth');
+        }
+      } else if (path === '/profile' || path === '/profile/') {
+        if (loggedInUser) {
+          setCurrentPageState('profile');
+        } else {
+          setCurrentPageState('user-auth');
+        }
+      } else if (path === '/wishlist' || path === '/wishlist/') {
+        if (loggedInUser) {
+          setCurrentPageState('wishlist');
+        } else {
+          setAuthRedirectPage('wishlist');
+          setCurrentPageState('user-auth');
+        }
+      } else if (path === '/about' || path === '/about/') {
+        setCurrentPageState('about');
+      } else if (path === '/contact' || path === '/contact/') {
+        setCurrentPageState('contact');
+      } else if (path === '/policies' || path === '/policies/') {
+        setCurrentPageState('policies');
+      } else if (path === '/auth' || path === '/auth/') {
+        setCurrentPageState('user-auth');
+      } else {
+        setCurrentPageState('shop');
+      }
+    }
+  }, [isAdminAuthenticated, productsState, loggedInUser]);
+
+  // popstate browser navigation sync
+  React.useEffect(() => {
+    const handlePopState = () => {
+      handleUrlRouting(window.location.pathname, window.location.search);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [handleUrlRouting]);
+
+  // Direct load deep-linking on mount (also runs when dynamic database products are loaded)
+  React.useEffect(() => {
+    handleUrlRouting(window.location.pathname, window.location.search);
+  }, [productsState, handleUrlRouting]);
+
+
+
+  // Load published pooja products from Supabase and merge with static mock products
+  const loadPublishedProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_pooja_products')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        const mappedData: Product[] = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
+          originalPrice: item.original_price ? (typeof item.original_price === 'string' ? parseFloat(item.original_price) : item.original_price) : undefined,
+          rating: typeof item.rating === 'string' ? parseFloat(item.rating) : (item.rating || 5.0),
+          reviewsCount: item.reviews_count || 0,
+          image: item.image || '📿',
+          category: item.category,
+          inStock: item.in_stock ?? true,
+          benefits: item.benefits || [],
+          popularity: item.popularity || 80,
+          spiritualType: item.spiritual_type || 'Rituals',
+          // custom fields to keep compatibility with PoojaProduct:
+          sanskritName: item.sanskrit_name,
+          shortName: item.short_name,
+          slug: item.slug,
+          subtitle: item.subtitle,
+          shortDescription: item.short_description,
+          spiritualSignificance: item.spiritual_significance,
+          material: item.material,
+          weight: item.weight,
+          dimensions: item.dimensions,
+          origin: item.origin,
+          customIcons: item.custom_icons || {},
+          ritualsIncluded: item.rituals_included || [],
+          samagriList: item.samagri_list || [],
+          priestDetails: item.priest_details || { name: '', experience: '', bio: '', qualification: '' },
+          duration: item.duration,
+          idealOccasions: item.ideal_occasions || [],
+          templeAssociation: item.temple_association,
+          whoShouldPerform: item.who_should_perform,
+          offers: item.offers || [],
+          badges: item.badges || [],
+          testimonials: item.testimonials || [],
+          faqs: item.faqs || [],
+          bookingInstructions: item.booking_instructions,
+          ctaLabels: item.cta_labels || { primary: '', secondary: '' },
+          seoTitle: item.seo_title,
+          seoDescription: item.seo_description,
+          canonicalUrl: item.canonical_url,
+          ogData: item.og_data || { title: '', description: '', image: '' },
+          schemaMarkup: item.schema_markup || {},
+          imageAlt: item.image_alt,
+          imageCaption: item.image_caption,
+          isFeatured: item.is_featured || false,
+          isTrending: item.is_trending || false,
+          recommendationLogic: item.recommendation_logic,
+          relatedProducts: item.related_products || [],
+          videoUrl: item.video_url,
+          translations: item.translations || {},
+          uiLabels: item.ui_labels || {},
+          publishedAt: item.published_at,
+          isPublished: item.is_published || false,
+          bannerImage: item.banner_image,
+          galleryImages: item.gallery_images || [],
+          ritualImages: item.ritual_images || [],
+          priestImage: item.priest_image,
+          certificates: item.certificates || [],
+          iconImage: item.icon_image,
+          promoCreatives: item.promo_creatives || [],
+        }));
+
+        setProductsState(mappedData);
+      }
+    } catch (err) {
+      console.error('Error loading published pooja products in storefront:', err);
+    }
+  };
+
+  const [homepageConfig, setHomepageConfig] = React.useState<{
+    featuredProductIds?: string[];
+    saleProductIds?: string[];
+    newArrivalsProductIds?: string[];
+    featuredTitle?: string;
+    featuredSubtitle?: string;
+    saleTitle?: string;
+    saleSubtitle?: string;
+    saleDiscount?: number;
+    newArrivalsTitle?: string;
+    newArrivalsSubtitle?: string;
+    bannerImages?: string[];
+    showcaseImage?: string;
+  } | null>(null);
+
+  // Shop Banners: main banner carousel + category banners
+  const [shopBannersConfig, setShopBannersConfig] = React.useState<{
+    mainBanners?: string[];  // main shop header carousel images
+    categoryBanners?: Record<string, string[]>; // category name -> array of image URLs
+  } | null>(null);
+
+  const loadShopBannersSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'shop_banners_settings')
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value) {
+        setShopBannersConfig(data.value);
+      }
+    } catch (err) {
+      console.error('Error loading shop banners settings:', err);
+    }
+  };
+
+  const loadHomepageSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'homepage_settings')
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value) {
+        setHomepageConfig(data.value);
+      }
+    } catch (err) {
+      console.error('Error loading homepage settings:', err);
+    }
+  };
+
+  const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
+
+  const bannerSlides = React.useMemo(() => {
+    if (homepageConfig && homepageConfig.bannerImages && homepageConfig.bannerImages.length > 0) {
+      return homepageConfig.bannerImages;
+    }
+    return [
+      'https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1600&q=80',
+      'https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=1600&q=80',
+      'https://images.unsplash.com/photo-1561571994-3c61c554181a?auto=format&fit=crop&w=1600&q=80'
+    ];
+  }, [homepageConfig]);
+
+  React.useEffect(() => {
+    setCurrentSlideIndex(0);
+  }, [bannerSlides]);
+
+  React.useEffect(() => {
+    if (bannerSlides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIndex(prev => (prev + 1) % bannerSlides.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [bannerSlides]);
+
+  const getFeaturedProducts = () => {
+    if (homepageConfig && homepageConfig.featuredProductIds && homepageConfig.featuredProductIds.length > 0) {
+      return productsState.filter(p => homepageConfig.featuredProductIds!.includes(p.id))
+        .sort((a, b) => homepageConfig.featuredProductIds!.indexOf(a.id) - homepageConfig.featuredProductIds!.indexOf(b.id));
+    }
+    return productsState.slice(0, 4);
+  };
+
+  const getSaleProducts = () => {
+    if (homepageConfig && homepageConfig.saleProductIds && homepageConfig.saleProductIds.length > 0) {
+      return productsState.filter(p => homepageConfig.saleProductIds!.includes(p.id))
+        .sort((a, b) => homepageConfig.saleProductIds!.indexOf(a.id) - homepageConfig.saleProductIds!.indexOf(b.id));
+    }
+    return productsState.slice(4, 7);
+  };
+
+  const getNewArrivalsProducts = () => {
+    if (homepageConfig && homepageConfig.newArrivalsProductIds && homepageConfig.newArrivalsProductIds.length > 0) {
+      return productsState.filter(p => homepageConfig.newArrivalsProductIds!.includes(p.id))
+        .sort((a, b) => homepageConfig.newArrivalsProductIds!.indexOf(a.id) - homepageConfig.newArrivalsProductIds!.indexOf(b.id));
+    }
+    return productsState.slice(7, 10);
+  };
+
+  // Fetch published products on mount and page transition
+  React.useEffect(() => {
+    loadPublishedProducts();
+    loadHomepageSettings();
+    loadShopBannersSettings();
+  }, [currentPageState]);
+
+
+  // Lifted stateful orders
+  const [ordersState, setOrdersState] = React.useState<LocalOrder[]>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_orders');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.map((o: any) => ({
+          ...o,
+          placedAt: new Date(o.placedAt)
+        }));
+      }
+      return initialOrders;
+    } catch (e) {
+      return initialOrders;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('ridae_orders', JSON.stringify(ordersState));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [ordersState]);
+
+  const fetchOrdersFromSupabase = React.useCallback(async () => {
+    try {
+      let query = supabase.from('website_store_orders').select('*');
+      
+      if (isAdminAuthenticated) {
+        query = query.order('created_at', { ascending: false });
+      } else if (loggedInUser) {
+        query = query.eq('user_id', loggedInUser.id).order('created_at', { ascending: false });
+      } else {
+        return;
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      if (data) {
+        const mappedOrders: LocalOrder[] = data.map((o: any) => ({
+          orderId: o.order_id,
+          userId: o.user_id,
+          placedAt: new Date(o.created_at),
+          total: typeof o.total === 'string' ? parseFloat(o.total) : o.total,
+          subtotal: typeof o.subtotal === 'string' ? parseFloat(o.subtotal) : o.subtotal,
+          discount: typeof o.discount === 'string' ? parseFloat(o.discount) : o.discount,
+          discountPercent: o.discount_percent,
+          shipping: typeof o.shipping === 'string' ? parseFloat(o.shipping) : o.shipping,
+          tax: typeof o.tax === 'string' ? parseFloat(o.tax) : o.tax,
+          paymentMethod: o.payment_method,
+          deliveryCity: o.delivery_city,
+          deliveryState: o.delivery_state,
+          fullName: o.full_name,
+          email: o.email,
+          phoneNumber: o.phone_number,
+          addressLine1: o.address_line1,
+          addressLine2: o.address_line2 || undefined,
+          pincode: o.pincode,
+          status: o.status,
+          items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+          razorpayPaymentId: o.razorpay_payment_id || undefined
+        }));
+        setOrdersState(mappedOrders);
+      }
+    } catch (err) {
+      console.error('Error fetching orders from Supabase:', err);
+    }
+  }, [loggedInUser, isAdminAuthenticated]);
+
+  React.useEffect(() => {
+    if (loggedInUser || isAdminAuthenticated) {
+      fetchOrdersFromSupabase();
+    } else {
+      try {
+        const stored = localStorage.getItem('ridae_orders');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setOrdersState(parsed.map((o: any) => ({
+            ...o,
+            placedAt: new Date(o.placedAt)
+          })));
+        } else {
+          setOrdersState(initialOrders);
+        }
+      } catch (e) {
+        setOrdersState(initialOrders);
+      }
+    }
+  }, [loggedInUser, isAdminAuthenticated, fetchOrdersFromSupabase]);
+
+  const [orderDetails, setOrderDetails] = React.useState<OrderDetails | null>(null);
+  const [categoriesDropdownOpen, setCategoriesDropdownOpen] = React.useState(false);
+
+  const handleViewDetails = (product: Product) => {
+    setCurrentPage('detail', { product });
+  };
+  const [wishlist, setWishlist] = React.useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_wishlist');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('ridae_wishlist', JSON.stringify(wishlist));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [wishlist]);
+
+  // State for visual interactions
+  const [cart, setCart] = React.useState<CartItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('ridae_cart');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('ridae_cart', JSON.stringify(cart));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [cart]);
+
+  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+  
+  // Countdown Timer state
+  const [timeLeft, setTimeLeft] = React.useState({
+    days: 34,
+    hours: 5,
+    minutes: 21,
+    seconds: 10
+  });
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev.seconds > 0) {
+          return { ...prev, seconds: prev.seconds - 1 };
+        } else if (prev.minutes > 0) {
+          return { ...prev, minutes: 59, seconds: 59 };
+        } else if (prev.hours > 0) {
+          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        } else if (prev.days > 0) {
+          return { ...prev, days: prev.days - 1, hours: 23, minutes: 59, seconds: 59 };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleAddToCartWithQty = (product: Product, quantity = 1) => {
+    setCart(prev => {
+      const existingIdx = prev.findIndex(item => item.product.id === product.id);
+      if (existingIdx > -1) {
+        const nextCart = [...prev];
+        nextCart[existingIdx] = {
+          ...nextCart[existingIdx],
+          quantity: nextCart[existingIdx].quantity + quantity
+        };
+        return nextCart;
+      }
+      return [...prev, { product, quantity }];
+    });
+  };
+
+  const handleUpdateQuantity = (productId: string, quantity: number) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.product.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const handleRemoveItem = (productId: string) => {
+    setCart(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const handleClearCart = () => {
+    setCart([]);
+  };
+
+  const handleBuyNow = (product: Product, qty: number) => {
+    if (!loggedInUser) {
+      alert("Please log in or register to buy this item.");
+      setPendingBuyNow({ product, qty });
+      setAuthRedirectPage('checkout');
+      setCurrentPage('user-auth');
+    } else {
+      handleAddToCartWithQty(product, qty);
+      setCurrentPage('checkout');
+    }
+  };
+
+  const handleToggleWishlist = (id: string) => {
+    if (!loggedInUser) {
+      alert("Please log in or register to manage your wishlist.");
+      setPendingWishlistToggle(id);
+      setAuthRedirectPage('wishlist');
+      setCurrentPage('user-auth');
+      return;
+    }
+    setWishlist(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      
+      {/* 1. Navbar Section */}
+      <nav style={{
+        backgroundColor: '#ffffff',
+        borderBottom: '1px solid var(--border-light)',
+        padding: '16px 0',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div className="container" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px'
+        }}>
+          {/* Logo & Brand Name (Left side) */}
+          <div
+            onClick={() => setCurrentPage('home')}
+            style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <img 
+              src={logo} 
+              alt="Mantra Puja Logo" 
+              style={{ 
+                height: '65px', 
+                objectFit: 'contain'
+              }} 
+            />
+          </div>
+
+          {/* Nav Links & Search bar (Center) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }} className="nav-links-wrapper">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }} className="nav-menu">
+              <a
+                href="#hero"
+                onClick={(e) => { e.preventDefault(); setCurrentPage('home'); }}
+                style={{ fontWeight: currentPage === 'home' ? 800 : 500, color: currentPage === 'home' ? 'var(--text-dark)' : 'var(--text-muted)' }}
+              >
+                Home
+              </a>
+              <a
+                href="#shop"
+                onClick={(e) => { e.preventDefault(); setCurrentPage('shop'); }}
+                style={{ fontWeight: currentPage === 'shop' ? 800 : 500, color: currentPage === 'shop' ? 'var(--text-dark)' : 'var(--text-muted)' }}
+              >
+                Shop
+              </a>
+              <div 
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setCategoriesDropdownOpen(true)}
+                onMouseLeave={() => setCategoriesDropdownOpen(false)}
+              >
+                <button
+                  onClick={(e) => { e.preventDefault(); setCategoriesDropdownOpen(prev => !prev); }}
+                  style={{
+                    fontWeight: currentPage === 'category' ? 800 : 500,
+                    color: currentPage === 'category' ? 'var(--text-dark)' : 'var(--text-muted)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 'inherit',
+                    fontFamily: 'inherit',
+                    padding: '8px 0'
+                  }}
+                >
+                  Categories <ChevronDown size={14} style={{ transform: categoriesDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                </button>
+                {categoriesDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: '16px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 160px)',
+                    gap: '8px',
+                    zIndex: 200,
+                    marginTop: '4px'
+                  }}>
+                    {categories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setCurrentPage('category', { categoryName: cat });
+                          setCategoriesDropdownOpen(false);
+                        }}
+                        style={{
+                          textAlign: 'left',
+                          padding: '6px 12px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          borderRadius: 'var(--radius-sm)',
+                          color: selectedCategoryName === cat && currentPage === 'category' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          fontWeight: selectedCategoryName === cat && currentPage === 'category' ? '700' : '500',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Search Input Box */}
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQueryTerm}
+                onChange={(e) => setSearchQueryTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setCurrentPage('search');
+                  }
+                }}
+                style={{
+                  padding: '8px 16px 8px 36px',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1px solid var(--border-light)',
+                  backgroundColor: '#f9fafb',
+                  fontSize: '0.85rem',
+                  width: '220px',
+                  outline: 'none'
+                }}
+              />
+              <Search 
+                size={16} 
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setCurrentPage('search')}
+              />
+            </div>
+          </div>
+
+          {/* Profile & Cart actions (Right side) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+
+            <button
+              onClick={() => loggedInUser ? setCurrentPage('profile') : setCurrentPage('user-auth')}
+              style={{
+                padding: '8px',
+                color: loggedInUser ? 'var(--primary-gold, #d97706)' : (currentPage === 'profile' || currentPage === 'user-auth' ? 'var(--primary-lime)' : 'var(--text-dark)'),
+                transition: 'color 0.2s'
+              }}
+              title={loggedInUser ? `Logged in as ${loggedInUser.fullName}` : "Spiritual Dashboard"}
+            >
+              <User size={20} style={{ fill: loggedInUser ? 'var(--primary-gold, #d97706)' : 'none' }} />
+            </button>
+            <button
+              onClick={() => setCurrentPage('wishlist')}
+              style={{
+                position: 'relative',
+                padding: '8px',
+                color: currentPage === 'wishlist' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                transition: 'color 0.2s'
+              }}
+              title="Sacred Wishlist"
+            >
+              <Heart size={20} fill={currentPage === 'wishlist' ? 'var(--primary-lime)' : 'none'} />
+              {Object.values(wishlist).filter(Boolean).length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '0',
+                  right: '0',
+                  backgroundColor: 'var(--primary-lime)',
+                  color: 'var(--text-dark)',
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  {Object.values(wishlist).filter(Boolean).length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setCurrentPage('cart')}
+              style={{
+                position: 'relative',
+                padding: '8px',
+                color: 'var(--text-dark)',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <ShoppingBag size={20} />
+              {cartCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '0',
+                  right: '0',
+                  backgroundColor: 'var(--primary-lime)',
+                  color: 'var(--text-dark)',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button style={{ display: 'none', padding: '8px' }} className="mobile-menu-btn">
+              <Menu size={24} />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <React.Suspense fallback={
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '60vh',
+          gap: '16px',
+          color: 'var(--primary-forest)'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: '3px solid var(--border-light)',
+            borderTopColor: 'var(--primary-lime)',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <span style={{ fontSize: '0.9rem', fontWeight: 600, opacity: 0.8 }}>Invoking sacred items...</span>
+          <style>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      }>
+        {currentPage === 'home' ? (
+        <>
+          {/* 2. Hero Section - Carousel Slider */}
+          <section id="hero" style={{ padding: '24px 0 32px 0' }}>
+            <div className="container">
+              <div style={{
+                position: 'relative',
+                height: '460px',
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-md)',
+                backgroundColor: '#1c1917'
+              }}>
+                {/* Slides */}
+                {bannerSlides.map((slide, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: idx === currentSlideIndex ? 1 : 0,
+                      transition: 'opacity 0.8s ease-in-out',
+                      zIndex: idx === currentSlideIndex ? 1 : 0,
+                    }}
+                  >
+                    <img
+                      src={slide}
+                      alt={`Banner slide ${idx + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                    {/* Dark gradient overlay for modern sleek appearance */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.1) 100%)',
+                    }} />
+                  </div>
+                ))}
+
+                {/* Circular dots/indicators */}
+                {bannerSlides.length > 1 && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    gap: '8px',
+                    zIndex: 10
+                  }}>
+                    {bannerSlides.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentSlideIndex(idx)}
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: idx === currentSlideIndex ? 'var(--primary-lime)' : 'rgba(255,255,255,0.4)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          transition: 'background-color 0.2s',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Chevron Left Arrow */}
+                {bannerSlides.length > 1 && (
+                  <button
+                    onClick={() => setCurrentSlideIndex(prev => (prev - 1 + bannerSlides.length) % bannerSlides.length)}
+                    style={{
+                      position: 'absolute',
+                      left: '16px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                )}
+
+                {/* Chevron Right Arrow */}
+                {bannerSlides.length > 1 && (
+                  <button
+                    onClick={() => setCurrentSlideIndex(prev => (prev + 1) % bannerSlides.length)}
+                    style={{
+                      position: 'absolute',
+                      right: '16px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+           {/* 3. Section 1: Featured Collections */}
+      <section id="featured" style={{ padding: '48px 0' }}>
+        <div className="container">
+          {/* Header */}
+          <h2 className="section-title">{homepageConfig?.featuredTitle || "Our Featured Collection"}</h2>
+          <p className="section-subtitle">{homepageConfig?.featuredSubtitle || "Get 30% off when you purchase our featured bundle"}</p>
+
+          {/* Grid Layout split */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1.3fr',
+            gap: '30px'
+          }} className="featured-grid-wrap">
+            
+            {/* Left Column: Dynamized Showcase Image */}
+            <div style={{
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden',
+              height: '100%',
+              minHeight: '380px',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid var(--border-light)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: 'var(--shadow-sm)',
+              position: 'relative'
+            }}>
+              {homepageConfig?.showcaseImage ? (
+                <img 
+                  src={homepageConfig.showcaseImage} 
+                  alt="Featured Collection Showcase" 
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              ) : (
+                <img 
+                  src="https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1000&q=80" 
+                  alt="Featured Altar" 
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              )}
+            </div>
+
+            {/* Right Column: 2x2 Product cards and lime green checkout strip */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '24px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '20px'
+              }} className="sub-grid-2x2">
+                
+                {getFeaturedProducts().map((product) => {
+                  const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
+                  const desc = product.shortDescription || product.subtitle || (product.description.length > 50 ? product.description.substring(0, 47) + '...' : product.description);
+                  return (
+                    <div 
+                      key={product.id}
+                      onClick={() => handleViewDetails(product)}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-light)',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        position: 'relative',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                        e.currentTarget.style.borderColor = 'var(--primary-lime)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        e.currentTarget.style.borderColor = 'var(--border-light)';
+                      }}
+                    >
+                      <div style={{ height: '140px', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                        {isImageUrl(product.image) ? (
+                          <img
+                            src={getDisplayImageUrl(product.image)}
+                            alt={product.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                            fontSize: '3.5rem'
+                          }}>
+                            {product.image || '📿'}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'left', paddingBottom: '12px', paddingRight: '24px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={product.name}>
+                          {product.name}
+                        </h4>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.3, height: '34px', overflow: 'hidden' }}>
+                          {desc}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 850, color: 'var(--primary-forest)' }}>₹{product.price}</span>
+                          {hasDiscount && (
+                            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{product.originalPrice}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCartWithQty(product, 1);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          right: '12px',
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--primary-lime)',
+                          color: 'var(--text-dark)',
+                          boxShadow: 'var(--shadow-sm)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                        className="flex-center"
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        <ShoppingBag size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+
+              </div>
+
+              {/* Bottom lime green checkout banner */}
+              <div style={{
+                marginTop: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                textAlign: 'center'
+              }}>
+                <button
+                  onClick={() => {
+                    getFeaturedProducts().forEach(p => handleAddToCartWithQty(p, 1));
+                  }}
+                  className="btn-lime"
+                  style={{ width: '100%', padding: '16px' }}
+                >
+                  Add Bundle to Cart
+                </button>
+                <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                  Total: ₹{Math.round(getFeaturedProducts().reduce((sum, p) => sum + p.price, 0))}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Section 2: Flash Sale (Orange background Section) */}
+      <section id="sale" style={{
+        backgroundColor: 'var(--primary-lime)', /* Orange Theme Primary */
+        padding: '60px 0',
+        borderTop: '1px solid var(--border-light)',
+        borderBottom: '1px solid var(--border-light)'
+      }}>
+        <div className="container" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '24px'
+        }}>
+          {/* Header Tag */}
+          <span style={{
+            backgroundColor: '#ef4444',
+            color: '#ffffff',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            padding: '4px 16px',
+            borderRadius: 'var(--radius-full)'
+          }}>
+            {homepageConfig?.saleSubtitle || "EXCLUSIVE OFFERS WEEK"}
+          </span>
+
+          {/* Heading */}
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: 950,
+            color: 'var(--text-dark)',
+            textAlign: 'center'
+          }}>
+            {homepageConfig?.saleTitle || "Exceptional Discounts up to 30%"}
+          </h2>
+
+          {/* Timer Countdown Grid */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            margin: '8px 0'
+          }}>
+            <div className="flex-center" style={{ flexDirection: 'column' }}>
+              <div className="countdown-box">{timeLeft.days}</div>
+              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Days</span>
+            </div>
+            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
+            <div className="flex-center" style={{ flexDirection: 'column' }}>
+              <div className="countdown-box">{timeLeft.hours}</div>
+              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Hours</span>
+            </div>
+            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
+            <div className="flex-center" style={{ flexDirection: 'column' }}>
+              <div className="countdown-box">{timeLeft.minutes}</div>
+              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Mins</span>
+            </div>
+            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
+            <div className="flex-center" style={{ flexDirection: 'column' }}>
+              <div className="countdown-box">{timeLeft.seconds}</div>
+              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Secs</span>
+            </div>
+          </div>
+
+          {/* CTA Pill button */}
+          <button 
+            onClick={() => handleUrlRouting('/shop', '')}
+            style={{
+              backgroundColor: '#000000',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              padding: '12px 36px',
+              borderRadius: 'var(--radius-full)',
+              boxShadow: 'var(--shadow-md)',
+              cursor: 'pointer'
+            }}
+          >
+            Shop Now
+          </button>
+
+          {/* Cards Row (3 Cards) */}
+          <div style={{
+            width: '100%',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '24px',
+            marginTop: '24px'
+          }} className="sale-row-grid">
+            
+            {getSaleProducts().map((product) => {
+              const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
+              const discountPercent = hasDiscount 
+                ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
+                : (homepageConfig?.saleDiscount || 30);
+              
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => handleViewDetails(product)}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    position: 'relative',
+                    boxShadow: 'var(--shadow-sm)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {/* Sale Tag & Wishlist */}
+                  <span style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    zIndex: 10
+                  }}>
+                    -{discountPercent}%
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleWishlist(product.id);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      backgroundColor: '#f3f4f6',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      color: wishlist[product.id] ? '#ef4444' : 'var(--text-muted)',
+                      zIndex: 10,
+                      cursor: 'pointer'
+                    }}
+                    className="flex-center"
+                  >
+                    <Heart size={14} fill={wishlist[product.id] ? '#ef4444' : 'none'} />
+                  </button>
+
+                  <div style={{ height: '220px', borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative' }}>
+                    {isImageUrl(product.image) ? (
+                      <img
+                        src={getDisplayImageUrl(product.image)}
+                        alt={product.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                        fontSize: '3.5rem'
+                      }}>
+                        {product.image || '📿'}
+                      </div>
+                    )}
+                    {/* Floating green cart button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToCartWithQty(product, 1);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '12px',
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--primary-lime)',
+                        color: 'var(--text-dark)',
+                        border: '2px solid #ffffff',
+                        boxShadow: 'var(--shadow-md)',
+                        cursor: 'pointer'
+                      }}
+                      className="flex-center"
+                    >
+                      <ShoppingBag size={16} />
+                    </button>
+                  </div>
+
+                  <div style={{ textAlign: 'left', marginTop: '4px' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                      {product.originalPrice && (
+                        <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{product.originalPrice}</span>
+                      )}
+                    </div>
+                    <a 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUrlRouting('/shop', '');
+                      }}
+                      style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'underline', display: 'block', marginTop: '8px' }}
+                    >
+                      Go to the complete collection here
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+
+          </div>
+
+          {/* View All Button */}
+          <button 
+            onClick={() => handleUrlRouting('/shop', '')}
+            className="btn-outline" 
+            style={{ marginTop: '24px', cursor: 'pointer' }}
+          >
+            View All Products
+          </button>
+        </div>
+      </section>
+
+      {/* 5. Section 3: New Arrivals */}
+      <section id="new-arrivals" style={{ padding: '60px 0' }}>
+        <div className="container">
+          
+          {/* Header Row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '32px'
+          }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+              {homepageConfig?.newArrivalsTitle || "Discover Our New Arrivals"}
+            </h2>
+            <button 
+              onClick={() => handleUrlRouting('/shop', '')}
+              className="btn-outline"
+              style={{ cursor: 'pointer' }}
+            >
+              {homepageConfig?.newArrivalsSubtitle || "Discover More"}
+            </button>
+          </div>
+
+          {/* Cards Row (3 Cards) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '24px'
+          }} className="new-arrivals-grid">
+            
+            {getNewArrivalsProducts().map((product, idx) => {
+              const desc = product.shortDescription || product.subtitle || (product.description.length > 50 ? product.description.substring(0, 47) + '...' : product.description);
+              
+              if (idx === 0) {
+                // Card 1: Text Overlay Card
+                return (
+                  <div 
+                    key={product.id}
+                    onClick={() => handleViewDetails(product)}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border-light)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      boxShadow: 'var(--shadow-sm)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ height: '360px', position: 'relative' }}>
+                      {isImageUrl(product.image) ? (
+                        <img
+                          src={getDisplayImageUrl(product.image)}
+                          alt={product.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                          fontSize: '5rem'
+                        }}>
+                          {product.image || '📿'}
+                        </div>
+                      )}
+                      {/* Text overlay bottom left of image */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '20px',
+                        left: '20px',
+                        right: '20px',
+                        textAlign: 'left',
+                        color: '#ffffff',
+                        zIndex: 2,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.6)'
+                      }}>
+                        <h4 style={{ fontSize: '1.2rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
+                        <p style={{ fontSize: '0.82rem', opacity: 0.9, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</p>
+                      </div>
+                      {/* Gradient shade behind text overlay */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '100px',
+                        background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6))',
+                        zIndex: 1
+                      }}></div>
+                    </div>
+                    
+                    <div style={{
+                      padding: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderTop: '1px solid var(--border-light)'
+                    }}>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>₹{product.price}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCartWithQty(product, 1);
+                        }}
+                        className="btn-lime"
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '0.8rem',
+                          borderRadius: 'var(--radius-md)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Add to Cart
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Card 2 & 3: Standard Image + Bottom pricing
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => handleViewDetails(product)}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-light)',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: 'var(--shadow-sm)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ height: '360px' }}>
+                    {isImageUrl(product.image) ? (
+                      <img
+                        src={getDisplayImageUrl(product.image)}
+                        alt={product.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+                        fontSize: '5rem'
+                      }}>
+                        {product.image || '📿'}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div style={{
+                    padding: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderTop: '1px solid var(--border-light)'
+                  }}>
+                    <div style={{ textAlign: 'left' }}>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: '2px', display: 'block' }}>₹{product.price}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToCartWithQty(product, 1);
+                      }}
+                      className="btn-lime"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.8rem',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+          </div>
+
+        </div>
+      </section>
+        </>
+      ) : currentPage === 'shop' ? (
+        <ShopPage
+          products={productsState}
+          onAddToCart={(p) => handleAddToCartWithQty(p, 1)}
+          onViewDetails={handleViewDetails}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+          shopBanners={shopBannersConfig || undefined}
+        />
+      ) : currentPage === 'category' ? (
+        <CategoryPage
+          products={productsState}
+          categoryName={selectedCategoryName}
+          onAddToCart={(p) => handleAddToCartWithQty(p, 1)}
+          onViewDetails={handleViewDetails}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+          onBackToShop={() => setCurrentPage('shop')}
+          categoryBannerImages={shopBannersConfig?.categoryBanners?.[selectedCategoryName] || []}
+        />
+      ) : currentPage === 'search' ? (
+        <SearchPage
+          products={productsState}
+          initialQuery={searchQueryTerm}
+          onAddToCart={handleAddToCartWithQty}
+          onViewDetails={handleViewDetails}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+        />
+      ) : currentPage === 'cart' ? (
+        <CartPage
+          cart={cart}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onBackToShop={() => setCurrentPage('shop')}
+          onClearCart={handleClearCart}
+          onCheckout={() => setCurrentPage('checkout')}
+        />
+      ) : currentPage === 'checkout' ? (
+        <CheckoutPage
+          cart={cart}
+          onBackToCart={() => setCurrentPage('cart')}
+          onBackToShop={() => setCurrentPage('shop')}
+          onOrderComplete={handleClearCart}
+          loggedInUser={loggedInUser}
+          onOrderSuccess={async (details) => {
+            const newOrder: LocalOrder = {
+              ...details,
+              userId: loggedInUser?.id,
+              status: 'Being Packed'
+            };
+            
+            try {
+              const { error } = await supabase.from('website_store_orders').insert({
+                order_id: newOrder.orderId,
+                user_id: newOrder.userId || null,
+                items: newOrder.items,
+                subtotal: newOrder.subtotal,
+                discount: newOrder.discount,
+                discount_percent: newOrder.discountPercent,
+                shipping: newOrder.shipping,
+                tax: newOrder.tax,
+                total: newOrder.total,
+                payment_method: newOrder.paymentMethod,
+                delivery_city: newOrder.deliveryCity,
+                delivery_state: newOrder.deliveryState,
+                full_name: newOrder.fullName,
+                email: newOrder.email,
+                address_line1: newOrder.addressLine1,
+                address_line2: newOrder.addressLine2 || null,
+                pincode: newOrder.pincode,
+                phone_number: newOrder.phoneNumber,
+                status: newOrder.status,
+                razorpay_payment_id: newOrder.razorpayPaymentId || null
+              });
+              if (error) throw error;
+
+              // Proactively sync shipping details to user saved addresses if logged in
+              if (loggedInUser) {
+                try {
+                  const { data: existing, error: findError } = await supabase
+                    .from('website_store_addresses')
+                    .select('id')
+                    .eq('user_id', loggedInUser.id)
+                    .eq('street', details.addressLine1)
+                    .eq('city', details.deliveryCity)
+                    .eq('state', details.deliveryState)
+                    .eq('zip', details.pincode);
+
+                  if (!findError && (!existing || existing.length === 0)) {
+                    // Check count to see if we should set default
+                    const { count, error: countError } = await supabase
+                      .from('website_store_addresses')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('user_id', loggedInUser.id);
+                    
+                    const isDefault = !countError && (count === 0);
+
+                    await supabase
+                      .from('website_store_addresses')
+                      .insert({
+                        user_id: loggedInUser.id,
+                        type: 'Checkout Address',
+                        name: details.fullName,
+                        phone: details.phoneNumber,
+                        street: details.addressLine1,
+                        city: details.deliveryCity,
+                        state: details.deliveryState,
+                        zip: details.pincode,
+                        is_default: isDefault
+                      });
+                  }
+                } catch (syncErr) {
+                  console.error('Failed to sync shipping address during checkout:', syncErr);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to save order to Supabase:', err);
+            }
+
+            setOrdersState(prev => [newOrder, ...prev]);
+            setOrderDetails(details);
+            setCurrentPage('success');
+          }}
+        />
+      ) : currentPage === 'success' && orderDetails ? (
+        <OrderSuccessPage
+          order={orderDetails}
+          onContinueShopping={() => setCurrentPage('shop')}
+          onGoHome={() => setCurrentPage('home')}
+          onViewOrders={() => setCurrentPage('orders')}
+        />
+      ) : currentPage === 'orders' ? (
+        <OrdersPage
+          orders={ordersState}
+          setOrders={setOrdersState}
+          onAddToCart={handleAddToCartWithQty}
+          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToCart={() => setCurrentPage('cart')}
+        />
+      ) : currentPage === 'profile' ? (
+        <UserProfilePage
+          orders={ordersState}
+          products={productsState}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+          onAddToCart={handleAddToCartWithQty}
+          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToOrders={() => setCurrentPage('orders')}
+          loggedInUser={loggedInUser}
+          onLogout={() => {
+            try {
+              localStorage.removeItem('mantra_user_session');
+            } catch (e) {}
+            setLoggedInUser(null);
+            setCurrentPage('shop');
+          }}
+        />
+      ) : currentPage === 'user-auth' ? (
+        <UserAuthPage
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => setCurrentPage('shop')}
+          onLoginSuccess={(userSession) => {
+            try {
+              localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
+            } catch (e) {}
+            setLoggedInUser(userSession);
+            
+            if (pendingWishlistToggle) {
+              const toggleId = pendingWishlistToggle;
+              setWishlist(prev => ({ ...prev, [toggleId]: !prev[toggleId] }));
+              setPendingWishlistToggle(null);
+            }
+            
+            if (pendingBuyNow) {
+              handleAddToCartWithQty(pendingBuyNow.product, pendingBuyNow.qty);
+              setPendingBuyNow(null);
+              setCurrentPage('checkout');
+            } else if (authRedirectPage) {
+              setCurrentPage(authRedirectPage);
+              setAuthRedirectPage(null);
+            } else {
+              setCurrentPage('profile');
+            }
+          }}
+        />
+      ) : currentPage === 'wishlist' ? (
+        <WishlistPage
+          products={productsState}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+          onAddToCart={handleAddToCartWithQty}
+          onViewDetails={handleViewDetails}
+          onNavigateToShop={() => setCurrentPage('shop')}
+        />
+      ) : currentPage === 'about' ? (
+        <AboutUsPage />
+      ) : currentPage === 'contact' ? (
+        <ContactUsPage />
+      ) : currentPage === 'policies' ? (
+        <PoliciesPage />
+      ) : currentPage === 'admin-login' ? (
+        <AdminLoginPage
+          onLoginSuccess={(username) => {
+            try {
+              const expireTime = Date.now() + 2 * 60 * 60 * 1000; // 2 hour session validity
+              const session = {
+                isAuthenticated: true,
+                username: username,
+                loginTime: new Date().toISOString(),
+                expireTime: expireTime
+              };
+              localStorage.setItem('ridae_admin_auth_session', JSON.stringify(session));
+              localStorage.setItem('ridae_admin_auth', 'true');
+            } catch (e) {}
+            setCurrentAdmin({ username, loginTime: new Date().toISOString() });
+            setIsAdminAuthenticated(true);
+            setCurrentPage('admin');
+          }}
+          onNavigateToHome={() => setCurrentPage('home')}
+        />
+      ) : currentPage === 'admin' ? (
+        <AdminPanelPage
+          products={productsState}
+          setProducts={setProductsState}
+          orders={ordersState}
+          setOrders={setOrdersState}
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => setCurrentPage('shop')}
+          onLogout={() => {
+            try {
+              localStorage.removeItem('ridae_admin_auth_session');
+              localStorage.removeItem('ridae_admin_auth');
+            } catch (e) {}
+            setIsAdminAuthenticated(false);
+            setCurrentAdmin(null);
+            setCurrentPage('admin-login');
+          }}
+          adminSession={currentAdmin}
+        />
+      ) : (
+        selectedProduct && (
+          <ProductDetailPage
+            products={productsState}
+            product={selectedProduct}
+            onAddToCart={handleAddToCartWithQty}
+            onViewDetails={handleViewDetails}
+            wishlist={wishlist}
+            onToggleWishlist={handleToggleWishlist}
+            onBackToShop={() => setCurrentPage('shop')}
+            onBuyNow={handleBuyNow}
+          />
+        )
+      )}
+      </React.Suspense>
+
+      {/* upgraded Premium Devotional Footer */}
+      <footer style={{
+        backgroundColor: 'var(--primary-forest)',
+        color: '#ffffff',
+        padding: '60px 0 30px 0',
+        marginTop: 'auto',
+        borderTop: '4px solid var(--primary-lime)',
+        textAlign: 'left'
+      }}>
+        <div className="container">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1.5fr 1fr 1fr 1.2fr',
+            gap: '40px',
+            marginBottom: '40px'
+          }} className="hero-grid-split">
+            
+            {/* Column 1: Brand Essence */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <img 
+                  src={logo} 
+                  alt="Mantra Puja Logo" 
+                  style={{ 
+                    height: '55px', 
+                    objectFit: 'contain'
+                  }} 
+                />
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
+                Curating authentic, lab-certified Himalayan Rudrakshas, pure organic camphor, and deity brass idols. Energized at the legendary ghats of Varanasi to bring healing vibrations home.
+              </p>
+            </div>
+
+            {/* Column 2: Alt Navigation */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                Sacred Navigation
+              </h4>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
+                <li>
+                  <button onClick={() => setCurrentPage('home')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Home Altar
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('shop')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Spiritual Shop
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('search')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Search Catalog
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('cart')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Shopping Cart
+                  </button>
+                </li>
+
+              </ul>
+            </div>
+
+            {/* Column 3: Support */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                Our Essence
+              </h4>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
+                <li>
+                  <button onClick={() => setCurrentPage('about')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Brand Story
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('contact')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Contact Support
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('wishlist')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    My Wishlist
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => loggedInUser ? setCurrentPage('profile') : setCurrentPage('user-auth')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Devotee Dashboard
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 4: Legal Guidelines */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                Divine Policies
+              </h4>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
+                <li>
+                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Privacy & Data Guidelines
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Refunds & Exchanges
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Sacred Dispatches Shipping
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Terms of Devotion
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Footer Copyright */}
+          <div style={{
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            paddingTop: '20px',
+            textAlign: 'center',
+            fontSize: '0.78rem',
+            color: 'rgba(255,255,255,0.5)'
+          }}>
+            <span>© {new Date().getFullYear()} Mantra Puja. All Sacred Rights Reserved.</span>
+          </div>
+
+        </div>
+      </footer>
+
+      {currentPage !== 'detail' && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={(p, q) => {
+            handleAddToCartWithQty(p, q);
+            setSelectedProduct(null);
+          }}
+        />
+      )}
+
+      {/* CSS Injections for Mobile Responsiveness */}
+      <style>{`
+        @media (max-width: 900px) {
+          .nav-menu {
+            display: none !important;
+          }
+          .mobile-menu-btn {
+            display: block !important;
+          }
+          .hero-grid-split {
+            grid-template-columns: 1fr !important;
+          }
+          .hero-grid-split > div:last-child {
+            min-height: 250px !important;
+            height: 250px !important;
+          }
+          .hero-grid-split > div:first-child {
+            padding: 30px 24px !important;
+            text-align: center !important;
+          }
+          .hero-grid-split h1 {
+            font-size: 2.4rem !important;
+          }
+          .featured-grid-wrap {
+            grid-template-columns: 1fr !important;
+          }
+          .featured-grid-wrap > div:first-child {
+            height: 380px !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .sub-grid-2x2 {
+            grid-template-columns: 1fr !important;
+          }
+          .desktop-search {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+    </div>
+  );
+}
+
+export default App;

@@ -1,0 +1,2745 @@
+
+import React from 'react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload } from 'lucide-react';
+import type { Product, PoojaProduct } from '../types';
+import { InlineEdit } from './InlineEdit';
+import { uploadToR2 } from '../lib/cloudflare/r2';
+import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+
+interface ProductDetailPageProps {
+  product: Product;
+  onAddToCart: (product: Product, quantity?: number) => void;
+  onViewDetails: (product: Product) => void;
+  wishlist: Record<string, boolean>;
+  onToggleWishlist: (productId: string) => void;
+  onBackToShop: () => void;
+  products?: Product[];
+  editable?: boolean;
+  onUpdate?: (updatedFields: Partial<PoojaProduct>) => void;
+  onBuyNow?: (product: Product, quantity: number) => void;
+}
+
+// Initial mock reviews database to supply rich devotee reviews
+const initialReviews: Record<string, Array<{ id: string; author: string; rating: number; date: string; content: string; verified: boolean }>> = {
+  'p1': [
+    { id: 'r1', author: 'Aarav Sharma', rating: 5, date: 'May 12, 2026', content: 'Incredible energy from these beads. The moment I held it during my morning mantras, I felt a deep sense of calm.', verified: true },
+    { id: 'r2', author: 'Priya Patel', rating: 5, date: 'May 08, 2026', content: 'Authentic Nepalese beads. Nicely oiled and spaced. Chanting is highly focused now.', verified: true }
+  ],
+  'p2': [
+    { id: 'r1', author: 'Raman Das', rating: 5, date: 'May 15, 2026', content: 'Beautiful Vrindavan Tulsi. The subtle natural scent of holy basil wood is very calming.', verified: true }
+  ],
+  'p9': [
+    { id: 'r1', author: 'Rohan Mehta', rating: 5, date: 'April 20, 2026', content: 'A masterpiece! The Nataraja details are exquisite. Heavy solid brass of extremely high quality.', verified: true }
+  ]
+};
+
+// Specifications and storytelling descriptions per product category
+const productSpecs: Record<string, { material: string; weight: string; dimensions: string; origin: string }> = {
+  'Rudraksha': { material: 'Natural Himalayan Rudraksha Seeds', weight: '45 grams', dimensions: '108+1 beads (8mm bead diameter)', origin: 'Nepal foothills' },
+  'Bracelet': { material: 'Red Sandalwood & Rudraksha Seeds', weight: '15 grams', dimensions: 'Elastic stretchable (fits 7-8 inch wrists)', origin: 'Mysore, India' },
+  'Murti': { material: 'Solid Temple-grade Brass casting', weight: '1.2 kg', dimensions: '6.5 inches height', origin: 'Moradabad, India' },
+  'Yantras': { material: '24k Gold Plated Copper Sheet', weight: '80 grams', dimensions: '6 x 6 inches', origin: 'Siddhpur, India' },
+  'Anklet': { material: 'Pure 925 Sterling Silver', weight: '35 grams', dimensions: '10.5 inches length with adjustable clasp', origin: 'Jaipur, India' },
+  'Frames': { material: 'Premium Teakwood & Gold Foil', weight: '480 grams', dimensions: '8 x 10 inches', origin: 'Varanasi, India' },
+  'Rashi': { material: 'Natural planetary alignment materials', weight: '30 grams', dimensions: 'Zodiac specific dimensions', origin: 'Ujjain, India' },
+  'Karungali': { material: 'Genuine Ebony Wood (Karungali)', weight: '25 grams', dimensions: '108 beads / stretchable wrist size', origin: 'Madurai, India' },
+  'Jadi': { material: 'Naturally harvested organic roots', weight: '40 grams bag', dimensions: 'Varies by root structure', origin: 'Western Ghats, India' },
+  'Pyrite': { material: 'Natural Golden Pyrite Cluster', weight: '180 grams', dimensions: '3.5 x 2.5 x 2 inches', origin: 'Peru' },
+  'Kavach': { material: 'Pure 925 Sterling Silver pendant', weight: '12 grams (including silver chain)', dimensions: '1.2 inch pendant height', origin: 'Ujjain, India' },
+  'Siddh Range': { material: 'Sacred energized copper and silver elements', weight: '150 grams', dimensions: 'Various dimensions', origin: 'Rishikesh, India' },
+  'Gemstones': { material: 'Natural Yellow Sapphire (Pushparag)', weight: '4.25 Carats (approx. 5 Ratti)', dimensions: 'Oval-cut gemstone', origin: 'Ceylon, Sri Lanka' },
+  'Pyramid': { material: 'Cast copper and natural crystal base', weight: '220 grams', dimensions: '3.5 x 3.5 x 4 inches', origin: 'Pune, India' },
+  'Necklaces/Mala': { material: 'Genuine Sacred Basil (Tulsi) & Sphatik Crystal', weight: '20 grams', dimensions: '108+1 beads (6mm bead diameter)', origin: 'Vrindavan, India' },
+  'Tower & Tumbles': { material: 'Aromatic high-grade crystal structures', weight: '240 grams', dimensions: '4-5 inches height', origin: 'Madagascar' },
+  'Crystal Dome Trees': { material: 'Natural Quartz & Gemstone wire wrap', weight: '350 grams', dimensions: '7 inches height', origin: 'Moradabad, India' },
+  'Women Bracelets': { material: 'Natural Rose Quartz & Amethyst Crystals', weight: '12 grams', dimensions: 'Elastic stretchable (fits 6-7 inch wrists)', origin: 'Jaipur, India' },
+  'Evil Eye': { material: 'Premium Turkish Glass & Sterling Silver', weight: '8 grams', dimensions: '7.5 inches length', origin: 'Istanbul, Turkey' },
+  'Gifting': { material: 'Heavy-gauge Solid Brass & organic incense blend', weight: '450 grams package', dimensions: 'Gift boxed', origin: 'Moradabad, India' }
+};
+
+export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
+  product,
+  onAddToCart,
+  onViewDetails,
+  wishlist,
+  onToggleWishlist,
+  onBackToShop,
+  products: productsProp,
+  editable = false,
+  onUpdate,
+  onBuyNow,
+}) => {
+  const activeProducts = productsProp || [];
+  const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
+  const [selectedVariant, setSelectedVariant] = React.useState<string>('Standard');
+  const [quantity, setQuantity] = React.useState<number>(1);
+  const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
+  const [showShareToast, setShowShareToast] = React.useState<boolean>(false);
+  const [activeToastMsg, setActiveToastMsg] = React.useState<string>('');
+  const [expandedFaqIndex, setExpandedFaqIndex] = React.useState<number | null>(null);
+
+  // States for related products admin editor
+  const [relatedSearch, setRelatedSearch] = React.useState('');
+  const [relatedCategoryFilter, setRelatedCategoryFilter] = React.useState('All');
+
+  // Interactive review system states
+  const [reviews, setReviews] = React.useState(() => {
+    return initialReviews[product.id] || [
+      { id: 'r-gen1', author: 'Satish Kumar', rating: 5, date: 'May 10, 2026', content: 'Very authentic and energized. Ideal for daily worship.', verified: true }
+    ];
+  });
+  const [reviewName, setReviewName] = React.useState('');
+  const [reviewRating, setReviewRating] = React.useState(5);
+  const [reviewComment, setReviewComment] = React.useState('');
+
+  // Variants depend on product category
+  const getVariants = (cat: string) => {
+    switch (cat) {
+      case 'Rudraksha':
+      case 'Tulsi Mala':
+      case 'Crystal Mala':
+        return [
+          { name: 'Standard (6mm Beads)', modifier: 0 },
+          { name: 'Medium (8mm Beads)', modifier: 5 },
+          { name: 'Premium (10mm Beads)', modifier: 12 }
+        ];
+      case 'Shiva Murti':
+      case 'Ganesh Murti':
+      case 'Hanuman Murti':
+      case 'Lakshmi Murti':
+        return [
+          { name: 'Standard Altar (6 inches)', modifier: 0 },
+          { name: 'Temple Size (9 inches)', modifier: 35 },
+          { name: 'Grand Deity (12 inches)', modifier: 75 }
+        ];
+      case 'Agarbatti':
+      case 'Camphor':
+      case 'Kumkum':
+        return [
+          { name: 'Standard Pack', modifier: 0 },
+          { name: 'Family Blessing Pack (2x)', modifier: 8 },
+          { name: 'Maha Ritual Pack (3x)', modifier: 15 }
+        ];
+      default:
+        return [
+          { name: 'Standard Version', modifier: 0 },
+          { name: 'Energized Gold Edition', modifier: 10 }
+        ];
+    }
+  };
+
+  const variantsList = getVariants(product.category);
+
+  // Find price modifier for selected variant
+  const currentVariantObj = variantsList.find(v => v.name === selectedVariant) || variantsList[0];
+  const variantModifier = currentVariantObj ? currentVariantObj.modifier : 0;
+
+  // Dynamic Pricing Updates
+  const singleItemPrice = product.price + variantModifier;
+  const totalPrice = singleItemPrice * quantity;
+  const originalItemPrice = product.originalPrice ? (product.originalPrice + variantModifier) : null;
+  const discountPct = originalItemPrice ? Math.round(((originalItemPrice - singleItemPrice) / originalItemPrice) * 100) : 0;
+
+  const pooja = product as PoojaProduct;
+  const isRealUrl = (url?: string) => isImageUrl(url);
+
+  // Gallery images mock
+  const categoryGradients: Record<string, string> = {
+    'rudraksha': 'linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%)',
+    'tulsi mala': 'linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%)',
+    'crystal mala': 'linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%)',
+    'shiva murti': 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    'ganesh murti': 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    'hanuman murti': 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    'lakshmi murti': 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    'default': 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)'
+  };
+
+  const selectedGradient = categoryGradients[product.category.toLowerCase()] || categoryGradients['default'];
+
+  // Gallery images resolver
+  const resolvedGallery = React.useMemo(() => {
+    if (pooja.galleryImages && pooja.galleryImages.length > 0) {
+      return pooja.galleryImages.map(img => ({
+        url: img.url,
+        alt: img.alt || pooja.name,
+        isEmoji: false,
+        gradient: 'none'
+      }));
+    }
+    return [
+      { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient },
+      { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' },
+      { url: '🕉️', alt: 'Om', isEmoji: true, gradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' }
+    ];
+  }, [product, pooja, selectedGradient]);
+
+  // Resolve explicit related products first, then fallback to automatic ones
+  const resolvedRelated = React.useMemo(() => {
+    if (pooja.relatedProducts && pooja.relatedProducts.length > 0) {
+      return activeProducts.filter(p => pooja.relatedProducts!.includes(p.id));
+    }
+    // Fallback: automatic matching
+    const categoryRelated = activeProducts.filter(p => p.id !== product.id && p.category === product.category);
+    if (categoryRelated.length > 0) {
+      return categoryRelated.slice(0, 3);
+    }
+    return activeProducts.filter(p => p.id !== product.id && p.spiritualType === product.spiritualType).slice(0, 3);
+  }, [pooja.relatedProducts, activeProducts, product.id, product.category, product.spiritualType]);
+
+  const handleAddToCartClick = () => {
+    // Add quantity items
+    const customProduct = {
+      ...product,
+      price: singleItemPrice,
+      originalPrice: originalItemPrice || undefined
+    };
+    onAddToCart(customProduct, quantity);
+    triggerToast(`Added ${quantity} item(s) to cart successfully!`);
+  };
+
+  const handleBuyNowClick = () => {
+    const customProduct = {
+      ...product,
+      price: singleItemPrice,
+      originalPrice: originalItemPrice || undefined
+    };
+    if (onBuyNow) {
+      onBuyNow(customProduct, quantity);
+    } else {
+      onAddToCart(customProduct, quantity);
+      onBackToShop(); // Navigate to shop or prompt checkout
+      triggerToast("Redirecting you to cart...");
+    }
+  };
+
+  const handleShareClick = () => {
+    const shareUrl = window.location.href;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      triggerToast("Product link copied to clipboard!");
+    }).catch(() => {
+      triggerToast("Sharing enabled! Copy the browser URL to share.");
+    });
+  };
+
+  const triggerToast = (msg: string) => {
+    setActiveToastMsg(msg);
+    setShowShareToast(true);
+    setTimeout(() => {
+      setShowShareToast(false);
+    }, 3000);
+  };
+
+  const handleReviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewName.trim() || !reviewComment.trim()) return;
+
+    const newRev = {
+      id: 'r-user-' + Date.now(),
+      author: reviewName,
+      rating: reviewRating,
+      date: 'Today',
+      content: reviewComment,
+      verified: true
+    };
+
+    setReviews([newRev, ...reviews]);
+    setReviewName('');
+    setReviewComment('');
+    triggerToast("Thank you! Review submitted successfully.");
+  };
+
+  const specs = {
+    material: pooja.material || productSpecs[product.category]?.material || 'Premium Sacred Material',
+    weight: pooja.weight || productSpecs[product.category]?.weight || 'Weight varies by variant selection',
+    dimensions: pooja.dimensions || productSpecs[product.category]?.dimensions || 'Standard Devotional Size',
+    origin: pooja.origin || productSpecs[product.category]?.origin || 'Himalayan Foothills, India'
+  };
+
+  const renderSectionHeaderIcon = (section: keyof NonNullable<PoojaProduct['customIcons']>, defaultIcon: React.ReactNode) => {
+    const customIconUrl = pooja.customIcons?.[section];
+    const iconId = `upload-section-icon-${section}`;
+
+    return (
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: '8px' }}>
+        {customIconUrl ? (
+          <img
+            src={getDisplayImageUrl(customIconUrl)}
+            alt={`${section} icon`}
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '2px solid var(--primary-lime, #84cc16)',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          />
+        ) : (
+          defaultIcon
+        )}
+
+        {editable && (
+          <>
+            <label
+              htmlFor={iconId}
+              style={{
+                position: 'absolute',
+                top: '-6px',
+                right: '-6px',
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(249, 115, 22, 0.95)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.65rem',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)',
+                zIndex: 10,
+                transition: 'all 0.2s',
+              }}
+              title="Change Section Icon"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              📷
+            </label>
+            <input
+              id={iconId}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (file && onUpdate) {
+                  try {
+                    const cdnUrl = await uploadToR2(file, `section-icons-${section}`);
+                    const existingIcons = pooja.customIcons || {};
+                    onUpdate({
+                      customIcons: {
+                        ...existingIcons,
+                        [section]: cdnUrl
+                      }
+                    });
+                  } catch (err) {
+                    alert('Upload failed: ' + (err as Error).message);
+                  }
+                }
+              }}
+            />
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ paddingBottom: '80px', backgroundColor: '#fafafa', position: 'relative' }}>
+
+      {/* Breadcrumbs Row */}
+      <div className="container" style={{ paddingTop: '24px', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left' }}>
+          <span style={{ cursor: 'pointer', fontWeight: 600 }} onClick={onBackToShop}>Shop</span>
+          <ChevronRight size={14} />
+          <span style={{ cursor: 'pointer', fontWeight: 600 }}>{product.category}</span>
+          <ChevronRight size={14} />
+          <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>{product.name}</span>
+        </div>
+      </div>
+
+      {/* Devotional Sections Visibility Toolbar */}
+      {editable && (
+        <div className="container" style={{ marginBottom: '24px' }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(249, 115, 22, 0.18)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 20px',
+            boxShadow: '0 8px 32px 0 rgba(249, 115, 22, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            textAlign: 'left'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.1rem' }}>⚙️</span>
+              <span style={{ fontWeight: 800, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary-forest)' }}>
+                Devotional Sections Visibility Control
+              </span>
+              <span style={{ fontSize: '0.72rem', color: '#f97316', fontWeight: 600, border: '1px solid rgba(249, 115, 22, 0.3)', padding: '1px 6px', borderRadius: '4px', marginLeft: 'auto' }}>
+                Editor Mode
+              </span>
+            </div>
+
+            {/* Classification & Category Selector Section */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '16px',
+              borderBottom: '1px dashed rgba(249, 115, 22, 0.25)',
+              paddingBottom: '12px',
+              marginBottom: '4px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1rem' }}>🗂️</span>
+                <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--primary-forest)' }}>Product Classification:</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Category:</span>
+                <select
+                  value={product.category}
+                  onChange={(e) => onUpdate && onUpdate({ category: e.target.value })}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm, 4px)',
+                    border: '1px solid rgba(249, 115, 22, 0.3)',
+                    backgroundColor: '#ffffff',
+                    color: 'var(--text-dark)',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="Rudraksha">Rudraksha</option>
+                  <option value="Bracelet">Bracelet</option>
+                  <option value="Murti">Murti</option>
+                  <option value="Yantras">Yantras</option>
+                  <option value="Anklet">Anklet</option>
+                  <option value="Frames">Frames</option>
+                  <option value="Rashi">Rashi</option>
+                  <option value="Karungali">Karungali</option>
+                  <option value="Jadi">Jadi</option>
+                  <option value="Pyrite">Pyrite</option>
+                  <option value="Kavach">Kavach</option>
+                  <option value="Siddh Range">Siddh Range</option>
+                  <option value="Gemstones">Gemstones</option>
+                  <option value="Pyramid">Pyramid</option>
+                  <option value="Necklaces/Mala">Necklaces/Mala</option>
+                  <option value="Tower & Tumbles">Tower & Tumbles</option>
+                  <option value="Crystal Dome Trees">Crystal Dome Trees</option>
+                  <option value="Women Bracelets">Women Bracelets</option>
+                  <option value="Evil Eye">Evil Eye</option>
+                  <option value="Gifting">Gifting</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Spiritual Type:</span>
+                <select
+                  value={product.spiritualType}
+                  onChange={(e) => onUpdate && onUpdate({ spiritualType: e.target.value as any })}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm, 4px)',
+                    border: '1px solid rgba(249, 115, 22, 0.3)',
+                    backgroundColor: '#ffffff',
+                    color: 'var(--text-dark)',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="Rituals">Rituals</option>
+                  <option value="Meditation">Meditation</option>
+                  <option value="Vastu">Vastu</option>
+                  <option value="Wisdom">Wisdom</option>
+                  <option value="Aromatherapy">Aromatherapy</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+              {/* 1. Spiritual Significance */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={!!pooja.spiritualSignificance}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      spiritualSignificance: checked ? "This sacred ritual possesses deep Vedic significance. Recitation of its mantras brings deep peace, spiritual elevation, and divine blessings to the home." : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Spiritual Significance
+              </label>
+
+              {/* 2. Rituals & Vedic Steps */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={Array.isArray(pooja.ritualsIncluded) && pooja.ritualsIncluded.length > 0}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      ritualsIncluded: checked ? [
+                        { name: "Sankalpa (Sacred Vow)", description: "Expressing the devotee's name, lineage (gotra), and specific prayer intent before the deity.", duration: "10 mins" },
+                        { name: "Mantra Recitation", description: "Recitation of sacred Vedic slokas and mantras for purifying the surroundings.", duration: "30 mins" }
+                      ] : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Rituals & Vedic Steps
+              </label>
+
+              {/* 3. Sacred Samagri */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={Array.isArray(pooja.samagriList) && pooja.samagriList.length > 0}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      samagriList: checked ? [
+                        { name: "Ganga Jal (Holy Water)", quantity: "1 Bottle", description: "Sacred purifying water sourced directly from Gangotri." },
+                        { name: "Akshata (Sacred Rice)", quantity: "50 grams", description: "Unbroken rice grains mixed with pure turmeric powder." }
+                      ] : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Sacred Samagri
+              </label>
+
+              {/* 4. Booking Guidelines */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={!!pooja.bookingInstructions}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      bookingInstructions: checked ? "Please provide your Gotra, Nakshatra, and full names of family members at the time of booking. It is recommended to perform this ritual in clean traditional attire." : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Booking Guidelines
+              </label>
+
+              {/* 5. Assigned Priest */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={!!pooja.priestDetails && typeof pooja.priestDetails === 'object' && Object.keys(pooja.priestDetails).length > 0 && !!(pooja.priestDetails as any).name}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      priestDetails: checked ? {
+                        name: "Acharya Shastri",
+                        experience: "15+ Years",
+                        bio: "Vedic Scholar from Varanasi trained in Shukla Yajurveda rituals.",
+                        qualification: "Acharya in Sanskrit & Vedic Liturgy"
+                      } : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Assigned Priest
+              </label>
+
+              {/* 6. Authenticity & Certification */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={Array.isArray(pooja.certificates) && pooja.certificates.length > 0}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      certificates: checked ? [
+                        { name: "Purity Seal & Energized Certification", issuer: "Vedic Purity Board", url: "" }
+                      ] : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                Authenticity & Certifications
+              </label>
+
+              {/* 7. FAQs */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={Array.isArray(pooja.faqs) && pooja.faqs.length > 0}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdate && onUpdate({
+                      faqs: checked ? [
+                        { question: "How will I receive the blessings?", answer: "Sacred prasada (energized elements, threads, and sweets) will be shipped securely to your registered delivery address." }
+                      ] : null
+                    });
+                  }}
+                  style={{ accentColor: '#f97316' }}
+                />
+                FAQs
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Column Split */}
+      <section className="container">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.1fr 1fr',
+          gap: '40px',
+          alignItems: 'start'
+        }} className="hero-grid-split">
+
+          {/* Left Column: Visual Showcase & Authenticity Badges */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* Primary Image View */}
+            <div style={{
+              borderRadius: 'var(--radius-lg)',
+              background: resolvedGallery[activeImageIndex] && resolvedGallery[activeImageIndex].gradient !== 'none' ? resolvedGallery[activeImageIndex].gradient : '#ffffff',
+              height: '380px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              boxShadow: 'var(--shadow-sm)',
+              border: '1px solid var(--border-light)',
+              overflow: 'hidden'
+            }}>
+              {resolvedGallery[activeImageIndex] ? (
+                resolvedGallery[activeImageIndex].isEmoji ? (
+                  <span style={{ fontSize: '8rem', userSelect: 'none', filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.15))' }}>
+                    {resolvedGallery[activeImageIndex].url}
+                  </span>
+                ) : (
+                  <img
+                    src={getDisplayImageUrl(resolvedGallery[activeImageIndex].url)}
+                    alt={resolvedGallery[activeImageIndex].alt}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                )
+              ) : (
+                <span style={{ fontSize: '1rem', color: '#9ca3af' }}>No image loaded</span>
+              )}
+
+              {/* Cloudflare R2 Upload Overlay when Editable */}
+              {editable && (
+                <>
+                  <label
+                    htmlFor={`detail-image-upload-${product.id}`}
+                    style={{
+                      position: 'absolute',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      opacity: 0,
+                      transition: 'opacity 0.2s',
+                      zIndex: 20
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                  >
+                    <Upload size={24} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>Upload Image to R2</span>
+                  </label>
+                  <input
+                    id={`detail-image-upload-${product.id}`}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && onUpdate) {
+                        try {
+                          const cdnUrl = await uploadToR2(file, 'products/gallery');
+                          if (pooja.galleryImages && pooja.galleryImages.length > 0) {
+                            const updatedGallery = [...pooja.galleryImages];
+                            updatedGallery[activeImageIndex] = { url: cdnUrl, alt: pooja.name };
+                            const updates: any = { galleryImages: updatedGallery };
+                            if (activeImageIndex === 0) {
+                              updates.image = cdnUrl;
+                            }
+                            onUpdate(updates);
+                          } else {
+                            onUpdate({ image: cdnUrl, galleryImages: [{ url: cdnUrl, alt: pooja.name }] });
+                          }
+                        } catch (err) {
+                          alert('Upload failed: ' + (err as Error).message);
+                        }
+                      }
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Authenticity Badge */}
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: '16px',
+                backgroundColor: 'rgba(45, 20, 14, 0.95)',
+                color: '#ffffff',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: 'var(--shadow-md)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                zIndex: 10
+              }}>
+                <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>100% Temple Blessed & Energized</span>
+              </div>
+            </div>
+
+            {/* Gallery Thumbnails */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {resolvedGallery.map((img, idx) => (
+                <div key={idx} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setActiveImageIndex(idx)}
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: 'var(--radius-md)',
+                      background: img.gradient !== 'none' ? img.gradient : '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: activeImageIndex === idx ? '2px solid var(--primary-lime)' : '1px solid var(--border-light)',
+                      boxShadow: 'var(--shadow-sm)',
+                      transition: 'all 0.15s',
+                      overflow: 'hidden',
+                      padding: 0
+                    }}
+                  >
+                    {img.isEmoji ? (
+                      <span style={{ fontSize: '2.2rem' }}>{img.url}</span>
+                    ) : (
+                      <img src={getDisplayImageUrl(img.url)} alt={img.alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
+                  </button>
+                  {editable && resolvedGallery.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (pooja.galleryImages) {
+                          const updated = pooja.galleryImages.filter((_, i) => i !== idx);
+                          onUpdate && onUpdate({ galleryImages: updated });
+                          setActiveImageIndex(0);
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        backgroundColor: '#ef4444',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        fontSize: '0.65rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        zIndex: 25
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {editable && (
+                <>
+                  <label
+                    htmlFor={`detail-gallery-add-${product.id}`}
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px dashed var(--primary-lime)',
+                      backgroundColor: 'rgba(132, 204, 22, 0.05)',
+                      color: 'var(--primary-lime)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      gap: '4px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.05)'}
+                  >
+                    <Upload size={18} />
+                    <span>Add Photo</span>
+                  </label>
+                  <input
+                    id={`detail-gallery-add-${product.id}`}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && onUpdate) {
+                        try {
+                          const cdnUrl = await uploadToR2(file, 'products/gallery');
+                          const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
+                          onUpdate({ galleryImages: [...currentGallery, { url: cdnUrl, alt: pooja.name }] });
+                        } catch (err) {
+                          alert('Upload failed: ' + (err as Error).message);
+                        }
+                      }
+                    }}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Accordion Tabs Info Blocks */}
+            <div style={{
+              marginTop: '16px',
+              backgroundColor: '#ffffff',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-light)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              {/* Tabs Headers */}
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border-light)', backgroundColor: '#f9fafb' }}>
+                <button
+                  onClick={() => setActiveTab('specs')}
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    fontSize: '0.88rem',
+                    fontWeight: activeTab === 'specs' ? 800 : 600,
+                    color: activeTab === 'specs' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    borderBottom: activeTab === 'specs' ? '3px solid var(--primary-lime)' : 'none',
+                    textAlign: 'center'
+                  }}
+                >
+                  Material & Dimensions
+                </button>
+                <button
+                  onClick={() => setActiveTab('shipping')}
+                  style={{
+                    flex: 1,
+                    padding: '14px 20px',
+                    fontSize: '0.88rem',
+                    fontWeight: activeTab === 'shipping' ? 800 : 600,
+                    color: activeTab === 'shipping' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    borderBottom: activeTab === 'shipping' ? '3px solid var(--primary-lime)' : 'none',
+                    textAlign: 'center'
+                  }}
+                >
+                  Shipping & Returns
+                </button>
+              </div>
+
+              {/* Tab Contents */}
+              <div style={{ padding: '24px', textAlign: 'left' }}>
+                {activeTab === 'specs' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Material</span>
+                      <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
+                        {editable ? (
+                          <InlineEdit
+                            value={specs.material}
+                            onChange={(val) => onUpdate && onUpdate({ material: val })}
+                            placeholder="Material"
+                          />
+                        ) : (
+                          specs.material
+                        )}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Weight</span>
+                      <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
+                        {editable ? (
+                          <InlineEdit
+                            value={specs.weight}
+                            onChange={(val) => onUpdate && onUpdate({ weight: val })}
+                            placeholder="Weight"
+                          />
+                        ) : (
+                          specs.weight
+                        )}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Dimensions</span>
+                      <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
+                        {editable ? (
+                          <InlineEdit
+                            value={specs.dimensions}
+                            onChange={(val) => onUpdate && onUpdate({ dimensions: val })}
+                            placeholder="Dimensions"
+                          />
+                        ) : (
+                          specs.dimensions
+                        )}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem' }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Origin</span>
+                      <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
+                        {editable ? (
+                          <InlineEdit
+                            value={specs.origin}
+                            onChange={(val) => onUpdate && onUpdate({ origin: val })}
+                            placeholder="Origin"
+                          />
+                        ) : (
+                          specs.origin
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dark)', fontWeight: 600 }}>
+                      <Clock size={16} style={{ color: 'var(--primary-lime)' }} />
+                      Fast Delivery: Shipped within 24-48 hours. Delivered in 3-5 business days.
+                    </p>
+                    <p>
+                      Every spiritual item is packed carefully in sanitized cushions to maintain sacred purity and avoid transit damages.
+                    </p>
+                    <p style={{ fontWeight: 600, color: 'var(--text-dark)' }}>
+                      Return Policy: Easy 7-day hassle-free returns on standard items if package is unopened and pristine.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Right Column: Title, Specs, Variant, Quantity, and Main Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
+
+            {/* Title & Reviews Row */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  backgroundColor: 'var(--primary-lime-light)',
+                  color: 'var(--primary-lime)',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-sm)'
+                }}>
+                  {product.spiritualType}
+                </span>
+
+                {/* Share Button */}
+                <button
+                  onClick={handleShareClick}
+                  style={{
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-lime)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <Share2 size={16} /> Share
+                </button>
+              </div>
+
+              <h1 style={{
+                fontSize: '2rem',
+                fontWeight: 900,
+                color: 'var(--text-dark)',
+                lineHeight: '1.2',
+                marginBottom: '4px'
+              }}>
+                {editable ? (
+                  <InlineEdit
+                    value={product.name}
+                    onChange={(val) => onUpdate && onUpdate({ name: val })}
+                    placeholder="Product Name"
+                  />
+                ) : (
+                  product.name
+                )}
+              </h1>
+              {(editable || pooja.sanskritName) && (
+                <div style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  color: 'var(--primary-forest)',
+                  fontFamily: 'Georgia, serif',
+                  fontStyle: 'italic',
+                  marginBottom: '8px'
+                }}>
+                  {editable ? (
+                    <InlineEdit
+                      value={pooja.sanskritName || ''}
+                      onChange={(val) => onUpdate && onUpdate({ sanskritName: val })}
+                      placeholder="Sanskrit Name"
+                    />
+                  ) : (
+                    pooja.sanskritName
+                  )}
+                </div>
+              )}
+              {(editable || pooja.subtitle) && (
+                <p style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 500,
+                  color: 'var(--text-muted)',
+                  marginBottom: '12px',
+                  lineHeight: '1.4'
+                }}>
+                  {editable ? (
+                    <InlineEdit
+                      value={pooja.subtitle || ''}
+                      onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
+                      placeholder="Devotional Subtitle"
+                    />
+                  ) : (
+                    pooja.subtitle
+                  )}
+                </p>
+              )}
+
+              {/* Star Rating summary */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={16}
+                      fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
+                      color="#fbbf24"
+                    />
+                  ))}
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
+              </div>
+            </div>
+
+            {/* Pricing Section with Dynamic Modifier */}
+            <div style={{
+              padding: '16px',
+              backgroundColor: '#ffffff',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-light)',
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '12px',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              <span style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+                {editable ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    ₹
+                    <InlineEdit
+                      value={product.price.toString()}
+                      onChange={(val) => {
+                        const numeric = parseFloat(val);
+                        if (!isNaN(numeric)) {
+                          onUpdate && onUpdate({ price: numeric });
+                        }
+                      }}
+                      placeholder="Price"
+                    />
+                  </span>
+                ) : (
+                  `₹${singleItemPrice.toFixed(2)}`
+                )}
+              </span>
+              {(editable || originalItemPrice) && (
+                <>
+                  <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                    {editable ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        ₹
+                        <InlineEdit
+                          value={(product.originalPrice || 0).toString()}
+                          onChange={(val) => {
+                            const numeric = parseFloat(val);
+                            if (!isNaN(numeric)) {
+                              onUpdate && onUpdate({ originalPrice: numeric });
+                            }
+                          }}
+                          placeholder="Original Price"
+                        />
+                      </span>
+                    ) : (
+                      originalItemPrice && `₹${originalItemPrice.toFixed(2)}`
+                    )}
+                  </span>
+                  {discountPct > 0 && (
+                    <span style={{
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-full)'
+                    }}>
+                      {discountPct}% OFF
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Description */}
+            <div style={{
+              fontSize: '0.95rem',
+              color: 'var(--text-muted)',
+              lineHeight: '1.6',
+              marginBottom: '10px'
+            }}>
+              {editable ? (
+                <InlineEdit
+                  type="textarea"
+                  value={product.description || ''}
+                  onChange={(val) => onUpdate && onUpdate({ description: val, shortDescription: val })}
+                  placeholder="Detailed product story and description..."
+                />
+              ) : (
+                product.description
+              )}
+            </div>
+
+            {/* Pooja Quick Metadata Cards */}
+            {(editable || pooja.duration || pooja.templeAssociation || pooja.whoShouldPerform) && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                gap: '12px',
+                marginTop: '4px',
+                marginBottom: '4px'
+              }}>
+                {(editable || pooja.duration) && (
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-light)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>Duration</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                      {editable ? (
+                        <InlineEdit
+                          value={pooja.duration || ''}
+                          onChange={(val) => onUpdate && onUpdate({ duration: val })}
+                          placeholder="e.g. 2 Hours"
+                        />
+                      ) : (
+                        pooja.duration
+                      )}
+                    </span>
+                  </div>
+                )}
+                {(editable || pooja.templeAssociation) && (
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-light)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>Temple</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pooja.templeAssociation}>
+                      {editable ? (
+                        <InlineEdit
+                          value={pooja.templeAssociation || ''}
+                          onChange={(val) => onUpdate && onUpdate({ templeAssociation: val })}
+                          placeholder="e.g. Kashi Temple"
+                        />
+                      ) : (
+                        pooja.templeAssociation
+                      )}
+                    </span>
+                  </div>
+                )}
+                {(editable || pooja.whoShouldPerform) && (
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-light)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>For Whom</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pooja.whoShouldPerform}>
+                      {editable ? (
+                        <InlineEdit
+                          value={pooja.whoShouldPerform || ''}
+                          onChange={(val) => onUpdate && onUpdate({ whoShouldPerform: val })}
+                          placeholder="e.g. Anyone seeking peace"
+                        />
+                      ) : (
+                        pooja.whoShouldPerform
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Spiritual Benefits Bullet Points */}
+            <div style={{
+              backgroundColor: 'var(--primary-lime-light)',
+              padding: '20px',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid rgba(249, 115, 22, 0.15)'
+            }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Info size={16} /> Spiritual Benefits & Blessings
+              </h3>
+              <ul style={{ listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(product.benefits || []).map((b, idx) => (
+                  <li key={idx} style={{ fontSize: '0.85rem', color: 'var(--text-dark)', display: 'flex', gap: '8px', alignItems: 'start' }}>
+                    <Check size={14} style={{ color: 'var(--primary-lime)', flexShrink: 0, marginTop: '3px' }} />
+                    {editable ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                        <InlineEdit
+                          value={b}
+                          onChange={(val) => {
+                            const updated = [...product.benefits];
+                            updated[idx] = val;
+                            onUpdate && onUpdate({ benefits: updated });
+                          }}
+                          placeholder="Enter blessing/benefit..."
+                          style={{ flexGrow: 1 }}
+                        />
+                        <button
+                          onClick={() => {
+                            const updated = product.benefits.filter((_, i) => i !== idx);
+                            onUpdate && onUpdate({ benefits: updated });
+                          }}
+                          style={{ color: '#ef4444', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', padding: '2px 4px' }}
+                          title="Delete benefit"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span>{b}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {editable && (
+                <button
+                  onClick={() => {
+                    const current = product.benefits || [];
+                    onUpdate && onUpdate({ benefits: [...current, 'New Spiritual Blessing & Benefit'] });
+                  }}
+                  style={{
+                    marginTop: '12px',
+                    color: 'var(--primary-lime)',
+                    border: '1px dashed var(--primary-lime)',
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm, 4px)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  + Add Benefit
+                </button>
+              )}
+            </div>
+
+            {/* Variant Selector */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>Select Option / Variant</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {variantsList.map((v) => (
+                  <button
+                    key={v.name}
+                    onClick={() => setSelectedVariant(v.name)}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      border: selectedVariant === v.name ? '2px solid var(--primary-lime)' : '1px solid var(--border-light)',
+                      backgroundColor: selectedVariant === v.name ? 'var(--primary-lime-light)' : '#ffffff',
+                      color: selectedVariant === v.name ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {v.name} {v.modifier > 0 ? `(+₹${v.modifier})` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity Selector & Wishlist */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  overflow: 'hidden',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <button
+                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                  >
+                    -
+                  </button>
+                  <span style={{ padding: '0 8px', fontSize: '0.92rem', fontWeight: 800, minWidth: '24px', textAlign: 'center' }}>
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(prev => prev + 1)}
+                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic total feedback */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                  ₹{totalPrice.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Action Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 0.5fr', gap: '12px', marginTop: '8px' }}>
+              <button
+                onClick={handleAddToCartClick}
+                className="btn-lime"
+                style={{
+                  padding: '16px',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <ShoppingBag size={18} /> Add to Cart
+              </button>
+
+              <button
+                onClick={handleBuyNowClick}
+                style={{
+                  backgroundColor: 'var(--primary-forest)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'opacity 0.15s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Buy It Now
+              </button>
+
+              <button
+                onClick={() => onToggleWishlist(product.id)}
+                style={{
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#ffffff',
+                  color: wishlist[product.id] ? '#ef4444' : 'var(--text-muted)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+                className="flex-center"
+              >
+                <Heart size={20} fill={wishlist[product.id] ? '#ef4444' : 'none'} />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Detailed Pooja Description & Spiritual Elements */}
+      {((pooja.spiritualSignificance && pooja.spiritualSignificance !== '') ||
+        (Array.isArray(pooja.ritualsIncluded) && pooja.ritualsIncluded.length > 0) ||
+        (Array.isArray(pooja.samagriList) && pooja.samagriList.length > 0) ||
+        (pooja.bookingInstructions && pooja.bookingInstructions !== '') ||
+        (pooja.priestDetails && typeof pooja.priestDetails === 'object' && Object.keys(pooja.priestDetails).length > 0 && (pooja.priestDetails as any).name) ||
+        (Array.isArray(pooja.certificates) && pooja.certificates.length > 0) ||
+        (Array.isArray(pooja.faqs) && pooja.faqs.length > 0)) && (
+          <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+            <div className="container" style={{ textAlign: 'left' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px' }} className="hero-grid-split">
+
+                {/* Left Column: Rituals, Samagri, Significance, Booking */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+
+                  {/* Spiritual Significance */}
+                  {!!pooja.spiritualSignificance && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('significance', <BookOpen size={22} />)} Spiritual Significance
+                      </h2>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        padding: '24px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-light)',
+                        boxShadow: 'var(--shadow-sm)',
+                        lineHeight: '1.7',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.95rem',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {editable ? (
+                          <InlineEdit
+                            type="textarea"
+                            value={pooja.spiritualSignificance || ''}
+                            onChange={(val) => onUpdate && onUpdate({ spiritualSignificance: val })}
+                            placeholder="Describe the deep spiritual significance of this pooja/ritual..."
+                            style={{ width: '100%' }}
+                          />
+                        ) : (
+                          pooja.spiritualSignificance
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rituals Included (Timeline) */}
+                  {(Array.isArray(pooja.ritualsIncluded) && pooja.ritualsIncluded.length > 0) && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('rituals', <Calendar size={22} />)} Rituals & Vedic Steps Included ({pooja.ritualsIncluded?.length || 0})
+                      </h2>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        padding: '28px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-light)',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '24px',
+                        position: 'relative'
+                      }}>
+                        {/* Timeline Line */}
+                        {pooja.ritualsIncluded && pooja.ritualsIncluded.length > 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            left: '42px',
+                            top: '40px',
+                            bottom: '40px',
+                            width: '2px',
+                            backgroundColor: 'var(--border-light)',
+                            zIndex: 1
+                          }}></div>
+                        )}
+
+                        {(pooja.ritualsIncluded || []).map((ritual, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: '20px', zIndex: 2, position: 'relative' }}>
+                            {/* Step Number Circle */}
+                            <div style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--primary-lime)',
+                              color: 'var(--text-dark)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.88rem',
+                              boxShadow: 'var(--shadow-sm)',
+                              flexShrink: 0
+                            }}>
+                              {idx + 1}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '8px' }}>
+                                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>
+                                    {editable ? (
+                                      <InlineEdit
+                                        value={ritual.name}
+                                        onChange={(val) => {
+                                          const updated = [...(pooja.ritualsIncluded || [])];
+                                          updated[idx] = { ...updated[idx], name: val };
+                                          onUpdate && onUpdate({ ritualsIncluded: updated });
+                                        }}
+                                        placeholder="Ritual step name"
+                                      />
+                                    ) : (
+                                      ritual.name
+                                    )}
+                                  </h3>
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    color: 'var(--primary-forest)',
+                                    backgroundColor: 'var(--primary-lime-light)',
+                                    padding: '2px 8px',
+                                    borderRadius: 'var(--radius-full)'
+                                  }}>
+                                    {editable ? (
+                                      <InlineEdit
+                                        value={ritual.duration || ''}
+                                        onChange={(val) => {
+                                          const updated = [...(pooja.ritualsIncluded || [])];
+                                          updated[idx] = { ...updated[idx], duration: val };
+                                          onUpdate && onUpdate({ ritualsIncluded: updated });
+                                        }}
+                                        placeholder="e.g. 15m"
+                                      />
+                                    ) : (
+                                      ritual.duration
+                                    )}
+                                  </span>
+                                </div>
+                                {editable && (
+                                  <button
+                                    onClick={() => {
+                                      const updated = pooja.ritualsIncluded!.filter((_, i) => i !== idx);
+                                      onUpdate && onUpdate({ ritualsIncluded: updated });
+                                    }}
+                                    style={{
+                                      border: 'none',
+                                      backgroundColor: 'transparent',
+                                      color: '#ef4444',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px'
+                                    }}
+                                  >
+                                    ✕ Delete Step
+                                  </button>
+                                )}
+                              </div>
+                              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: '4px 0 0 0' }}>
+                                {editable ? (
+                                  <InlineEdit
+                                    type="textarea"
+                                    value={ritual.description}
+                                    onChange={(val) => {
+                                      const updated = [...(pooja.ritualsIncluded || [])];
+                                      updated[idx] = { ...updated[idx], description: val };
+                                      onUpdate && onUpdate({ ritualsIncluded: updated });
+                                    }}
+                                    placeholder="Describe the activities performed in this Vedic ritual step..."
+                                  />
+                                ) : (
+                                  ritual.description
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {editable && (
+                          <button
+                            onClick={() => {
+                              const current = pooja.ritualsIncluded || [];
+                              onUpdate && onUpdate({
+                                ritualsIncluded: [...current, { name: 'New Vedic Step', description: 'Description of the mantra recitation and offerings.', duration: '15 mins' }]
+                              });
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              color: 'var(--primary-lime)',
+                              border: '1px dashed var(--primary-lime)',
+                              backgroundColor: 'transparent',
+                              padding: '8px 16px',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            + Add Ritual Step
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Samagri List (Grid Showcase) */}
+                  {(Array.isArray(pooja.samagriList) && pooja.samagriList.length > 0) && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('samagri', <Award size={22} />)} Sacred Samagri (Included Ingredients)
+                      </h2>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                        gap: '16px'
+                      }}>
+                        {(pooja.samagriList || []).map((samagri, idx) => (
+                          <div key={idx} style={{
+                            backgroundColor: '#ffffff',
+                            padding: '16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-light)',
+                            boxShadow: 'var(--shadow-sm)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            position: 'relative'
+                          }}>
+                            {editable && (
+                              <button
+                                onClick={() => {
+                                  const updated = pooja.samagriList!.filter((_, i) => i !== idx);
+                                  onUpdate && onUpdate({ samagriList: updated });
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  border: 'none',
+                                  backgroundColor: 'transparent',
+                                  color: '#ef4444',
+                                  fontSize: '0.8rem',
+                                  cursor: 'pointer',
+                                  padding: '2px'
+                                }}
+                                title="Delete item"
+                              >
+                                ✕
+                              </button>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', paddingRight: editable ? '16px' : '0' }}>
+                              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-dark)' }}>
+                                {editable ? (
+                                  <InlineEdit
+                                    value={samagri.name}
+                                    onChange={(val) => {
+                                      const updated = [...(pooja.samagriList || [])];
+                                      updated[idx] = { ...updated[idx], name: val };
+                                      onUpdate && onUpdate({ samagriList: updated });
+                                    }}
+                                    placeholder="Ingredient"
+                                  />
+                                ) : (
+                                  samagri.name
+                                )}
+                              </span>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: 'var(--primary-forest)',
+                                backgroundColor: '#f3f4f6',
+                                padding: '2px 8px',
+                                borderRadius: 'var(--radius-sm)'
+                              }}>
+                                {editable ? (
+                                  <InlineEdit
+                                    value={samagri.quantity}
+                                    onChange={(val) => {
+                                      const updated = [...(pooja.samagriList || [])];
+                                      updated[idx] = { ...updated[idx], quantity: val };
+                                      onUpdate && onUpdate({ samagriList: updated });
+                                    }}
+                                    placeholder="e.g. 1 unit"
+                                  />
+                                ) : (
+                                  samagri.quantity
+                                )}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
+                              {editable ? (
+                                <InlineEdit
+                                  type="textarea"
+                                  value={samagri.description || ''}
+                                  onChange={(val) => {
+                                    const updated = [...(pooja.samagriList || [])];
+                                    updated[idx] = { ...updated[idx], description: val };
+                                    onUpdate && onUpdate({ samagriList: updated });
+                                  }}
+                                  placeholder="Explain significance/origin..."
+                                />
+                              ) : (
+                                samagri.description
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {editable && (
+                          <button
+                            onClick={() => {
+                              const current = pooja.samagriList || [];
+                              onUpdate && onUpdate({
+                                samagriList: [...current, { name: 'New Ingredient', quantity: '1 Unit', description: 'Sacred material blessed during the pooja.' }]
+                              });
+                            }}
+                            style={{
+                              border: '1px dashed var(--primary-lime)',
+                              borderRadius: 'var(--radius-md)',
+                              backgroundColor: 'rgba(132, 204, 22, 0.05)',
+                              color: 'var(--primary-lime)',
+                              padding: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.88rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              height: '100%',
+                              minHeight: '80px'
+                            }}
+                          >
+                            + Add Samagri Item
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Booking Instructions */}
+                  {!!pooja.bookingInstructions && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('guidelines', <Info size={22} />)} Booking & Performance Guidelines
+                      </h2>
+                      <div style={{
+                        backgroundColor: 'var(--primary-lime-light)',
+                        padding: '24px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid rgba(249, 115, 22, 0.15)',
+                        boxShadow: 'var(--shadow-sm)',
+                        lineHeight: '1.6',
+                        color: 'var(--text-dark)',
+                        fontSize: '0.92rem',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {editable ? (
+                          <InlineEdit
+                            type="textarea"
+                            value={pooja.bookingInstructions || ''}
+                            onChange={(val) => onUpdate && onUpdate({ bookingInstructions: val })}
+                            placeholder="Provide devotee booking and performance instructions..."
+                            style={{ width: '100%' }}
+                          />
+                        ) : (
+                          pooja.bookingInstructions
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Right Column: Priest Details, FAQs, Certificates */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+
+                  {/* Priest Details */}
+                  {(pooja.priestDetails && typeof pooja.priestDetails === 'object' && Object.keys(pooja.priestDetails).length > 0 && (pooja.priestDetails as any).name) && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('priest', <User size={22} />)} Assigned Priest Details
+                      </h2>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-light)',
+                        boxShadow: 'var(--shadow-sm)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column'
+                      }}>
+                        {/* Priest Header Background */}
+                        <div style={{
+                          height: '100px',
+                          background: 'linear-gradient(135deg, var(--primary-forest) 0%, rgba(26, 46, 5, 0.9) 100%)',
+                          position: 'relative'
+                        }}></div>
+
+                        {/* Profile Photo and Details */}
+                        <div style={{ padding: '24px', position: 'relative', marginTop: '-50px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                          <div style={{ position: 'relative', width: '90px', height: '90px', borderRadius: '50%', border: '4px solid #ffffff', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
+                            {isRealUrl(pooja.priestImage) ? (
+                              <img
+                                src={getDisplayImageUrl(pooja.priestImage)}
+                                alt={pooja.priestDetails?.name}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  backgroundColor: '#ffffff'
+                                }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: '100%',
+                                height: '100%',
+                                backgroundColor: 'var(--primary-lime-light)',
+                                color: 'var(--primary-lime)',
+                                fontSize: '2.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                🙏
+                              </div>
+                            )}
+
+                            {editable && (
+                              <>
+                                <label
+                                  htmlFor={`priest-image-upload-${product.id}`}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0, left: 0, right: 0, bottom: 0,
+                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    opacity: 0,
+                                    transition: 'opacity 0.2s',
+                                    zIndex: 10
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                                >
+                                  <Upload size={16} />
+                                </label>
+                                <input
+                                  id={`priest-image-upload-${product.id}`}
+                                  type="file"
+                                  accept="image/*"
+                                  style={{ display: 'none' }}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file && onUpdate) {
+                                      try {
+                                        const cdnUrl = await uploadToR2(file, 'priests');
+                                        onUpdate({ priestImage: cdnUrl });
+                                      } catch (err) {
+                                        alert('Upload failed: ' + (err as Error).message);
+                                      }
+                                    }
+                                  }}
+                                />
+                              </>
+                            )}
+                          </div>
+
+                          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '12px', marginBottom: '2px' }}>
+                            {editable ? (
+                              <InlineEdit
+                                value={pooja.priestDetails?.name || ''}
+                                onChange={(val) => {
+                                  const details = pooja.priestDetails || { name: 'Priest Name' };
+                                  onUpdate && onUpdate({ priestDetails: { ...details, name: val } });
+                                }}
+                                placeholder="Priest Name"
+                              />
+                            ) : (
+                              pooja.priestDetails?.name
+                            )}
+                          </h3>
+
+                          {(editable || pooja.priestDetails?.qualification) && (
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary-forest)', backgroundColor: 'var(--primary-lime-light)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', marginBottom: '8px' }}>
+                              {editable ? (
+                                <InlineEdit
+                                  value={pooja.priestDetails?.qualification || ''}
+                                  onChange={(val) => {
+                                    const details = pooja.priestDetails || { name: 'Priest Name' };
+                                    onUpdate && onUpdate({ priestDetails: { ...details, qualification: val } });
+                                  }}
+                                  placeholder="Qualification"
+                                />
+                              ) : (
+                                pooja.priestDetails?.qualification
+                              )}
+                            </span>
+                          )}
+
+                          {(editable || pooja.priestDetails?.experience) && (
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Award size={14} />
+                              {editable ? (
+                                <InlineEdit
+                                  value={pooja.priestDetails?.experience || ''}
+                                  onChange={(val) => {
+                                    const details = pooja.priestDetails || { name: 'Priest Name' };
+                                    onUpdate && onUpdate({ priestDetails: { ...details, experience: val } });
+                                  }}
+                                  placeholder="e.g. 15 Years"
+                                />
+                              ) : (
+                                pooja.priestDetails?.experience
+                              )} of Vedic Rituals
+                            </span>
+                          )}
+
+                          {(editable || pooja.priestDetails?.bio) && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                              {editable ? (
+                                <InlineEdit
+                                  type="textarea"
+                                  value={pooja.priestDetails?.bio || ''}
+                                  onChange={(val) => {
+                                    const details = pooja.priestDetails || { name: 'Priest Name' };
+                                    onUpdate && onUpdate({ priestDetails: { ...details, bio: val } });
+                                  }}
+                                  placeholder="Write a short spiritual bio of the priest..."
+                                />
+                              ) : (
+                                pooja.priestDetails?.bio
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Frequently Asked Questions */}
+                  {(Array.isArray(pooja.faqs) && pooja.faqs.length > 0) && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🕉️ Frequently Asked Questions
+                      </h2>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {(pooja.faqs || []).map((faq, idx) => {
+                          const isExpanded = expandedFaqIndex === idx;
+                          return (
+                            <div key={idx} style={{
+                              backgroundColor: '#ffffff',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid var(--border-light)',
+                              overflow: 'hidden',
+                              boxShadow: 'var(--shadow-sm)'
+                            }}>
+                              <div
+                                style={{
+                                  width: '100%',
+                                  padding: '16px 20px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  border: 'none',
+                                  background: 'none',
+                                  textAlign: 'left',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => setExpandedFaqIndex(isExpanded ? null : idx)}
+                              >
+                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)', paddingRight: '12px', flexGrow: 1 }}>
+                                  {editable ? (
+                                    <InlineEdit
+                                      value={faq.question}
+                                      onChange={(val) => {
+                                        const updated = [...(pooja.faqs || [])];
+                                        updated[idx] = { ...updated[idx], question: val };
+                                        onUpdate && onUpdate({ faqs: updated });
+                                      }}
+                                      placeholder="FAQ Question"
+                                    />
+                                  ) : (
+                                    faq.question
+                                  )}
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {editable && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const updated = pooja.faqs!.filter((_, i) => i !== idx);
+                                        onUpdate && onUpdate({ faqs: updated });
+                                      }}
+                                      style={{
+                                        border: 'none',
+                                        backgroundColor: 'transparent',
+                                        color: '#ef4444',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        zIndex: 10
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                  <ChevronDown size={16} style={{
+                                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    transition: 'transform 0.2s',
+                                    color: 'var(--text-muted)',
+                                    flexShrink: 0
+                                  }} />
+                                </div>
+                              </div>
+                              {isExpanded && (
+                                <div style={{
+                                  padding: '0 20px 20px 20px',
+                                  fontSize: '0.85rem',
+                                  color: 'var(--text-muted)',
+                                  lineHeight: '1.6',
+                                  borderTop: '1px dashed var(--border-light)',
+                                  paddingTop: '12px'
+                                }}>
+                                  {editable ? (
+                                    <InlineEdit
+                                      type="textarea"
+                                      value={faq.answer}
+                                      onChange={(val) => {
+                                        const updated = [...(pooja.faqs || [])];
+                                        updated[idx] = { ...updated[idx], answer: val };
+                                        onUpdate && onUpdate({ faqs: updated });
+                                      }}
+                                      placeholder="FAQ Answer"
+                                    />
+                                  ) : (
+                                    faq.answer
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {editable && (
+                          <button
+                            onClick={() => {
+                              const current = pooja.faqs || [];
+                              onUpdate && onUpdate({
+                                faqs: [...current, { question: 'New Question?', answer: 'New Answer description here.' }]
+                              });
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              color: 'var(--primary-lime)',
+                              border: '1px dashed var(--primary-lime)',
+                              backgroundColor: 'transparent',
+                              padding: '8px 16px',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Add FAQ
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Trust Certificates */}
+                  {(Array.isArray(pooja.certificates) && pooja.certificates.length > 0) && (
+                    <div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+                        {renderSectionHeaderIcon('cert', <ShieldCheck size={22} style={{ color: 'var(--primary-lime)' }} />)} Authenticity & Certification
+                      </h2>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        padding: '20px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-light)',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        {(pooja.certificates || []).map((cert, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: idx < pooja.certificates!.length - 1 ? '1px solid var(--border-light)' : 'none', paddingBottom: idx < pooja.certificates!.length - 1 ? '12px' : 0, position: 'relative' }}>
+                            <div style={{ position: 'relative', width: '48px', height: '48px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-light)', flexShrink: 0 }}>
+                              {isRealUrl(cert.url) ? (
+                                <img
+                                  src={getDisplayImageUrl(cert.url)}
+                                  alt={cert.name || 'Certificate'}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  📜
+                                </div>
+                              )}
+                              {editable && (
+                                <>
+                                  <label
+                                    htmlFor={`cert-upload-${idx}`}
+                                    style={{
+                                      position: 'absolute',
+                                      top: 0, left: 0, right: 0, bottom: 0,
+                                      backgroundColor: 'rgba(0,0,0,0.6)',
+                                      color: '#ffffff',
+                                      fontSize: '0.5rem',
+                                      fontWeight: 700,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      opacity: 0,
+                                      transition: 'opacity 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                                  >
+                                    Upload
+                                  </label>
+                                  <input
+                                    id={`cert-upload-${idx}`}
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file && onUpdate) {
+                                        try {
+                                          const cdnUrl = await uploadToR2(file, 'certificates');
+                                          const updated = [...(pooja.certificates || [])];
+                                          updated[idx] = { ...updated[idx], url: cdnUrl };
+                                          onUpdate({ certificates: updated });
+                                        } catch (err) {
+                                          alert('Upload failed: ' + (err as Error).message);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                                {editable ? (
+                                  <InlineEdit
+                                    value={cert.name || ''}
+                                    onChange={(val) => {
+                                      const updated = [...(pooja.certificates || [])];
+                                      updated[idx] = { ...updated[idx], name: val };
+                                      onUpdate && onUpdate({ certificates: updated });
+                                    }}
+                                    placeholder="Certification Title"
+                                  />
+                                ) : (
+                                  cert.name || 'Vedic Certification'
+                                )}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                Issued by: {editable ? (
+                                  <InlineEdit
+                                    value={cert.issuer || ''}
+                                    onChange={(val) => {
+                                      const updated = [...(pooja.certificates || [])];
+                                      updated[idx] = { ...updated[idx], issuer: val };
+                                      onUpdate && onUpdate({ certificates: updated });
+                                    }}
+                                    placeholder="Authority/Issuer"
+                                  />
+                                ) : (
+                                  cert.issuer
+                                )}
+                              </span>
+                            </div>
+                            {editable && (
+                              <button
+                                onClick={() => {
+                                  const updated = pooja.certificates!.filter((_, i) => i !== idx);
+                                  onUpdate && onUpdate({ certificates: updated });
+                                }}
+                                style={{
+                                  border: 'none',
+                                  backgroundColor: 'transparent',
+                                  color: '#ef4444',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                                title="Delete Certificate"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {editable && (
+                          <button
+                            onClick={() => {
+                              const current = pooja.certificates || [];
+                              onUpdate && onUpdate({
+                                certificates: [...current, { name: 'New Certification Seal', issuer: 'Purity Association', url: '' }]
+                              });
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              color: 'var(--primary-lime)',
+                              border: '1px dashed var(--primary-lime)',
+                              backgroundColor: 'transparent',
+                              padding: '8px 16px',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Add Certificate
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            </div>
+          </section>
+        )}
+
+      {/* Reviews Section */}
+      <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+        <div className="container">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', alignItems: 'start' }} className="hero-grid-split">
+
+            {/* Reviews list */}
+            <div style={{ textAlign: 'left' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
+              </h2>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {reviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    style={{
+                      padding: '20px',
+                      backgroundColor: '#ffffff',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border-light)',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-dark)' }}>{rev.author}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rev.date}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px', marginBottom: '8px' }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={14}
+                          fill={s <= rev.rating ? '#fbbf24' : 'none'}
+                          color="#fbbf24"
+                        />
+                      ))}
+                    </div>
+
+                    <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                      {rev.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Write a review form */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '30px',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-light)',
+              boxShadow: 'var(--shadow-sm)',
+              textAlign: 'left'
+            }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
+                Write a Review
+              </h3>
+              <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Your Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter your name"
+                    value={reviewName}
+                    onChange={(e) => setReviewName(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Star Rating</label>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        type="button"
+                        key={s}
+                        onClick={() => setReviewRating(s)}
+                        style={{ padding: '4px' }}
+                      >
+                        <Star
+                          size={24}
+                          fill={s <= reviewRating ? '#fbbf24' : 'none'}
+                          color="#fbbf24"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Review Comment</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Share your spiritual feedback about this item..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem',
+                      fontFamily: 'inherit',
+                      resize: 'none'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-lime"
+                  style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-md)',
+                    justifyContent: 'center',
+                    marginTop: '8px'
+                  }}
+                >
+                  Submit Blessing Review
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Related Products Grid */}
+      <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+        <div className="container">
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', textAlign: 'left' }}>
+            Recommended Related Items
+          </h2>
+
+          {editable && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1.5px solid rgba(249, 115, 22, 0.25)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px',
+              marginBottom: '32px',
+              boxShadow: 'var(--shadow-md)',
+              textAlign: 'left'
+            }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🕉️ Curate Recommended Related Items
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
+                Search, filter, and choose from your active catalog to display as recommended related products on this Pooja page.
+              </p>
+
+              {/* Search & Category Filter Controls */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '16px',
+                marginBottom: '20px',
+                alignItems: 'center'
+              }}>
+                {/* Search Box */}
+                <div style={{ position: 'relative', flexGrow: 1, minWidth: '240px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search by product title..."
+                    value={relatedSearch}
+                    onChange={(e) => setRelatedSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px 10px 38px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+                      transition: 'all 0.15s'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }}>
+                    🔍
+                  </span>
+                </div>
+
+                {/* Category Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Filter Category:</span>
+                  <select
+                    value={relatedCategoryFilter}
+                    onChange={(e) => setRelatedCategoryFilter(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      backgroundColor: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="All">All Categories</option>
+                    {Array.from(new Set(activeProducts.map(p => p.category))).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Rich Selection Grid */}
+              <div style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: '12px',
+                backgroundColor: '#fafafa'
+              }}>
+                {activeProducts
+                  .filter(p => p.id !== product.id)
+                  .filter(p => {
+                    const matchesSearch = p.name.toLowerCase().includes(relatedSearch.toLowerCase());
+                    const matchesCategory = relatedCategoryFilter === 'All' || p.category === relatedCategoryFilter;
+                    return matchesSearch && matchesCategory;
+                  })
+                  .map(p => {
+                    const isChecked = pooja.relatedProducts?.includes(p.id) || false;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          const currentList = pooja.relatedProducts || [];
+                          const updatedList = isChecked
+                            ? currentList.filter(id => id !== p.id)
+                            : [...currentList, p.id];
+                          onUpdate && onUpdate({ relatedProducts: updatedList });
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: isChecked ? 'rgba(132, 204, 22, 0.08)' : '#ffffff',
+                          border: `1.5px solid ${isChecked ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          boxShadow: isChecked ? '0 2px 8px rgba(132, 204, 22, 0.15)' : 'var(--shadow-sm)',
+                          transition: 'all 0.2s',
+                          userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          if (!isChecked) e.currentTarget.style.borderColor = 'var(--primary-gold)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          if (!isChecked) e.currentTarget.style.borderColor = 'var(--border-light)';
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          readOnly
+                          style={{ accentColor: '#84cc16', cursor: 'pointer', pointerEvents: 'none' }}
+                        />
+                        <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>
+                          {isImageUrl(p.image) ? '📿' : p.image}
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexGrow: 1 }}>
+                          <span style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dark)' }}>
+                            {p.name}
+                          </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {p.category}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
+                              ₹{p.price}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '30px'
+          }} className="category-product-grid">
+            {resolvedRelated.map((p) => {
+              const isLiked = wishlist[p.id];
+              const discount = p.originalPrice ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-light)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                    backgroundColor: '#ffffff',
+                    boxShadow: 'var(--shadow-sm)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {discount > 0 && p.inStock && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '12px',
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-full)',
+                      zIndex: 10
+                    }}>
+                      -{discount}%
+                    </span>
+                  )}
+
+                  <button
+                    onClick={() => onToggleWishlist(p.id)}
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                      zIndex: 10
+                    }}
+                    className="flex-center"
+                  >
+                    <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} />
+                  </button>
+
+                  <div
+                    onClick={() => {
+                      onViewDetails(p);
+                      // Scroll to top
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    style={{
+                      height: '180px',
+                      background: categoryGradients[p.category.toLowerCase()] || categoryGradients['default'],
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderBottom: '1px solid var(--border-light)'
+                    }}
+                  >
+                    {p.image && isImageUrl(p.image) ? (
+                      <img
+                        src={getDisplayImageUrl(p.image)}
+                        alt={p.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '4.4rem' }}>{p.image}</span>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flexGrow: 1, textAlign: 'left' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+                      {p.spiritualType}
+                    </span>
+
+                    <h3
+                      onClick={() => {
+                        onViewDetails(p);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      style={{
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        color: 'var(--text-dark)',
+                        marginBottom: '6px',
+                        cursor: 'pointer',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}
+                      title={p.name}
+                    >
+                      {p.name}
+                    </h3>
+
+                    <p style={{
+                      fontSize: '0.78rem',
+                      color: 'var(--text-muted)',
+                      lineHeight: 1.4,
+                      marginBottom: '12px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      height: '32px'
+                    }}>
+                      {p.description}
+                    </p>
+
+                    <div style={{
+                      marginTop: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: '12px',
+                      borderTop: '1px solid var(--border-light)'
+                    }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                        ₹{p.price}
+                      </span>
+
+                      {p.inStock && (
+                        <button
+                          onClick={() => onAddToCart(p, 1)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--primary-lime)',
+                            color: 'var(--text-dark)'
+                          }}
+                          className="flex-center"
+                        >
+                          <ShoppingBag size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
+      </section>
+
+      {/* Visual Toast Notification Overlay */}
+      {showShareToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'var(--primary-forest)',
+          color: '#ffffff',
+          padding: '12px 24px',
+          borderRadius: 'var(--radius-full)',
+          boxShadow: 'var(--shadow-lg)',
+          fontSize: '0.88rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 1000
+        }}>
+          <Check size={16} style={{ color: 'var(--primary-lime)' }} />
+          <span>{activeToastMsg}</span>
+        </div>
+      )}
+
+    </div>
+  );
+};
