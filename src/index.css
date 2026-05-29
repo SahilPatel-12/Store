@@ -285,3 +285,93 @@ button {
 .pulse-gold-anim {
   animation: pulse-gold 2s infinite;
 }
+
+/* ==========================================
+   Comprehensive Mobile Responsiveness System
+   ========================================== */
+
+/* Hide scrollbars but allow scrolling on scroll areas */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+@media (max-width: 900px) {
+  /* Enforce single-column stacks on grid-split containers */
+  .hero-grid-split {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Profile page layout stack */
+  .profile-sidebar-wrapper {
+    margin-bottom: 20px;
+  }
+  
+  /* Form components responsiveness */
+  .form-grid-2col, 
+  .form-grid-3col, 
+  .form-grid-4col {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Product details layout */
+  .product-detail-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Hero adjustments */
+  .hero-heading {
+    font-size: 2.2rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  /* Navigation tweaks */
+  .nav-actions {
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 0 16px !important;
+  }
+
+  .section-title {
+    font-size: 1.5rem !important;
+  }
+
+  /* Adjust address card grids to stack */
+  .addresses-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Adjust cart elements layout */
+  .cart-item-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .cart-item-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  /* Order details status tracker alignment */
+  .tracking-progress-timeline {
+    grid-template-columns: 1fr !important;
+    text-align: left !important;
+    gap: 16px !important;
+    padding-left: 20px !important;
+  }
+
+  .tracking-progress-line {
+    display: none !important;
+  }
+}
+

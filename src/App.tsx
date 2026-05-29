@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, User, ShoppingBag, Heart, Menu, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductModal } from './components/ProductModal';
 import type { OrderDetails } from './components/OrderSuccessPage';
 import type { Product, CartItem, LocalOrder } from './types';
@@ -147,6 +147,8 @@ const initialOrders: LocalOrder[] = [
 
 function App() {
   const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth'>('shop');
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mobileCategoriesExpanded, setMobileCategoriesExpanded] = React.useState(false);
   
   const [loggedInUser, setLoggedInUser] = React.useState<{ id: string; fullName: string; email: string; phoneNumber: string } | null>(() => {
     try {
@@ -267,6 +269,8 @@ function App() {
     page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth',
     options?: { categoryName?: string; product?: Product; searchQuery?: string }
   ) => {
+    setMobileMenuOpen(false);
+    setMobileCategoriesExpanded(false);
     // Intercept protected devotee page routing
     if (page === 'checkout' || page === 'wishlist' || page === 'orders' || page === 'profile') {
       if (!loggedInUser) {
@@ -1128,11 +1132,126 @@ function App() {
                 </span>
               )}
             </button>
-            <button style={{ display: 'none', padding: '8px' }} className="mobile-menu-btn">
-              <Menu size={24} />
+            <button
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              style={{ display: 'none', padding: '8px', color: 'var(--text-dark)' }}
+              className="mobile-menu-btn"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
+
+        {/* ── Interactive Mobile Navigation Dropdown Menu ── */}
+        {mobileMenuOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-lg)',
+            zIndex: 150,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '16px 24px',
+            gap: '12px',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <a
+              href="#home"
+              onClick={(e) => { e.preventDefault(); setCurrentPage('home'); }}
+              style={{ padding: '8px 0', fontWeight: currentPage === 'home' ? 800 : 500, color: currentPage === 'home' ? 'var(--primary-lime)' : 'var(--text-dark)', borderBottom: '1px solid #f3f4f6' }}
+            >
+              🏠 Home
+            </a>
+            <a
+              href="#shop"
+              onClick={(e) => { e.preventDefault(); setCurrentPage('shop'); }}
+              style={{ padding: '8px 0', fontWeight: currentPage === 'shop' ? 800 : 500, color: currentPage === 'shop' ? 'var(--primary-lime)' : 'var(--text-dark)', borderBottom: '1px solid #f3f4f6' }}
+            >
+              🛍️ Shop Sacred Items
+            </a>
+
+            {/* Mobile Categories Accordion Grid */}
+            <div style={{ padding: '4px 0' }}>
+              <div 
+                onClick={() => setMobileCategoriesExpanded(prev => !prev)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  paddingBottom: '8px',
+                  marginBottom: '8px',
+                  borderBottom: '1px solid #f3f4f6'
+                }}
+              >
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
+                  Browse Categories
+                </span>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: 'var(--primary-gold, #d97706)',
+                  backgroundColor: 'rgba(217, 119, 6, 0.08)',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <span>{mobileCategoriesExpanded ? 'Show Less' : 'Show All'}</span>
+                  <ChevronDown 
+                    size={14} 
+                    style={{ 
+                      transform: mobileCategoriesExpanded ? 'rotate(180deg)' : 'none', 
+                      transition: 'transform 0.2s ease' 
+                    }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                maxHeight: mobileCategoriesExpanded ? '1000px' : '340px',
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease-in-out'
+              }}>
+                {(mobileCategoriesExpanded ? categories : categories.slice(0, 12)).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCurrentPage('category', { categoryName: cat })}
+                    style={{
+                      textAlign: 'left',
+                      padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      backgroundColor: '#f9fafb',
+                      color: selectedCategoryName === cat && currentPage === 'category' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      border: '1px solid var(--border-light)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>🕉️</span>
+                    <span style={{
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }}>{cat}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       <React.Suspense fallback={
@@ -2307,13 +2426,59 @@ function App() {
 
       {/* CSS Injections for Mobile Responsiveness */}
       <style>{`
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
+          /* Enforce wrapping on the navbar container */
+          nav > .container {
+            flex-wrap: wrap !important;
+            justify-content: space-between !important;
+            gap: 12px 0 !important;
+            padding: 0 16px !important;
+          }
+          
+          /* Force search wrapper to its own full-width row at the bottom */
+          .nav-links-wrapper {
+            order: 3 !important;
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            gap: 0 !important;
+          }
+
+          /* Hide desktop menus */
           .nav-menu {
             display: none !important;
           }
+
+          /* Show mobile menu hamburger toggle */
           .mobile-menu-btn {
             display: block !important;
           }
+
+          /* Make search input container stretch fully */
+          .nav-links-wrapper > div {
+            width: 100% !important;
+          }
+
+          .nav-links-wrapper input {
+            width: 100% !important;
+            font-size: 0.9rem !important;
+            padding: 10px 16px 10px 38px !important;
+          }
+
+          /* Logo and Actions containers occupy top row */
+          nav > .container > div:first-child {
+            order: 1 !important;
+          }
+          nav > .container > div:last-child {
+            order: 2 !important;
+          }
+          
+          /* Scale hero banner down on mobile viewports */
+          #hero .container > div {
+            height: 240px !important;
+          }
+        }
+
+        @media (max-width: 900px) {
           .hero-grid-split {
             grid-template-columns: 1fr !important;
           }
