@@ -129,13 +129,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       `Status    : ${order.status}`,
       '──────────────────────────────────',
       'ITEMS:',
-      ...order.items.map(i => `  ${i.product.name} × ${i.quantity}  —  $${(i.product.price * i.quantity).toFixed(2)}`),
+      ...order.items.map(i => `  ${i.product.name} × ${i.quantity}  —  ₹${(i.product.price * i.quantity).toFixed(2)}`),
       '──────────────────────────────────',
-      `Subtotal  : $${order.subtotal.toFixed(2)}`,
-      order.discount > 0 ? `Discount  : -$${order.discount.toFixed(2)} (${order.discountPercent}%)` : '',
-      `Shipping  : ${order.shipping === 0 ? 'FREE' : '$' + order.shipping.toFixed(2)}`,
-      `Tax       : $${order.tax.toFixed(2)}`,
-      `TOTAL     : $${order.total.toFixed(2)}`,
+      `Subtotal  : ₹${order.subtotal.toFixed(2)}`,
+      order.discount > 0 ? `Discount  : -₹${order.discount.toFixed(2)} (${order.discountPercent}%)` : '',
+      `Shipping  : ${order.shipping === 0 ? 'FREE' : '₹' + order.shipping.toFixed(2)}`,
+      `Tax       : ₹${order.tax.toFixed(2)}`,
+      `TOTAL     : ₹${order.total.toFixed(2)}`,
       '══════════════════════════════════',
       'Thank you for your sacred purchase!',
       'May these items bring you peace & blessings.',
@@ -389,7 +389,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       <div>
                         <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Amount</span>
                         <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
-                          ${order.total.toFixed(2)}
+                          ₹{order.total.toFixed(2)}
                         </span>
                       </div>
                       <div>
@@ -477,13 +477,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                 {item.product.name}
                               </h4>
                               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Quantity: {item.quantity} • price: ${item.product.price.toFixed(2)} each
+                                Quantity: {item.quantity} • price: ₹{item.product.price.toFixed(2)} each
                               </p>
                             </div>
                           </div>
 
                           <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                            ${(item.product.price * item.quantity).toFixed(2)}
+                            ₹{(item.product.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       ))}
@@ -878,7 +878,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         {i.product.name} <span style={{ color: 'var(--text-muted)' }}>× {i.quantity}</span>
                       </span>
                       <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                        ${(i.product.price * i.quantity).toFixed(2)}
+                        ₹{(i.product.price * i.quantity).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -894,28 +894,28 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Items Subtotal</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>${selectedDetailsOrder.subtotal.toFixed(2)}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.subtotal.toFixed(2)}</span>
                     </div>
                     {selectedDetailsOrder.discount > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Coupon Savings ({selectedDetailsOrder.discountPercent}%)</span>
-                        <span style={{ fontWeight: 700, color: '#10b981' }}>-${selectedDetailsOrder.discount.toFixed(2)}</span>
+                        <span style={{ fontWeight: 700, color: '#10b981' }}>-₹{selectedDetailsOrder.discount.toFixed(2)}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Sacred Shipping</span>
                       <span style={{ fontWeight: 700, color: selectedDetailsOrder.shipping === 0 ? '#10b981' : 'var(--text-dark)' }}>
-                        {selectedDetailsOrder.shipping === 0 ? 'FREE' : `$${selectedDetailsOrder.shipping.toFixed(2)}`}
+                        {selectedDetailsOrder.shipping === 0 ? 'FREE' : `₹${selectedDetailsOrder.shipping.toFixed(2)}`}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Vedic Services Tax</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>${selectedDetailsOrder.tax.toFixed(2)}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
                     </div>
                     <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '6px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '1rem', fontWeight: 900 }}>
                       <span>Grand Total</span>
-                      <span style={{ color: 'var(--primary-forest)', fontSize: '1.2rem' }}>${selectedDetailsOrder.total.toFixed(2)}</span>
+                      <span style={{ color: 'var(--primary-forest)', fontSize: '1.2rem' }}>₹{selectedDetailsOrder.total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

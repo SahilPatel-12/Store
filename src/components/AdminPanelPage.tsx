@@ -10,7 +10,6 @@ import {
   Edit,
   Trash2,
   Eye,
-  ArrowLeft,
   CheckCircle,
   Truck,
   X,
@@ -19,7 +18,14 @@ import {
   Settings,
   Layout,
   Upload,
-  CreditCard
+  CreditCard,
+  LogOut,
+  ExternalLink,
+  RefreshCw,
+  Layers,
+  ArrowUp,
+  ArrowDown,
+  List
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -28,7 +34,6 @@ import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
-
 interface AdminPanelPageProps {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
@@ -38,9 +43,14 @@ interface AdminPanelPageProps {
   onNavigateToShop: () => void;
   onLogout?: () => void;
   adminSession?: { username: string; loginTime: string } | null;
+  onRefreshOrders?: () => Promise<void>;
+  categoriesOrder?: string[];
+  onUpdateCategoriesOrder?: (newOrder: string[]) => void;
+  productsOrder?: Record<string, string[]>;
+  onUpdateProductsOrder?: (newOrders: Record<string, string[]>) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -51,10 +61,81 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   onNavigateToShop,
   onLogout,
   adminSession,
+  onRefreshOrders,
+  categoriesOrder,
+  onUpdateCategoriesOrder,
+  productsOrder,
+  onUpdateProductsOrder,
 }) => {
-  const [activeTab, setActiveTab] = React.useState<Tab>('analytics');
+  const [activeTab, setActiveTab] = React.useState<Tab>(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/admin/analytics')) return 'analytics';
+    if (path.startsWith('/admin/products')) return 'products';
+    if (path.startsWith('/admin/pooja-products')) return 'pooja_products';
+    if (path.startsWith('/admin/homepage-customizer')) return 'homepage_editor';
+    if (path.startsWith('/admin/shop-banners')) return 'shop_banners';
+    if (path.startsWith('/admin/whatsapp-settings')) return 'settings';
+    if (path.startsWith('/admin/categories-sorter')) return 'categories_editor';
+    if (path.startsWith('/admin/products-sorter')) return 'products_sorter';
+    return 'analytics';
+  });
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('All');
+
+  React.useEffect(() => {
+    const syncTabFromUrl = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/admin/analytics')) setActiveTab('analytics');
+      else if (path.startsWith('/admin/products')) setActiveTab('products');
+      else if (path.startsWith('/admin/pooja-products')) setActiveTab('pooja_products');
+      else if (path.startsWith('/admin/homepage-customizer')) setActiveTab('homepage_editor');
+      else if (path.startsWith('/admin/shop-banners')) setActiveTab('shop_banners');
+      else if (path.startsWith('/admin/fulfillment-orders')) setActiveTab('orders');
+      else if (path.startsWith('/admin/whatsapp-settings')) setActiveTab('settings');
+      else if (path.startsWith('/admin/categories-sorter')) setActiveTab('categories_editor');
+      else if (path.startsWith('/admin/products-sorter')) setActiveTab('products_sorter');
+    };
+    window.addEventListener('popstate', syncTabFromUrl);
+    return () => window.removeEventListener('popstate', syncTabFromUrl);
+  }, []);
+
+  const handleTabChange = (tabId: Tab) => {
+    setActiveTab(tabId);
+    setSearchQuery('');
+    let slug = '/admin/analytics';
+    switch (tabId) {
+      case 'analytics':
+        slug = '/admin/analytics';
+        break;
+      case 'products':
+        slug = '/admin/products';
+        break;
+      case 'pooja_products':
+        slug = '/admin/pooja-products';
+        break;
+      case 'homepage_editor':
+        slug = '/admin/homepage-customizer';
+        break;
+      case 'shop_banners':
+        slug = '/admin/shop-banners';
+        break;
+      case 'orders':
+        slug = '/admin/fulfillment-orders';
+        break;
+      case 'settings':
+        slug = '/admin/whatsapp-settings';
+        break;
+      case 'categories_editor':
+        slug = '/admin/categories-sorter';
+        break;
+      case 'products_sorter':
+        slug = '/admin/products-sorter';
+        break;
+    }
+    if (window.location.pathname !== slug) {
+      window.history.pushState({}, '', slug);
+    }
+  };
 
   // WhatsApp settings state
   const [whatsappEndpoint, setWhatsappEndpoint] = React.useState('');
@@ -66,6 +147,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [razorpayKeyId, setRazorpayKeyId] = React.useState('');
   const [razorpayKeySecret, setRazorpayKeySecret] = React.useState('');
   const [isSavingRazorpay, setIsSavingRazorpay] = React.useState(false);
+  const [isRefreshingOrders, setIsRefreshingOrders] = React.useState(false);
   // Homepage Customizer settings state
   const [featuredTitle, setFeaturedTitle] = React.useState('Our Featured Collection');
   const [featuredSubtitle, setFeaturedSubtitle] = React.useState('Get 30% off when you purchase our featured bundle');
@@ -135,8 +217,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         } else {
           if (products && products.length > 0) {
             setFeaturedProductIds(products.slice(0, 4).map(p => p.id));
-            setSaleProductIds(products.slice(4, 7).map(p => p.id));
-            setNewArrivalsProductIds(products.slice(7, 10).map(p => p.id));
+            setSaleProductIds(products.slice(4, 8).map(p => p.id));
+            setNewArrivalsProductIds(products.slice(8, 12).map(p => p.id));
           }
         }
       } catch (err) {
@@ -166,19 +248,22 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           value: {
             featuredTitle,
             featuredSubtitle,
-            featuredProductIds,
+            featuredProductIds: activeFeaturedIds,
             saleTitle,
             saleSubtitle,
             saleDiscount,
-            saleProductIds,
+            saleProductIds: activeSaleIds,
             newArrivalsTitle,
             newArrivalsSubtitle,
-            newArrivalsProductIds,
+            newArrivalsProductIds: activeNewArrivalsIds,
             bannerImages,
             showcaseImage
           }
         });
       if (error) throw error;
+      setFeaturedProductIds(activeFeaturedIds);
+      setSaleProductIds(activeSaleIds);
+      setNewArrivalsProductIds(activeNewArrivalsIds);
       triggerToast('Homepage curation settings saved successfully!');
     } catch (err) {
       console.error(err);
@@ -207,6 +292,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleRemoveBanner = (index: number) => {
     setBannerImages(prev => prev.filter((_, idx) => idx !== index));
     triggerToast('Banner slide removed. Remember to save changes.');
+  };
+
+  const handleMoveBanner = (index: number, direction: 'left' | 'right') => {
+    setBannerImages(prev => {
+      const newImages = [...prev];
+      const targetIndex = direction === 'left' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newImages.length) return prev;
+      const temp = newImages[index];
+      newImages[index] = newImages[targetIndex];
+      newImages[targetIndex] = temp;
+      return newImages;
+    });
+    setActivePreviewSlide(prev => {
+      const targetIndex = direction === 'left' ? index - 1 : index + 1;
+      if (prev === index) return targetIndex;
+      if (prev === targetIndex) return index;
+      return prev;
+    });
+    triggerToast('Slide order updated. Remember to save.');
   };
 
   const handleShowcaseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +395,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleShopMainBannerRemove = (index: number) => {
     setShopMainBanners(prev => prev.filter((_, i) => i !== index));
     triggerToast('Main banner removed. Remember to save.');
+  };
+
+  const handleMoveShopBanner = (index: number, direction: 'left' | 'right') => {
+    setShopMainBanners(prev => {
+      const newImages = [...prev];
+      const targetIndex = direction === 'left' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newImages.length) return prev;
+      const temp = newImages[index];
+      newImages[index] = newImages[targetIndex];
+      newImages[targetIndex] = temp;
+      return newImages;
+    });
+    setShopBannerPreviewSlide(prev => {
+      const targetIndex = direction === 'left' ? index - 1 : index + 1;
+      if (prev === index) return targetIndex;
+      if (prev === targetIndex) return index;
+      return prev;
+    });
+    triggerToast('Shop banner slide order updated. Remember to save.');
   };
 
   const handleCategoryBannerUpload = async (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,6 +557,269 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
+  const handleRefreshOrders = async () => {
+    if (!onRefreshOrders) return;
+    setIsRefreshingOrders(true);
+    try {
+      await onRefreshOrders();
+      triggerToast('Fulfillment orders synchronized successfully!');
+    } catch (err) {
+      console.error('Failed to sync orders:', err);
+      alert('Failed to sync orders: ' + (err as Error).message);
+    } finally {
+      setIsRefreshingOrders(false);
+    }
+  };
+
+  // Categories Sorter State
+  const [sortedCategoriesList, setSortedCategoriesList] = React.useState<string[]>([]);
+  const [isSavingCategoriesOrder, setIsSavingCategoriesOrder] = React.useState(false);
+
+  React.useEffect(() => {
+    // Generate unique category list from active products, static categories list, and default 'all'
+    const uniqueCats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+    const staticCats = [
+      'Rudraksha',
+      'Bracelet',
+      'Murti',
+      'Yantras',
+      'Anklet',
+      'Frames',
+      'Rashi',
+      'Karungali',
+      'Jadi',
+      'Pyrite',
+      'Kavach',
+      'Siddh Range',
+      'Gemstones',
+      'Pyramid',
+      'Necklaces/Mala',
+      'Tower & Tumbles',
+      'Crystal Dome Trees',
+      'Women Bracelets',
+      'Evil Eye',
+      'Gifting'
+    ];
+    // Merge all unique categories
+    const allUniqueCats = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
+
+    // Sort according to categoriesOrder prop if set
+    if (categoriesOrder && categoriesOrder.length > 0) {
+      allUniqueCats.sort((a, b) => {
+        const idxA = categoriesOrder.indexOf(a);
+        const idxB = categoriesOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'en', { sensitivity: 'base' });
+      });
+    }
+    setSortedCategoriesList(allUniqueCats);
+  }, [products, categoriesOrder, activeTab]);
+
+  const moveCategoryUp = (index: number) => {
+    if (index <= 0) return;
+    setSortedCategoriesList(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index - 1];
+      copy[index - 1] = temp;
+      return copy;
+    });
+  };
+
+  const moveCategoryDown = (index: number) => {
+    if (index >= sortedCategoriesList.length - 1) return;
+    setSortedCategoriesList(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index + 1];
+      copy[index + 1] = temp;
+      return copy;
+    });
+  };
+
+  const moveCategoryToPosition = (index: number, targetPos: number) => {
+    const targetIdx = Math.max(0, Math.min(sortedCategoriesList.length - 1, targetPos - 1));
+    if (index === targetIdx) return;
+    setSortedCategoriesList(prev => {
+      const copy = [...prev];
+      const [movedItem] = copy.splice(index, 1);
+      copy.splice(targetIdx, 0, movedItem);
+      return copy;
+    });
+  };
+
+  const handleSaveCategoriesOrder = async () => {
+    setIsSavingCategoriesOrder(true);
+    try {
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'shop_categories_settings',
+          value: {
+            order: sortedCategoriesList
+          }
+        });
+      if (error) throw error;
+      if (onUpdateCategoriesOrder) {
+        onUpdateCategoriesOrder(sortedCategoriesList);
+      }
+      triggerToast('Category order saved successfully!');
+    } catch (err) {
+      console.error('Failed to save category order:', err);
+        } finally {
+      setIsSavingCategoriesOrder(false);
+    }
+  };
+
+  // Products Sorter State
+  const [selectedSorterCategory, setSelectedSorterCategory] = React.useState<string>('all');
+  const [sortedProductsList, setSortedProductsList] = React.useState<Product[]>([]);
+  const [isSavingProductsOrder, setIsSavingProductsOrder] = React.useState(false);
+  const [draggedProductIndex, setDraggedProductIndex] = React.useState<number | null>(null);
+
+  // Available categories list for dropdown selection
+  const sorterCategories = React.useMemo(() => {
+    const uniqueCats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+    const staticCats = [
+      'Rudraksha',
+      'Bracelet',
+      'Murti',
+      'Yantras',
+      'Anklet',
+      'Frames',
+      'Rashi',
+      'Karungali',
+      'Jadi',
+      'Pyrite',
+      'Kavach',
+      'Siddh Range',
+      'Gemstones',
+      'Pyramid',
+      'Necklaces/Mala',
+      'Tower & Tumbles',
+      'Crystal Dome Trees',
+      'Women Bracelets',
+      'Evil Eye',
+      'Gifting'
+    ];
+    const merged = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
+    if (categoriesOrder && categoriesOrder.length > 0) {
+      merged.sort((a, b) => {
+        const idxA = categoriesOrder.indexOf(a);
+        const idxB = categoriesOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'en', { sensitivity: 'base' });
+      });
+    }
+    return merged;
+  }, [products, categoriesOrder]);
+
+  // Sync/load products for selected category and sort them by productsOrder prop
+  React.useEffect(() => {
+    const filtered = products.filter(p => selectedSorterCategory === 'all' || p.category === selectedSorterCategory);
+    
+    const customOrderList = productsOrder?.[selectedSorterCategory];
+    if (customOrderList && customOrderList.length > 0) {
+      filtered.sort((a, b) => {
+        const idxA = customOrderList.indexOf(a.id);
+        const idxB = customOrderList.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return b.popularity - a.popularity;
+      });
+    } else {
+      filtered.sort((a, b) => b.popularity - a.popularity);
+    }
+    setSortedProductsList(filtered);
+  }, [products, selectedSorterCategory, productsOrder, activeTab]);
+
+  const moveProductUp = (index: number) => {
+    if (index <= 0) return;
+    setSortedProductsList(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index - 1];
+      copy[index - 1] = temp;
+      return copy;
+    });
+  };
+
+  const moveProductDown = (index: number) => {
+    if (index >= sortedProductsList.length - 1) return;
+    setSortedProductsList(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index + 1];
+      copy[index + 1] = temp;
+      return copy;
+    });
+  };
+
+  const moveProductToPosition = (index: number, targetPos: number) => {
+    const targetIdx = Math.max(0, Math.min(sortedProductsList.length - 1, targetPos - 1));
+    if (index === targetIdx) return;
+    setSortedProductsList(prev => {
+      const copy = [...prev];
+      const [movedItem] = copy.splice(index, 1);
+      copy.splice(targetIdx, 0, movedItem);
+      return copy;
+    });
+  };
+
+  // Drag and Drop handlers
+  const handleProductDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedProductIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleProductDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleProductDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedProductIndex === null || draggedProductIndex === index) return;
+    setSortedProductsList(prev => {
+      const copy = [...prev];
+      const [movedItem] = copy.splice(draggedProductIndex, 1);
+      copy.splice(index, 0, movedItem);
+      return copy;
+    });
+    setDraggedProductIndex(null);
+  };
+
+  const handleSaveProductsOrder = async () => {
+    setIsSavingProductsOrder(true);
+    try {
+      const updatedOrders = { ...(productsOrder || {}) };
+      updatedOrders[selectedSorterCategory] = sortedProductsList.map(p => p.id);
+
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'category_products_settings',
+          value: {
+            orders: updatedOrders
+          }
+        });
+      if (error) throw error;
+      if (onUpdateProductsOrder) {
+        onUpdateProductsOrder(updatedOrders);
+      }
+      triggerToast('Product sequence saved successfully!');
+    } catch (err) {
+      console.error('Failed to save product order:', err);
+      alert('Failed to save products order: ' + (err as Error).message);
+    } finally {
+      setIsSavingProductsOrder(false);
+    }
+  };
+
   // Pooja Products State
   const [poojaProducts, setPoojaProducts] = React.useState<PoojaProduct[]>([]);
   const [isLoadingPooja, setIsLoadingPooja] = React.useState(false);
@@ -443,6 +829,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [showTemplatesDropdown, setShowTemplatesDropdown] = React.useState(false);
   const [selectedPoojaIds, setSelectedPoojaIds] = React.useState<Record<string, boolean>>({});
   const [isBulkPublishing, setIsBulkPublishing] = React.useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = React.useState(false);
+
+  const allAvailableProducts = React.useMemo(() => {
+    const combined = [...poojaProducts];
+    const poojaIds = new Set(combined.map(p => p.id));
+    for (const p of products) {
+      if (!poojaIds.has(p.id)) {
+        combined.push(p as any);
+      }
+    }
+    return combined;
+  }, [poojaProducts, products]);
+
+  const activeFeaturedIds = React.useMemo(() => {
+    return featuredProductIds.filter(id => allAvailableProducts.some(p => p.id === id)).slice(0, 4);
+  }, [featuredProductIds, allAvailableProducts]);
+
+  const activeSaleIds = React.useMemo(() => {
+    return saleProductIds.filter(id => allAvailableProducts.some(p => p.id === id)).slice(0, 4);
+  }, [saleProductIds, allAvailableProducts]);
+
+  const activeNewArrivalsIds = React.useMemo(() => {
+    return newArrivalsProductIds.filter(id => allAvailableProducts.some(p => p.id === id)).slice(0, 4);
+  }, [newArrivalsProductIds, allAvailableProducts]);
 
   const handleBulkPublishPooja = async () => {
     const idsToPublish = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
@@ -684,7 +1094,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     galleryImages: [],
     certificates: [
       { url: '📜', name: 'Devotional Purity Seal', issuer: 'Kashi Vedic Sansthan' }
-    ]
+    ],
+    testimonials: [],
+    uiLabels: { reviewsHidden: 'false' }
   };
 
   const loadPoojaProducts = async () => {
@@ -768,7 +1180,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   React.useEffect(() => {
-    if (activeTab === 'pooja_products') {
+    if (activeTab === 'pooja_products' || activeTab === 'homepage_editor') {
       loadPoojaProducts();
     }
   }, [activeTab]);
@@ -856,12 +1268,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         price: parseFloat(editingPoojaProduct.price.toString()),
         original_price: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : null,
         rating: editingPoojaProduct.rating || 4.8,
-        reviews_count: editingPoojaProduct.reviewsCount || 1,
+        reviews_count: editingPoojaProduct.testimonials ? editingPoojaProduct.testimonials.length : (editingPoojaProduct.reviewsCount || 0),
         is_featured: editingPoojaProduct.isFeatured || false,
         is_trending: editingPoojaProduct.isTrending || false,
         in_stock: editingPoojaProduct.inStock ?? true,
         is_published: editingPoojaProduct.isPublished || false,
-        published_at: editingPoojaProduct.publishedAt || null
+        published_at: editingPoojaProduct.publishedAt || null,
+        ui_labels: editingPoojaProduct.uiLabels || {},
+        translations: editingPoojaProduct.translations || {},
+        video_url: editingPoojaProduct.videoUrl || null
       };
 
       if (isNewPoojaProduct) {
@@ -1143,225 +1558,273 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   return (
-    <div style={{ backgroundColor: '#fafafa', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex' }}>
       
-      {/* 1. Header Banner */}
-      <section style={{
-        background: 'linear-gradient(135deg, var(--primary-forest) 0%, #3e1b12 100%)',
+      {/* 1. Left Sidebar Navigation */}
+      <aside style={{
+        width: '280px',
+        backgroundColor: '#1e293b',
         color: '#ffffff',
-        padding: '36px 0',
-        borderBottom: '4px solid var(--primary-lime)',
-        textAlign: 'left'
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        borderRight: '1px solid rgba(255,255,255,0.08)',
+        zIndex: 50,
+        position: 'sticky',
+        top: 0,
+        height: '100vh'
       }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-          <div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                onClick={onNavigateToHome}
-                style={{
-                  color: 'rgba(255, 255, 255, 0.75)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <ArrowLeft size={14} /> Shop Home
-              </button>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-              <span style={{ color: 'var(--primary-lime)', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Admin Portal
+        {/* Brand Header */}
+        <div style={{
+          padding: '24px 24px 20px 24px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)'
+        }}>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+            onClick={onNavigateToHome}
+            title="Navigate to Shop Home"
+          >
+            <span style={{ fontSize: '1.8rem' }}>🕉️</span>
+            <div style={{ textAlign: 'left' }}>
+              <h1 style={{ fontSize: '1.05rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.2px', margin: 0, lineHeight: 1.2 }}>
+                MANTRA PUJA
+              </h1>
+              <span style={{ color: 'var(--primary-lime)', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                Control Center
               </span>
             </div>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#ffffff', marginTop: '8px', letterSpacing: '-0.5px' }}>
-              Mantra Puja Control Center
-            </h1>
-            <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.88rem', marginTop: '2px' }}>
-              Manage your sacred inventory, fulfill temple orders, and inspect divine analytics metrics.
-            </p>
-            {adminSession && (
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-md)',
-                marginTop: '12px',
-                fontSize: '0.82rem',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                backdropFilter: 'blur(4px)'
-              }}>
-                <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'var(--primary-lime)', borderRadius: '50%', boxShadow: '0 0 8px var(--primary-lime)' }} />
-                <span>Active Admin: <strong style={{ color: 'var(--primary-lime)' }}>{adminSession.username}</strong></span>
-                <span style={{ opacity: 0.3 }}>|</span>
-                <span>Session Started: {new Date(adminSession.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            )}
           </div>
+        </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {onLogout && (
+        {/* Sidebar Navigation Links */}
+        <div style={{
+          flexGrow: 1,
+          padding: '24px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          overflowY: 'auto'
+        }}>
+          {[
+            { id: 'analytics' as Tab, label: 'Analytics Dashboard', icon: <BarChart3 size={18} /> },
+            { id: 'products' as Tab, label: 'Products Catalog', icon: <Package size={18} /> },
+            { id: 'pooja_products' as Tab, label: 'Pooja Products Manager', icon: <Sparkles size={18} /> },
+            { id: 'homepage_editor' as Tab, label: 'Homepage Customizer', icon: <Layout size={18} /> },
+            { id: 'shop_banners' as Tab, label: 'Shop Banners', icon: <Upload size={18} /> },
+            { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={18} /> },
+            { id: 'settings' as Tab, label: 'Gateway & API Settings', icon: <Settings size={18} /> },
+            { id: 'categories_editor' as Tab, label: 'Categories Sorter', icon: <Layers size={18} /> },
+            { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> }
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
               <button
-                onClick={onLogout}
-                className="btn-outline"
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
                 style={{
-                  borderColor: '#ef4444',
-                  color: '#ef4444',
-                  fontSize: '0.82rem',
-                  padding: '10px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                  fontWeight: 700
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  backgroundColor: isActive ? 'rgba(132, 204, 22, 0.15)' : 'transparent',
+                  color: isActive ? 'var(--primary-lime)' : '#cbd5e1',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  position: 'relative'
                 }}
               >
-                Log Out
+                {isActive && (
+                  <div style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '25%',
+                    bottom: '25%',
+                    width: '4px',
+                    borderRadius: '0 4px 4px 0',
+                    backgroundColor: 'var(--primary-lime)'
+                  }} />
+                )}
+                {tab.icon}
+                <span>{tab.label}</span>
               </button>
-            )}
-            <button
-              onClick={onNavigateToShop}
-              className="btn-outline"
-              style={{
-                borderColor: '#ffffff',
-                color: '#ffffff',
-                fontSize: '0.82rem',
-                padding: '10px 20px',
-                borderRadius: 'var(--radius-md)'
-              }}
-            >
-              Browse Public Store
-            </button>
-            <button
-              onClick={() => {
-                setEditingProduct(null);
-                setShowAddProductModal(true);
-              }}
-              className="btn-lime"
-              style={{
-                fontSize: '0.82rem',
-                padding: '10px 20px',
-                borderRadius: 'var(--radius-md)'
-              }}
-            >
-              <Plus size={16} /> Add Product
-            </button>
-          </div>
+            );
+          })}
         </div>
-      </section>
 
-      {/* Toast Feedback */}
-      {toastMsg && (
+        {/* Sidebar Footer (Session & Log Out) */}
         <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          backgroundColor: 'var(--primary-forest)',
-          color: '#ffffff',
-          padding: '16px 24px',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '0.9rem',
-          fontWeight: 700,
-          border: '1.5px solid var(--primary-lime)',
-          animation: 'slideUp 0.3s ease-out'
+          padding: '20px 24px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: '#0f172a'
         }}>
-          <CheckCircle size={18} style={{ color: 'var(--primary-lime)' }} />
-          <span>{toastMsg}</span>
-        </div>
-      )}
+          {adminSession && (
+            <div style={{ marginBottom: '14px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                <span style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: 'var(--primary-lime)', borderRadius: '50%', boxShadow: '0 0 6px var(--primary-lime)' }} />
+                <span>Admin: <strong style={{ color: '#ffffff' }}>{adminSession.username}</strong></span>
+              </div>
+              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+                Active since {new Date(adminSession.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          )}
 
-      {/* 2. Sub-Toolbar with Tab toggles */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderBottom: '1px solid var(--border-light)',
-        padding: '16px 0',
-        position: 'sticky',
-        top: '68px',
-        zIndex: 40,
-        boxShadow: 'var(--shadow-sm)'
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#ef4444',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <LogOut size={14} /> Log Out
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* 2. Right Workspace Content Area */}
+      <main style={{
+        flexGrow: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        overflowX: 'hidden'
       }}>
-        <div className="container" style={{
+        {/* Top Header Navbar */}
+        <header style={{
+          height: '70px',
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid var(--border-light)',
+          padding: '0 32px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px'
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
         }}>
-          {/* Tab buttons */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {[
-              { id: 'analytics' as Tab, label: 'Analytics Dashboard', icon: <BarChart3 size={16} /> },
-              { id: 'products' as Tab, label: 'Products Catalog', icon: <Package size={16} /> },
-              { id: 'pooja_products' as Tab, label: 'Pooja Products Manager', icon: <Sparkles size={16} /> },
-              { id: 'homepage_editor' as Tab, label: 'Homepage Customizer', icon: <Layout size={16} /> },
-              { id: 'shop_banners' as Tab, label: 'Shop Banners', icon: <Upload size={16} /> },
-              { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={16} /> },
-              { id: 'settings' as Tab, label: 'WhatsApp Gateway Settings', icon: <Settings size={16} /> }
-            ].map(tab => (
+          {/* Active section title */}
+          <div style={{ textAlign: 'left' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'capitalize' }}>
+              {activeTab.replace('_', ' ')}
+            </h2>
+          </div>
+
+          {/* Quick actions (Search & Buttons) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Search filter in top navbar (if relevant) */}
+            {activeTab !== 'analytics' && activeTab !== 'homepage_editor' && activeTab !== 'settings' && activeTab !== 'shop_banners' && (
+              <div style={{ position: 'relative', width: '260px' }}>
+                <input
+                  type="text"
+                  placeholder={activeTab === 'products' ? "Search products..." : "Search Order ID..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 36px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-light)',
+                    outline: 'none',
+                    fontSize: '0.82rem',
+                    backgroundColor: '#f8fafc'
+                  }}
+                />
+                <Search size={14} style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)'
+                }} />
+              </div>
+            )}
+
+            <button
+              onClick={onNavigateToShop}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-light)',
+                backgroundColor: '#ffffff',
+                color: 'var(--text-dark)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+            >
+              <ExternalLink size={14} /> Shop Home
+            </button>
+
+            {(activeTab === 'products' || activeTab === 'pooja_products') && (
               <button
-                key={tab.id}
                 onClick={() => {
-                  setActiveTab(tab.id);
-                  setSearchQuery('');
+                  if (activeTab === 'pooja_products') {
+                    // Open Pooja Product editor modal in creation mode
+                    setEditingPoojaProduct({
+                      id: `pooja-${Date.now()}`,
+                      name: '',
+                      description: '',
+                      price: 0,
+                      image: '📿',
+                      category: 'Rudraksha',
+                      benefits: [],
+                      inStock: true,
+                      isPublished: false,
+                      spiritualType: 'Rituals',
+                    });
+                    setIsNewPoojaProduct(true);
+                  } else {
+                    setEditingProduct(null);
+                    setShowAddProductModal(true);
+                  }
                 }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.85rem',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: 'var(--primary-forest)',
+                  color: '#ffffff',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
-                  border: activeTab === tab.id ? '1px solid var(--primary-lime)' : '1px solid var(--border-light)',
-                  backgroundColor: activeTab === tab.id ? 'var(--primary-lime-light)' : '#ffffff',
-                  color: activeTab === tab.id ? 'var(--primary-lime)' : 'var(--text-dark)',
+                  cursor: 'pointer',
                   transition: 'all 0.15s'
                 }}
               >
-                {tab.icon}
-                {tab.label}
+                <Plus size={14} /> Add Product
               </button>
-            ))}
+            )}
           </div>
+        </header>
 
-          {/* Tab-specific actions (e.g. Search box) */}
-          {activeTab !== 'analytics' && activeTab !== 'homepage_editor' && activeTab !== 'settings' && activeTab !== 'shop_banners' && (
-            <div style={{ position: 'relative', width: '280px' }}>
-              <input
-                type="text"
-                placeholder={activeTab === 'products' ? "Search products or categories..." : "Search Order ID or customer..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px 8px 36px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-light)',
-                  outline: 'none',
-                  fontSize: '0.85rem',
-                  backgroundColor: '#f9fafb'
-                }}
-              />
-              <Search size={16} style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)'
-              }} />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Main tab Content */}
-      <div className="container" style={{ marginTop: '32px', paddingBottom: '100px', flexGrow: 1 }}>
+        {/* Content Box */}
+        <div style={{ padding: '32px', flexGrow: 1, overflowY: 'auto' }}>
         
         {/* =======================================================
             TAB: ANALYTICS DASHBOARD
@@ -1722,24 +2185,56 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             {/* Status Tabs filters */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-              {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled'].map(status => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 'var(--radius-full)',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      backgroundColor: statusFilter === status ? 'var(--primary-lime-light)' : 'transparent',
+                      border: statusFilter === status ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                      color: statusFilter === status ? 'var(--primary-lime)' : 'var(--text-muted)'
+                    }}
+                  >
+                    {status === 'Being Packed' ? 'Packing' : status}
+                  </button>
+                ))}
+              </div>
+
+              {onRefreshOrders && (
                 <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
+                  onClick={handleRefreshOrders}
+                  disabled={isRefreshingOrders}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
                     padding: '8px 16px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    backgroundColor: statusFilter === status ? 'var(--primary-lime-light)' : 'transparent',
-                    border: statusFilter === status ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                    color: statusFilter === status ? 'var(--primary-lime)' : 'var(--text-muted)'
+                    backgroundColor: 'var(--primary-lime-light)',
+                    border: '1.5px solid var(--primary-lime)',
+                    color: 'var(--primary-lime)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    cursor: isRefreshingOrders ? 'not-allowed' : 'pointer',
+                    opacity: isRefreshingOrders ? 0.75 : 1,
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  {status === 'Being Packed' ? 'Packing' : status}
+                  <RefreshCw
+                    size={14}
+                    style={{
+                      animation: isRefreshingOrders ? 'spin 1s linear infinite' : 'none'
+                    }}
+                  />
+                  <span>{isRefreshingOrders ? 'Syncing...' : 'Sync Orders'}</span>
                 </button>
-              ))}
+              )}
             </div>
 
             {filteredOrders.length === 0 ? (
@@ -1951,7 +2446,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '16px', marginTop: '16px' }}>
                     {/* Left dynamized showcase image */}
-                    <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '140px', position: 'relative' }}>
+                    <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '140px', position: 'relative' }}>
                       {showcaseImage ? (
                         <img src={showcaseImage} alt="Showcase Preview" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
@@ -1961,11 +2456,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     {/* 2x2 products grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       {Array.from({ length: 4 }).map((_, i) => {
-                        const pid = featuredProductIds[i];
-                        const product = products.find(p => p.id === pid);
+                        const pid = activeFeaturedIds[i];
+                        const product = allAvailableProducts.find(p => p.id === pid);
                         if (product) {
                           return (
-                            <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', position: 'relative', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', position: 'relative', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '96px', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
                               <div style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
                                 {isImageUrl(product.image) ? (
                                   <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1979,7 +2474,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           );
                         }
                         return (
-                          <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                          <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', boxSizing: 'border-box', minWidth: 0 }}>
                             + Select #{i + 1}
                           </div>
                         );
@@ -1994,14 +2489,14 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{saleTitle}</h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{saleSubtitle}</p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '16px' }}>
-                    {Array.from({ length: 3 }).map((_, i) => {
-                      const pid = saleProductIds[i];
-                      const product = products.find(p => p.id === pid);
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
+                    {Array.from({ length: 4 }).map((_, i) => {
+                      const pid = activeSaleIds[i];
+                      const product = allAvailableProducts.find(p => p.id === pid);
                       if (product) {
                         return (
-                          <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', backgroundColor: '#ffffff', position: 'relative' }}>
-                            <span style={{ position: 'absolute', top: '4px', left: '4px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.6rem', fontWeight: 800, padding: '1px 4px', borderRadius: '4px' }}>
+                          <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', backgroundColor: '#ffffff', position: 'relative', height: '102px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
+                            <span style={{ position: 'absolute', top: '4px', left: '4px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.6rem', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', zIndex: 1 }}>
                               -{saleDiscount}%
                             </span>
                             <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
@@ -2011,13 +2506,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                 product.image || '📿'
                               )}
                             </div>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                            <div>
+                              <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                            </div>
                           </div>
                         );
                       }
                       return (
-                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff' }}>
+                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '102px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', boxSizing: 'border-box', minWidth: 0 }}>
                           + Select #{i + 1}
                         </div>
                       );
@@ -2031,10 +2528,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{newArrivalsTitle}</h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>Button: {newArrivalsSubtitle}</p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '16px' }}>
-                    {Array.from({ length: 3 }).map((_, i) => {
-                      const pid = newArrivalsProductIds[i];
-                      const product = products.find(p => p.id === pid);
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
+                    {Array.from({ length: 4 }).map((_, i) => {
+                      const pid = activeNewArrivalsIds[i];
+                      const product = allAvailableProducts.find(p => p.id === pid);
                       if (product) {
                         const isOverlay = i === 0;
                         return (
@@ -2049,7 +2546,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             height: '110px',
                             display: 'flex',
                             flexDirection: 'column',
-                            justifyContent: 'space-between'
+                            justifyContent: 'space-between',
+                            minWidth: 0
                           }}>
                             {isOverlay ? (
                               <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
@@ -2078,7 +2576,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         );
                       }
                       return (
-                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff' }}>
+                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', minWidth: 0 }}>
                           + Select #{i + 1}
                         </div>
                       );
@@ -2260,11 +2758,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Carousel Slides</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
                             {bannerImages.map((banner, index) => (
-                              <div key={index} style={{ position: 'relative', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-light)', aspectRatio: '16/9', backgroundColor: '#e2e8f0' }}>
+                              <div
+                                key={index}
+                                onClick={() => setActivePreviewSlide(index)}
+                                style={{
+                                  position: 'relative',
+                                  borderRadius: '6px',
+                                  overflow: 'hidden',
+                                  border: `2px solid ${index === activePreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                  aspectRatio: '16/9',
+                                  backgroundColor: '#e2e8f0',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                                }}
+                              >
                                 <img src={banner} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveBanner(index)}
+                                  onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
                                   style={{
                                     position: 'absolute',
                                     top: '4px',
@@ -2280,15 +2792,41 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                     justifyContent: 'center',
                                     cursor: 'pointer',
                                     boxShadow: 'var(--shadow-sm)',
-                                    padding: 0
+                                    padding: 0,
+                                    zIndex: 6
                                   }}
                                   title="Remove Slide"
                                 >
                                   <X size={12} />
                                 </button>
+                                
+                                {/* Reorder Controls */}
+                                <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                                  {index > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'left'); }}
+                                      style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                      title="Move Slide Left"
+                                    >
+                                      ◀
+                                    </button>
+                                  )}
+                                  {index < bannerImages.length - 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'right'); }}
+                                      style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                      title="Move Slide Right"
+                                    >
+                                      ▶
+                                    </button>
+                                  )}
+                                </div>
+
                                 <div style={{
                                   position: 'absolute',
-                                  bottom: '2px',
+                                  bottom: '4px',
                                   left: '4px',
                                   backgroundColor: 'rgba(0,0,0,0.6)',
                                   color: '#ffffff',
@@ -2415,25 +2953,34 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       <div>
                         <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select featured items</label>
                         <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {products
+                          {allAvailableProducts
                             .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
                             .map((p) => {
-                              const checked = featuredProductIds.includes(p.id);
+                              const checked = activeFeaturedIds.includes(p.id);
+                              const isLimitReached = activeFeaturedIds.length >= 4;
+                              const isDisabled = !checked && isLimitReached;
                               return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
                                   <input
                                     type="checkbox"
                                     checked={checked}
+                                    disabled={isDisabled}
                                     onChange={() => {
                                       setFeaturedProductIds(prev => {
-                                        if (prev.includes(p.id)) return prev.filter(id => id !== p.id);
-                                        return [...prev, p.id];
+                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                        if (cleanPrev.length >= 4) return cleanPrev;
+                                        return [...cleanPrev, p.id];
                                       });
                                     }}
                                   />
-                                  <span style={{ fontSize: '1.2rem' }}>
-                                    {isImageUrl(p.image) ? '🖼️' : p.image || '📿'}
-                                  </span>
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {isImageUrl(p.image) ? (
+                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                    )}
+                                  </div>
                                   <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
                                 </label>
@@ -2447,16 +2994,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   {/* Section 2 Control Box */}
                   <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 2: Flash Sale (Max 3)</h4>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 2: Flash Sale (Max 4)</h4>
                       <span style={{
                         fontSize: '0.75rem',
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: '4px',
-                        backgroundColor: saleProductIds.length === 3 ? '#dcfce7' : saleProductIds.length > 3 ? '#fee2e2' : '#fef3c7',
-                        color: saleProductIds.length === 3 ? '#15803d' : saleProductIds.length > 3 ? '#b91c1c' : '#b45309'
+                        backgroundColor: activeSaleIds.length === 4 ? '#dcfce7' : activeSaleIds.length > 4 ? '#fee2e2' : '#fef3c7',
+                        color: activeSaleIds.length === 4 ? '#15803d' : activeSaleIds.length > 4 ? '#b91c1c' : '#b45309'
                       }}>
-                        {saleProductIds.length}/3 Selected
+                        {activeSaleIds.length}/4 Selected
                       </span>
                     </div>
 
@@ -2480,25 +3027,34 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       <div>
                         <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select flash sale items</label>
                         <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {products
+                          {allAvailableProducts
                             .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
                             .map((p) => {
-                              const checked = saleProductIds.includes(p.id);
+                              const checked = activeSaleIds.includes(p.id);
+                              const isLimitReached = activeSaleIds.length >= 4;
+                              const isDisabled = !checked && isLimitReached;
                               return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
                                   <input
                                     type="checkbox"
                                     checked={checked}
+                                    disabled={isDisabled}
                                     onChange={() => {
                                       setSaleProductIds(prev => {
-                                        if (prev.includes(p.id)) return prev.filter(id => id !== p.id);
-                                        return [...prev, p.id];
+                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                        if (cleanPrev.length >= 4) return cleanPrev;
+                                        return [...cleanPrev, p.id];
                                       });
                                     }}
                                   />
-                                  <span style={{ fontSize: '1.2rem' }}>
-                                    {isImageUrl(p.image) ? '🖼️' : p.image || '📿'}
-                                  </span>
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {isImageUrl(p.image) ? (
+                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                    )}
+                                  </div>
                                   <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
                                 </label>
@@ -2512,16 +3068,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   {/* Section 3 Control Box */}
                   <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 3: New Arrivals (Max 3)</h4>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 3: New Arrivals (Max 4)</h4>
                       <span style={{
                         fontSize: '0.75rem',
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: '4px',
-                        backgroundColor: newArrivalsProductIds.length === 3 ? '#dcfce7' : newArrivalsProductIds.length > 3 ? '#fee2e2' : '#fef3c7',
-                        color: newArrivalsProductIds.length === 3 ? '#15803d' : newArrivalsProductIds.length > 3 ? '#b91c1c' : '#b45309'
+                        backgroundColor: activeNewArrivalsIds.length === 4 ? '#dcfce7' : activeNewArrivalsIds.length > 4 ? '#fee2e2' : '#fef3c7',
+                        color: activeNewArrivalsIds.length === 4 ? '#15803d' : activeNewArrivalsIds.length > 4 ? '#b91c1c' : '#b45309'
                       }}>
-                        {newArrivalsProductIds.length}/3 Selected
+                        {activeNewArrivalsIds.length}/4 Selected
                       </span>
                     </div>
 
@@ -2541,25 +3097,34 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       <div>
                         <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select new arrival items</label>
                         <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {products
+                          {allAvailableProducts
                             .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
                             .map((p) => {
-                              const checked = newArrivalsProductIds.includes(p.id);
+                              const checked = activeNewArrivalsIds.includes(p.id);
+                              const isLimitReached = activeNewArrivalsIds.length >= 4;
+                              const isDisabled = !checked && isLimitReached;
                               return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
                                   <input
                                     type="checkbox"
                                     checked={checked}
+                                    disabled={isDisabled}
                                     onChange={() => {
                                       setNewArrivalsProductIds(prev => {
-                                        if (prev.includes(p.id)) return prev.filter(id => id !== p.id);
-                                        return [...prev, p.id];
+                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                        if (cleanPrev.length >= 4) return cleanPrev;
+                                        return [...cleanPrev, p.id];
                                       });
                                     }}
                                   />
-                                  <span style={{ fontSize: '1.2rem' }}>
-                                    {isImageUrl(p.image) ? '🖼️' : p.image || '📿'}
-                                  </span>
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {isImageUrl(p.image) ? (
+                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                    )}
+                                  </div>
                                   <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
                                 </label>
@@ -2641,16 +3206,55 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           {shopMainBanners.length > 0 && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '10px' }}>
                               {shopMainBanners.map((url, idx) => (
-                                <div key={idx} style={{ position: 'relative', aspectRatio: '16/5', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0' }}>
+                                <div
+                                  key={idx}
+                                  onClick={() => setShopBannerPreviewSlide(idx)}
+                                  style={{
+                                    position: 'relative',
+                                    aspectRatio: '16/5',
+                                    borderRadius: '6px',
+                                    overflow: 'hidden',
+                                    border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                    backgroundColor: '#e2e8f0',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                                  }}
+                                >
                                   <img src={url} alt={`Main banner ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   <button
                                     type="button"
-                                    onClick={() => handleShopMainBannerRemove(idx)}
-                                    style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                    onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
+                                    style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
                                     title="Remove"
                                   >
                                     <X size={10} />
                                   </button>
+                                  
+                                  {/* Reorder Controls */}
+                                  <div style={{ position: 'absolute', bottom: '3px', right: '3px', display: 'flex', gap: '2px', zIndex: 6 }}>
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
+                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
+                                        title="Move slide left"
+                                      >
+                                        ◀
+                                      </button>
+                                    )}
+                                    {idx < shopMainBanners.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
+                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
+                                        title="Move slide right"
+                                      >
+                                        ▶
+                                      </button>
+                                    )}
+                                  </div>
+
                                   <div style={{ position: 'absolute', bottom: '2px', left: '4px', fontSize: '0.5rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 3px', borderRadius: '2px', fontWeight: 700 }}>#{idx + 1}</div>
                                 </div>
                               ))}
@@ -2866,16 +3470,55 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   {shopMainBanners.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
                       {shopMainBanners.map((url, idx) => (
-                        <div key={idx} style={{ position: 'relative', aspectRatio: '16/5', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`, backgroundColor: '#e2e8f0', cursor: 'pointer', transition: 'border-color 0.2s' }} onClick={() => setShopBannerPreviewSlide(idx)}>
+                        <div
+                          key={idx}
+                          onClick={() => setShopBannerPreviewSlide(idx)}
+                          style={{
+                            position: 'relative',
+                            aspectRatio: '16/5',
+                            borderRadius: 'var(--radius-sm)',
+                            overflow: 'hidden',
+                            border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                            backgroundColor: '#e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                          }}
+                        >
                           <img src={url} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
-                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
                             title="Remove slide"
                           >
                             <X size={11} />
                           </button>
+                          
+                          {/* Reorder Controls */}
+                          <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
+                                style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                title="Move Slide Left"
+                              >
+                                ◀
+                              </button>
+                            )}
+                            {idx < shopMainBanners.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
+                                style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                title="Move Slide Right"
+                              >
+                                ▶
+                              </button>
+                            )}
+                          </div>
+
                           <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.55rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
                             Slide {idx + 1}
                           </div>
@@ -3341,6 +3984,595 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         )}
 
         {/* =======================================================
+            TAB: CATEGORIES CUSTOM SEQUENCER
+            ======================================================= */}
+        {activeTab === 'categories_editor' && (
+          <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Header Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px 28px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '20px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                  🗂️
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Shop Categories Order Sorter</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Reorder categories or enter target positions to custom-arrange the navigation tags on the Shop page.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingCategoriesOrder}
+                onClick={handleSaveCategoriesOrder}
+                className="btn-lime"
+                style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+              >
+                {isSavingCategoriesOrder ? 'Saving...' : '💾 Save Sequence'}
+              </button>
+            </div>
+
+            {/* Sorter List Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px'
+            }}>
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Arrange Categories Sequence</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  The categories sequence controls the tab bar on the main shop layout. Custom-ordered categories will be prioritized, and any unlisted categories will automatically appear at the end alphabetically.
+                </p>
+              </div>
+
+              {/* Scrollable list of categories */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {sortedCategoriesList.map((category, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === sortedCategoriesList.length - 1;
+                  const displayName = category === 'all' ? '✨ All Items' : category;
+
+                  return (
+                    <div
+                      key={category}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 20px',
+                        backgroundColor: '#f9fafb',
+                        border: '1.5px solid var(--border-light)',
+                        borderRadius: 'var(--radius-md)',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--primary-forest)',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: 700
+                        }}>
+                          {index + 1}
+                        </span>
+                        <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                          {displayName}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {/* Position input selector */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pos:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={sortedCategoriesList.length}
+                            value={index + 1}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val)) {
+                                moveCategoryToPosition(index, val);
+                              }
+                            }}
+                            style={{
+                              width: '54px',
+                              padding: '6px 8px',
+                              fontSize: '0.85rem',
+                              fontWeight: 700,
+                              textAlign: 'center',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1.5px solid var(--border-light)',
+                              outline: 'none',
+                              backgroundColor: '#ffffff'
+                            }}
+                          />
+                        </div>
+
+                        {/* Arrow Shift Controls */}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            disabled={isFirst}
+                            onClick={() => moveCategoryUp(index)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--border-light)',
+                              backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
+                              color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
+                              cursor: isFirst ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <ArrowUp size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isLast}
+                            onClick={() => moveCategoryDown(index)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--border-light)',
+                              backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
+                              color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
+                              cursor: isLast ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <ArrowDown size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Actions Row */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  disabled={isSavingCategoriesOrder}
+                  onClick={handleSaveCategoriesOrder}
+                  className="btn-lime"
+                  style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer' }}
+                >
+                  {isSavingCategoriesOrder ? 'Saving sequence...' : '💾 Save Category Sequence'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: PRODUCTS CARD SEQUENCER
+            ======================================================= */}
+        {activeTab === 'products_sorter' && (
+          <div style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Header Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px 28px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '20px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                  📦
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Products Card Sorter</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Select a category and arrange how product cards are numbered/ordered on the shop storefront.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingProductsOrder || sortedProductsList.length === 0}
+                onClick={handleSaveProductsOrder}
+                className="btn-lime"
+                style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+              >
+                {isSavingProductsOrder ? 'Saving...' : '💾 Save Sequence'}
+              </button>
+            </div>
+
+            {/* Sorter Body Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px'
+            }}>
+              {/* Category Pills Scroll Bar */}
+              <div style={{
+                display: 'flex',
+                overflowX: 'auto',
+                gap: '8px',
+                padding: '4px 0',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                borderBottom: '1px solid var(--border-light)',
+                paddingBottom: '20px'
+              }} className="shop-categories-scroll">
+                {sorterCategories.map((cat) => {
+                  const isActive = selectedSorterCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedSorterCategory(cat)}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease',
+                        border: '1.5px solid var(--border-light)',
+                        backgroundColor: isActive ? 'var(--primary-forest)' : '#ffffff',
+                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {cat === 'all' ? '✨ All Items' : cat}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sorter Description */}
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Drag & Drop or Swap Products</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Drag cards by holding them, or use the position inputs / arrow buttons to arrange their display order.
+                </p>
+              </div>
+
+              {/* Scrollable grid of products */}
+              {sortedProductsList.length === 0 ? (
+                <div style={{
+                  padding: '48px',
+                  textAlign: 'center',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1.5px dashed var(--border-light)'
+                }}>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No products found in this category.</p>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: '24px',
+                  marginTop: '16px'
+                }} className="shop-product-grid">
+                  {sortedProductsList.map((product, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === sortedProductsList.length - 1;
+                    const hasImage = isImageUrl(product.image);
+                    const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        draggable
+                        onDragStart={(e) => handleProductDragStart(e, index)}
+                        onDragOver={handleProductDragOver}
+                        onDrop={(e) => handleProductDrop(e, index)}
+                        style={{
+                          borderRadius: '16px',
+                          border: draggedProductIndex === index ? '2px dashed var(--primary-lime)' : '1px solid var(--border-light)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          position: 'relative',
+                          backgroundColor: draggedProductIndex === index ? '#f3f4f6' : '#ffffff',
+                          boxShadow: 'var(--shadow-sm)',
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          padding: '12px',
+                          gap: '12px',
+                          cursor: 'grab',
+                          opacity: draggedProductIndex === index ? 0.6 : 1,
+                          overflow: 'visible'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (draggedProductIndex !== index) {
+                            e.currentTarget.style.transform = 'translateY(-6px)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                            e.currentTarget.style.borderColor = 'var(--primary-lime)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (draggedProductIndex !== index) {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                            e.currentTarget.style.borderColor = 'var(--border-light)';
+                          }
+                        }}
+                      >
+                        {/* Rank Badge */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          left: '-8px',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--primary-forest)',
+                          color: '#ffffff',
+                          fontSize: '0.85rem',
+                          fontWeight: 900,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '2px solid #ffffff',
+                          boxShadow: 'var(--shadow-sm)',
+                          zIndex: 20
+                        }}>
+                          {index + 1}
+                        </div>
+
+                        {/* Image Box */}
+                        <div
+                          style={{
+                            width: '100%',
+                            aspectRatio: '1 / 1',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f9fafb',
+                            border: '1px solid var(--border-light)'
+                          }}
+                        >
+                          {hasImage ? (
+                            <img
+                              src={getDisplayImageUrl(product.image)}
+                              alt={product.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '3.5rem' }}>{product.image}</span>
+                          )}
+
+                          {/* Ribbon Badge */}
+                          {discount > 0 && product.inStock && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: '12px',
+                              width: '36px',
+                              padding: '6px 2px 8px 2px',
+                              background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                              color: '#ffffff',
+                              fontSize: '0.62rem',
+                              fontWeight: 900,
+                              lineHeight: 1.15,
+                              textAlign: 'center',
+                              clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
+                              zIndex: 10,
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}>
+                              {discount}%<br/>OFF
+                            </div>
+                          )}
+
+                          {/* Out of Stock overlay */}
+                          {!product.inStock && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: '12px',
+                              width: '36px',
+                              padding: '6px 2px 8px 2px',
+                              background: '#9ca3af',
+                              color: '#ffffff',
+                              fontSize: '0.55rem',
+                              fontWeight: 900,
+                              lineHeight: 1.15,
+                              textAlign: 'center',
+                              clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
+                              zIndex: 10
+                            }}>
+                              SOLD<br/>OUT
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title and Price */}
+                        <div style={{
+                          padding: '0 4px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          textAlign: 'center',
+                          flexGrow: 1,
+                          justifyContent: 'space-between'
+                        }}>
+                          <div>
+                            <h4 style={{
+                              fontSize: '0.88rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)',
+                              margin: 0,
+                              lineHeight: 1.3,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              height: '2.6em'
+                            }}>
+                              {product.name}
+                            </h4>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                              <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+                                ₹{product.price}
+                              </span>
+                              {product.originalPrice && product.originalPrice > product.price && (
+                                <span style={{ fontSize: '0.78rem', color: '#9ca3af', textDecoration: 'line-through' }}>
+                                  ₹{product.originalPrice}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Position overrides overlay */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '6px',
+                              borderTop: '1px solid var(--border-light)',
+                              paddingTop: '8px',
+                              marginTop: '8px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="number"
+                              min="1"
+                              max={sortedProductsList.length}
+                              value={index + 1}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!isNaN(val)) {
+                                  moveProductToPosition(index, val);
+                                }
+                              }}
+                              style={{
+                                width: '48px',
+                                padding: '4px 6px',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                outline: 'none',
+                                backgroundColor: '#ffffff'
+                              }}
+                            />
+                            
+                            <div style={{ display: 'flex', gap: '2px' }}>
+                              <button
+                                type="button"
+                                disabled={isFirst}
+                                onClick={() => moveProductUp(index)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
+                                  color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
+                                  cursor: isFirst ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isLast}
+                                onClick={() => moveProductDown(index)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
+                                  color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
+                                  cursor: isLast ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Bottom Actions Row */}
+              {sortedProductsList.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    disabled={isSavingProductsOrder}
+                    onClick={handleSaveProductsOrder}
+                    className="btn-lime"
+                    style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer' }}
+                  >
+                    {isSavingProductsOrder ? 'Saving sequence...' : '💾 Save Product Sequence'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
             TAB: POOJA PRODUCTS MANAGEMENT
             ======================================================= */}
         {activeTab === 'pooja_products' && (
@@ -3788,6 +5020,96 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       </select>
                     </div>
 
+                    {/* Video URL Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Video URL:</span>
+                      <input
+                        type="text"
+                        value={editingPoojaProduct.videoUrl || ''}
+                        placeholder="Cloudflare video CDN URL"
+                        onChange={(e) => updatePoojaField('videoUrl', e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          color: '#ffffff',
+                          outline: '#84cc16',
+                          fontSize: '0.82rem',
+                          width: '180px'
+                        }}
+                      />
+                    </div>
+
+                    {/* Video Upload Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Upload Video:</span>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px dashed rgba(255, 255, 255, 0.3)',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: '#ffffff'
+                      }}>
+                        <Upload size={14} />
+                        {isUploadingVideo ? 'Uploading...' : 'Choose Video'}
+                        <input
+                          type="file"
+                          accept="video/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUploadingVideo(true);
+                            try {
+                              const cdnUrl = await uploadToR2(file, 'products/videos');
+                              updatePoojaField('videoUrl', cdnUrl);
+                              triggerToast('Video uploaded successfully!');
+                            } catch (err) {
+                              console.error(err);
+                              alert('Upload failed: ' + (err as Error).message);
+                            } finally {
+                              setIsUploadingVideo(false);
+                            }
+                          }}
+                          style={{ display: 'none' }}
+                          disabled={isUploadingVideo}
+                        />
+                      </label>
+                    </div>
+
+                    {/* Video Thumbnail Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Thumbnail URL:</span>
+                      <input
+                        type="text"
+                        value={editingPoojaProduct.uiLabels?.videoThumbnail || ''}
+                        placeholder="Video thumbnail URL"
+                        onChange={(e) => {
+                          const existingLabels = editingPoojaProduct.uiLabels || {};
+                          updatePoojaField('uiLabels', {
+                            ...existingLabels,
+                            videoThumbnail: e.target.value
+                          });
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          color: '#ffffff',
+                          outline: '#84cc16',
+                          fontSize: '0.82rem',
+                          width: '180px'
+                        }}
+                      />
+                    </div>
+
                     {/* Switches in a row */}
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
                       <input type="checkbox" checked={editingPoojaProduct.inStock ?? true} onChange={(e) => updatePoojaField('inStock', e.target.checked)} />
@@ -3837,7 +5159,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   gridTemplateColumns: '320px 1fr',
                   gap: '24px',
                   alignItems: 'start'
-                }}>
+                }} className="admin-workspace-grid">
                   {/* Left Column: Product Card Frame */}
                   <div style={{
                     position: 'sticky',
@@ -3927,12 +5249,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           certificates: editingPoojaProduct.certificates,
                           faqs: editingPoojaProduct.faqs,
                           galleryImages: editingPoojaProduct.galleryImages !== undefined ? editingPoojaProduct.galleryImages : null,
+                          videoUrl: editingPoojaProduct.videoUrl,
                           material: editingPoojaProduct.material,
                           weight: editingPoojaProduct.weight,
                           dimensions: editingPoojaProduct.dimensions,
                           origin: editingPoojaProduct.origin,
                           customIcons: (editingPoojaProduct as any).customIcons || {},
                           relatedProducts: editingPoojaProduct.relatedProducts || [],
+                          testimonials: editingPoojaProduct.testimonials || [],
+                          uiLabels: editingPoojaProduct.uiLabels || {},
+                          translations: editingPoojaProduct.translations || {}
                         } as any}
                         products={[...products, ...poojaProducts]}
                         wishlist={{}}
@@ -3942,6 +5268,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         onBackToShop={() => {}}
                         editable={true}
                         onUpdate={(fields) => updatePoojaFields(fields)}
+                        cart={[]}
+                        onUpdateQuantity={() => {}}
                       />
                     </div>
                   </div>
@@ -3951,7 +5279,33 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           </div>
         )}
 
-      </div>
+        </div>
+      </main>
+
+      {/* Toast Feedback */}
+      {toastMsg && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          backgroundColor: 'var(--primary-forest)',
+          color: '#ffffff',
+          padding: '16px 24px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-lg)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '0.9rem',
+          fontWeight: 700,
+          border: '1.5px solid var(--primary-lime)',
+          animation: 'slideUp 0.3s ease-out'
+        }}>
+          <CheckCircle size={18} style={{ color: 'var(--primary-lime)' }} />
+          <span>{toastMsg}</span>
+        </div>
+      )}
 
       {/* =======================================================
           MODAL: ADD/EDIT PRODUCT

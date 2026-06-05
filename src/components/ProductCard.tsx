@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, ShoppingCart, Eye, Upload } from 'lucide-react';
+import { Star, Eye, Upload } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { InlineEdit } from './InlineEdit';
@@ -44,125 +44,65 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div
-      className="glass fade-in-entry"
+      className="fade-in-entry"
       style={{
+        borderRadius: '16px',
+        border: '1px solid var(--border-light)',
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-        boxShadow: 'var(--shadow-md)',
-        transition: 'all var(--transition-normal)',
         position: 'relative',
-        height: '100%'
+        backgroundColor: '#ffffff',
+        boxShadow: 'var(--shadow-sm)',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        padding: '12px',
+        height: '100%',
+        gap: '12px'
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-6px)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-lg), var(--shadow-gold)';
-        const img = e.currentTarget.querySelector('.product-emoji, .product-image-el') as HTMLElement;
-        if (img) img.style.transform = 'scale(1.2) rotate(5deg)';
+        e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+        if (img) img.style.transform = 'scale(1.05)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-        const img = e.currentTarget.querySelector('.product-emoji, .product-image-el') as HTMLElement;
-        if (img) img.style.transform = 'scale(1) rotate(0deg)';
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+        if (img) img.style.transform = 'scale(1)';
       }}
     >
-      {/* Discount Badge */}
-      {hasDiscount && product.inStock && (
-        <span style={{
-          position: 'absolute',
-          top: '12px',
-          left: '12px',
-          backgroundColor: 'var(--primary-accent)',
-          color: '#ffffff',
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          padding: '4px 10px',
-          borderRadius: 'var(--radius-full)',
-          zIndex: 10,
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          {discountPercent}% OFF
-        </span>
-      )}
-
-      {/* Out of stock Badge */}
-      {!product.inStock && (
-        <span style={{
-          position: 'absolute',
-          top: '12px',
-          left: '12px',
-          backgroundColor: 'var(--text-secondary)',
-          color: '#ffffff',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          padding: '4px 10px',
-          borderRadius: 'var(--radius-full)',
-          zIndex: 10,
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          Sold Out
-        </span>
-      )}
-
-      {/* Custom Badges (Dynamic from Supabase) */}
-      {(product as any).badges && (product as any).badges.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '12px',
-          right: '12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-          zIndex: 10
-        }}>
-          {(product as any).badges.map((badge: string, index: number) => (
-            <span key={index} style={{
-              backgroundColor: 'rgba(217, 119, 6, 0.95)', /* warm temple orange/amber */
-              color: '#ffffff',
-              fontSize: '0.65rem',
-              fontWeight: 800,
-              padding: '2px 8px',
-              borderRadius: 'var(--radius-sm, 4px)',
-              boxShadow: 'var(--shadow-sm)',
-              textTransform: 'uppercase'
-            }}>
-              {badge}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Visual Image / Placeholder */}
+      {/* Image Box */}
       <div
-        className="flex-center"
         style={{
           width: '100%',
-          height: '200px',
+          aspectRatio: '1 / 1',
+          borderRadius: '12px',
+          overflow: 'hidden',
           background: getCategoryGradient(product.category),
           position: 'relative',
-          overflow: 'hidden',
-          borderBottom: '1px solid var(--border-color)'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
         }}
       >
         {product.image && isImageUrl(product.image) ? (
           <img
             src={getDisplayImageUrl(product.image)}
             alt={(product as any).imageAlt || product.name}
+            className="card-image"
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              transition: 'all var(--transition-normal)'
+              transition: 'transform 0.3s ease'
             }}
-            className="product-image-el"
           />
         ) : (
           <span
             className="product-emoji"
             style={{
-              fontSize: '5rem',
+              fontSize: '4rem',
               transition: 'all var(--transition-normal)',
               userSelect: 'none'
             }}
@@ -217,91 +157,173 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </>
         )}
 
-        {/* Quick View Overlay Button */}
-        <button
-          onClick={() => onViewDetails(product)}
-          style={{
+        {/* Ribbon Badge for Discount */}
+        {hasDiscount && product.inStock && (
+          <div style={{
             position: 'absolute',
-            bottom: '12px',
+            top: 0,
+            left: '12px',
+            width: '40px',
+            padding: '8px 2px 10px 2px',
+            background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+            color: '#ffffff',
+            fontSize: '0.65rem',
+            fontWeight: 900,
+            lineHeight: 1.15,
+            textAlign: 'center',
+            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+            zIndex: 10,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+          }}>
+            {discountPercent}%<br/>OFF
+          </div>
+        )}
+
+        {/* Out of stock Ribbon Badge */}
+        {!product.inStock && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '12px',
+            width: '40px',
+            padding: '8px 2px 10px 2px',
+            background: '#9ca3af',
+            color: '#ffffff',
+            fontSize: '0.55rem',
+            fontWeight: 900,
+            lineHeight: 1.15,
+            textAlign: 'center',
+            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+            zIndex: 10
+          }}>
+            SOLD<br/>OUT
+          </div>
+        )}
+
+        {/* Custom Badges (Dynamic from Supabase) */}
+        {(product as any).badges && (product as any).badges.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '12px',
             right: '12px',
-            backgroundColor: 'var(--glass-bg)',
-            border: '1px solid var(--glass-border)',
-            color: 'var(--primary-deep)',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.75rem',
-            fontWeight: 500,
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             gap: '4px',
-            boxShadow: 'var(--shadow-sm)',
-            backdropFilter: 'blur(4px)',
-            transition: 'all var(--transition-fast)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--primary-deep)';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--glass-bg)';
-            e.currentTarget.style.color = 'var(--primary-deep)';
-          }}
-        >
-          <Eye size={14} /> Quick View
-        </button>
+            zIndex: 10
+          }}>
+            {(product as any).badges.map((badge: string, index: number) => (
+              <span key={index} style={{
+                backgroundColor: 'rgba(217, 119, 6, 0.95)',
+                color: '#ffffff',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm, 4px)',
+                boxShadow: 'var(--shadow-sm)',
+                textTransform: 'uppercase'
+              }}>
+                {badge}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Quick View Overlay Button */}
+        {!editable && (
+          <button
+            onClick={() => onViewDetails(product)}
+            style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: '12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              border: '1px solid var(--border-light)',
+              color: 'var(--text-dark)',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.15s ease',
+              zIndex: 10
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--primary-deep)';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+              e.currentTarget.style.color = 'var(--text-dark)';
+            }}
+          >
+            <Eye size={13} /> Quick View
+          </button>
+        )}
+
+        {/* Floating Rating Badge */}
+        <div style={{
+          position: 'absolute',
+          bottom: '12px',
+          right: '12px',
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--border-light)',
+          borderRadius: '6px',
+          padding: '3px 8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '3px',
+          boxShadow: 'var(--shadow-sm)',
+          zIndex: 10
+        }}>
+          <Star size={12} fill="#fbbf24" color="#fbbf24" />
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
+        </div>
       </div>
 
       {/* Info Container */}
       <div style={{
-        padding: '20px',
+        padding: '4px 8px 8px 8px',
         display: 'flex',
         flexDirection: 'column',
-        flexGrow: 1
+        flexGrow: 1,
+        textAlign: 'center',
+        justifyContent: 'space-between',
+        gap: '8px'
       }}>
-        {/* Rating and Category */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '8px'
-        }}>
-          <span style={{
-            fontSize: '0.75rem',
-            color: 'var(--primary-gold)',
-            textTransform: 'uppercase',
-            fontWeight: 600,
-            letterSpacing: '1px'
-          }}>
-            {editable ? (
+        <div>
+          {/* Category Edit */}
+          {editable && (
+            <div style={{
+              fontSize: '0.72rem',
+              color: 'var(--primary-gold)',
+              textTransform: 'uppercase',
+              fontWeight: 800,
+              letterSpacing: '1px',
+              marginBottom: '4px'
+            }}>
               <InlineEdit
                 value={product.category}
                 onChange={(val) => onUpdate && onUpdate({ category: val })}
                 placeholder="Category"
               />
-            ) : (
-              product.category
-            )}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Star size={14} fill="var(--primary-gold)" color="var(--primary-gold)" />
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {product.rating}
-            </span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              ({product.reviewsCount})
-            </span>
-          </div>
-        </div>
+            </div>
+          )}
 
-        {/* Title & Sanskrit Name */}
-        <div style={{ marginBottom: '8px', textAlign: 'left' }}>
+          {/* Title */}
           <h3 style={{
-            fontSize: '1.15rem',
+            fontSize: '0.95rem',
             fontWeight: 700,
             cursor: editable ? 'text' : 'pointer',
             color: 'var(--text-dark)',
             lineHeight: '1.2',
-            margin: 0
+            margin: '0 0 6px 0',
+            display: '-webkit-box',
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden'
           }} onClick={() => !editable && onViewDetails(product)}>
             {editable ? (
               <InlineEdit
@@ -313,13 +335,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               product.name
             )}
           </h3>
+
+          {/* Sanskrit Name Edit */}
           {(editable || (product as any).sanskritName) && (
             <div style={{
-              fontSize: '0.78rem',
+              fontSize: '0.75rem',
               color: 'var(--primary-accent, #ea580c)',
               fontWeight: 600,
               fontStyle: 'italic',
-              marginTop: '2px',
+              marginBottom: '6px',
               fontFamily: 'var(--font-serif, serif)'
             }}>
               {editable ? (
@@ -333,50 +357,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               )}
             </div>
           )}
-        </div>
 
-        {/* Description */}
-        <p style={{
-          fontSize: '0.88rem',
-          color: 'var(--text-secondary)',
-          marginBottom: '16px',
-          textAlign: 'left',
-          display: '-webkit-box',
-          WebkitLineClamp: editable ? undefined : 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: editable ? 'visible' : 'hidden',
-          textOverflow: editable ? 'clip' : 'ellipsis',
-          height: editable ? 'auto' : '42px',
-          lineHeight: '1.35'
-        }}>
-          {editable ? (
-            <InlineEdit
-              type="textarea"
-              value={(product as any).shortDescription || product.description || ''}
-              onChange={(val) => onUpdate && onUpdate({ shortDescription: val, description: val })}
-              placeholder="Short description..."
-            />
-          ) : (
-            (product as any).shortDescription || product.description
-          )}
-        </p>
-
-        {/* Pricing & Add to Cart Row */}
-        <div style={{
-          marginTop: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingTop: '16px',
-          borderTop: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+          {/* Pricing Row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            marginBottom: '4px'
+          }}>
+            <span style={{
+              fontSize: '1.1rem',
+              fontWeight: 800,
+              color: 'var(--primary-forest)'
+            }}>
+              {editable ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  ₹
+                  <InlineEdit
+                    type="number"
+                    value={product.price.toString()}
+                    onChange={(val) => onUpdate && onUpdate({ price: parseFloat(val) || 0 })}
+                    placeholder="Price"
+                  />
+                </span>
+              ) : (
+                `₹${product.price.toFixed(2)}`
+              )}
+            </span>
             {(hasDiscount || editable) && (
               <span style={{
                 fontSize: '0.8rem',
-                color: 'var(--text-secondary)',
-                textDecoration: 'line-through',
-                lineHeight: 1
+                color: 'var(--text-muted)',
+                textDecoration: 'line-through'
               }}>
                 {editable ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -393,59 +406,61 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 )}
               </span>
             )}
-            <span style={{
-              fontSize: '1.3rem',
-              fontWeight: 700,
-              color: 'var(--primary-accent)',
-              lineHeight: 1.1
-            }}>
-              {editable ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                  ₹
-                  <InlineEdit
-                    type="number"
-                    value={product.price.toString()}
-                    onChange={(val) => onUpdate && onUpdate({ price: parseFloat(val) || 0 })}
-                    placeholder="Price"
-                  />
-                </span>
-              ) : (
-                `₹${product.price.toFixed(2)}`
-              )}
-            </span>
           </div>
+        </div>
 
-          <button
-            onClick={() => product.inStock && onAddToCart(product)}
-            disabled={!product.inStock}
-            style={{
-              padding: '10px 16px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: product.inStock ? 'var(--primary-deep)' : 'var(--border-color)',
-              color: product.inStock ? '#ffffff' : 'var(--text-secondary)',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: product.inStock ? 'var(--shadow-sm)' : 'none',
-              transition: 'all var(--transition-fast)'
-            }}
-            onMouseEnter={(e) => {
-              if (product.inStock) {
-                e.currentTarget.style.backgroundColor = 'var(--primary-accent)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (product.inStock) {
-                e.currentTarget.style.backgroundColor = 'var(--primary-deep)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
-            }}
-          >
-            <ShoppingCart size={16} /> Add
-          </button>
+        {/* Add to Cart Button / Description Edit */}
+        <div style={{ marginTop: 'auto' }}>
+          {editable ? (
+            <div style={{ fontSize: '0.75rem', border: '1px dashed var(--border-light)', padding: '4px', borderRadius: '4px' }}>
+              <InlineEdit
+                type="textarea"
+                value={(product as any).shortDescription || product.description || ''}
+                onChange={(val) => onUpdate && onUpdate({ shortDescription: val, description: val })}
+                placeholder="Short description..."
+              />
+            </div>
+          ) : product.inStock ? (
+            <button
+              onClick={() => onAddToCart(product)}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--primary-deep)',
+                color: '#ffffff',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                letterSpacing: '0.05em'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+            >
+              Add To Cart
+            </button>
+          ) : (
+            <button
+              disabled
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--border-light)',
+                color: 'var(--text-muted)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                border: 'none',
+                cursor: 'not-allowed'
+              }}
+            >
+              Out of Stock
+            </button>
+          )}
         </div>
       </div>
     </div>

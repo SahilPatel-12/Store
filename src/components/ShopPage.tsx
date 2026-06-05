@@ -1,8 +1,7 @@
 import React from 'react';
-import { Search, Heart, ShoppingBag, Star, SlidersHorizontal, ArrowUpDown, Eye, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Heart, Star, SlidersHorizontal, ArrowUpDown, Clock, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
-
 interface ShopPageProps {
   onAddToCart: (product: Product, quantity?: number) => void;
   onViewDetails: (product: Product) => void;
@@ -13,6 +12,10 @@ interface ShopPageProps {
     mainBanners?: string[];
     categoryBanners?: Record<string, string[]>;
   };
+  cart: { product: Product; quantity: number }[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  categoriesOrder?: string[];
+  productsOrder?: Record<string, string[]>;
 }
 
 export const ShopPage: React.FC<ShopPageProps> = ({
@@ -22,6 +25,10 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   onToggleWishlist,
   products: productsProp,
   shopBanners,
+  cart,
+  onUpdateQuantity,
+  categoriesOrder,
+  productsOrder,
 }) => {
   const activeProducts = productsProp || [];
   // Filter and Sort states
@@ -32,6 +39,23 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   const [sortBy, setSortBy] = React.useState('popularity');
   const [showFilters, setShowFilters] = React.useState(false);
   const [recentlyViewed, setRecentlyViewed] = React.useState<Product[]>([]);
+
+  // Dynamically set default max price based on loaded products
+  const defaultMaxPrice = React.useMemo(() => {
+    if (activeProducts.length === 0) return 1000;
+    const prices = activeProducts.map(p => p.price).filter(p => !isNaN(p));
+    if (prices.length === 0) return 1000;
+    return Math.ceil(Math.max(...prices, 1000));
+  }, [activeProducts]);
+
+  const hasInitializedPrice = React.useRef(false);
+
+  React.useEffect(() => {
+    if (activeProducts.length > 0 && !hasInitializedPrice.current) {
+      setMaxPrice(defaultMaxPrice);
+      hasInitializedPrice.current = true;
+    }
+  }, [activeProducts, defaultMaxPrice]);
 
   // Load recently viewed on mount
   React.useEffect(() => {
@@ -47,7 +71,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     } catch (e) {
       console.error('Error reading recently viewed from localStorage:', e);
     }
-  }, []);
+  }, [activeProducts]);
 
   const handleProductClick = (product: Product) => {
     // Save to recently viewed in localStorage
@@ -80,7 +104,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     setSearchQuery('');
     setSelectedCategory('all');
     setSelectedSpiritualTypes([]);
-    setMaxPrice(1000);
+    setMaxPrice(defaultMaxPrice);
     setSortBy('popularity');
   };
 
@@ -103,15 +127,33 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   const handleNextBanner = () =>
     setMainBannerSlide(prev => (prev + 1) % mainBannerImages.length);
 
-  // Categories defined in mock data
-  const categories = [
-    { id: 'all', label: 'All Items' },
-    { id: 'kits', label: 'Puja Kits' },
-    { id: 'idols', label: 'Deity Idols' },
-    { id: 'incense', label: 'Incense' },
-    { id: 'books', label: 'Sacred Books' },
-    { id: 'accessories', label: 'Accessories' }
-  ];
+  // Dynamically extract categories that have active products and sort them
+  const categories = React.useMemo(() => {
+    const uniqueCats = Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean)));
+    const allCategories = [
+      { id: 'all', label: 'All Items' },
+      ...uniqueCats.map(cat => ({ id: cat, label: cat }))
+    ];
+
+    if (categoriesOrder && categoriesOrder.length > 0) {
+      return allCategories.sort((a, b) => {
+        const idxA = categoriesOrder.indexOf(a.id);
+        const idxB = categoriesOrder.indexOf(b.id);
+        
+        // If both are present in custom order, sort by index
+        if (idxA !== -1 && idxB !== -1) {
+          return idxA - idxB;
+        }
+        // If a is in custom order but b is not, a comes first
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        // If neither is in custom order, sort alphabetically (case-insensitive)
+        return a.label.localeCompare(b.label, 'en', { sensitivity: 'base' });
+      });
+    }
+
+    return allCategories;
+  }, [activeProducts, categoriesOrder]);
 
   const spiritualTypes = ['Rituals', 'Meditation', 'Vastu', 'Wisdom', 'Aromatherapy'];
 
@@ -130,7 +172,6 @@ export const ShopPage: React.FC<ShopPageProps> = ({
 
     return matchesSearch && matchesCategory && matchesSpiritualType && matchesPrice;
   });
-
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case 'price-asc':
@@ -140,26 +181,35 @@ export const ShopPage: React.FC<ShopPageProps> = ({
       case 'rating':
         return b.rating - a.rating;
       case 'popularity':
-      default:
+      default: {
+        const customOrderList = productsOrder?.[selectedCategory];
+        if (customOrderList && customOrderList.length > 0) {
+          const idxA = customOrderList.indexOf(a.id);
+          const idxB = customOrderList.indexOf(b.id);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+        }
         return b.popularity - a.popularity;
+      }
     }
-  });
-
-  // Product categories background colors for image cards
+  });  // Product categories background colors for image cards
   const getCategoryGradient = (category: string) => {
-    switch (category) {
-      case 'kits':
-        return 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
-      case 'idols':
-        return 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
-      case 'incense':
-        return 'linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%)';
-      case 'books':
-        return 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)';
-      case 'accessories':
-      default:
-        return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    if (!category) return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    const cat = category.toLowerCase();
+    if (cat.includes('kit')) {
+      return 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
     }
+    if (cat.includes('idol') || cat.includes('murti')) {
+      return 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+    }
+    if (cat.includes('incense') || cat.includes('fragrance')) {
+      return 'linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%)';
+    }
+    if (cat.includes('book') || cat.includes('sacred')) {
+      return 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)';
+    }
+    return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
   };
 
   return (
@@ -536,7 +586,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                 <input
                   type="range"
                   min="10"
-                  max="1000"
+                  max={defaultMaxPrice}
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(Number(e.target.value))}
                   style={{
@@ -547,7 +597,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                   <span>₹10</span>
-                  <span>₹1000</span>
+                  <span>₹{defaultMaxPrice}</span>
                 </div>
               </div>
 
@@ -646,223 +696,326 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                 return (
                   <div
                     key={product.id}
-                    className="glass"
                     style={{
-                      borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden',
+                      borderRadius: '16px',
                       border: '1px solid var(--border-light)',
                       display: 'flex',
                       flexDirection: 'column',
                       position: 'relative',
                       backgroundColor: '#ffffff',
                       boxShadow: 'var(--shadow-sm)',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                      height: '100%'
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      padding: '12px',
+                      height: '100%',
+                      gap: '12px'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.transform = 'translateY(-6px)';
                       e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                      const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                      if (img) img.style.transform = 'scale(1.05)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
                       e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                      if (img) img.style.transform = 'scale(1)';
                     }}
                   >
-                    {/* Discount Ribbon */}
-                    {discount > 0 && product.inStock && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '12px',
-                        backgroundColor: '#ef4444',
-                        color: '#ffffff',
-                        fontSize: '0.72rem',
-                        fontWeight: 800,
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-full)',
-                        zIndex: 10
-                      }}>
-                        -{discount}%
-                      </span>
-                    )}
-
-                    {/* Out of Stock Label */}
-                    {!product.inStock && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '12px',
-                        backgroundColor: 'var(--text-muted)',
-                        color: '#ffffff',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-full)',
-                        zIndex: 10
-                      }}>
-                        OUT OF STOCK
-                      </span>
-                    )}
-
-                    {/* Wishlist Button */}
-                    <button
-                      onClick={() => onToggleWishlist(product.id)}
-                      style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid var(--border-light)',
-                        borderRadius: '50%',
-                        width: '32px',
-                        height: '32px',
-                        color: isLiked ? '#ef4444' : 'var(--text-muted)',
-                        zIndex: 10,
-                        boxShadow: 'var(--shadow-sm)',
-                        transition: 'transform 0.15s ease'
-                      }}
-                      className="flex-center"
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    >
-                      <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} />
-                    </button>
-
-                    {/* Image Placeholder Card */}
+                    {/* Image Box */}
                     <div
-                      onClick={() => handleProductClick(product)}
                       style={{
-                        height: '180px',
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
                         background: getCategoryGradient(product.category),
-                        cursor: 'pointer',
                         position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderBottom: '1px solid var(--border-light)'
+                        backgroundColor: '#f9fafb'
                       }}
                     >
                       {product.image && isImageUrl(product.image) ? (
                         <img 
                           src={getDisplayImageUrl(product.image)} 
                           alt={product.name} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          className="card-image"
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover',
+                            transition: 'transform 0.3s ease'
+                          }} 
                         />
                       ) : (
-                        <span style={{ fontSize: '4.4rem', userSelect: 'none' }}>{product.image}</span>
+                        <span style={{ fontSize: '4rem' }}>{product.image}</span>
                       )}
-                      
-                      {/* Hover eye icon */}
-                      <div className="flex-center hover-overlay" style={{
+
+                      {/* Ribbon Badge */}
+                      {discount > 0 && product.inStock && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '12px',
+                          width: '40px',
+                          padding: '8px 2px 10px 2px',
+                          background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                          color: '#ffffff',
+                          fontSize: '0.65rem',
+                          fontWeight: 900,
+                          lineHeight: 1.15,
+                          textAlign: 'center',
+                          clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                          zIndex: 10,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                        }}>
+                          {discount}%<br/>OFF
+                        </div>
+                      )}
+
+                      {/* Out of Stock Label overlay (non-ribbon) */}
+                      {!product.inStock && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '12px',
+                          width: '40px',
+                          padding: '8px 2px 10px 2px',
+                          background: '#9ca3af',
+                          color: '#ffffff',
+                          fontSize: '0.55rem',
+                          fontWeight: 900,
+                          lineHeight: 1.15,
+                          textAlign: 'center',
+                          clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                          zIndex: 10
+                        }}>
+                          SOLD<br/>OUT
+                        </div>
+                      )}
+
+                      {/* Heart Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleWishlist(product.id);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '50%',
+                          width: '32px',
+                          height: '32px',
+                          color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                          zIndex: 10,
+                          boxShadow: 'var(--shadow-sm)',
+                          cursor: 'pointer'
+                        }}
+                        className="flex-center"
+                      >
+                        <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
+                      </button>
+
+                      {/* Rating Badge */}
+                      <div style={{
                         position: 'absolute',
-                        top: 0, right: 0, bottom: 0, left: 0,
-                        backgroundColor: 'rgba(0,0,0,0.05)',
-                        opacity: 0,
-                        transition: 'opacity 0.2s ease'
+                        bottom: '12px',
+                        right: '12px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        boxShadow: 'var(--shadow-sm)',
+                        zIndex: 10
                       }}>
-                        <Eye size={24} style={{ color: '#ffffff' }} />
+                        <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
                       </div>
                     </div>
 
-                    {/* Product Details info */}
-                    <div style={{
-                      padding: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
+                    {/* Content Area */}
+                    <div style={{ 
+                      padding: '4px 8px 8px 8px', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
                       flexGrow: 1,
-                      textAlign: 'left'
+                      textAlign: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 700, textTransform: 'uppercase' }}>
-                          {product.spiritualType}
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <Star size={12} fill="#fbbf24" color="#fbbf24" />
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{product.rating}</span>
-                        </div>
-                      </div>
+                      <div>
+                        <h3
+                          onClick={() => handleProductClick(product)}
+                          style={{
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            color: 'var(--text-dark)',
+                            marginBottom: '6px',
+                            cursor: 'pointer',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          {product.name}
+                        </h3>
 
-                      <h3
-                        onClick={() => handleProductClick(product)}
-                        style={{
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          color: 'var(--text-dark)',
-                          marginBottom: '6px',
-                          cursor: 'pointer',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {product.name}
-                      </h3>
-
-                      <p style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
-                        lineHeight: 1.4,
-                        marginBottom: '16px',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        height: '32px'
-                      }}>
-                        {product.description}
-                      </p>
-
-                      <div style={{
-                        marginTop: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: '12px',
-                        borderTop: '1px solid var(--border-light)'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          marginBottom: '4px'
+                        }}>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                            ₹{product.price}
+                          </span>
                           {product.originalPrice && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
                               ₹{product.originalPrice}
                             </span>
                           )}
-                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                            ₹{product.price}
-                          </span>
                         </div>
                       </div>
 
-                      {/* Floating Add to Cart circle button */}
-                      {product.inStock && (
-                        <button
-                          onClick={() => onAddToCart(product, 1)}
-                          style={{
-                            position: 'absolute',
-                            bottom: '12px',
-                            right: '12px',
-                            width: '34px',
-                            height: '34px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--primary-lime)',
-                            color: 'var(--text-dark)',
-                            boxShadow: 'var(--shadow-sm)',
-                            transition: 'transform 0.15s ease'
-                          }}
-                          className="flex-center"
-                          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        >
-                          <ShoppingBag size={15} />
-                        </button>
-                      )}
+                      {/* Add to Cart Button */}
+                      <div style={{ marginTop: 'auto' }}>
+                        {product.inStock ? (
+                          (() => {
+                            const cartItem = cart.find(item => item.product.id === product.id);
+                            const qty = cartItem ? cartItem.quantity : 0;
+                            if (qty > 0) {
+                              return (
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  backgroundColor: 'var(--primary-deep)',
+                                  borderRadius: '8px',
+                                  padding: '4px',
+                                  width: '100%',
+                                  height: '40px',
+                                  boxSizing: 'border-box'
+                                }}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onUpdateQuantity(product.id, qty - 1);
+                                    }}
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '6px',
+                                      backgroundColor: 'rgba(255,255,255,0.15)',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      border: 'none',
+                                      transition: 'background-color 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                  >
+                                    <Minus size={14} strokeWidth={2.5} />
+                                  </button>
+                                  <span style={{
+                                    color: '#ffffff',
+                                    fontWeight: '800',
+                                    fontSize: '0.85rem',
+                                    userSelect: 'none'
+                                  }}>
+                                    {qty} in Cart
+                                  </span>
+                                  <button
+                                    className="qty-plus-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onUpdateQuantity(product.id, qty + 1);
+                                    }}
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '6px',
+                                      backgroundColor: 'rgba(255,255,255,0.15)',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      border: 'none',
+                                      transition: 'background-color 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                  >
+                                    <Plus size={14} strokeWidth={2.5} />
+                                  </button>
+                                </div>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToCart(product, 1);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px 16px',
+                                  borderRadius: '8px',
+                                  backgroundColor: 'var(--primary-deep)',
+                                  color: '#ffffff',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  letterSpacing: '0.05em'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                              >
+                                Add To Cart
+                              </button>
+                            );
+                          })()
+                        ) : (
+                          <button
+                            disabled
+                            style={{
+                              width: '100%',
+                              padding: '10px 16px',
+                              borderRadius: '8px',
+                              backgroundColor: 'var(--border-light)',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              border: 'none',
+                              cursor: 'not-allowed'
+                            }}
+                          >
+                            Out of Stock
+                          </button>
+                        )}
+                      </div>
                     </div>
-
                   </div>
                 );
-              })}
-
-            </div>
+              })}</div>
           )}
           
         </div>

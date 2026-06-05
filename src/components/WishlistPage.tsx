@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Trash2, ShoppingBag, ArrowRight, Star, ShoppingCart } from 'lucide-react';
+import { Heart, ArrowRight, Star, ShoppingCart } from 'lucide-react';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -152,203 +152,230 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
               gap: '30px'
-            }}>
+            }} className="wishlist-product-grid">
               {wishlistedItems.map((product) => {
                 const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
                 
                 return (
                   <div
-                    key={product.id}
-                    style={{
-                      borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden',
-                      border: '1px solid var(--border-light)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      position: 'relative',
-                      backgroundColor: '#ffffff',
-                      boxShadow: 'var(--shadow-sm)',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      height: '100%',
-                      textAlign: 'left'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                    }}
-                  >
-                    {discount > 0 && product.inStock && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '12px',
-                        backgroundColor: '#ef4444',
-                        color: '#ffffff',
-                        fontSize: '0.72rem',
-                        fontWeight: 800,
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-full)',
-                        zIndex: 10
-                      }}>
-                        -{discount}%
-                      </span>
-                    )}
-
-                    {/* Toggle heart button */}
-                    <button
-                      onClick={() => onToggleWishlist(product.id)}
+                      key={product.id}
                       style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        backgroundColor: '#ffffff',
+                        borderRadius: '16px',
                         border: '1px solid var(--border-light)',
-                        borderRadius: '50%',
-                        width: '32px',
-                        height: '32px',
-                        color: '#ef4444',
-                        zIndex: 10
-                      }}
-                      className="flex-center"
-                      title="Remove from Wishlist"
-                    >
-                      <Heart size={16} fill="#ef4444" />
-                    </button>
-
-                    {/* Image Box */}
-                    <div
-                      onClick={() => onViewDetails(product)}
-                      style={{
-                        height: '180px',
-                        background: getCategoryGradient(product.category),
-                        cursor: 'pointer',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderBottom: '1px solid var(--border-light)'
+                        flexDirection: 'column',
+                        position: 'relative',
+                        backgroundColor: '#ffffff',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        padding: '12px',
+                        height: '100%',
+                        gap: '12px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-6px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1)';
                       }}
                     >
-                      {product.image && isImageUrl(product.image) ? (
-                        <img 
-                          src={getDisplayImageUrl(product.image)} 
-                          alt={product.name} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        />
-                      ) : (
-                        <span style={{ fontSize: '4.4rem' }}>{product.image}</span>
-                      )}
-                    </div>
+                      {/* Image Box */}
+                      <div
+                        style={{
+                          width: '100%',
+                          aspectRatio: '1 / 1',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          background: getCategoryGradient(product.category),
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#f9fafb'
+                        }}
+                      >
+                        {product.image && isImageUrl(product.image) ? (
+                          <img 
+                            src={getDisplayImageUrl(product.image)} 
+                            alt={product.name} 
+                            className="card-image"
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              transition: 'transform 0.3s ease'
+                            }} 
+                          />
+                        ) : (
+                          <span style={{ fontSize: '4rem' }}>{product.image}</span>
+                        )}
 
-                    {/* Content Details */}
-                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 700, textTransform: 'uppercase' }}>
-                          {product.spiritualType}
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        {/* Ribbon Badge */}
+                        {discount > 0 && product.inStock && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: '12px',
+                            width: '40px',
+                            padding: '8px 2px 10px 2px',
+                            background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                            color: '#ffffff',
+                            fontSize: '0.65rem',
+                            fontWeight: 900,
+                            lineHeight: 1.15,
+                            textAlign: 'center',
+                            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                            zIndex: 10,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                          }}>
+                            {discount}%<br/>OFF
+                          </div>
+                        )}
+
+                        {/* Heart Button */}
+                        <button
+                          onClick={() => onToggleWishlist(product.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            color: '#ef4444',
+                            zIndex: 10,
+                            boxShadow: 'var(--shadow-sm)',
+                            cursor: 'pointer'
+                          }}
+                          className="flex-center"
+                          title="Remove from Wishlist"
+                        >
+                          <Heart size={15} fill="#ef4444" />
+                        </button>
+
+                        {/* Rating Badge */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          right: '12px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          boxShadow: 'var(--shadow-sm)',
+                          zIndex: 10
+                        }}>
                           <Star size={12} fill="#fbbf24" color="#fbbf24" />
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{product.rating}</span>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
                         </div>
                       </div>
 
-                      <h3
-                        onClick={() => onViewDetails(product)}
-                        style={{
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          color: 'var(--text-dark)',
-                          marginBottom: '6px',
-                          cursor: 'pointer',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {product.name}
-                      </h3>
-
-                      <p style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
-                        lineHeight: 1.4,
-                        marginBottom: '16px',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        height: '32px'
-                      }}>
-                        {product.description}
-                      </p>
-
-                      {/* Card actions bottom bar */}
-                      <div style={{
-                        marginTop: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
+                      {/* Content Area */}
+                      <div style={{ 
+                        padding: '4px 8px 8px 8px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        flexGrow: 1,
+                        textAlign: 'center',
                         justifyContent: 'space-between',
-                        paddingTop: '12px',
-                        borderTop: '1px solid var(--border-light)'
+                        gap: '8px'
                       }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                            ₹{product.price}
-                          </span>
-                          {product.originalPrice && (
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                              ₹{product.originalPrice}
+                        <div>
+                          <h3
+                            onClick={() => onViewDetails(product)}
+                            style={{
+                              fontSize: '0.95rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)',
+                              marginBottom: '6px',
+                              cursor: 'pointer',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              lineHeight: '1.2'
+                            }}
+                          >
+                            {product.name}
+                          </h3>
+
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginBottom: '4px'
+                          }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                              ₹{product.price}
                             </span>
-                          )}
+                            {product.originalPrice && (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                                ₹{product.originalPrice}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          {/* Remove button */}
-                          <button
-                            onClick={() => onToggleWishlist(product.id)}
-                            style={{
-                              border: '1px solid var(--border-light)',
-                              borderRadius: 'var(--radius-md)',
-                              padding: '8px',
-                              color: 'var(--text-muted)'
-                            }}
-                            className="flex-center"
-                            title="Remove"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-
-                          {/* Move to Cart button */}
+                        {/* Move to Cart Button */}
+                        <div style={{ marginTop: 'auto' }}>
                           {product.inStock ? (
                             <button
                               onClick={() => handleMoveToCart(product)}
-                              className="btn-lime"
                               style={{
-                                padding: '8px 14px',
-                                fontSize: '0.75rem',
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--primary-deep)',
+                                color: '#ffffff',
+                                fontSize: '0.82rem',
                                 fontWeight: 700,
-                                borderRadius: 'var(--radius-md)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                letterSpacing: '0.05em'
                               }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                             >
-                              <ShoppingBag size={13} />
-                              <span>Move to Cart</span>
+                              Move To Cart
                             </button>
                           ) : (
-                            <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 700, padding: '8px 4px' }}>Out of Stock</span>
+                            <button
+                              disabled
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--border-light)',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'not-allowed'
+                              }}
+                            >
+                              Out of Stock
+                            </button>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         )}

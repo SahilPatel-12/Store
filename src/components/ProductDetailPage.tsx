@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -17,6 +17,8 @@ interface ProductDetailPageProps {
   editable?: boolean;
   onUpdate?: (updatedFields: Partial<PoojaProduct>) => void;
   onBuyNow?: (product: Product, quantity: number) => void;
+  cart: { product: Product; quantity: number }[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
 }
 
 // Initial mock reviews database to supply rich devotee reviews
@@ -68,76 +70,132 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   editable = false,
   onUpdate,
   onBuyNow,
+  cart,
+  onUpdateQuantity,
 }) => {
   const activeProducts = productsProp || [];
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
-  const [selectedVariant, setSelectedVariant] = React.useState<string>('Standard');
   const [quantity, setQuantity] = React.useState<number>(1);
   const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
   const [showShareToast, setShowShareToast] = React.useState<boolean>(false);
   const [activeToastMsg, setActiveToastMsg] = React.useState<string>('');
   const [expandedFaqIndex, setExpandedFaqIndex] = React.useState<number | null>(null);
+  const [isCapturingThumbnail, setIsCapturingThumbnail] = React.useState<boolean>(false);
 
   // States for related products admin editor
   const [relatedSearch, setRelatedSearch] = React.useState('');
   const [relatedCategoryFilter, setRelatedCategoryFilter] = React.useState('All');
 
+  // Lightbox overlay state
+  const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
+
   // Interactive review system states
-  const [reviews, setReviews] = React.useState(() => {
-    return initialReviews[product.id] || [
-      { id: 'r-gen1', author: 'Satish Kumar', rating: 5, date: 'May 10, 2026', content: 'Very authentic and energized. Ideal for daily worship.', verified: true }
-    ];
+  const [reviews, setReviews] = React.useState<Array<{ id: string; author: string; rating: number; date: string; content: string; verified: boolean }>>(() => {
+    const pooja = product as PoojaProduct;
+    if (pooja.testimonials && pooja.testimonials.length > 0) {
+      return pooja.testimonials.map((t: any, idx: number) => ({
+        id: t.id || `r-db-${idx}-${Date.now()}`,
+        author: t.author || t.name || 'Anonymous Devotee',
+        rating: t.rating !== undefined ? Number(t.rating) : 5,
+        date: t.date || t.location || 'May 10, 2026',
+        content: t.content || '',
+        verified: t.verified !== undefined ? t.verified : true
+      }));
+    }
+    try {
+      const stored = localStorage.getItem(`ridae_product_reviews_${product.id}`);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error(e);
+    }
+    return initialReviews[product.id] || [];
   });
   const [reviewName, setReviewName] = React.useState('');
   const [reviewRating, setReviewRating] = React.useState(5);
   const [reviewComment, setReviewComment] = React.useState('');
 
-  // Variants depend on product category
-  const getVariants = (cat: string) => {
-    switch (cat) {
-      case 'Rudraksha':
-      case 'Tulsi Mala':
-      case 'Crystal Mala':
-        return [
-          { name: 'Standard (6mm Beads)', modifier: 0 },
-          { name: 'Medium (8mm Beads)', modifier: 5 },
-          { name: 'Premium (10mm Beads)', modifier: 12 }
-        ];
-      case 'Shiva Murti':
-      case 'Ganesh Murti':
-      case 'Hanuman Murti':
-      case 'Lakshmi Murti':
-        return [
-          { name: 'Standard Altar (6 inches)', modifier: 0 },
-          { name: 'Temple Size (9 inches)', modifier: 35 },
-          { name: 'Grand Deity (12 inches)', modifier: 75 }
-        ];
-      case 'Agarbatti':
-      case 'Camphor':
-      case 'Kumkum':
-        return [
-          { name: 'Standard Pack', modifier: 0 },
-          { name: 'Family Blessing Pack (2x)', modifier: 8 },
-          { name: 'Maha Ritual Pack (3x)', modifier: 15 }
-        ];
-      default:
-        return [
-          { name: 'Standard Version', modifier: 0 },
-          { name: 'Energized Gold Edition', modifier: 10 }
-        ];
+  const [reviewsHidden, setReviewsHidden] = React.useState<boolean>(() => {
+    const pooja = product as PoojaProduct;
+    if (pooja.uiLabels && pooja.uiLabels.reviewsHidden !== undefined) {
+      return pooja.uiLabels.reviewsHidden === 'true';
+    }
+    return localStorage.getItem(`ridae_reviews_hidden_${product.id}`) === 'true';
+  });
+
+  const handleToggleReviewsHidden = () => {
+    const newState = !reviewsHidden;
+    setReviewsHidden(newState);
+    localStorage.setItem(`ridae_reviews_hidden_${product.id}`, String(newState));
+    triggerToast(newState ? "Reviews section is now hidden from customers." : "Reviews section is now visible to customers.");
+    
+    if (onUpdate) {
+      const existingLabels = pooja.uiLabels || {};
+      onUpdate({
+        uiLabels: {
+          ...existingLabels,
+          reviewsHidden: newState ? 'true' : 'false'
+        }
+      });
     }
   };
 
-  const variantsList = getVariants(product.category);
+  const handleDeleteReview = (reviewId: string) => {
+    const updated = reviews.filter(r => r.id !== reviewId);
+    setReviews(updated);
+    triggerToast("Review deleted successfully.");
+    if (onUpdate) {
+      onUpdate({ testimonials: updated });
+    }
+  };
 
-  // Find price modifier for selected variant
-  const currentVariantObj = variantsList.find(v => v.name === selectedVariant) || variantsList[0];
-  const variantModifier = currentVariantObj ? currentVariantObj.modifier : 0;
+  React.useEffect(() => {
+    localStorage.setItem(`ridae_product_reviews_${product.id}`, JSON.stringify(reviews));
+  }, [reviews, product.id]);
+
+  React.useEffect(() => {
+    const pooja = product as PoojaProduct;
+    let initialRevs: any[] = [];
+    if (pooja.testimonials && pooja.testimonials.length > 0) {
+      initialRevs = pooja.testimonials.map((t: any, idx: number) => ({
+        id: t.id || `r-db-${idx}-${Date.now()}`,
+        author: t.author || t.name || 'Anonymous Devotee',
+        rating: t.rating !== undefined ? Number(t.rating) : 5,
+        date: t.date || t.location || 'May 10, 2026',
+        content: t.content || '',
+        verified: t.verified !== undefined ? t.verified : true
+      }));
+    } else {
+      try {
+        const stored = localStorage.getItem(`ridae_product_reviews_${product.id}`);
+        if (stored) {
+          initialRevs = JSON.parse(stored);
+        } else {
+          initialRevs = initialReviews[product.id] || [];
+        }
+      } catch (e) {
+        console.error(e);
+        initialRevs = initialReviews[product.id] || [];
+      }
+    }
+    setReviews(initialRevs);
+
+    let isHidden = false;
+    if (pooja.uiLabels && pooja.uiLabels.reviewsHidden !== undefined) {
+      isHidden = pooja.uiLabels.reviewsHidden === 'true';
+    } else {
+      isHidden = localStorage.getItem(`ridae_reviews_hidden_${product.id}`) === 'true';
+    }
+    setReviewsHidden(isHidden);
+
+    setReviewName('');
+    setReviewRating(5);
+    setReviewComment('');
+  }, [product.id, (product as PoojaProduct).testimonials, (product as PoojaProduct).uiLabels]);
 
   // Dynamic Pricing Updates
-  const singleItemPrice = product.price + variantModifier;
+  const singleItemPrice = product.price;
   const totalPrice = singleItemPrice * quantity;
-  const originalItemPrice = product.originalPrice ? (product.originalPrice + variantModifier) : null;
+  const originalItemPrice = product.originalPrice || null;
   const discountPct = originalItemPrice ? Math.round(((originalItemPrice - singleItemPrice) / originalItemPrice) * 100) : 0;
 
   const pooja = product as PoojaProduct;
@@ -159,20 +217,61 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   // Gallery images resolver
   const resolvedGallery = React.useMemo(() => {
+    let list: Array<{ url: string; alt: string; isEmoji: boolean; gradient: string; isVideo?: boolean; thumbnail?: string }> = [];
     if (pooja.galleryImages && pooja.galleryImages.length > 0) {
-      return pooja.galleryImages.map(img => ({
+      list = pooja.galleryImages.map(img => ({
         url: img.url,
         alt: img.alt || pooja.name,
         isEmoji: false,
-        gradient: 'none'
+        gradient: 'none',
+        isVideo: (img as any).isVideo || false,
+        thumbnail: (img as any).thumbnail
       }));
+    } else {
+      list = [
+        { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient, isVideo: false },
+        { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', isVideo: false },
+        { url: '🕉️', alt: 'Om', isEmoji: true, gradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', isVideo: false }
+      ];
     }
-    return [
-      { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient },
-      { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' },
-      { url: '🕉️', alt: 'Om', isEmoji: true, gradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' }
-    ];
+
+    // Auto-append legacy video if present
+    const poojaProd = product as PoojaProduct;
+    if (poojaProd.videoUrl) {
+      list.push({
+        url: poojaProd.videoUrl,
+        alt: 'Product Video',
+        isEmoji: false,
+        gradient: 'none',
+        isVideo: true,
+        thumbnail: poojaProd.uiLabels?.videoThumbnail
+      });
+    }
+    return list;
   }, [product, pooja, selectedGradient]);
+
+  // Keyboard navigation for Lightbox
+  React.useEffect(() => {
+    if (lightboxIndex === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxIndex(null);
+      } else if (e.key === 'ArrowLeft') {
+        setLightboxIndex(prev => (prev !== null ? (prev - 1 + resolvedGallery.length) % resolvedGallery.length : null));
+      } else if (e.key === 'ArrowRight') {
+        setLightboxIndex(prev => (prev !== null ? (prev + 1) % resolvedGallery.length : null));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [lightboxIndex, resolvedGallery.length]);
 
   // Resolve explicit related products first, then fallback to automatic ones
   const resolvedRelated = React.useMemo(() => {
@@ -238,15 +337,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       id: 'r-user-' + Date.now(),
       author: reviewName,
       rating: reviewRating,
-      date: 'Today',
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }),
       content: reviewComment,
       verified: true
     };
 
-    setReviews([newRev, ...reviews]);
+    const updated = [newRev, ...reviews];
+    setReviews(updated);
     setReviewName('');
     setReviewComment('');
     triggerToast("Thank you! Review submitted successfully.");
+
+    if (onUpdate) {
+      onUpdate({ testimonials: updated });
+    }
   };
 
   const specs = {
@@ -605,20 +709,75 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Primary Image View */}
-            <div style={{
-              borderRadius: 'var(--radius-lg)',
-              background: resolvedGallery[activeImageIndex] && resolvedGallery[activeImageIndex].gradient !== 'none' ? resolvedGallery[activeImageIndex].gradient : '#ffffff',
-              height: '380px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              boxShadow: 'var(--shadow-sm)',
-              border: '1px solid var(--border-light)',
-              overflow: 'hidden'
-            }}>
+            <div 
+              onClick={() => {
+                if (!editable && !resolvedGallery[activeImageIndex]?.isEmoji) {
+                  setLightboxIndex(activeImageIndex);
+                }
+              }}
+              style={{
+                borderRadius: 'var(--radius-lg)',
+                background: resolvedGallery[activeImageIndex] && resolvedGallery[activeImageIndex].gradient !== 'none' ? resolvedGallery[activeImageIndex].gradient : '#ffffff',
+                width: '100%',
+                aspectRatio: '1 / 1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                boxShadow: 'var(--shadow-sm)',
+                border: '1px solid var(--border-light)',
+                overflow: 'hidden',
+                cursor: resolvedGallery[activeImageIndex]?.isEmoji ? 'default' : 'zoom-in',
+              }}
+            >
+              {!resolvedGallery[activeImageIndex]?.isEmoji && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(activeImageIndex);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(4px)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '50%',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-sm)',
+                    zIndex: 25,
+                    color: 'var(--text-dark)',
+                    transition: 'all 0.2s',
+                  }}
+                  title="View full screen"
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <ZoomIn size={18} />
+                </button>
+              )}
               {resolvedGallery[activeImageIndex] ? (
-                resolvedGallery[activeImageIndex].isEmoji ? (
+                resolvedGallery[activeImageIndex].isVideo ? (
+                  <video
+                    id="pooja-product-video-player"
+                    src={resolvedGallery[activeImageIndex].url}
+                    poster={resolvedGallery[activeImageIndex].thumbnail || undefined}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    crossOrigin="anonymous"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : resolvedGallery[activeImageIndex].isEmoji ? (
                   <span style={{ fontSize: '8rem', userSelect: 'none', filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.15))' }}>
                     {resolvedGallery[activeImageIndex].url}
                   </span>
@@ -633,8 +792,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <span style={{ fontSize: '1rem', color: '#9ca3af' }}>No image loaded</span>
               )}
 
+
+
               {/* Cloudflare R2 Upload Overlay when Editable */}
-              {editable && (
+              {editable && !resolvedGallery[activeImageIndex]?.isVideo && (
                 <>
                   <label
                     htmlFor={`detail-image-upload-${product.id}`}
@@ -710,12 +871,178 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
             </div>
 
+            {/* Video Thumbnail Control Panel when active item is video and in editable mode */}
+            {editable && resolvedGallery[activeImageIndex]?.isVideo && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                boxShadow: 'var(--shadow-sm)',
+                textAlign: 'left',
+                marginTop: '12px',
+                marginBottom: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '4px',
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid var(--border-light)',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative'
+                  }}>
+                    {((pooja.galleryImages && activeImageIndex < pooja.galleryImages.length && (pooja.galleryImages[activeImageIndex] as any)?.thumbnail) ||
+                     (activeImageIndex >= (pooja.galleryImages?.length || 0) && pooja.uiLabels?.videoThumbnail)) ? (
+                      <img
+                        src={getDisplayImageUrl(
+                          (pooja.galleryImages && activeImageIndex < pooja.galleryImages.length)
+                            ? (pooja.galleryImages[activeImageIndex] as any)?.thumbnail
+                            : pooja.uiLabels?.videoThumbnail
+                        )}
+                        alt="Thumbnail preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '0.62rem', color: '#9ca3af', textAlign: 'center', padding: '4px' }}>No Thumbnail</span>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Video Cover Frame</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Scrub video, then capture frame as cover.</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    disabled={isCapturingThumbnail}
+                    onClick={async () => {
+                      const video = document.getElementById('pooja-product-video-player') as HTMLVideoElement;
+                      if (!video) return;
+
+                      setIsCapturingThumbnail(true);
+                      const canvas = document.createElement('canvas');
+                      canvas.width = video.videoWidth || 640;
+                      canvas.height = video.videoHeight || 360;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(async (blob) => {
+                          if (!blob) {
+                            setIsCapturingThumbnail(false);
+                            return;
+                          }
+                          const file = new File([blob], `thumb-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                          try {
+                            const cdnUrl = await uploadToR2(file, 'products/thumbnails');
+                            
+                            // Check if the current video is in galleryImages
+                            if (pooja.galleryImages && activeImageIndex < pooja.galleryImages.length) {
+                              const updatedGallery = [...pooja.galleryImages];
+                              updatedGallery[activeImageIndex] = {
+                                ...updatedGallery[activeImageIndex],
+                                thumbnail: cdnUrl
+                              } as any;
+                              onUpdate && onUpdate({ galleryImages: updatedGallery });
+                            } else {
+                              // Legacy videoUrl fallback
+                              const existingLabels = pooja.uiLabels || {};
+                              onUpdate && onUpdate({
+                                uiLabels: {
+                                  ...existingLabels,
+                                  videoThumbnail: cdnUrl
+                                }
+                              });
+                            }
+                            triggerToast('Captured frame as thumbnail!');
+                          } catch (err) {
+                            alert('Failed to upload thumbnail: ' + (err as Error).message);
+                          } finally {
+                            setIsCapturingThumbnail(false);
+                          }
+                        }, 'image/jpeg', 0.85);
+                      } else {
+                        setIsCapturingThumbnail(false);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: isCapturingThumbnail ? '#94a3b8' : 'var(--primary-lime)',
+                      color: '#0f172a',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md, 6px)',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: isCapturingThumbnail ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {isCapturingThumbnail ? 'Uploading...' : '📸 Capture Frame'}
+                  </button>
+                  {((pooja.galleryImages && activeImageIndex < pooja.galleryImages.length && (pooja.galleryImages[activeImageIndex] as any)?.thumbnail) ||
+                    (activeImageIndex >= (pooja.galleryImages?.length || 0) && pooja.uiLabels?.videoThumbnail)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (pooja.galleryImages && activeImageIndex < pooja.galleryImages.length) {
+                          const updatedGallery = [...pooja.galleryImages];
+                          const itemCopy = { ...updatedGallery[activeImageIndex] };
+                          delete (itemCopy as any).thumbnail;
+                          updatedGallery[activeImageIndex] = itemCopy;
+                          onUpdate && onUpdate({ galleryImages: updatedGallery });
+                        } else {
+                          const existingLabels = pooja.uiLabels || {};
+                          const updated = { ...existingLabels };
+                          delete updated.videoThumbnail;
+                          onUpdate && onUpdate({ uiLabels: updated });
+                        }
+                        triggerToast('Video thumbnail cleared.');
+                      }}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: '#fee2e2',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md, 6px)',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer'
+                      }}
+                      title="Clear custom thumbnail"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Gallery Thumbnails */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               {resolvedGallery.map((img, idx) => (
                 <div key={idx} style={{ position: 'relative' }}>
                   <button
-                    onClick={() => setActiveImageIndex(idx)}
+                    onClick={() => {
+                      if (activeImageIndex === idx) {
+                        if (!img.isEmoji) {
+                          setLightboxIndex(idx);
+                        }
+                      } else {
+                        setActiveImageIndex(idx);
+                      }
+                    }}
                     style={{
                       width: '80px',
                       height: '80px',
@@ -731,19 +1058,50 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       padding: 0
                     }}
                   >
-                    {img.isEmoji ? (
+                    {img.isVideo ? (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative',
+                        backgroundColor: '#4b5563',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff'
+                      }}>
+                        {img.thumbnail ? (
+                          <img
+                            src={getDisplayImageUrl(img.thumbnail)}
+                            alt="Video Thumbnail"
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              opacity: 0.7
+                            }}
+                          />
+                        ) : null}
+                        <Play size={24} fill="currentColor" style={{ zIndex: 2 }} />
+                      </div>
+                    ) : img.isEmoji ? (
                       <span style={{ fontSize: '2.2rem' }}>{img.url}</span>
                     ) : (
                       <img src={getDisplayImageUrl(img.url)} alt={img.alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
                   </button>
-                  {editable && resolvedGallery.length > 1 && (
+                  {editable && (img.isVideo || resolvedGallery.length > 1) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (pooja.galleryImages) {
+                        if (pooja.galleryImages && idx < pooja.galleryImages.length) {
                           const updated = pooja.galleryImages.filter((_, i) => i !== idx);
                           onUpdate && onUpdate({ galleryImages: updated });
+                          setActiveImageIndex(0);
+                        } else {
+                          onUpdate && onUpdate({ videoUrl: undefined });
                           setActiveImageIndex(0);
                         }
                       }}
@@ -811,6 +1169,52 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           const cdnUrl = await uploadToR2(file, 'products/gallery');
                           const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
                           onUpdate({ galleryImages: [...currentGallery, { url: cdnUrl, alt: pooja.name }] });
+                        } catch (err) {
+                          alert('Upload failed: ' + (err as Error).message);
+                        }
+                      }
+                    }}
+                  />
+                  {/* Add Video Button */}
+                  <label
+                    htmlFor={`detail-video-add-${product.id}`}
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px dashed #3b82f6',
+                      backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                      color: '#3b82f6',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      gap: '4px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)'}
+                  >
+                    <Play size={18} />
+                    <span>Add Video</span>
+                  </label>
+                  <input
+                    id={`detail-video-add-${product.id}`}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && onUpdate) {
+                        try {
+                          const cdnUrl = await uploadToR2(file, 'products/videos');
+                          const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
+                          onUpdate({
+                            galleryImages: [...currentGallery, { url: cdnUrl, alt: 'Product Video', isVideo: true } as any]
+                          });
                         } catch (err) {
                           alert('Upload failed: ' + (err as Error).message);
                         }
@@ -1121,6 +1525,175 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               )}
             </div>
 
+            {/* Quantity Selector & Wishlist */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  overflow: 'hidden',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <button
+                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                  >
+                    -
+                  </button>
+                  <span style={{ padding: '0 8px', fontSize: '0.92rem', fontWeight: 800, minWidth: '24px', textAlign: 'center' }}>
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(prev => prev + 1)}
+                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic total feedback */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                  ₹{totalPrice.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Action Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 0.5fr', gap: '12px', marginTop: '8px' }}>
+              {(() => {
+                const cartItem = cart.find(item => item.product.id === product.id);
+                const qty = cartItem ? cartItem.quantity : 0;
+                if (qty > 0) {
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: 'var(--primary-deep)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '5px',
+                      height: '54px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateQuantity(product.id, qty - 1);
+                        }}
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255,255,255,0.15)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          border: 'none',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                      >
+                        <Minus size={16} strokeWidth={2.5} />
+                      </button>
+                      <span style={{
+                        color: '#ffffff',
+                        fontWeight: '800',
+                        fontSize: '0.95rem',
+                        userSelect: 'none'
+                      }}>
+                        {qty} in Cart
+                      </span>
+                      <button
+                        className="qty-plus-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateQuantity(product.id, qty + 1);
+                        }}
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255,255,255,0.15)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          border: 'none',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                      >
+                        <Plus size={16} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    onClick={handleAddToCartClick}
+                    className="btn-lime"
+                    style={{
+                      padding: '16px',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: 'var(--shadow-sm)',
+                      height: '54px',
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <ShoppingBag size={18} /> Add to Cart
+                  </button>
+                );
+              })()}
+
+              <button
+                onClick={handleBuyNowClick}
+                style={{
+                  backgroundColor: 'var(--primary-forest)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'opacity 0.15s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Buy It Now
+              </button>
+
+              <button
+                onClick={() => onToggleWishlist(product.id)}
+                style={{
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#ffffff',
+                  color: wishlist[product.id] ? '#ef4444' : 'var(--text-muted)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+                className="flex-center"
+              >
+                <Heart size={20} fill={wishlist[product.id] ? '#ef4444' : 'none'} />
+              </button>
+            </div>
+
             {/* Description */}
             <div style={{
               fontSize: '0.95rem',
@@ -1139,90 +1712,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 product.description
               )}
             </div>
-
-            {/* Pooja Quick Metadata Cards */}
-            {(editable || pooja.duration || pooja.templeAssociation || pooja.whoShouldPerform) && (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                gap: '12px',
-                marginTop: '4px',
-                marginBottom: '4px'
-              }}>
-                {(editable || pooja.duration) && (
-                  <div style={{
-                    backgroundColor: '#ffffff',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-light)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>Duration</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                      {editable ? (
-                        <InlineEdit
-                          value={pooja.duration || ''}
-                          onChange={(val) => onUpdate && onUpdate({ duration: val })}
-                          placeholder="e.g. 2 Hours"
-                        />
-                      ) : (
-                        pooja.duration
-                      )}
-                    </span>
-                  </div>
-                )}
-                {(editable || pooja.templeAssociation) && (
-                  <div style={{
-                    backgroundColor: '#ffffff',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-light)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>Temple</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pooja.templeAssociation}>
-                      {editable ? (
-                        <InlineEdit
-                          value={pooja.templeAssociation || ''}
-                          onChange={(val) => onUpdate && onUpdate({ templeAssociation: val })}
-                          placeholder="e.g. Kashi Temple"
-                        />
-                      ) : (
-                        pooja.templeAssociation
-                      )}
-                    </span>
-                  </div>
-                )}
-                {(editable || pooja.whoShouldPerform) && (
-                  <div style={{
-                    backgroundColor: '#ffffff',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-light)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>For Whom</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pooja.whoShouldPerform}>
-                      {editable ? (
-                        <InlineEdit
-                          value={pooja.whoShouldPerform || ''}
-                          onChange={(val) => onUpdate && onUpdate({ whoShouldPerform: val })}
-                          placeholder="e.g. Anyone seeking peace"
-                        />
-                      ) : (
-                        pooja.whoShouldPerform
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Spiritual Benefits Bullet Points */}
             <div style={{
@@ -1291,121 +1780,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   + Add Benefit
                 </button>
               )}
-            </div>
-
-            {/* Variant Selector */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>Select Option / Variant</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {variantsList.map((v) => (
-                  <button
-                    key={v.name}
-                    onClick={() => setSelectedVariant(v.name)}
-                    style={{
-                      padding: '10px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      border: selectedVariant === v.name ? '2px solid var(--primary-lime)' : '1px solid var(--border-light)',
-                      backgroundColor: selectedVariant === v.name ? 'var(--primary-lime-light)' : '#ffffff',
-                      color: selectedVariant === v.name ? 'var(--primary-lime)' : 'var(--text-dark)',
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    {v.name} {v.modifier > 0 ? `(+₹${v.modifier})` : ''}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quantity Selector & Wishlist */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-md)',
-                  overflow: 'hidden',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <button
-                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
-                  >
-                    -
-                  </button>
-                  <span style={{ padding: '0 8px', fontSize: '0.92rem', fontWeight: 800, minWidth: '24px', textAlign: 'center' }}>
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(prev => prev + 1)}
-                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Dynamic total feedback */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                  ₹{totalPrice.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            {/* Main Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 0.5fr', gap: '12px', marginTop: '8px' }}>
-              <button
-                onClick={handleAddToCartClick}
-                className="btn-lime"
-                style={{
-                  padding: '16px',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                <ShoppingBag size={18} /> Add to Cart
-              </button>
-
-              <button
-                onClick={handleBuyNowClick}
-                style={{
-                  backgroundColor: 'var(--primary-forest)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px',
-                  textAlign: 'center',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'opacity 0.15s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-              >
-                Buy It Now
-              </button>
-
-              <button
-                onClick={() => onToggleWishlist(product.id)}
-                style={{
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: '#ffffff',
-                  color: wishlist[product.id] ? '#ef4444' : 'var(--text-muted)',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-                className="flex-center"
-              >
-                <Heart size={20} fill={wishlist[product.id] ? '#ef4444' : 'none'} />
-              </button>
             </div>
 
           </div>
@@ -2252,141 +2626,224 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         )}
 
       {/* Reviews Section */}
-      <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
-        <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', alignItems: 'start' }} className="hero-grid-split">
-
-            {/* Reviews list */}
-            <div style={{ textAlign: 'left' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
-              </h2>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {reviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    style={{
-                      padding: '20px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border-light)',
-                      boxShadow: 'var(--shadow-sm)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-dark)' }}>{rev.author}</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rev.date}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1px', marginBottom: '8px' }}>
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          size={14}
-                          fill={s <= rev.rating ? '#fbbf24' : 'none'}
-                          color="#fbbf24"
-                        />
-                      ))}
-                    </div>
-
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                      {rev.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Write a review form */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              padding: '30px',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-light)',
-              boxShadow: 'var(--shadow-sm)',
-              textAlign: 'left'
-            }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
-                Write a Review
-              </h3>
-              <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Your Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter your name"
-                    value={reviewName}
-                    onChange={(e) => setReviewName(e.target.value)}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.88rem'
-                    }}
-                  />
+      {(!reviewsHidden || editable) && (
+        <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+          <div className="container">
+            {editable && (
+              <div style={{
+                backgroundColor: reviewsHidden ? '#fffbeb' : '#f0fdf4',
+                border: `1.5px solid ${reviewsHidden ? 'rgba(217, 119, 6, 0.25)' : 'rgba(22, 163, 74, 0.25)'}`,
+                borderRadius: 'var(--radius-lg)',
+                padding: '16px 24px',
+                marginBottom: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                textAlign: 'left'
+              }}>
+                <div>
+                  <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: reviewsHidden ? '#b45309' : '#15803d', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                    {reviewsHidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                    Reviews Section Visibility (Admin Control)
+                  </h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', margin: '4px 0 0' }}>
+                    {reviewsHidden 
+                      ? "Currently HIDDEN from customers on the live website. The page layout automatically collapses to fit other sections."
+                      : "Currently VISIBLE to customers on the live website."
+                    }
+                  </p>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Star Rating</label>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <button
-                        type="button"
-                        key={s}
-                        onClick={() => setReviewRating(s)}
-                        style={{ padding: '4px' }}
-                      >
-                        <Star
-                          size={24}
-                          fill={s <= reviewRating ? '#fbbf24' : 'none'}
-                          color="#fbbf24"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Review Comment</label>
-                  <textarea
-                    required
-                    rows={4}
-                    placeholder="Share your spiritual feedback about this item..."
-                    value={reviewComment}
-                    onChange={(e) => setReviewComment(e.target.value)}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.88rem',
-                      fontFamily: 'inherit',
-                      resize: 'none'
-                    }}
-                  />
-                </div>
-
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleToggleReviewsHidden}
                   className="btn-lime"
                   style={{
-                    padding: '12px',
+                    padding: '8px 16px',
+                    fontSize: '0.82rem',
                     borderRadius: 'var(--radius-md)',
-                    justifyContent: 'center',
-                    marginTop: '8px'
+                    backgroundColor: reviewsHidden ? 'var(--primary-lime)' : '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer'
                   }}
                 >
-                  Submit Blessing Review
+                  {reviewsHidden ? 'Show Reviews Section' : 'Hide Reviews Section'}
                 </button>
-              </form>
-            </div>
+              </div>
+            )}
 
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '50px',
+              alignItems: 'start',
+              opacity: reviewsHidden ? 0.6 : 1,
+              transition: 'opacity 0.25s ease'
+            }} className="hero-grid-split">
+
+              {/* Reviews list */}
+              <div style={{ textAlign: 'left' }}>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
+                </h2>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {reviews.length === 0 ? (
+                    <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa' }}>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>No reviews yet for this product.</p>
+                      <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review below!</p>
+                    </div>
+                  ) : (
+                    reviews.map((rev) => (
+                      <div
+                        key={rev.id}
+                        style={{
+                          padding: '20px',
+                          backgroundColor: '#ffffff',
+                          borderRadius: 'var(--radius-lg)',
+                          border: '1px solid var(--border-light)',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-dark)' }}>{rev.author}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rev.date}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReview(rev.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: 0.7,
+                                transition: 'opacity 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                              title="Delete Review"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1px', marginBottom: '8px' }}>
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              size={14}
+                              fill={s <= rev.rating ? '#fbbf24' : 'none'}
+                              color="#fbbf24"
+                            />
+                          ))}
+                        </div>
+
+                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                          {rev.content}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Write a review form */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '30px',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-light)',
+                boxShadow: 'var(--shadow-sm)',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
+                  Write a Review
+                </h3>
+                <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Your Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Enter your name"
+                      value={reviewName}
+                      onChange={(e) => setReviewName(e.target.value)}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Star Rating</label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          type="button"
+                          key={s}
+                          onClick={() => setReviewRating(s)}
+                          style={{ padding: '4px' }}
+                        >
+                          <Star
+                            size={24}
+                            fill={s <= reviewRating ? '#fbbf24' : 'none'}
+                            color="#fbbf24"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Review Comment</label>
+                    <textarea
+                      required
+                      rows={4}
+                      placeholder="Share your spiritual feedback about this item..."
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        fontFamily: 'inherit',
+                        resize: 'none'
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-lime"
+                    style={{
+                      padding: '12px',
+                      borderRadius: 'var(--radius-md)',
+                      justifyContent: 'center',
+                      marginTop: '8px'
+                    }}
+                  >
+                    Submit Blessing Review
+                  </button>
+                </form>
+              </div>
+
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Related Products Grid */}
       <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
@@ -2565,145 +3022,297 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <div
                   key={p.id}
                   style={{
-                    borderRadius: 'var(--radius-lg)',
-                    overflow: 'hidden',
+                    borderRadius: '16px',
                     border: '1px solid var(--border-light)',
                     display: 'flex',
                     flexDirection: 'column',
                     position: 'relative',
                     backgroundColor: '#ffffff',
                     boxShadow: 'var(--shadow-sm)',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    padding: '12px',
+                    height: '100%',
+                    gap: '12px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-6px)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1)';
                   }}
                 >
-                  {discount > 0 && p.inStock && (
-                    <span style={{
-                      position: 'absolute',
-                      top: '12px',
-                      left: '12px',
-                      backgroundColor: '#ef4444',
-                      color: '#ffffff',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-full)',
-                      zIndex: 10
-                    }}>
-                      -{discount}%
-                    </span>
-                  )}
-
-                  <button
-                    onClick={() => onToggleWishlist(p.id)}
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      color: isLiked ? '#ef4444' : 'var(--text-muted)',
-                      zIndex: 10
-                    }}
-                    className="flex-center"
-                  >
-                    <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} />
-                  </button>
-
+                  {/* Image Box */}
                   <div
-                    onClick={() => {
-                      onViewDetails(p);
-                      // Scroll to top
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
                     style={{
-                      height: '180px',
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
                       background: categoryGradients[p.category.toLowerCase()] || categoryGradients['default'],
-                      cursor: 'pointer',
+                      position: 'relative',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderBottom: '1px solid var(--border-light)'
+                      backgroundColor: '#f9fafb'
                     }}
                   >
                     {p.image && isImageUrl(p.image) ? (
-                      <img
-                        src={getDisplayImageUrl(p.image)}
-                        alt={p.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      <img 
+                        src={getDisplayImageUrl(p.image)} 
+                        alt={p.name} 
+                        className="card-image"
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover',
+                          transition: 'transform 0.3s ease'
+                        }} 
                       />
                     ) : (
-                      <span style={{ fontSize: '4.4rem' }}>{p.image}</span>
+                      <span style={{ fontSize: '4rem' }}>{p.image}</span>
                     )}
-                  </div>
 
-                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flexGrow: 1, textAlign: 'left' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                      {p.spiritualType}
-                    </span>
+                    {/* Ribbon Badge */}
+                    {discount > 0 && p.inStock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '12px',
+                        width: '40px',
+                        padding: '8px 2px 10px 2px',
+                        background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                        color: '#ffffff',
+                        fontSize: '0.65rem',
+                        fontWeight: 900,
+                        lineHeight: 1.15,
+                        textAlign: 'center',
+                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                      }}>
+                        {discount}%<br/>OFF
+                      </div>
+                    )}
 
-                    <h3
-                      onClick={() => {
-                        onViewDetails(p);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
+                    {/* Heart Button */}
+                    <button
+                      onClick={() => onToggleWishlist(p.id)}
                       style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        color: 'var(--text-dark)',
-                        marginBottom: '6px',
-                        cursor: 'pointer',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 1,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                        zIndex: 10,
+                        boxShadow: 'var(--shadow-sm)',
+                        cursor: 'pointer'
                       }}
-                      title={p.name}
+                      className="flex-center"
                     >
-                      {p.name}
-                    </h3>
+                      <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
+                    </button>
 
-                    <p style={{
-                      fontSize: '0.78rem',
-                      color: 'var(--text-muted)',
-                      lineHeight: 1.4,
-                      marginBottom: '12px',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      height: '32px'
-                    }}>
-                      {p.description}
-                    </p>
-
+                    {/* Rating Badge */}
                     <div style={{
-                      marginTop: 'auto',
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingTop: '12px',
-                      borderTop: '1px solid var(--border-light)'
+                      gap: '3px',
+                      boxShadow: 'var(--shadow-sm)',
+                      zIndex: 10
                     }}>
-                      <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                        ₹{p.price}
-                      </span>
+                      <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{p.rating}</span>
+                    </div>
+                  </div>
 
-                      {p.inStock && (
+                  {/* Content Area */}
+                  <div style={{ 
+                    padding: '4px 8px 8px 8px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    flexGrow: 1,
+                    textAlign: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <h3
+                        onClick={() => {
+                          onViewDetails(p);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          color: 'var(--text-dark)',
+                          marginBottom: '6px',
+                          cursor: 'pointer',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: '1.2'
+                        }}
+                      >
+                        {p.name}
+                      </h3>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        marginBottom: '4px'
+                      }}>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                          ₹{p.price}
+                        </span>
+                        {p.originalPrice && (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                            ₹{p.originalPrice}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add to Cart Button */}
+                    <div style={{ marginTop: 'auto' }}>
+                      {p.inStock ? (
+                        (() => {
+                          const cartItem = cart.find(item => item.product.id === p.id);
+                          const qty = cartItem ? cartItem.quantity : 0;
+                          if (qty > 0) {
+                            return (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--primary-deep)',
+                                borderRadius: '8px',
+                                padding: '4px',
+                                width: '100%',
+                                height: '40px',
+                                boxSizing: 'border-box'
+                              }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onUpdateQuantity(p.id, qty - 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Minus size={14} strokeWidth={2.5} />
+                                </button>
+                                <span style={{
+                                  color: '#ffffff',
+                                  fontWeight: '800',
+                                  fontSize: '0.85rem',
+                                  userSelect: 'none'
+                                }}>
+                                  {qty} in Cart
+                                </span>
+                                <button
+                                  className="qty-plus-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onUpdateQuantity(p.id, qty + 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Plus size={14} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddToCart(p, 1);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--primary-deep)',
+                                color: '#ffffff',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                letterSpacing: '0.05em'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                            >
+                              Add To Cart
+                            </button>
+                          );
+                        })()
+                      ) : (
                         <button
-                          onClick={() => onAddToCart(p, 1)}
+                          disabled
                           style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--primary-lime)',
-                            color: 'var(--text-dark)'
+                            width: '100%',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--border-light)',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            border: 'none',
+                            cursor: 'not-allowed'
                           }}
-                          className="flex-center"
                         >
-                          <ShoppingBag size={14} />
+                          Out of Stock
                         </button>
                       )}
                     </div>
@@ -2737,6 +3346,177 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         }}>
           <Check size={16} style={{ color: 'var(--primary-lime)' }} />
           <span>{activeToastMsg}</span>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxIndex !== null && resolvedGallery[lightboxIndex] && (
+        <div
+          onClick={() => setLightboxIndex(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setLightboxIndex(null)}
+            style={{
+              position: 'absolute',
+              top: '24px',
+              right: '24px',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '44px',
+              height: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s',
+              zIndex: 10000
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
+          >
+            <X size={24} />
+          </button>
+
+          {/* Left Arrow */}
+          {resolvedGallery.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxIndex((prev) => (prev !== null ? (prev - 1 + resolvedGallery.length) % resolvedGallery.length : null));
+              }}
+              style={{
+                position: 'absolute',
+                left: '24px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                zIndex: 10000
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+            >
+              <ChevronLeft size={28} />
+            </button>
+          )}
+
+          {/* Right Arrow */}
+          {resolvedGallery.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxIndex((prev) => (prev !== null ? (prev + 1) % resolvedGallery.length : null));
+              }}
+              style={{
+                position: 'absolute',
+                right: '24px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                zIndex: 10000
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+            >
+              <ChevronRight size={28} />
+            </button>
+          )}
+
+          {/* Center Image Container */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {resolvedGallery[lightboxIndex].isVideo ? (
+              <video
+                src={resolvedGallery[lightboxIndex].url}
+                poster={pooja.uiLabels?.videoThumbnail || undefined}
+                controls
+                autoPlay
+                playsInline
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '80vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              />
+            ) : (
+              <img
+                src={getDisplayImageUrl(resolvedGallery[lightboxIndex].url)}
+                alt={resolvedGallery[lightboxIndex].alt}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '80vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              />
+            )}
+          </div>
+
+          {/* Image Info / Sliders Count */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              color: '#ffffff',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-full)',
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            {resolvedGallery[lightboxIndex].alt || product.name} ({lightboxIndex + 1} of {resolvedGallery.length})
+          </div>
         </div>
       )}
 

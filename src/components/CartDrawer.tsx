@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShoppingBag, Sparkles } from 'lucide-react';
+import { X, ShoppingBag, Sparkles, Plus, Minus } from 'lucide-react';
 import type { CartItem } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -236,18 +236,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           }}>
                             <button
                               onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: 'bold' }}
+                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
-                              -
+                              <Minus size={14} strokeWidth={2.5} />
                             </button>
                             <span style={{ fontSize: '0.88rem', fontWeight: 700, minWidth: '16px', textAlign: 'center' }}>
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: 'bold' }}
+                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
-                              +
+                              <Plus size={14} strokeWidth={2.5} />
                             </button>
                           </div>
 

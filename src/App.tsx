@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Star, Plus, Minus } from 'lucide-react';
 import { ProductModal } from './components/ProductModal';
 import type { OrderDetails } from './components/OrderSuccessPage';
 import type { Product, CartItem, LocalOrder } from './types';
@@ -217,6 +217,10 @@ function App() {
   const [searchQueryTerm, setSearchQueryTerm] = React.useState<string>('');
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
 
+  const [floatingEffects, setFloatingEffects] = React.useState<{ id: number; x: number; y: number }[]>([]);
+  const [isCartBouncing, setIsCartBouncing] = React.useState(false);
+  const [flyingDots, setFlyingDots] = React.useState<{ id: number; startX: number; startY: number; targetX: string; targetY: string }[]>([]);
+
   // Periodically check admin session expiration (session management)
   React.useEffect(() => {
     if (!isAdminAuthenticated) return;
@@ -240,6 +244,56 @@ function App() {
 
     return () => clearInterval(checkInterval);
   }, [isAdminAuthenticated]);
+
+  React.useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('button');
+      if (button && (
+        button.innerText.toUpperCase().includes('ADD TO CART') ||
+        button.innerText.toUpperCase().includes('MOVE TO CART') ||
+        button.innerText.toUpperCase().includes('ADD TO BAG') ||
+        button.innerText.toUpperCase().includes('BUY NOW') ||
+        button.classList.contains('qty-plus-btn')
+      )) {
+        const effectId = Date.now() + Math.random();
+        const newEffect = {
+          id: effectId,
+          x: e.clientX,
+          y: e.clientY
+        };
+        setFloatingEffects(prev => [...prev, newEffect]);
+        setTimeout(() => {
+          setFloatingEffects(prev => prev.filter(eff => eff.id !== effectId));
+        }, 800);
+
+        // Fly-to-Cart Animation
+        const cartBtn = document.querySelector('.navbar-cart-btn');
+        const rect = cartBtn?.getBoundingClientRect();
+        const endX = rect ? rect.left + rect.width / 2 : window.innerWidth - 100;
+        const endY = rect ? rect.top + rect.height / 2 : 40;
+
+        const dotId = Date.now() + Math.random();
+        setFlyingDots(prev => [...prev, {
+          id: dotId,
+          startX: e.clientX,
+          startY: e.clientY,
+          targetX: `${endX - e.clientX}px`,
+          targetY: `${endY - e.clientY}px`
+        }]);
+        setTimeout(() => {
+          setFlyingDots(prev => prev.filter(d => d.id !== dotId));
+        }, 650);
+
+        setIsCartBouncing(true);
+        setTimeout(() => {
+          setIsCartBouncing(false);
+        }, 500);
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // Dynamic Slugification Resolvers
   const getProductSlug = (product: Product): string => {
@@ -382,7 +436,7 @@ function App() {
 
   // Reactive URL popstate and deep-linking router
   const handleUrlRouting = React.useCallback((path: string, search: string) => {
-    if (path === '/admin' || path === '/admin/') {
+    if (path.startsWith('/admin')) {
       if (isAdminAuthenticated) {
         setCurrentPageState('admin');
       } else {
@@ -557,7 +611,21 @@ function App() {
           promoCreatives: item.promo_creatives || [],
         }));
 
-        setProductsState(mappedData);
+        // Merge Supabase products with local products from localStorage to ensure locally added custom items persist and show up
+        let localProducts: Product[] = [];
+        try {
+          const stored = localStorage.getItem('ridae_products');
+          if (stored) {
+            localProducts = JSON.parse(stored);
+          }
+        } catch (e) {
+          console.error('Error loading local products for merge:', e);
+        }
+
+        const dbIds = new Set(mappedData.map(p => p.id));
+        const uniqueLocalProducts = localProducts.filter(p => !dbIds.has(p.id));
+        
+        setProductsState([...mappedData, ...uniqueLocalProducts]);
       }
     } catch (err) {
       console.error('Error loading published pooja products in storefront:', err);
@@ -585,6 +653,12 @@ function App() {
     categoryBanners?: Record<string, string[]>; // category name -> array of image URLs
   } | null>(null);
 
+  // Custom categories ordering configurations
+  const [categoriesOrder, setCategoriesOrder] = React.useState<string[]>([]);
+
+  // Custom products ordering configurations within categories
+  const [productsOrder, setProductsOrder] = React.useState<Record<string, string[]>>({});
+
   const loadShopBannersSettings = async () => {
     try {
       const { data, error } = await supabase
@@ -601,6 +675,38 @@ function App() {
     }
   };
 
+  const loadCategoriesOrder = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'shop_categories_settings')
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value && Array.isArray(data.value.order)) {
+        setCategoriesOrder(data.value.order);
+      }
+    } catch (err) {
+      console.error('Error loading shop categories order settings:', err);
+    }
+  };
+
+  const loadProductsOrder = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'category_products_settings')
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value && typeof data.value.orders === 'object') {
+        setProductsOrder(data.value.orders);
+      }
+    } catch (err) {
+      console.error('Error loading category products order settings:', err);
+    }
+  };
+
   const loadHomepageSettings = async () => {
     try {
       const { data, error } = await supabase
@@ -608,7 +714,6 @@ function App() {
         .select('value')
         .eq('key', 'homepage_settings')
         .single();
-      
       if (error && error.code !== 'PGRST116') throw error;
       if (data && data.value) {
         setHomepageConfig(data.value);
@@ -654,17 +759,19 @@ function App() {
   const getSaleProducts = () => {
     if (homepageConfig && homepageConfig.saleProductIds && homepageConfig.saleProductIds.length > 0) {
       return productsState.filter(p => homepageConfig.saleProductIds!.includes(p.id))
-        .sort((a, b) => homepageConfig.saleProductIds!.indexOf(a.id) - homepageConfig.saleProductIds!.indexOf(b.id));
+        .sort((a, b) => homepageConfig.saleProductIds!.indexOf(a.id) - homepageConfig.saleProductIds!.indexOf(b.id))
+        .slice(0, 4);
     }
-    return productsState.slice(4, 7);
+    return productsState.slice(4, 8);
   };
 
   const getNewArrivalsProducts = () => {
     if (homepageConfig && homepageConfig.newArrivalsProductIds && homepageConfig.newArrivalsProductIds.length > 0) {
       return productsState.filter(p => homepageConfig.newArrivalsProductIds!.includes(p.id))
-        .sort((a, b) => homepageConfig.newArrivalsProductIds!.indexOf(a.id) - homepageConfig.newArrivalsProductIds!.indexOf(b.id));
+        .sort((a, b) => homepageConfig.newArrivalsProductIds!.indexOf(a.id) - homepageConfig.newArrivalsProductIds!.indexOf(b.id))
+        .slice(0, 4);
     }
-    return productsState.slice(7, 10);
+    return productsState.slice(7, 11);
   };
 
   // Fetch published products on mount and page transition
@@ -672,10 +779,9 @@ function App() {
     loadPublishedProducts();
     loadHomepageSettings();
     loadShopBannersSettings();
-  }, [currentPageState]);
-
-
-  // Lifted stateful orders
+    loadCategoriesOrder();
+    loadProductsOrder();
+  }, [currentPageState]);  // Lifted stateful orders
   const [ordersState, setOrdersState] = React.useState<LocalOrder[]>(() => {
     try {
       const stored = localStorage.getItem('ridae_orders');
@@ -790,6 +896,10 @@ function App() {
     }
   }, [wishlist]);
 
+  const wishlistCount = React.useMemo(() => {
+    return productsState.filter(p => wishlist[p.id]).length;
+  }, [productsState, wishlist]);
+
   // State for visual interactions
   const [cart, setCart] = React.useState<CartItem[]>(() => {
     try {
@@ -852,6 +962,10 @@ function App() {
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      handleRemoveItem(productId);
+      return;
+    }
     setCart(prev =>
       prev.map(item =>
         item.product.id === productId ? { ...item, quantity } : item
@@ -894,14 +1008,15 @@ function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* 1. Navbar Section */}
-      <nav style={{
-        backgroundColor: '#ffffff',
-        borderBottom: '1px solid var(--border-light)',
-        padding: '16px 0',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
+      {currentPage !== 'admin' && currentPage !== 'admin-login' && (
+        <nav style={{
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid var(--border-light)',
+          padding: '16px 0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100
+        }}>
         <div className="container" style={{
           display: 'flex',
           alignItems: 'center',
@@ -1079,7 +1194,7 @@ function App() {
               title="Sacred Wishlist"
             >
               <Heart size={20} fill={currentPage === 'wishlist' ? 'var(--primary-lime)' : 'none'} />
-              {Object.values(wishlist).filter(Boolean).length > 0 && (
+              {wishlistCount > 0 && (
                 <span style={{
                   position: 'absolute',
                   top: '0',
@@ -1096,12 +1211,13 @@ function App() {
                   justifyContent: 'center',
                   boxShadow: 'var(--shadow-sm)'
                 }}>
-                  {Object.values(wishlist).filter(Boolean).length}
+                  {wishlistCount}
                 </span>
               )}
             </button>
             <button
               onClick={() => setCurrentPage('cart')}
+              className={`navbar-cart-btn ${isCartBouncing ? "cart-bounce-animation" : ""}`}
               style={{
                 position: 'relative',
                 padding: '8px',
@@ -1253,6 +1369,7 @@ function App() {
           </div>
         )}
       </nav>
+      )}
 
       <React.Suspense fallback={
         <div style={{
@@ -1287,12 +1404,12 @@ function App() {
             <div className="container">
               <div style={{
                 position: 'relative',
-                height: '460px',
                 borderRadius: 'var(--radius-lg)',
                 overflow: 'hidden',
-                boxShadow: 'var(--shadow-md)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
+                border: '1px solid var(--border-light)',
                 backgroundColor: '#1c1917'
-              }}>
+              }} className="hero-slider-container">
                 {/* Slides */}
                 {bannerSlides.map((slide, idx) => (
                   <div
@@ -1317,15 +1434,6 @@ function App() {
                         objectFit: 'cover'
                       }}
                     />
-                    {/* Dark gradient overlay for modern sleek appearance */}
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.1) 100%)',
-                    }} />
                   </div>
                 ))}
 
@@ -1430,8 +1538,8 @@ function App() {
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1.3fr',
-            gap: '30px'
-          }} className="featured-grid-wrap">
+            gap: '24px'
+          }} className="featured-grid-wrap hero-grid-split">
             
             {/* Left Column: Dynamized Showcase Image */}
             <div style={{
@@ -1462,102 +1570,318 @@ function App() {
             </div>
 
             {/* Right Column: 2x2 Product cards and lime green checkout strip */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: '20px'
+                gap: '16px'
               }} className="sub-grid-2x2">
                 
                 {getFeaturedProducts().map((product) => {
                   const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
-                  const desc = product.shortDescription || product.subtitle || (product.description.length > 50 ? product.description.substring(0, 47) + '...' : product.description);
+                  const discountPercent = hasDiscount 
+                    ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
+                    : 0;
+                  const isLiked = wishlist[product.id];
                   return (
                     <div 
                       key={product.id}
                       onClick={() => handleViewDetails(product)}
                       style={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: 'var(--radius-lg)',
+                        borderRadius: '16px',
                         border: '1px solid var(--border-light)',
-                        padding: '16px',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '12px',
                         position: 'relative',
+                        backgroundColor: '#ffffff',
                         boxShadow: 'var(--shadow-sm)',
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        cursor: 'pointer'
+                        padding: '10px',
+                        cursor: 'pointer',
+                        gap: '8px'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                        e.currentTarget.style.borderColor = 'var(--primary-lime)';
+                        e.currentTarget.style.transform = 'translateY(-6px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1.05)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'translateY(0)';
                         e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                        e.currentTarget.style.borderColor = 'var(--border-light)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1)';
                       }}
                     >
-                      <div style={{ height: '140px', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                      {/* Image Box */}
+                      <div
+                        style={{
+                          width: '100%',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        className="featured-card-img-box"
+                      >
                         {isImageUrl(product.image) ? (
-                          <img
-                            src={getDisplayImageUrl(product.image)}
-                            alt={product.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          <img 
+                            src={getDisplayImageUrl(product.image)} 
+                            alt={product.name} 
+                            className="card-image"
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              transition: 'transform 0.3s ease'
+                            }} 
                           />
                         ) : (
+                          <span style={{ fontSize: '4rem' }}>{product.image || '📿'}</span>
+                        )}
+
+                        {/* Ribbon Badge */}
+                        {discountPercent > 0 && product.inStock && (
                           <div style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                            fontSize: '3.5rem'
+                            position: 'absolute',
+                            top: 0,
+                            left: '12px',
+                            width: '40px',
+                            padding: '8px 2px 10px 2px',
+                            background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                            color: '#ffffff',
+                            fontSize: '0.65rem',
+                            fontWeight: 900,
+                            lineHeight: 1.15,
+                            textAlign: 'center',
+                            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                            zIndex: 10,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                           }}>
-                            {product.image || '📿'}
+                            {discountPercent}%<br/>OFF
                           </div>
                         )}
-                      </div>
-                      <div style={{ textAlign: 'left', paddingBottom: '12px', paddingRight: '24px' }}>
-                        <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={product.name}>
-                          {product.name}
-                        </h4>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.3, height: '34px', overflow: 'hidden' }}>
-                          {desc}
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                          <span style={{ fontSize: '1.05rem', fontWeight: 850, color: 'var(--primary-forest)' }}>₹{product.price}</span>
-                          {hasDiscount && (
-                            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{product.originalPrice}</span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCartWithQty(product, 1);
-                        }}
-                        style={{
+
+                        {/* Heart Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleWishlist(product.id);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                            zIndex: 10,
+                            boxShadow: 'var(--shadow-sm)',
+                            cursor: 'pointer'
+                          }}
+                          className="flex-center"
+                        >
+                          <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
+                        </button>
+
+                        {/* Rating Badge */}
+                        <div style={{
                           position: 'absolute',
                           bottom: '12px',
                           right: '12px',
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--primary-lime)',
-                          color: 'var(--text-dark)',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
                           boxShadow: 'var(--shadow-sm)',
-                          transition: 'transform 0.15s ease'
-                        }}
-                        className="flex-center"
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      >
-                        <ShoppingBag size={14} />
-                      </button>
+                          zIndex: 10
+                        }}>
+                          <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
+                        </div>
+                      </div>
+
+                      {/* Content Area */}
+                      <div style={{ 
+                        padding: '4px 8px 8px 8px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        flexGrow: 1,
+                        textAlign: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px'
+                      }}>
+                        <div>
+                          <h3
+                            style={{
+                              fontSize: '0.95rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)',
+                              marginBottom: '6px',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              lineHeight: '1.2'
+                            }}
+                            title={product.name}
+                          >
+                            {product.name}
+                          </h3>
+
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginBottom: '4px'
+                          }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                              ₹{product.price}
+                            </span>
+                            {product.originalPrice && (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                                ₹{product.originalPrice}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Add to Cart Button */}
+                        <div style={{ marginTop: 'auto' }}>
+                          {product.inStock ? (
+                            (() => {
+                              const cartItem = cart.find(item => item.product.id === product.id);
+                              const qty = cartItem ? cartItem.quantity : 0;
+                              if (qty > 0) {
+                                return (
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: 'var(--primary-deep)',
+                                    borderRadius: '8px',
+                                    padding: '4px',
+                                    width: '100%',
+                                    height: '40px',
+                                    boxSizing: 'border-box'
+                                  }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUpdateQuantity(product.id, qty - 1);
+                                      }}
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(255,255,255,0.15)',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                        transition: 'background-color 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                    >
+                                      <Minus size={14} strokeWidth={2.5} />
+                                    </button>
+                                    <span style={{
+                                      color: '#ffffff',
+                                      fontWeight: '800',
+                                      fontSize: '0.85rem',
+                                      userSelect: 'none'
+                                    }}>
+                                      {qty} in Cart
+                                    </span>
+                                    <button
+                                      className="qty-plus-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUpdateQuantity(product.id, qty + 1);
+                                      }}
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(255,255,255,0.15)',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                        transition: 'background-color 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                    >
+                                      <Plus size={14} strokeWidth={2.5} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddToCartWithQty(product, 1);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'var(--primary-deep)',
+                                    color: '#ffffff',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    letterSpacing: '0.05em'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                                >
+                                  Add To Cart
+                                </button>
+                              );
+                            })()
+                          ) : (
+                            <button
+                              disabled
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--border-light)',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'not-allowed'
+                              }}
+                            >
+                              Out of Stock
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -1685,122 +2009,305 @@ function App() {
               const discountPercent = hasDiscount 
                 ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
                 : (homepageConfig?.saleDiscount || 30);
-              
+              const isLiked = wishlist[product.id];
               return (
                 <div 
                   key={product.id}
                   onClick={() => handleViewDetails(product)}
                   style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '16px',
+                    borderRadius: '16px',
+                    border: '1px solid var(--border-light)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
                     position: 'relative',
+                    backgroundColor: '#ffffff',
                     boxShadow: 'var(--shadow-sm)',
-                    cursor: 'pointer'
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    padding: '12px',
+                    cursor: 'pointer',
+                    gap: '12px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-6px)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1)';
                   }}
                 >
-                  {/* Sale Tag & Wishlist */}
-                  <span style={{
-                    position: 'absolute',
-                    top: '12px',
-                    left: '12px',
-                    backgroundColor: '#ef4444',
-                    color: '#ffffff',
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    zIndex: 10
-                  }}>
-                    -{discountPercent}%
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleWishlist(product.id);
-                    }}
+                  {/* Image Box */}
+                  <div
                     style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      backgroundColor: '#f3f4f6',
-                      borderRadius: '50%',
-                      width: '28px',
-                      height: '28px',
-                      color: wishlist[product.id] ? '#ef4444' : 'var(--text-muted)',
-                      zIndex: 10,
-                      cursor: 'pointer'
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#f9fafb'
                     }}
-                    className="flex-center"
                   >
-                    <Heart size={14} fill={wishlist[product.id] ? '#ef4444' : 'none'} />
-                  </button>
-
-                  <div style={{ height: '220px', borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative' }}>
                     {isImageUrl(product.image) ? (
-                      <img
-                        src={getDisplayImageUrl(product.image)}
-                        alt={product.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      <img 
+                        src={getDisplayImageUrl(product.image)} 
+                        alt={product.name} 
+                        className="card-image"
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover',
+                          transition: 'transform 0.3s ease'
+                        }} 
                       />
                     ) : (
+                      <span style={{ fontSize: '4rem' }}>{product.image || '📿'}</span>
+                    )}
+
+                    {/* Ribbon Badge */}
+                    {discountPercent > 0 && product.inStock && (
                       <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                        fontSize: '3.5rem'
+                        position: 'absolute',
+                        top: 0,
+                        left: '12px',
+                        width: '40px',
+                        padding: '8px 2px 10px 2px',
+                        background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                        color: '#ffffff',
+                        fontSize: '0.65rem',
+                        fontWeight: 900,
+                        lineHeight: 1.15,
+                        textAlign: 'center',
+                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                       }}>
-                        {product.image || '📿'}
+                        {discountPercent}%<br/>OFF
                       </div>
                     )}
-                    {/* Floating green cart button */}
+
+                    {/* Heart Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAddToCartWithQty(product, 1);
+                        handleToggleWishlist(product.id);
                       }}
                       style={{
                         position: 'absolute',
-                        bottom: '12px',
-                        left: '12px',
-                        width: '38px',
-                        height: '38px',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
                         borderRadius: '50%',
-                        backgroundColor: 'var(--primary-lime)',
-                        color: 'var(--text-dark)',
-                        border: '2px solid #ffffff',
-                        boxShadow: 'var(--shadow-md)',
+                        width: '32px',
+                        height: '32px',
+                        color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                        zIndex: 10,
+                        boxShadow: 'var(--shadow-sm)',
                         cursor: 'pointer'
                       }}
                       className="flex-center"
                     >
-                      <ShoppingBag size={16} />
+                      <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
                     </button>
+
+                    {/* Rating Badge */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      boxShadow: 'var(--shadow-sm)',
+                      zIndex: 10
+                    }}>
+                      <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
+                    </div>
                   </div>
 
-                  <div style={{ textAlign: 'left', marginTop: '4px' }}>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                      <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>₹{product.price}</span>
-                      {product.originalPrice && (
-                        <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{product.originalPrice}</span>
+                  {/* Content Area */}
+                  <div style={{ 
+                    padding: '4px 8px 8px 8px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    flexGrow: 1,
+                    textAlign: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          color: 'var(--text-dark)',
+                          marginBottom: '6px',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: '1.2'
+                        }}
+                        title={product.name}
+                      >
+                        {product.name}
+                      </h3>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        marginBottom: '4px'
+                      }}>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                          ₹{product.price}
+                        </span>
+                        {product.originalPrice && (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                            ₹{product.originalPrice}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add to Cart Button */}
+                    <div style={{ marginTop: 'auto' }}>
+                      {product.inStock ? (
+                        (() => {
+                          const cartItem = cart.find(item => item.product.id === product.id);
+                          const qty = cartItem ? cartItem.quantity : 0;
+                          if (qty > 0) {
+                            return (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--primary-deep)',
+                                borderRadius: '8px',
+                                padding: '4px',
+                                width: '100%',
+                                height: '40px',
+                                boxSizing: 'border-box'
+                              }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateQuantity(product.id, qty - 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Minus size={14} strokeWidth={2.5} />
+                                </button>
+                                <span style={{
+                                  color: '#ffffff',
+                                  fontWeight: '800',
+                                  fontSize: '0.85rem',
+                                  userSelect: 'none'
+                                }}>
+                                  {qty} in Cart
+                                </span>
+                                <button
+                                  className="qty-plus-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateQuantity(product.id, qty + 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Plus size={14} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCartWithQty(product, 1);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--primary-deep)',
+                                color: '#ffffff',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                letterSpacing: '0.05em'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                            >
+                              Add To Cart
+                            </button>
+                          );
+                        })()
+                      ) : (
+                        <button
+                          disabled
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--border-light)',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            border: 'none',
+                            cursor: 'not-allowed'
+                          }}
+                        >
+                          Out of Stock
+                        </button>
                       )}
                     </div>
-                    <a 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUrlRouting('/shop', '');
-                      }}
-                      style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'underline', display: 'block', marginTop: '8px' }}
-                    >
-                      Go to the complete collection here
-                    </a>
                   </div>
                 </div>
               );
@@ -1842,176 +2349,321 @@ function App() {
             </button>
           </div>
 
-          {/* Cards Row (3 Cards) */}
+          {/* Cards Row (4 Cards) */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: '24px'
           }} className="new-arrivals-grid">
             
-            {getNewArrivalsProducts().map((product, idx) => {
-              const desc = product.shortDescription || product.subtitle || (product.description.length > 50 ? product.description.substring(0, 47) + '...' : product.description);
-              
-              if (idx === 0) {
-                // Card 1: Text Overlay Card
-                return (
-                  <div 
-                    key={product.id}
-                    onClick={() => handleViewDetails(product)}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border-light)',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      boxShadow: 'var(--shadow-sm)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <div style={{ height: '360px', position: 'relative' }}>
-                      {isImageUrl(product.image) ? (
-                        <img
-                          src={getDisplayImageUrl(product.image)}
-                          alt={product.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                          fontSize: '5rem'
-                        }}>
-                          {product.image || '📿'}
-                        </div>
-                      )}
-                      {/* Text overlay bottom left of image */}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '20px',
-                        left: '20px',
-                        right: '20px',
-                        textAlign: 'left',
-                        color: '#ffffff',
-                        zIndex: 2,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.6)'
-                      }}>
-                        <h4 style={{ fontSize: '1.2rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
-                        <p style={{ fontSize: '0.82rem', opacity: 0.9, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{desc}</p>
-                      </div>
-                      {/* Gradient shade behind text overlay */}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: '100px',
-                        background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6))',
-                        zIndex: 1
-                      }}></div>
-                    </div>
-                    
-                    <div style={{
-                      padding: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      borderTop: '1px solid var(--border-light)'
-                    }}>
-                      <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>₹{product.price}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCartWithQty(product, 1);
-                        }}
-                        className="btn-lime"
-                        style={{
-                          padding: '8px 16px',
-                          fontSize: '0.8rem',
-                          borderRadius: 'var(--radius-md)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Add to Cart
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Card 2 & 3: Standard Image + Bottom pricing
+            {getNewArrivalsProducts().map((product) => {
+              const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
+              const discountPercent = hasDiscount 
+                ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
+                : 0;
+              const isLiked = wishlist[product.id];
               return (
                 <div 
                   key={product.id}
                   onClick={() => handleViewDetails(product)}
                   style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: 'var(--radius-lg)',
+                    borderRadius: '16px',
                     border: '1px solid var(--border-light)',
-                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
+                    position: 'relative',
+                    backgroundColor: '#ffffff',
                     boxShadow: 'var(--shadow-sm)',
-                    cursor: 'pointer'
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    padding: '12px',
+                    cursor: 'pointer',
+                    gap: '12px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-6px)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                    const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                    if (img) img.style.transform = 'scale(1)';
                   }}
                 >
-                  <div style={{ height: '360px' }}>
+                  {/* Image Box */}
+                  <div
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  >
                     {isImageUrl(product.image) ? (
-                      <img
-                        src={getDisplayImageUrl(product.image)}
-                        alt={product.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      <img 
+                        src={getDisplayImageUrl(product.image)} 
+                        alt={product.name} 
+                        className="card-image"
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover',
+                          transition: 'transform 0.3s ease'
+                        }} 
                       />
                     ) : (
+                      <span style={{ fontSize: '4rem' }}>{product.image || '📿'}</span>
+                    )}
+
+                    {/* Ribbon Badge */}
+                    {discountPercent > 0 && product.inStock && (
                       <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-                        fontSize: '5rem'
+                        position: 'absolute',
+                        top: 0,
+                        left: '12px',
+                        width: '40px',
+                        padding: '8px 2px 10px 2px',
+                        background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                        color: '#ffffff',
+                        fontSize: '0.65rem',
+                        fontWeight: 900,
+                        lineHeight: 1.15,
+                        textAlign: 'center',
+                        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                        zIndex: 10,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                       }}>
-                        {product.image || '📿'}
+                        {discountPercent}%<br/>OFF
                       </div>
                     )}
-                  </div>
-                  
-                  <div style={{
-                    padding: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid var(--border-light)'
-                  }}>
-                    <div style={{ textAlign: 'left' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</h4>
-                      <span style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: '2px', display: 'block' }}>₹{product.price}</span>
-                    </div>
+
+                    {/* Heart Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAddToCartWithQty(product, 1);
+                        handleToggleWishlist(product.id);
                       }}
-                      className="btn-lime"
                       style={{
-                        padding: '8px 16px',
-                        fontSize: '0.8rem',
-                        borderRadius: 'var(--radius-md)',
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                        zIndex: 10,
+                        boxShadow: 'var(--shadow-sm)',
                         cursor: 'pointer'
                       }}
+                      className="flex-center"
                     >
-                      Add to Cart
+                      <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
                     </button>
+
+                    {/* Rating Badge */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      boxShadow: 'var(--shadow-sm)',
+                      zIndex: 10
+                    }}>
+                      <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
+                    </div>
+                  </div>
+
+                  {/* Content Area */}
+                  <div style={{ 
+                    padding: '4px 8px 8px 8px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    flexGrow: 1,
+                    textAlign: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          color: 'var(--text-dark)',
+                          marginBottom: '6px',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: '1.2'
+                        }}
+                        title={product.name}
+                      >
+                        {product.name}
+                      </h3>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        marginBottom: '4px'
+                      }}>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                          ₹{product.price}
+                        </span>
+                        {product.originalPrice && (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                            ₹{product.originalPrice}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add to Cart Button */}
+                    <div style={{ marginTop: 'auto' }}>
+                      {product.inStock ? (
+                        (() => {
+                          const cartItem = cart.find(item => item.product.id === product.id);
+                          const qty = cartItem ? cartItem.quantity : 0;
+                          if (qty > 0) {
+                            return (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--primary-deep)',
+                                borderRadius: '8px',
+                                padding: '4px',
+                                width: '100%',
+                                height: '40px',
+                                boxSizing: 'border-box'
+                              }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateQuantity(product.id, qty - 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Minus size={14} strokeWidth={2.5} />
+                                </button>
+                                <span style={{
+                                  color: '#ffffff',
+                                  fontWeight: '800',
+                                  fontSize: '0.85rem',
+                                  userSelect: 'none'
+                                }}>
+                                  {qty} in Cart
+                                </span>
+                                <button
+                                  className="qty-plus-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateQuantity(product.id, qty + 1);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(255,255,255,0.15)',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    transition: 'background-color 0.15s'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                >
+                                  <Plus size={14} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCartWithQty(product, 1);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--primary-deep)',
+                                color: '#ffffff',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                letterSpacing: '0.05em'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                            >
+                              Add To Cart
+                            </button>
+                          );
+                        })()
+                      ) : (
+                        <button
+                          disabled
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--border-light)',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            border: 'none',
+                            cursor: 'not-allowed'
+                          }}
+                        >
+                          Out of Stock
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
-
           </div>
 
         </div>
@@ -2020,22 +2672,28 @@ function App() {
       ) : currentPage === 'shop' ? (
         <ShopPage
           products={productsState}
-          onAddToCart={(p) => handleAddToCartWithQty(p, 1)}
+          onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
           shopBanners={shopBannersConfig || undefined}
+          cart={cart}
+          onUpdateQuantity={handleUpdateQuantity}
+          categoriesOrder={categoriesOrder}
+          productsOrder={productsOrder}
         />
       ) : currentPage === 'category' ? (
         <CategoryPage
           products={productsState}
           categoryName={selectedCategoryName}
-          onAddToCart={(p) => handleAddToCartWithQty(p, 1)}
+          onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
           onBackToShop={() => setCurrentPage('shop')}
           categoryBannerImages={shopBannersConfig?.categoryBanners?.[selectedCategoryName] || []}
+          cart={cart}
+          onUpdateQuantity={handleUpdateQuantity}
         />
       ) : currentPage === 'search' ? (
         <SearchPage
@@ -2045,6 +2703,8 @@ function App() {
           onViewDetails={handleViewDetails}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
+          cart={cart}
+          onUpdateQuantity={handleUpdateQuantity}
         />
       ) : currentPage === 'cart' ? (
         <CartPage
@@ -2070,7 +2730,7 @@ function App() {
             };
             
             try {
-              const { error } = await supabase.from('website_store_orders').insert({
+              const orderPayload: any = {
                 order_id: newOrder.orderId,
                 user_id: newOrder.userId || null,
                 items: newOrder.items,
@@ -2091,7 +2751,20 @@ function App() {
                 phone_number: newOrder.phoneNumber,
                 status: newOrder.status,
                 razorpay_payment_id: newOrder.razorpayPaymentId || null
-              });
+              };
+
+              let { error } = await supabase.from('website_store_orders').insert(orderPayload);
+              
+              if (error) {
+                // Check if error is due to missing razorpay_payment_id column in database
+                if (error.code === 'PGRST204' || (error.message && error.message.includes('razorpay_payment_id'))) {
+                  console.warn('razorpay_payment_id column is missing in remote database. Retrying insert without it...');
+                  const { razorpay_payment_id, ...fallbackPayload } = orderPayload;
+                  const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
+                  error = retryResult.error;
+                }
+              }
+
               if (error) throw error;
 
               // Proactively sync shipping details to user saved addresses if logged in
@@ -2258,6 +2931,11 @@ function App() {
             setCurrentPage('admin-login');
           }}
           adminSession={currentAdmin}
+          onRefreshOrders={fetchOrdersFromSupabase}
+          categoriesOrder={categoriesOrder}
+          onUpdateCategoriesOrder={setCategoriesOrder}
+          productsOrder={productsOrder}
+          onUpdateProductsOrder={setProductsOrder}
         />
       ) : (
         selectedProduct && (
@@ -2270,6 +2948,8 @@ function App() {
             onToggleWishlist={handleToggleWishlist}
             onBackToShop={() => setCurrentPage('shop')}
             onBuyNow={handleBuyNow}
+            cart={cart}
+            onUpdateQuantity={handleUpdateQuantity}
           />
         )
       )}
@@ -2423,6 +3103,32 @@ function App() {
           }}
         />
       )}
+
+      {floatingEffects.map(effect => (
+        <span
+          key={effect.id}
+          className="floating-plus-one"
+          style={{
+            left: effect.x,
+            top: effect.y
+          }}
+        >
+          +1
+        </span>
+      ))}
+
+      {flyingDots.map(dot => (
+        <div
+          key={dot.id}
+          className="flying-cart-dot"
+          style={{
+            left: dot.startX,
+            top: dot.startY,
+            '--target-x': dot.targetX,
+            '--target-y': dot.targetY
+          } as React.CSSProperties}
+        />
+      ))}
 
       {/* CSS Injections for Mobile Responsiveness */}
       <style>{`

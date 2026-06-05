@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, ArrowLeft, Ticket, ShieldCheck, Truck } from 'lucide-react';
+import { Trash2, ArrowLeft, Ticket, ShieldCheck, Truck, Plus, Minus } from 'lucide-react';
 import type { CartItem } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -186,18 +186,18 @@ export const CartPage: React.FC<CartPageProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
                       <button
                         onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                        style={{ padding: '4px 10px', fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                        style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
                       >
-                        -
+                        <Minus size={14} strokeWidth={2.5} />
                       </button>
                       <span style={{ padding: '0 6px', fontSize: '0.85rem', fontWeight: 800, minWidth: '18px', textAlign: 'center' }}>
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                        style={{ padding: '4px 10px', fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                        style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
                       >
-                        +
+                        <Plus size={14} strokeWidth={2.5} />
                       </button>
                     </div>
 

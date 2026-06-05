@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Heart, ShoppingBag, Star, Eye, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Heart, Star, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -13,6 +13,8 @@ interface CategoryPageProps {
   products?: Product[];
   /** Images uploaded by admin for this specific category */
   categoryBannerImages?: string[];
+  cart: { product: Product; quantity: number }[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
 }
 
 // Category Descriptions database matching prompt
@@ -48,10 +50,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   onBackToShop,
   products: productsProp,
   categoryBannerImages,
+  cart,
+  onUpdateQuantity,
 }) => {
   const activeProducts = productsProp || [];
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [itemsLimit, setItemsLimit] = React.useState(2); // Start small for paginated scrolling
+  const [itemsLimit, setItemsLimit] = React.useState(16);
 
   // Category banner carousel
   const bannerImages = categoryBannerImages && categoryBannerImages.length > 0 ? categoryBannerImages : [];
@@ -69,9 +73,38 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const handlePrev = () => setBannerSlide(prev => (prev - 1 + bannerImages.length) % bannerImages.length);
   const handleNext = () => setBannerSlide(prev => (prev + 1) % bannerImages.length);
   
+  const isCategoryMatch = (productCategory: string, filterCategory: string) => {
+    const prodCat = productCategory.toLowerCase();
+    const filterCat = filterCategory.toLowerCase();
+    if (prodCat === filterCat) return true;
+    
+    // Map legacy categories to actual product categories
+    if (filterCat === 'idols' || filterCat === 'deity idols') {
+      return prodCat === 'idols' || prodCat === 'deity idols' || prodCat === 'murti';
+    }
+    if (filterCat === 'kits' || filterCat === 'puja kits') {
+      return prodCat === 'kits' || prodCat === 'puja kits';
+    }
+    if (filterCat === 'incense' || filterCat === 'incense & fragrance') {
+      return prodCat === 'incense' || prodCat === 'incense & fragrance' || prodCat === 'incense holders' || prodCat === 'fragrance';
+    }
+    if (filterCat === 'books' || filterCat === 'sacred books') {
+      return prodCat === 'books' || prodCat === 'sacred books';
+    }
+    if (filterCat === 'accessories') {
+      return [
+        'accessories', 'bracelet', 'anklet', 'necklaces/mala', 'yantras',
+        'frames', 'rashi', 'karungali', 'jadi', 'pyrite', 'kavach',
+        'siddh range', 'gemstones', 'pyramid', 'tower & tumbles',
+        'crystal dome trees', 'women bracelets', 'evil eye', 'gifting'
+      ].includes(prodCat);
+    }
+    return false;
+  };
+
   // Filter products by category and inner search
   const categoryProducts = activeProducts.filter(product => {
-    const matchesCategory = product.category.toLowerCase() === categoryName.toLowerCase();
+    const matchesCategory = isCategoryMatch(product.category, categoryName);
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -79,9 +112,8 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   const displayedProducts = categoryProducts.slice(0, itemsLimit);
   const hasMore = categoryProducts.length > itemsLimit;
-
   const handleLoadMore = () => {
-    setItemsLimit(prev => prev + 2); // load 2 more items (simulates pagination)
+    setItemsLimit(prev => prev + 8);
   };
 
   const getCategoryGradient = (cat: string) => {
@@ -342,7 +374,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setItemsLimit(2); // reset limit on search
+                setItemsLimit(16);
               }}
               style={{
                 width: '100%',
@@ -401,197 +433,299 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                   return (
                     <div
                       key={product.id}
-                      className="glass"
                       style={{
-                        borderRadius: 'var(--radius-lg)',
-                        overflow: 'hidden',
+                        borderRadius: '16px',
                         border: '1px solid var(--border-light)',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative',
                         backgroundColor: '#ffffff',
                         boxShadow: 'var(--shadow-sm)',
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        height: '100%'
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        padding: '12px',
+                        height: '100%',
+                        gap: '12px'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.transform = 'translateY(-6px)';
                         e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1.05)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'translateY(0)';
                         e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
+                        if (img) img.style.transform = 'scale(1)';
                       }}
                     >
-                      {/* Discount Tag */}
-                      {discount > 0 && product.inStock && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '12px',
-                          left: '12px',
-                          backgroundColor: '#ef4444',
-                          color: '#ffffff',
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '3px 8px',
-                          borderRadius: 'var(--radius-full)',
-                          zIndex: 10
-                        }}>
-                          -{discount}%
-                        </span>
-                      )}
-
-                      {/* Wishlist Heart */}
-                      <button
-                        onClick={() => onToggleWishlist(product.id)}
-                        style={{
-                          position: 'absolute',
-                          top: '12px',
-                          right: '12px',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid var(--border-light)',
-                          borderRadius: '50%',
-                          width: '32px',
-                          height: '32px',
-                          color: isLiked ? '#ef4444' : 'var(--text-muted)',
-                          zIndex: 10,
-                          boxShadow: 'var(--shadow-sm)'
-                        }}
-                        className="flex-center"
-                      >
-                        <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} />
-                      </button>
-
-                      {/* Image Card */}
+                      {/* Image Box */}
                       <div
-                        onClick={() => onViewDetails(product)}
                         style={{
-                          height: '180px',
+                          width: '100%',
+                          aspectRatio: '1 / 1',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
                           background: getCategoryGradient(product.category),
-                          cursor: 'pointer',
                           position: 'relative',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          borderBottom: '1px solid var(--border-light)'
+                          backgroundColor: '#f9fafb'
                         }}
                       >
                         {product.image && isImageUrl(product.image) ? (
                           <img 
                             src={getDisplayImageUrl(product.image)} 
                             alt={product.name} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            className="card-image"
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              transition: 'transform 0.3s ease'
+                            }} 
                           />
                         ) : (
-                          <span style={{ fontSize: '4.4rem', userSelect: 'none' }}>{product.image}</span>
+                          <span style={{ fontSize: '4rem' }}>{product.image}</span>
                         )}
-                        
-                        {/* Hover Overlay */}
-                        <div className="flex-center hover-overlay" style={{
+
+                        {/* Ribbon Badge */}
+                        {discount > 0 && product.inStock && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: '12px',
+                            width: '40px',
+                            padding: '8px 2px 10px 2px',
+                            background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                            color: '#ffffff',
+                            fontSize: '0.65rem',
+                            fontWeight: 900,
+                            lineHeight: 1.15,
+                            textAlign: 'center',
+                            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
+                            zIndex: 10,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                          }}>
+                            {discount}%<br/>OFF
+                          </div>
+                        )}
+
+                        {/* Heart Button */}
+                        <button
+                          onClick={() => onToggleWishlist(product.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            color: isLiked ? '#ef4444' : 'var(--text-muted)',
+                            zIndex: 10,
+                            boxShadow: 'var(--shadow-sm)',
+                            cursor: 'pointer'
+                          }}
+                          className="flex-center"
+                        >
+                          <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
+                        </button>
+
+                        {/* Rating Badge */}
+                        <div style={{
                           position: 'absolute',
-                          top: 0, right: 0, bottom: 0, left: 0,
-                          backgroundColor: 'rgba(0,0,0,0.05)',
-                          opacity: 0,
-                          transition: 'opacity 0.2s ease'
+                          bottom: '12px',
+                          right: '12px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          boxShadow: 'var(--shadow-sm)',
+                          zIndex: 10
                         }}>
-                          <Eye size={24} style={{ color: '#ffffff' }} />
+                          <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>{product.rating}</span>
                         </div>
                       </div>
 
-                      {/* Details Info */}
-                      <div style={{
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
+                      {/* Content Area */}
+                      <div style={{ 
+                        padding: '4px 8px 8px 8px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
                         flexGrow: 1,
-                        textAlign: 'left'
+                        textAlign: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 700, textTransform: 'uppercase' }}>
-                            {product.spiritualType}
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                            <Star size={12} fill="#fbbf24" color="#fbbf24" />
-                            <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{product.rating}</span>
-                          </div>
-                        </div>
+                        <div>
+                          <h3
+                            onClick={() => onViewDetails(product)}
+                            style={{
+                              fontSize: '0.95rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)',
+                              marginBottom: '6px',
+                              cursor: 'pointer',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              lineHeight: '1.2'
+                            }}
+                          >
+                            {product.name}
+                          </h3>
 
-                        <h3
-                          onClick={() => onViewDetails(product)}
-                          style={{
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            color: 'var(--text-dark)',
-                            marginBottom: '6px',
-                            cursor: 'pointer',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 1,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          {product.name}
-                        </h3>
-
-                        <p style={{
-                          fontSize: '0.78rem',
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.4,
-                          marginBottom: '16px',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          height: '32px'
-                        }}>
-                          {product.description}
-                        </p>
-
-                        <div style={{
-                          marginTop: 'auto',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          paddingTop: '12px',
-                          borderTop: '1px solid var(--border-light)'
-                        }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginBottom: '4px'
+                          }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                              ₹{product.price}
+                            </span>
                             {product.originalPrice && (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
                                 ₹{product.originalPrice}
                               </span>
                             )}
-                            <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                              ₹{product.price}
-                            </span>
                           </div>
                         </div>
 
-                        {/* Floating Add to Cart circle button */}
-                        {product.inStock && (
-                          <button
-                            onClick={() => onAddToCart(product, 1)}
-                            style={{
-                              position: 'absolute',
-                              bottom: '12px',
-                              right: '12px',
-                              width: '34px',
-                              height: '34px',
-                              borderRadius: '50%',
-                              backgroundColor: 'var(--primary-lime)',
-                              color: 'var(--text-dark)',
-                              boxShadow: 'var(--shadow-sm)',
-                              transition: 'transform 0.15s ease'
-                            }}
-                            className="flex-center"
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                          >
-                            <ShoppingBag size={15} />
-                          </button>
-                        )}
+                        {/* Add to Cart Button */}
+                        <div style={{ marginTop: 'auto' }}>
+                          {product.inStock ? (
+                            (() => {
+                              const cartItem = cart.find(item => item.product.id === product.id);
+                              const qty = cartItem ? cartItem.quantity : 0;
+                              if (qty > 0) {
+                                return (
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: 'var(--primary-deep)',
+                                    borderRadius: '8px',
+                                    padding: '4px',
+                                    width: '100%',
+                                    height: '40px',
+                                    boxSizing: 'border-box'
+                                  }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUpdateQuantity(product.id, qty - 1);
+                                      }}
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(255,255,255,0.15)',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                        transition: 'background-color 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                    >
+                                      <Minus size={14} strokeWidth={2.5} />
+                                    </button>
+                                    <span style={{
+                                      color: '#ffffff',
+                                      fontWeight: '800',
+                                      fontSize: '0.85rem',
+                                      userSelect: 'none'
+                                    }}>
+                                      {qty} in Cart
+                                    </span>
+                                    <button
+                                      className="qty-plus-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUpdateQuantity(product.id, qty + 1);
+                                      }}
+                                      style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(255,255,255,0.15)',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                        transition: 'background-color 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                    >
+                                      <Plus size={14} strokeWidth={2.5} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddToCart(product, 1);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'var(--primary-deep)',
+                                    color: '#ffffff',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    letterSpacing: '0.05em'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
+                                >
+                                  Add To Cart
+                                </button>
+                              );
+                            })()
+                          ) : (
+                            <button
+                              disabled
+                              style={{
+                                width: '100%',
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--border-light)',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                border: 'none',
+                                cursor: 'not-allowed'
+                              }}
+                            >
+                              Out of Stock
+                            </button>
+                          )}
+                        </div>
                       </div>
-
                     </div>
                   );
                 })}

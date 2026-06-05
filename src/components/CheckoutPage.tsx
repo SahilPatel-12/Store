@@ -190,7 +190,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Calculations
   const subtotal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
   const discountAmount = subtotal * (discountPercent / 100);
-  const shippingCost = subtotal > 50 || subtotal === 0 ? 0 : 4.99;
+  const shippingCost = subtotal > 500 || subtotal === 0 ? 0 : 49;
   const tax = (subtotal - discountAmount) * 0.08;
   const finalTotal = subtotal - discountAmount + shippingCost + tax;
 
@@ -239,8 +239,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   const completeOrder = (paymentLabel: string, razorpayPaymentId?: string) => {
-    setStep('confirmation');
-    onOrderComplete();
     const subtotalVal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
     const discountAmt = subtotalVal * (discountPercent / 100);
     const shippingVal = subtotalVal > 500 || subtotalVal === 0 ? 0 : 49;
@@ -267,6 +265,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       placedAt: new Date(),
       razorpayPaymentId,
     });
+
+    setStep('confirmation');
+    onOrderComplete();
   };
 
   const handlePaymentNext = async () => {
@@ -548,7 +549,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="form-grid-2col">
                   {/* Full Name */}
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={labelStyle}>Full Name *</label>
@@ -701,7 +702,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </h2>
 
                 {/* Payment Method Tabs */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '28px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '28px' }}>
                   {[
                     { id: 'upi' as PaymentMethod, icon: <Smartphone size={20} />, label: 'UPI' },
                     { id: 'card' as PaymentMethod, icon: <CreditCard size={20} />, label: 'Card' },
@@ -1031,7 +1032,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </div>
 
                 {/* Trust Badges */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '28px' }}>
                   {[
                     { icon: <Truck size={20} style={{ color: 'var(--primary-lime)' }} />, text: 'Sacred Express Shipping' },
                     { icon: <ShieldCheck size={20} style={{ color: '#10b981' }} />, text: '100% Authentic Products' },
