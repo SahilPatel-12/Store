@@ -90,19 +90,30 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
   // Interactive review system states
-  const [reviews, setReviews] = React.useState<Array<{ id: string; author: string; rating: number; date: string; content: string; verified: boolean; imageUrls?: string[]; videoUrls?: string[] }>>(() => {
+  const [reviews, setReviews] = React.useState<Array<{ id: string; author: string; name?: string; rating: number; date: string; content: string; comment?: string; location?: string; verified: boolean; imageUrls?: string[]; videoUrls?: string[] }>>(() => {
     const pooja = product as PoojaProduct;
     if (pooja.testimonials && pooja.testimonials.length > 0) {
-      return pooja.testimonials.map((t: any, idx: number) => ({
-        id: t.id || `r-db-${idx}-${Date.now()}`,
-        author: t.author || t.name || 'Anonymous Devotee',
-        rating: t.rating !== undefined ? Number(t.rating) : 5,
-        date: t.date || t.location || 'May 10, 2026',
-        content: t.content || t.comment || '',
-        verified: t.verified !== undefined ? t.verified : true,
-        imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
-        videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
-      }));
+      return pooja.testimonials.map((t: any, idx: number) => {
+        const stableId = t.id || `r-db-${idx}-${(t.author || t.name || 'anon').replace(/\s+/g, '-')}`;
+        const authorVal = t.author || t.name || 'Anonymous Devotee';
+        const contentVal = t.content || t.comment || '';
+        const ratingVal = t.rating !== undefined ? Number(t.rating) : 5;
+        const locationVal = t.location || (t.date && t.date.includes(' – ') ? t.date.split(' – ')[1] : t.date) || '';
+        const dateVal = t.date || (t.location ? `May 10, 2026 – ${t.location}` : 'May 10, 2026');
+        return {
+          id: stableId,
+          author: authorVal,
+          name: authorVal,
+          rating: ratingVal,
+          date: dateVal,
+          location: locationVal,
+          content: contentVal,
+          comment: contentVal,
+          verified: t.verified !== undefined ? t.verified : true,
+          imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
+          videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
+        };
+      });
     }
     try {
       const stored = localStorage.getItem(`ridae_product_reviews_${product.id}`);
@@ -166,16 +177,27 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     const pooja = product as PoojaProduct;
     let initialRevs: any[] = [];
     if (pooja.testimonials && pooja.testimonials.length > 0) {
-      initialRevs = pooja.testimonials.map((t: any, idx: number) => ({
-        id: t.id || `r-db-${idx}-${Date.now()}`,
-        author: t.author || t.name || 'Anonymous Devotee',
-        rating: t.rating !== undefined ? Number(t.rating) : 5,
-        date: t.date || t.location || 'May 10, 2026',
-        content: t.content || t.comment || '',
-        verified: t.verified !== undefined ? t.verified : true,
-        imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
-        videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
-      }));
+      initialRevs = pooja.testimonials.map((t: any, idx: number) => {
+        const stableId = t.id || `r-db-${idx}-${(t.author || t.name || 'anon').replace(/\s+/g, '-')}`;
+        const authorVal = t.author || t.name || 'Anonymous Devotee';
+        const contentVal = t.content || t.comment || '';
+        const ratingVal = t.rating !== undefined ? Number(t.rating) : 5;
+        const locationVal = t.location || (t.date && t.date.includes(' – ') ? t.date.split(' – ')[1] : t.date) || '';
+        const dateVal = t.date || (t.location ? `May 10, 2026 – ${t.location}` : 'May 10, 2026');
+        return {
+          id: stableId,
+          author: authorVal,
+          name: authorVal,
+          rating: ratingVal,
+          date: dateVal,
+          location: locationVal,
+          content: contentVal,
+          comment: contentVal,
+          verified: t.verified !== undefined ? t.verified : true,
+          imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
+          videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
+        };
+      });
     } else {
       try {
         const stored = localStorage.getItem(`ridae_product_reviews_${product.id}`);
@@ -399,12 +421,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       updated = reviews.map(rev => {
         if (rev.id === editingReviewId) {
           const originalDateStr = rev.date.split(' – ')[0] || dateStr;
+          const authorVal = reviewName.trim();
+          const contentVal = reviewComment.trim();
+          const locationVal = reviewLocation.trim();
+          const dateVal = `${originalDateStr}${locationText}`;
           return {
             ...rev,
-            author: reviewName.trim(),
+            author: authorVal,
+            name: authorVal,
             rating: reviewRating,
-            date: `${originalDateStr}${locationText}`,
-            content: reviewComment.trim(),
+            date: dateVal,
+            location: locationVal || originalDateStr,
+            content: contentVal,
+            comment: contentVal,
             imageUrls: [...tempImageUrls],
             videoUrls: [...tempVideoUrls]
           };
@@ -414,12 +443,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       setEditingReviewId(null);
       triggerToast("Review updated successfully.");
     } else {
+      const authorVal = reviewName.trim();
+      const contentVal = reviewComment.trim();
+      const locationVal = reviewLocation.trim();
+      const dateVal = `${dateStr}${locationText}`;
       const newRev = {
         id: 'r-user-' + Date.now(),
-        author: reviewName.trim(),
+        author: authorVal,
+        name: authorVal,
         rating: reviewRating,
-        date: `${dateStr}${locationText}`,
-        content: reviewComment.trim(),
+        date: dateVal,
+        location: locationVal || dateStr,
+        content: contentVal,
+        comment: contentVal,
         verified: true,
         imageUrls: [...tempImageUrls],
         videoUrls: [...tempVideoUrls]
