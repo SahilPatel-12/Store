@@ -587,6 +587,16 @@ function App() {
     handleUrlRouting(window.location.pathname, window.location.search);
   }, [productsState, handleUrlRouting]);
 
+  // Scroll to top automatically when page state, selected product, or selected category changes
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+    // Safety timeout for lazy loaded React.Suspense components to layout and scroll correctly
+    const timer = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [currentPageState, selectedProduct?.id, selectedCategoryName]);
+
 
 
   // Load published pooja products from Supabase and merge with static mock products
