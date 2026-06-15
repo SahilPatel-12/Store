@@ -128,6 +128,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [reviewComment, setReviewComment] = React.useState('');
   const [reviewLocation, setReviewLocation] = React.useState('');
   const [editingReviewId, setEditingReviewId] = React.useState<string | null>(null);
+  const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
 
   // Media upload states for reviews (Cloudflare R2 integration)
   const [tempImageUrls, setTempImageUrls] = React.useState<string[]>([]);
@@ -474,6 +475,43 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     if (onUpdate) {
       onUpdate({ testimonials: updated });
     }
+  };
+
+  // Drag and Drop reordering for gallery images
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (!editable || !pooja.galleryImages || index >= pooja.galleryImages.length) return;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    if (!editable || !pooja.galleryImages || index >= pooja.galleryImages.length) return;
+    if (draggedIndex === null || draggedIndex === index) return;
+    e.preventDefault(); // Required to drop!
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (!editable || !pooja.galleryImages || targetIndex >= pooja.galleryImages.length) return;
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const list = [...pooja.galleryImages];
+    const draggedItem = list[draggedIndex];
+    list.splice(draggedIndex, 1);
+    list.splice(targetIndex, 0, draggedItem);
+
+    const updates: Partial<PoojaProduct> = { galleryImages: list };
+    if (list.length > 0) {
+      updates.image = list[0].url;
+    }
+    onUpdate && onUpdate(updates);
+    setActiveImageIndex(targetIndex);
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedIndex(null);
+    e.currentTarget.classList.remove('dragging');
   };
 
   const specs = {
@@ -1155,7 +1193,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             {/* Gallery Thumbnails */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               {resolvedGallery.map((img, idx) => (
-                <div key={idx} style={{ position: 'relative' }}>
+                <div
+                  key={idx}
+                  style={{
+                    position: 'relative',
+                    opacity: draggedIndex === idx ? 0.4 : 1,
+                    transition: 'opacity 0.2s'
+                  }}
+                  draggable={editable && idx < (pooja.galleryImages?.length || 0)}
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={() => handleDrop(idx)}
+                  onDragEnd={handleDragEnd}
+                  title={editable && idx < (pooja.galleryImages?.length || 0) ? "Drag to reorder" : undefined}
+                >
                   <button
                     onClick={() => {
                       if (activeImageIndex === idx) {
@@ -1178,7 +1229,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       boxShadow: 'var(--shadow-sm)',
                       transition: 'all 0.15s',
                       overflow: 'hidden',
-                      padding: 0
+                      padding: 0,
+                      cursor: editable && idx < (pooja.galleryImages?.length || 0) ? 'grab' : 'pointer'
                     }}
                   >
                     {img.isVideo ? (
