@@ -348,6 +348,11 @@ function App() {
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
+  // Reset window scroll position to top whenever page navigation or main filters change
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPageState, selectedCategoryName, selectedProduct?.id, searchQueryTerm]);
+
   // Dynamic Slugification Resolvers
   const getProductSlug = (product: Product): string => {
     if ('slug' in product && (product as any).slug) {
@@ -586,16 +591,6 @@ function App() {
   React.useEffect(() => {
     handleUrlRouting(window.location.pathname, window.location.search);
   }, [productsState, handleUrlRouting]);
-
-  // Scroll to top automatically when page state, selected product, or selected category changes
-  React.useEffect(() => {
-    window.scrollTo(0, 0);
-    // Safety timeout for lazy loaded React.Suspense components to layout and scroll correctly
-    const timer = setTimeout(() => {
-      window.scrollTo(0, 0);
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [currentPageState, selectedProduct?.id, selectedCategoryName]);
 
 
 
