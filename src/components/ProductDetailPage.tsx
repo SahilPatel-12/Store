@@ -98,7 +98,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         author: t.author || t.name || 'Anonymous Devotee',
         rating: t.rating !== undefined ? Number(t.rating) : 5,
         date: t.date || t.location || 'May 10, 2026',
-        content: t.content || '',
+        content: t.content || t.comment || '',
         verified: t.verified !== undefined ? t.verified : true
       }));
     }
@@ -161,7 +161,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         author: t.author || t.name || 'Anonymous Devotee',
         rating: t.rating !== undefined ? Number(t.rating) : 5,
         date: t.date || t.location || 'May 10, 2026',
-        content: t.content || '',
+        content: t.content || t.comment || '',
         verified: t.verified !== undefined ? t.verified : true
       }));
     } else {
