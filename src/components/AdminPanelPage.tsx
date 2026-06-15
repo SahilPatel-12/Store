@@ -1721,7 +1721,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         offers: editingPoojaProduct.offers || [],
         badges: editingPoojaProduct.badges || [],
         
-        image: editingPoojaProduct.image || '📿',
+        image: (editingPoojaProduct.galleryImages && editingPoojaProduct.galleryImages.length > 0)
+          ? editingPoojaProduct.galleryImages[0].url
+          : (editingPoojaProduct.image || '📿'),
         banner_image: editingPoojaProduct.bannerImage || null,
         gallery_images: editingPoojaProduct.galleryImages || [],
         ritual_images: editingPoojaProduct.ritualImages || [],

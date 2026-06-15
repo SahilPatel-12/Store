@@ -1221,7 +1221,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         e.stopPropagation();
                         if (pooja.galleryImages && idx < pooja.galleryImages.length) {
                           const updated = pooja.galleryImages.filter((_, i) => i !== idx);
-                          onUpdate && onUpdate({ galleryImages: updated });
+                          const updates: Partial<PoojaProduct> = { galleryImages: updated };
+                          if (updated.length > 0) {
+                            updates.image = updated[0].url;
+                          }
+                          onUpdate && onUpdate(updates);
                           setActiveImageIndex(0);
                         } else {
                           onUpdate && onUpdate({ videoUrl: undefined });
@@ -1290,8 +1294,15 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       if (file && onUpdate) {
                         try {
                           const cdnUrl = await uploadToR2(file, 'products/gallery');
-                          const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
-                          onUpdate({ galleryImages: [...currentGallery, { url: cdnUrl, alt: pooja.name }] });
+                          const currentGallery = pooja.galleryImages && pooja.galleryImages.length > 0
+                            ? pooja.galleryImages
+                            : [];
+                          const updatedGallery = [...currentGallery, { url: cdnUrl, alt: pooja.name }];
+                          const updates: Partial<PoojaProduct> = { galleryImages: updatedGallery };
+                          if (updatedGallery.length === 1 || !product.image || !isImageUrl(product.image)) {
+                            updates.image = cdnUrl;
+                          }
+                          onUpdate(updates);
                         } catch (err) {
                           alert('Upload failed: ' + (err as Error).message);
                         }
