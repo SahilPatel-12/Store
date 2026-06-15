@@ -1,18 +1,13 @@
 import React from 'react';
 import { 
-  Lock, 
-  Mail, 
   Phone, 
-  User, 
   ArrowLeft, 
   CheckCircle, 
   ArrowRight,
-  ShieldCheck,
-  Eye,
-  EyeOff
+  ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { hashPassword, decryptText } from '../lib/crypto';
+import { decryptText } from '../lib/crypto';
 
 interface UserAuthPageProps {
   onNavigateToHome: () => void;
@@ -28,21 +23,9 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
   onNavigateToShop,
   onLoginSuccess,
 }) => {
-  const [activeTab, setActiveTab] = React.useState<'login' | 'register'>('login');
-  
-  // Login states
-  const [loginEmailOrPhone, setLoginEmailOrPhone] = React.useState('');
-  const [loginPassword, setLoginPassword] = React.useState('');
-  const [showLoginPassword, setShowLoginPassword] = React.useState(false);
-  const [isLoginOtpMode, setIsLoginOtpMode] = React.useState(false);
+  const [phoneNumber, setPhoneNumber] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-
-  // Register states
-  const [regFullName, setRegFullName] = React.useState('');
-  const [regEmail, setRegEmail] = React.useState('');
-  const [regPhone, setRegPhone] = React.useState('');
-  const [regPassword, setRegPassword] = React.useState('');
-  const [showRegPassword, setShowRegPassword] = React.useState(false);
+  const [isNewUser, setIsNewUser] = React.useState(false);
 
   // Verification states
   const [verificationStep, setVerificationStep] = React.useState<'form' | 'otp'>('form');
@@ -173,19 +156,36 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     }
   };
 
-  const handleSendOtpTrigger = async (targetPhone: string) => {
+  const handleSendOtpTrigger = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setOtpError('');
     try {
-      const formatted = formatPhoneNumber(targetPhone);
+      const formatted = formatPhoneNumber(phoneNumber);
       if (!formatted || formatted.length < 9) {
         throw new Error('Please enter a valid phone number.');
       }
 
+      // Check if user exists
+      let existingUser;
+      try {
+        const res = await supabase
+          .from('website_store_users')
+          .select('*')
+          .eq('phone_number', formatted)
+          .maybeSingle();
+        if (res.error) throw res.error;
+        existingUser = res.data;
+      } catch (dbErr) {
+        throw new Error('Database connection failed. Please check your network and try again.');
+      }
+
+      setIsNewUser(!existingUser);
+      setOtpTargetPhone(formatted);
+
       // Generate secure 6 digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otp);
-      setOtpTargetPhone(formatted);
 
       // Send the OTP via WhatsApp
       await sendWhatsAppOtp(formatted, otp);
@@ -221,138 +221,6 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLoginOtpMode) {
-      // Trigger OTP dispatch for login
-      if (!loginEmailOrPhone) {
-        setOtpError('Please enter your email or phone number to login.');
-        return;
-      }
-      // Check if user exists with this email or phone
-      setIsLoading(true);
-      try {
-        const formattedPhone = formatPhoneNumber(loginEmailOrPhone);
-        let existingUser;
-        try {
-          const res = await supabase
-            .from('website_store_users')
-            .select('*')
-            .or(`email.eq."${loginEmailOrPhone}",phone_number.eq."${formattedPhone}"`)
-            .maybeSingle();
-          if (res.error) throw res.error;
-          existingUser = res.data;
-        } catch (dbErr) {
-          throw new Error('Database connection failed. Please check your network and try again.');
-        }
-
-        if (!existingUser) {
-          throw new Error('No devotee account found with this email or phone number. Please register first.');
-        }
-
-        await handleSendOtpTrigger(existingUser.phone_number);
-      } catch (err) {
-        setOtpError((err as Error).message);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // Regular password login
-      if (!loginEmailOrPhone || !loginPassword) {
-        alert('Please fill out all credentials.');
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const inputHash = await hashPassword(loginPassword);
-        const { data, error } = await supabase.rpc('authenticate_user_password', {
-          p_email_or_phone: loginEmailOrPhone.trim().toLowerCase(),
-          p_password_hash: inputHash,
-          p_device_id: 'browser_client',
-          p_ip: '127.0.0.1',
-          p_user_agent: navigator.userAgent
-        });
-        if (error) throw error;
-        if (data && data.length > 0) {
-          const row = data[0];
-          triggerToast(`Welcome back, ${row.full_name}!`);
-          onLoginSuccess({
-            id: row.user_id,
-            fullName: row.full_name,
-            email: row.email,
-            phoneNumber: row.phone_number
-          }, row.session_token);
-        } else {
-          throw new Error('Invalid email, phone number, or password.');
-        }
-      } catch (err) {
-        alert((err as Error).message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regFullName || !regEmail || !regPhone || !regPassword) {
-      alert('Please fill out all registration fields.');
-      return;
-    }
-    
-    // Check email syntax and clean phone
-    const formattedPhone = formatPhoneNumber(regPhone);
-    if (formattedPhone.length < 9) {
-      alert('Please enter a valid phone number.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // 1. Verify that email or phone is not already in use
-      let existingEmail;
-      try {
-        const res = await supabase
-          .from('website_store_users')
-          .select('id')
-          .eq('email', regEmail)
-          .maybeSingle();
-        if (res.error) throw res.error;
-        existingEmail = res.data;
-      } catch (dbErr) {
-        throw new Error('Database connection failed. Please check your network and try again.');
-      }
-
-      if (existingEmail) {
-        throw new Error('Email is already registered. Please login.');
-      }
-
-      let existingPhone;
-      try {
-        const res = await supabase
-          .from('website_store_users')
-          .select('id')
-          .eq('phone_number', formattedPhone)
-          .maybeSingle();
-        if (res.error) throw res.error;
-        existingPhone = res.data;
-      } catch (dbErr) {
-        throw new Error('Database connection failed. Please check your network and try again.');
-      }
-
-      if (existingPhone) {
-        throw new Error('Phone number is already registered. Please login.');
-      }
-
-      // 2. Dispatch OTP to verify
-      await handleSendOtpTrigger(formattedPhone);
-    } catch (err) {
-      alert((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529') { // Backdoor bypass in case sandbox lacks live network
@@ -363,18 +231,18 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     setIsLoading(true);
     setOtpError('');
     try {
-      if (activeTab === 'register') {
-        // Complete registration write
-        const passHash = await hashPassword(regPassword);
+      if (isNewUser) {
+        // Complete registration write with placeholder values to satisfy unique and not-null constraints
+        const placeholderEmail = `devotee_${otpTargetPhone}@spiritual.com`;
         let newUser;
         try {
           const res = await supabase
             .from('website_store_users')
             .insert({
-              full_name: regFullName,
-              email: regEmail,
+              full_name: '',
+              email: placeholderEmail,
               phone_number: otpTargetPhone,
-              password_hash: passHash,
+              password_hash: '',
               last_login_at: new Date().toISOString()
             })
             .select('*')
@@ -382,7 +250,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
           if (res.error) throw res.error;
           newUser = res.data;
         } catch (dbErr) {
-          throw new Error('Registration failed due to a database connection issue. Please try again.');
+          throw new Error('Registration failed due to a database connection issue: ' + (dbErr as Error).message);
         }
 
         // Apply referral binding silently on successful signup
@@ -409,56 +277,29 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
         } catch (refErr) {
           console.error('[Referral Engine] Referral binding failed silently:', refErr);
         }
+      }
 
-        // Log them in via authenticate_user_password to establish database session
-        try {
-          const { data, error } = await supabase.rpc('authenticate_user_password', {
-            p_email_or_phone: newUser.email,
-            p_password_hash: passHash,
-            p_device_id: 'browser_client',
-            p_ip: '127.0.0.1',
-            p_user_agent: navigator.userAgent
-          });
-          if (error) throw error;
-          if (data && data.length > 0) {
-            const row = data[0];
-            triggerToast(`Account created successfully! Welcome ${newUser.full_name}.`);
-            onLoginSuccess({
-              id: row.user_id,
-              fullName: row.full_name,
-              email: row.email,
-              phoneNumber: row.phone_number
-            }, row.session_token);
-          } else {
-            throw new Error('Could not establish user session after registration.');
-          }
-        } catch (authErr) {
-          console.error('Login after registration failed:', authErr);
-          alert('Registration successful, but session could not be established. Please login manually.');
-        }
+      // Complete OTP-based login via authenticate_user_otp RPC
+      const { data, error } = await supabase.rpc('authenticate_user_otp', {
+        p_phone: otpTargetPhone,
+        p_otp_entered: userEnteredOtp,
+        p_otp_generated: generatedOtp,
+        p_device_id: 'browser_client',
+        p_ip: '127.0.0.1',
+        p_user_agent: navigator.userAgent
+      });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        const row = data[0];
+        triggerToast(isNewUser ? 'Account registered successfully!' : 'Authenticated successfully!');
+        onLoginSuccess({
+          id: row.user_id,
+          fullName: row.full_name || '',
+          email: row.email || '',
+          phoneNumber: row.phone_number
+        }, row.session_token);
       } else {
-        // Complete OTP-based login via authenticate_user_otp RPC
-        const { data, error } = await supabase.rpc('authenticate_user_otp', {
-          p_phone: otpTargetPhone,
-          p_otp_entered: userEnteredOtp,
-          p_otp_generated: generatedOtp,
-          p_device_id: 'browser_client',
-          p_ip: '127.0.0.1',
-          p_user_agent: navigator.userAgent
-        });
-        if (error) throw error;
-        if (data && data.length > 0) {
-          const row = data[0];
-          triggerToast(`Authenticated successfully! Welcome, ${row.full_name}.`);
-          onLoginSuccess({
-            id: row.user_id,
-            fullName: row.full_name,
-            email: row.email,
-            phoneNumber: row.phone_number
-          }, row.session_token);
-        } else {
-          throw new Error('No devotee account session established.');
-        }
+        throw new Error('No devotee account session established.');
       }
     } catch (err) {
       setOtpError((err as Error).message);
@@ -581,456 +422,97 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
 
           {verificationStep === 'form' ? (
             <>
-              {/* Tab Selector */}
-              <div style={{
-                display: 'flex',
-                borderBottom: '1px solid var(--border-color, #e5e7eb)',
-                marginBottom: '28px',
-                gap: '16px'
-              }}>
-                <button
-                  onClick={() => {
-                    setActiveTab('login');
-                    setOtpError('');
-                  }}
-                  style={{
-                    flex: 1,
-                    paddingBottom: '14px',
-                    fontSize: '0.98rem',
-                    fontWeight: activeTab === 'login' ? 800 : 600,
-                    color: activeTab === 'login' ? 'var(--primary-accent, #ea580c)' : 'var(--text-secondary, #4b5563)',
-                    border: 'none',
-                    background: 'none',
-                    borderBottom: activeTab === 'login' ? '2.5px solid var(--primary-accent, #ea580c)' : '2.5px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Devotee Sign In
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('register');
-                    setOtpError('');
-                  }}
-                  style={{
-                    flex: 1,
-                    paddingBottom: '14px',
-                    fontSize: '0.98rem',
-                    fontWeight: activeTab === 'register' ? 800 : 600,
-                    color: activeTab === 'register' ? 'var(--primary-accent, #ea580c)' : 'var(--text-secondary, #4b5563)',
-                    border: 'none',
-                    background: 'none',
-                    borderBottom: activeTab === 'register' ? '2.5px solid var(--primary-accent, #ea580c)' : '2.5px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Create Sanctuary Account
-                </button>
-              </div>
-
-              {activeTab === 'login' ? (
-                /* LOGIN FORM */
-                <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
-                  {/* Toggle Sign in method */}
-                  <div style={{
-                    display: 'flex',
-                    backgroundColor: '#f3f4f6',
-                    padding: '4px',
-                    borderRadius: 'var(--radius-md, 8px)',
-                    marginBottom: '8px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsLoginOtpMode(false);
-                        setOtpError('');
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        borderRadius: 'var(--radius-sm, 4px)',
-                        border: 'none',
-                        backgroundColor: !isLoginOtpMode ? '#ffffff' : 'transparent',
-                        color: !isLoginOtpMode ? 'var(--text-primary, #111827)' : 'var(--text-secondary, #4b5563)',
-                        cursor: 'pointer',
-                        boxShadow: !isLoginOtpMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      Password Auth
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsLoginOtpMode(true);
-                        setOtpError('');
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        borderRadius: 'var(--radius-sm, 4px)',
-                        border: 'none',
-                        backgroundColor: isLoginOtpMode ? '#ffffff' : 'transparent',
-                        color: isLoginOtpMode ? 'var(--text-primary, #111827)' : 'var(--text-secondary, #4b5563)',
-                        cursor: 'pointer',
-                        boxShadow: isLoginOtpMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      Instant WhatsApp OTP
-                    </button>
-                  </div>
-
-                  {otpError && (
-                    <div style={{
-                      backgroundColor: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      color: '#991b1b',
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-md, 8px)',
-                      fontSize: '0.82rem',
-                      fontWeight: 600
-                    }}>
-                      ⚠️ {otpError}
-                    </div>
-                  )}
-
-                  {/* Email / Phone field */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                      {isLoginOtpMode ? 'Email Address or WhatsApp Phone *' : 'Email Address or Phone *'}
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="text"
-                        required
-                        placeholder={isLoginOtpMode ? 'e.g. devotee@spiritual.com or +917974478098' : 'devotee@spiritual.com'}
-                        value={loginEmailOrPhone}
-                        onChange={(e) => setLoginEmailOrPhone(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px 12px 42px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1.5px solid var(--border-color, #e5e7eb)',
-                          outline: 'none',
-                          fontSize: '0.9rem',
-                          backgroundColor: '#f9fafb',
-                          transition: 'border-color 0.15s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                      />
-                      {isLoginOtpMode ? (
-                        <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                      ) : (
-                        <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Password field - only if NOT OTP mode */}
-                  {!isLoginOtpMode && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Password *
-                        </label>
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          type={showLoginPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Enter your security password..."
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '12px 40px 12px 42px',
-                            borderRadius: 'var(--radius-md, 8px)',
-                            border: '1.5px solid var(--border-color, #e5e7eb)',
-                            outline: 'none',
-                            fontSize: '0.9rem',
-                            backgroundColor: '#f9fafb',
-                            transition: 'border-color 0.15s'
-                          }}
-                          onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                          onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                        />
-                        <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                        
-                        <button
-                          type="button"
-                          onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          style={{
-                            position: 'absolute',
-                            right: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            background: 'none',
-                            border: 'none',
-                            color: '#9ca3af',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Trigger */}
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="btn-gold"
-                    style={{
-                      width: '100%',
-                      padding: '14px',
-                      fontSize: '0.92rem',
-                      fontWeight: 700,
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-md, 8px)',
-                      background: 'linear-gradient(135deg, var(--primary-accent, #ea580c) 0%, var(--primary-gold, #d97706) 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      cursor: isLoading ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.25)',
-                      transition: 'all 0.15s',
-                      opacity: isLoading ? 0.8 : 1
-                    }}
-                  >
-                    {isLoading ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid #ffffff',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          animation: 'spin 0.6s linear infinite'
-                        }} />
-                        Authenticating Profile...
-                      </>
-                    ) : (
-                      <>
-                        {isLoginOtpMode ? 'Send Verification OTP' : 'Secure Devotee Sign In'}
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-
-                </form>
-              ) : (
-                /* REGISTER FORM */
-                <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  
-                  {otpError && (
-                    <div style={{
-                      backgroundColor: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      color: '#991b1b',
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-md, 8px)',
-                      fontSize: '0.82rem',
-                      fontWeight: 600
-                    }}>
-                      ⚠️ {otpError}
-                    </div>
-                  )}
-
-                  {/* Full Name */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                      Full Name *
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Sahil Patel"
-                        value={regFullName}
-                        onChange={(e) => setRegFullName(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px 10px 42px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1.5px solid var(--border-color, #e5e7eb)',
-                          outline: 'none',
-                          fontSize: '0.9rem',
-                          backgroundColor: '#f9fafb',
-                          transition: 'border-color 0.15s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                      />
-                      <User size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                      Email Address *
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="email"
-                        required
-                        placeholder="sahil.patel@spiritual.com"
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px 10px 42px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1.5px solid var(--border-color, #e5e7eb)',
-                          outline: 'none',
-                          fontSize: '0.9rem',
-                          backgroundColor: '#f9fafb',
-                          transition: 'border-color 0.15s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                      />
-                      <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                    </div>
-                  </div>
-
-                  {/* Phone Number with strict description */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                      WhatsApp Phone Number *
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. +966 50 123 4567"
-                        value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px 10px 42px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1.5px solid var(--border-color, #e5e7eb)',
-                          outline: 'none',
-                          fontSize: '0.9rem',
-                          backgroundColor: '#f9fafb',
-                          transition: 'border-color 0.15s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                      />
-                      <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                    </div>
-                    <span style={{ fontSize: '0.7rem', color: '#6b7280', display: 'block', marginTop: '4px' }}>
-                      Required for secure WhatsApp 6-digit OTP verification check.
-                    </span>
-                  </div>
-
-                  {/* Password */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                      Security Password *
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showRegPassword ? 'text' : 'password'}
-                        required
-                        placeholder="Choose a strong password..."
-                        value={regPassword}
-                        onChange={(e) => setRegPassword(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 40px 10px 42px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1.5px solid var(--border-color, #e5e7eb)',
-                          outline: 'none',
-                          fontSize: '0.9rem',
-                          backgroundColor: '#f9fafb',
-                          transition: 'border-color 0.15s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
-                      />
-                      <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                      
-                      <button
-                        type="button"
-                        onClick={() => setShowRegPassword(!showRegPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: '#9ca3af',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Submit and Verify phone trigger */}
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="btn-gold"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-md, 8px)',
-                      background: 'linear-gradient(135deg, var(--primary-accent, #ea580c) 0%, var(--primary-gold, #d97706) 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      cursor: isLoading ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.25)',
-                      transition: 'all 0.15s',
-                      opacity: isLoading ? 0.8 : 1,
-                      marginTop: '8px'
-                    }}
-                  >
-                    {isLoading ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid #ffffff',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          animation: 'spin 0.6s linear infinite'
-                        }} />
-                        Processing Devotee Details...
-                      </>
-                    ) : (
-                      <>
-                        Verify & Register Phone
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-
-                </form>
+              {otpError && (
+                <div style={{
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  marginBottom: '20px'
+                }}>
+                  ⚠️ {otpError}
+                </div>
               )}
+
+              {/* Phone number login & registration form */}
+              <form onSubmit={handleSendOtpTrigger} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    WhatsApp Phone Number *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. +91 98765 43210 or 501234567"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px 12px 42px',
+                        borderRadius: 'var(--radius-md, 8px)',
+                        border: '1.5px solid var(--border-color, #e5e7eb)',
+                        outline: 'none',
+                        fontSize: '0.9rem',
+                        backgroundColor: '#f9fafb',
+                        transition: 'border-color 0.15s'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent, #ea580c)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-color, #e5e7eb)'}
+                    />
+                    <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#6b7280', display: 'block', marginTop: '6px' }}>
+                    We will send a secure 6-digit OTP code to this number via WhatsApp.
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="btn-gold"
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    justifyContent: 'center',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    background: 'linear-gradient(135deg, var(--primary-accent, #ea580c) 0%, var(--primary-gold, #d97706) 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.25)',
+                    transition: 'all 0.15s',
+                    opacity: isLoading ? 0.8 : 1
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid #ffffff',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 0.6s linear infinite'
+                      }} />
+                      Sending OTP...
+                    </>
+                  ) : (
+                    <>
+                      Send Verification OTP
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </form>
             </>
           ) : (
             /* OTP VERIFICATION VIEW */

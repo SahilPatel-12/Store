@@ -167,9 +167,10 @@ function App() {
 
   const [profileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'>('info');
 
-  const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | null>(null);
+  const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | 'cart' | null>(null);
   const [pendingBuyNow, setPendingBuyNow] = React.useState<{ product: Product; qty: number } | null>(null);
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
+  const [pendingAddToCart, setPendingAddToCart] = React.useState<{ product: Product; qty: number } | null>(null);
 
   const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string; token: string | null } | null>(() => {
     try {
@@ -379,17 +380,23 @@ function App() {
 
   const setCurrentPage = (
     page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth',
-    options?: { categoryName?: string; product?: Product; searchQuery?: string }
+    options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean }
   ) => {
     setMobileMenuOpen(false);
     setMobileCategoriesExpanded(false);
     // Intercept protected devotee page routing
     if (page === 'checkout' || page === 'wishlist' || page === 'orders' || page === 'profile') {
-      if (!loggedInUser) {
+      if (!loggedInUser && !options?.bypassAuthCheck) {
         if (page !== 'profile') {
           alert(`Please log in or register to access ${page === 'checkout' ? 'checkout' : page}.`);
         }
-        setAuthRedirectPage(page === 'profile' ? null : page);
+        setAuthRedirectPage(
+          page === 'profile'
+            ? 'profile'
+            : page === 'checkout'
+            ? 'cart'
+            : page
+        );
         page = 'user-auth';
       }
     }
@@ -539,7 +546,7 @@ function App() {
         if (loggedInUser) {
           setCurrentPageState('checkout');
         } else {
-          setAuthRedirectPage('checkout');
+          setAuthRedirectPage('cart');
           setCurrentPageState('user-auth');
         }
       } else if (path === '/success' || path === '/success/') {
@@ -1034,7 +1041,14 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleAddToCartWithQty = (product: Product, quantity = 1) => {
+  const handleAddToCartWithQty = (product: Product, quantity = 1, force = false) => {
+    if (!loggedInUser && !force) {
+      alert("Please log in or register to add items to your cart.");
+      setPendingAddToCart({ product, qty: quantity });
+      setAuthRedirectPage('cart');
+      setCurrentPage('user-auth');
+      return;
+    }
     setCart(prev => {
       const existingIdx = prev.findIndex(item => item.product.id === product.id);
       if (existingIdx > -1) {
@@ -1076,7 +1090,7 @@ function App() {
     if (!loggedInUser) {
       alert("Please log in or register to buy this item.");
       setPendingBuyNow({ product, qty });
-      setAuthRedirectPage('checkout');
+      setAuthRedirectPage('cart');
       setCurrentPage('user-auth');
     } else {
       handleAddToCartWithQty(product, qty);
@@ -1265,13 +1279,13 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
 
             <button
-              onClick={() => loggedInUser ? setCurrentPage('profile') : setCurrentPage('user-auth')}
+              onClick={() => setCurrentPage('profile')}
               style={{
                 padding: '8px',
                 color: loggedInUser ? 'var(--primary-gold, #d97706)' : (currentPage === 'profile' || currentPage === 'user-auth' ? 'var(--primary-lime)' : 'var(--text-dark)'),
                 transition: 'color 0.2s'
               }}
-              title={loggedInUser ? `Logged in as ${loggedInUser.fullName}` : "Spiritual Dashboard"}
+              title={loggedInUser ? `Logged in as ${loggedInUser.fullName || loggedInUser.phoneNumber || 'Devotee'}` : "Spiritual Dashboard"}
             >
               <User size={20} style={{ fill: loggedInUser ? 'var(--primary-gold, #d97706)' : 'none' }} />
             </button>
@@ -3012,6 +3026,12 @@ function App() {
             setLoggedInUser(null);
             setCurrentPage('shop');
           }}
+          onProfileUpdate={(updatedUser) => {
+            try {
+              localStorage.setItem('mantra_user_session', JSON.stringify(updatedUser));
+            } catch (e) {}
+            setLoggedInUser(updatedUser);
+          }}
         />
       ) : currentPage === 'user-auth' ? (
         <UserAuthPage
@@ -3030,15 +3050,19 @@ function App() {
               setPendingWishlistToggle(null);
             }
             
-            if (pendingBuyNow) {
-              handleAddToCartWithQty(pendingBuyNow.product, pendingBuyNow.qty);
+            if (pendingAddToCart) {
+              handleAddToCartWithQty(pendingAddToCart.product, pendingAddToCart.qty, true);
+              setPendingAddToCart(null);
+              setCurrentPage('cart');
+            } else if (pendingBuyNow) {
+              handleAddToCartWithQty(pendingBuyNow.product, pendingBuyNow.qty, true);
               setPendingBuyNow(null);
-              setCurrentPage('checkout');
+              setCurrentPage('cart');
             } else if (authRedirectPage) {
-              setCurrentPage(authRedirectPage);
+              setCurrentPage(authRedirectPage, { bypassAuthCheck: true });
               setAuthRedirectPage(null);
             } else {
-              setCurrentPage('profile');
+              setCurrentPage('profile', { bypassAuthCheck: true });
             }
           }}
         />
@@ -3206,7 +3230,7 @@ function App() {
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => loggedInUser ? setCurrentPage('profile') : setCurrentPage('user-auth')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                  <button onClick={() => setCurrentPage('profile')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
                     Devotee Dashboard
                   </button>
                 </li>

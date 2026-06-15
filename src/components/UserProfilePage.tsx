@@ -56,6 +56,7 @@ const ReferralTreeNode: React.FC<ReferralTreeNodeProps> = ({
   if (!matches) return null;
 
   const isExpanded = search ? true : isOpen;
+  const displayName = node.full_name && node.full_name.trim() !== '' ? node.full_name : node.user_id;
 
   return (
     <div style={{ marginLeft: node.level > 1 ? '16px' : '0px', marginTop: '10px' }}>
@@ -76,7 +77,7 @@ const ReferralTreeNode: React.FC<ReferralTreeNodeProps> = ({
             }}>
               ▼
             </span>
-            <span>👤 {highlightText(node.full_name, search)}</span>
+            <span>👤 {highlightText(displayName, search)}</span>
             <span style={{ fontSize: '0.72rem', padding: '1px 8px', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
               Level {node.level} (Referrer)
             </span>
@@ -106,7 +107,7 @@ const ReferralTreeNode: React.FC<ReferralTreeNodeProps> = ({
           color: 'var(--text-dark)',
           flexWrap: 'wrap'
         }}>
-          <span>• 👤 {highlightText(node.full_name, search)}</span>
+          <span>• 👤 {highlightText(displayName, search)}</span>
           <span style={{ fontSize: '0.72rem', padding: '1px 8px', backgroundColor: '#f3f4f6', color: '#4b5563', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
             Level {node.level}
           </span>
@@ -131,6 +132,7 @@ interface UserProfilePageProps {
   loggedInUser?: { id: string; fullName: string; email: string; phoneNumber: string } | null;
   onLogout?: () => void;
   initialTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate';
+  onProfileUpdate?: (updatedUser: { id: string; fullName: string; email: string; phoneNumber: string }) => void;
 }
 
 interface Address {
@@ -157,6 +159,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   loggedInUser,
   onLogout,
   initialTab,
+  onProfileUpdate,
 }) => {
   const [activeTab, setActiveTab] = React.useState<
     'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'
@@ -453,7 +456,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     if (!activeLevels.includes(node.level)) return false;
     if (!query) return true;
     const lowerQuery = query.toLowerCase();
-    if (node.full_name.toLowerCase().includes(lowerQuery)) return true;
+    const displayName = node.full_name && node.full_name.trim() !== '' ? node.full_name : node.user_id;
+    if (displayName.toLowerCase().includes(lowerQuery)) return true;
     if (node.children && node.children.length > 0) {
       return node.children.some((child: any) => doesNodeOrDescendantMatch(child, query));
     }
@@ -524,15 +528,16 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
   React.useEffect(() => {
     if (loggedInUser) {
+      const isPlaceholder = loggedInUser.email && loggedInUser.email.startsWith('devotee_') && loggedInUser.email.endsWith('@spiritual.com');
       setUserProfile(prev => ({
         ...prev,
-        name: loggedInUser.fullName,
-        email: loggedInUser.email,
+        name: loggedInUser.fullName || '',
+        email: isPlaceholder ? '' : (loggedInUser.email || ''),
         phone: loggedInUser.phoneNumber
       }));
       setNewAddress(prev => ({
         ...prev,
-        name: loggedInUser.fullName
+        name: loggedInUser.fullName || ''
       }));
       fetchAddresses();
     } else {
@@ -643,10 +648,39 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   }, [notifSuccessMessage]);
 
   // Profile Edit Save
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsEditingProfile(false);
-    setProfileSuccessMessage('Spiritual Profile updated successfully!');
+    if (!loggedInUser) return;
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('website_store_users')
+        .update({
+          full_name: userProfile.name,
+          email: userProfile.email
+        })
+        .eq('id', loggedInUser.id);
+
+      if (error) throw error;
+
+      if (onProfileUpdate) {
+        onProfileUpdate({
+          id: loggedInUser.id,
+          fullName: userProfile.name,
+          email: userProfile.email,
+          phoneNumber: loggedInUser.phoneNumber
+        });
+      }
+
+      setIsEditingProfile(false);
+      setProfileSuccessMessage('Spiritual Profile updated successfully!');
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      alert('Error updating profile: ' + (err as Error).message);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   // Add Address Save
@@ -1277,17 +1311,19 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                       <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                         <button
                           type="submit"
+                          disabled={isSavingProfile}
                           className="btn-lime"
-                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', display: 'inline-flex', alignItems: 'center', gap: '8px', opacity: isSavingProfile ? 0.7 : 1, cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
                         >
                           <Save size={16} />
-                          <span>Save Changes</span>
+                          <span>{isSavingProfile ? 'Saving...' : 'Save Changes'}</span>
                         </button>
                         <button
                           type="button"
+                          disabled={isSavingProfile}
                           onClick={() => setIsEditingProfile(false)}
                           className="btn-outline"
-                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}
+                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
                         >
                           Cancel
                         </button>
