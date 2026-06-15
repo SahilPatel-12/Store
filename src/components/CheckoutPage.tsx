@@ -50,15 +50,13 @@ interface CheckoutPageProps {
   onOrderComplete: () => void;
   onOrderSuccess: (details: OrderDetails) => void;
   loggedInUser?: { id: string; fullName: string; email: string; phoneNumber: string } | null;
+  appliedCouponCode: string;
+  onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
+  discountPercent: number;
 }
 
 type Step = 'address' | 'payment' | 'confirmation';
 type PaymentMethod = 'upi' | 'card' | 'cod' | 'netbanking';
-
-const VALID_COUPONS: Record<string, number> = {
-  DEVOTION10: 10,
-  TEMPLE20: 20,
-};
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   cart,
@@ -67,6 +65,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   onOrderComplete,
   onOrderSuccess,
   loggedInUser,
+  appliedCouponCode,
+  onApplyCoupon,
+  discountPercent,
 }) => {
   const [step, setStep] = React.useState<Step>('address');
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>('upi');
@@ -96,9 +97,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [paymentErrors, setPaymentErrors] = React.useState<Record<string, string>>({});
 
   // Coupon
-  const [couponCode, setCouponCode] = React.useState('');
-  const [discountPercent, setDiscountPercent] = React.useState(0);
+  const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
   const [couponMessage, setCouponMessage] = React.useState({ text: '', type: '' });
+  const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
+  React.useEffect(() => {
+    if (appliedCouponCode) {
+      setCouponMessage({ text: `✓ Coupon applied! ${discountPercent}% off`, type: 'success' });
+      setCouponCode(appliedCouponCode);
+    } else {
+      setCouponMessage({ text: '', type: '' });
+      setCouponCode('');
+    }
+  }, [appliedCouponCode, discountPercent]);
 
   // Order ID generated once for confirmation
   const [orderId] = React.useState(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
@@ -194,14 +205,88 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const tax = (subtotal - discountAmount) * 0.08;
   const finalTotal = subtotal - discountAmount + shippingCost + tax;
 
-  const handleApplyCoupon = () => {
-    const code = couponCode.trim().toUpperCase();
-    if (VALID_COUPONS[code]) {
-      setDiscountPercent(VALID_COUPONS[code]);
-      setCouponMessage({ text: `✓ Coupon applied! ${VALID_COUPONS[code]}% off`, type: 'success' });
-    } else {
-      setDiscountPercent(0);
-      setCouponMessage({ text: 'Invalid coupon code. Try DEVOTION10 or TEMPLE20.', type: 'error' });
+  const handleApplyCoupon = async () => {
+    const formattedCode = couponCode.trim().toUpperCase();
+    setCouponMessage({ text: '', type: '' });
+
+    if (!formattedCode) {
+      onApplyCoupon('', 0, null);
+      return;
+    }
+
+    if (!loggedInUser) {
+      setCouponMessage({ text: 'Please log in to apply devotional coupons.', type: 'error' });
+      onApplyCoupon('', 0, null);
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      // 1. Fetch coupon details from Supabase
+      const { data: coupon, error: fetchError } = await supabase
+        .from('website_store_coupons')
+        .select('*')
+        .eq('code', formattedCode)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!coupon) {
+        setCouponMessage({ text: 'Invalid coupon code.', type: 'error' });
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 2. Validate usage limit
+      if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
+        setCouponMessage({ text: 'This coupon has reached its total usage limit.', type: 'error' });
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 3. Validate single-use limit (per user)
+      const { data: existingRedemption, error: redemptionError } = await supabase
+        .from('website_store_coupon_redemptions')
+        .select('id')
+        .eq('coupon_id', coupon.id)
+        .eq('user_id', loggedInUser.id)
+        .maybeSingle();
+
+      if (redemptionError) throw redemptionError;
+
+      if (existingRedemption) {
+        setCouponMessage({ text: 'You have already used this coupon code.', type: 'error' });
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 4. Validate product constraint
+      if (coupon.product_id) {
+        const hasProduct = cart.some(item => item.product.id === coupon.product_id);
+        if (!hasProduct) {
+          const { data: productData } = await supabase
+            .from('website_pooja_products')
+            .select('name')
+            .eq('id', coupon.product_id)
+            .maybeSingle();
+          
+          const productName = productData?.name || 'a specific product';
+          setCouponMessage({ text: `This coupon is only valid for product: ${productName}.`, type: 'error' });
+          onApplyCoupon('', 0, null);
+          return;
+        }
+      }
+
+      // 5. Apply coupon
+      onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
+      setCouponMessage({ text: `✓ Coupon applied! ${coupon.discount_percent}% off`, type: 'success' });
+
+    } catch (err) {
+      console.error('Error applying coupon:', err);
+      setCouponMessage({ text: 'An error occurred while applying coupon. Please try again.', type: 'error' });
+      onApplyCoupon('', 0, null);
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
 
@@ -264,6 +349,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       pincode,
       placedAt: new Date(),
       razorpayPaymentId,
+      appliedCouponCode: appliedCouponCode || undefined,
     });
 
     setStep('confirmation');
@@ -1132,9 +1218,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <button
                       onClick={handleApplyCoupon}
                       className="btn-lime"
-                      style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                      disabled={isValidatingCoupon}
+                      style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: isValidatingCoupon ? 0.7 : 1 }}
                     >
-                      Apply
+                      {isValidatingCoupon ? '...' : 'Apply'}
                     </button>
                   </div>
                   {couponMessage.text && (

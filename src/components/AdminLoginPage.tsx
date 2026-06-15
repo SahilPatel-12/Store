@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { hashPassword } from '../lib/crypto';
 
 interface AdminLoginPageProps {
-  onLoginSuccess: (username: string) => void;
+  onLoginSuccess: (username: string, token: string | null) => void;
   onNavigateToHome: () => void;
 }
 
@@ -54,7 +54,23 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         }
 
         if (data.password_hash === passwordHash || data.password_hash === password) {
-          onLoginSuccess(data.username);
+          try {
+            const { data: token, error: tokenError } = await supabase.rpc('authenticate_admin', {
+              p_username: data.username,
+              p_password_hash: data.password_hash,
+              p_ip: '127.0.0.1',
+              p_user_agent: navigator.userAgent
+            });
+            if (tokenError) {
+              console.warn('Failed to call authenticate_admin RPC, proceeding with local fallback:', tokenError.message);
+              onLoginSuccess(data.username, null);
+            } else {
+              onLoginSuccess(data.username, token);
+            }
+          } catch (tokenErr) {
+            console.error('Error during authenticate_admin RPC, proceeding with local fallback:', tokenErr);
+            onLoginSuccess(data.username, null);
+          }
         } else {
           setErrorMsg('Invalid administrative credentials. Password mismatch.');
         }

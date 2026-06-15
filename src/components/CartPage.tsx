@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2, ArrowLeft, Ticket, ShieldCheck, Truck, Plus, Minus } from 'lucide-react';
 import type { CartItem } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { supabase } from '../lib/supabase';
 
 interface CartPageProps {
   cart: CartItem[];
@@ -10,6 +11,10 @@ interface CartPageProps {
   onBackToShop: () => void;
   onClearCart: () => void;
   onCheckout: () => void;
+  loggedInUser?: { id: string; fullName: string; email: string; phoneNumber: string } | null;
+  appliedCouponCode: string;
+  onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
+  discountPercent: number;
 }
 
 export const CartPage: React.FC<CartPageProps> = ({
@@ -19,13 +24,26 @@ export const CartPage: React.FC<CartPageProps> = ({
   onBackToShop,
   onClearCart: _onClearCart,
   onCheckout,
+  loggedInUser,
+  appliedCouponCode,
+  onApplyCoupon,
+  discountPercent,
 }) => {
-  const [couponCode, setCouponCode] = React.useState('');
-  const [discountPercent, setDiscountPercent] = React.useState(0);
+  const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
   const [couponError, setCouponError] = React.useState('');
   const [couponSuccess, setCouponSuccess] = React.useState('');
   const [postalCode, setPostalCode] = React.useState('');
   const [deliveryInfo, setDeliveryInfo] = React.useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
+  React.useEffect(() => {
+    if (appliedCouponCode) {
+      setCouponSuccess(`Coupon ${appliedCouponCode} applied! ${discountPercent}% discount subtracted.`);
+      setCouponCode(appliedCouponCode);
+    } else {
+      setCouponSuccess('');
+    }
+  }, [appliedCouponCode, discountPercent]);
 
   // Dynamic calculations
   const subtotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
@@ -36,21 +54,90 @@ export const CartPage: React.FC<CartPageProps> = ({
   const tax = (subtotal - discountAmount) * 0.08; // 8% sales tax
   const finalTotal = subtotal - discountAmount + shippingCost + tax;
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     setCouponError('');
     setCouponSuccess('');
 
     const formattedCode = couponCode.trim().toUpperCase();
-    if (formattedCode === 'DEVOTION10') {
-      setDiscountPercent(10);
-      setCouponSuccess('Coupon DEVOTION10 applied! 10% discount subtracted.');
-    } else if (formattedCode === 'TEMPLE20') {
-      setDiscountPercent(20);
-      setCouponSuccess('Coupon TEMPLE20 applied! 20% discount subtracted.');
-    } else {
-      setCouponError('Invalid coupon code. Try DEVOTION10 or TEMPLE20.');
-      setDiscountPercent(0);
+    if (!formattedCode) {
+      onApplyCoupon('', 0, null);
+      return;
+    }
+
+    if (!loggedInUser) {
+      setCouponError('Please log in to apply devotional coupons.');
+      onApplyCoupon('', 0, null);
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      // 1. Fetch coupon details from Supabase
+      const { data: coupon, error: fetchError } = await supabase
+        .from('website_store_coupons')
+        .select('*')
+        .eq('code', formattedCode)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!coupon) {
+        setCouponError('Invalid coupon code.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 2. Validate usage limit
+      if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
+        setCouponError('This coupon has reached its total usage limit.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 3. Validate single-use limit (per user)
+      const { data: existingRedemption, error: redemptionError } = await supabase
+        .from('website_store_coupon_redemptions')
+        .select('id')
+        .eq('coupon_id', coupon.id)
+        .eq('user_id', loggedInUser.id)
+        .maybeSingle();
+
+      if (redemptionError) throw redemptionError;
+
+      if (existingRedemption) {
+        setCouponError('You have already used this coupon code.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      // 4. Validate product constraint
+      if (coupon.product_id) {
+        const hasProduct = cart.some(item => item.product.id === coupon.product_id);
+        if (!hasProduct) {
+          const { data: productData } = await supabase
+            .from('website_pooja_products')
+            .select('name')
+            .eq('id', coupon.product_id)
+            .maybeSingle();
+          
+          const productName = productData?.name || 'a specific product';
+          setCouponError(`This coupon is only valid for product: ${productName}.`);
+          onApplyCoupon('', 0, null);
+          return;
+        }
+      }
+
+      // 5. Apply coupon
+      onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
+      setCouponSuccess(`Coupon ${formattedCode} applied! ${coupon.discount_percent}% discount subtracted.`);
+
+    } catch (err) {
+      console.error('Error applying coupon:', err);
+      setCouponError('An error occurred while applying coupon. Please try again.');
+      onApplyCoupon('', 0, null);
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
 
@@ -241,8 +328,8 @@ export const CartPage: React.FC<CartPageProps> = ({
                       fontSize: '0.88rem'
                     }}
                   />
-                  <button type="submit" className="btn-lime" style={{ padding: '10px 24px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem' }}>
-                    Apply
+                  <button type="submit" className="btn-lime" disabled={isValidatingCoupon} style={{ padding: '10px 24px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', opacity: isValidatingCoupon ? 0.7 : 1 }}>
+                    {isValidatingCoupon ? 'Validating...' : 'Apply'}
                   </button>
                 </form>
                 {couponError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '6px', fontWeight: 600 }}>{couponError}</p>}

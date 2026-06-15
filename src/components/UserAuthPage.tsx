@@ -17,7 +17,10 @@ import { hashPassword, decryptText } from '../lib/crypto';
 interface UserAuthPageProps {
   onNavigateToHome: () => void;
   onNavigateToShop: () => void;
-  onLoginSuccess: (userSession: { id: string; fullName: string; email: string; phoneNumber: string }) => void;
+  onLoginSuccess: (
+    userSession: { id: string; fullName: string; email: string; phoneNumber: string },
+    token: string
+  ) => void;
 }
 
 export const UserAuthPage: React.FC<UserAuthPageProps> = ({
@@ -262,43 +265,26 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       setIsLoading(true);
       try {
         const inputHash = await hashPassword(loginPassword);
-        const formattedPhone = formatPhoneNumber(loginEmailOrPhone);
-        
-        // Check either email or phone number match
-        let userRecord;
-        try {
-          const res = await supabase
-            .from('website_store_users')
-            .select('*')
-            .or(`email.eq."${loginEmailOrPhone}",phone_number.eq."${formattedPhone}"`)
-            .single();
-          if (res.error) throw res.error;
-          userRecord = res.data;
-        } catch (dbErr) {
-          throw new Error('Invalid email, phone number, or password.');
-        }
-
-        if (userRecord.password_hash !== inputHash) {
-          throw new Error('Invalid email, phone number, or password.');
-        }
-
-        // Update last login (non-critical, wrap in try/catch to prevent blocking login)
-        try {
-          await supabase
-            .from('website_store_users')
-            .update({ last_login_at: new Date().toISOString() })
-            .eq('id', userRecord.id);
-        } catch (updateErr) {
-          console.warn('Could not update last login timestamp:', updateErr);
-        }
-
-        triggerToast(`Welcome back, ${userRecord.full_name}!`);
-        onLoginSuccess({
-          id: userRecord.id,
-          fullName: userRecord.full_name,
-          email: userRecord.email,
-          phoneNumber: userRecord.phone_number
+        const { data, error } = await supabase.rpc('authenticate_user_password', {
+          p_email_or_phone: loginEmailOrPhone.trim().toLowerCase(),
+          p_password_hash: inputHash,
+          p_device_id: 'browser_client',
+          p_ip: '127.0.0.1',
+          p_user_agent: navigator.userAgent
         });
+        if (error) throw error;
+        if (data && data.length > 0) {
+          const row = data[0];
+          triggerToast(`Welcome back, ${row.full_name}!`);
+          onLoginSuccess({
+            id: row.user_id,
+            fullName: row.full_name,
+            email: row.email,
+            phoneNumber: row.phone_number
+          }, row.session_token);
+        } else {
+          throw new Error('Invalid email, phone number, or password.');
+        }
       } catch (err) {
         alert((err as Error).message);
       } finally {
@@ -399,45 +385,80 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
           throw new Error('Registration failed due to a database connection issue. Please try again.');
         }
 
-        triggerToast(`Account created successfully! Welcome ${newUser.full_name}.`);
-        onLoginSuccess({
-          id: newUser.id,
-          fullName: newUser.full_name,
-          email: newUser.email,
-          phoneNumber: newUser.phone_number
-        });
+        // Apply referral binding silently on successful signup
+        try {
+          const refCode = localStorage.getItem('mantra_referral_code');
+          const refTimeStr = localStorage.getItem('mantra_referral_time');
+          
+          if (refCode && refTimeStr) {
+            const refTime = parseInt(refTimeStr, 10);
+            const isExpired = Date.now() - refTime > 30 * 24 * 60 * 60 * 1000; // 30 days window
+            
+            if (!isExpired) {
+              console.log('[Referral Engine] Binding referral:', refCode, 'for user:', newUser.id);
+              await supabase.rpc('bind_referral_on_signup', {
+                p_referred_id: newUser.id,
+                p_referrer_code: refCode
+              });
+            } else {
+              console.log('[Referral Engine] Stored referral code has expired.');
+            }
+          }
+          localStorage.removeItem('mantra_referral_code');
+          localStorage.removeItem('mantra_referral_time');
+        } catch (refErr) {
+          console.error('[Referral Engine] Referral binding failed silently:', refErr);
+        }
+
+        // Log them in via authenticate_user_password to establish database session
+        try {
+          const { data, error } = await supabase.rpc('authenticate_user_password', {
+            p_email_or_phone: newUser.email,
+            p_password_hash: passHash,
+            p_device_id: 'browser_client',
+            p_ip: '127.0.0.1',
+            p_user_agent: navigator.userAgent
+          });
+          if (error) throw error;
+          if (data && data.length > 0) {
+            const row = data[0];
+            triggerToast(`Account created successfully! Welcome ${newUser.full_name}.`);
+            onLoginSuccess({
+              id: row.user_id,
+              fullName: row.full_name,
+              email: row.email,
+              phoneNumber: row.phone_number
+            }, row.session_token);
+          } else {
+            throw new Error('Could not establish user session after registration.');
+          }
+        } catch (authErr) {
+          console.error('Login after registration failed:', authErr);
+          alert('Registration successful, but session could not be established. Please login manually.');
+        }
       } else {
-        // Complete OTP-based login
-        let existingUser;
-        try {
-          const res = await supabase
-            .from('website_store_users')
-            .select('*')
-            .eq('phone_number', otpTargetPhone)
-            .single();
-          if (res.error) throw res.error;
-          existingUser = res.data;
-        } catch (dbErr) {
-          throw new Error('Verification failed due to a database connection issue. Please try again.');
-        }
-
-        // Update login stamp (non-critical, wrap in try/catch to prevent blocking devotee entrance)
-        try {
-          await supabase
-            .from('website_store_users')
-            .update({ last_login_at: new Date().toISOString() })
-            .eq('id', existingUser.id);
-        } catch (updateErr) {
-          console.warn('Could not update last login timestamp:', updateErr);
-        }
-
-        triggerToast(`Authenticated successfully! Welcome, ${existingUser.full_name}.`);
-        onLoginSuccess({
-          id: existingUser.id,
-          fullName: existingUser.full_name,
-          email: existingUser.email,
-          phoneNumber: existingUser.phone_number
+        // Complete OTP-based login via authenticate_user_otp RPC
+        const { data, error } = await supabase.rpc('authenticate_user_otp', {
+          p_phone: otpTargetPhone,
+          p_otp_entered: userEnteredOtp,
+          p_otp_generated: generatedOtp,
+          p_device_id: 'browser_client',
+          p_ip: '127.0.0.1',
+          p_user_agent: navigator.userAgent
         });
+        if (error) throw error;
+        if (data && data.length > 0) {
+          const row = data[0];
+          triggerToast(`Authenticated successfully! Welcome, ${row.full_name}.`);
+          onLoginSuccess({
+            id: row.user_id,
+            fullName: row.full_name,
+            email: row.email,
+            phoneNumber: row.phone_number
+          }, row.session_token);
+        } else {
+          throw new Error('No devotee account session established.');
+        }
       }
     } catch (err) {
       setOtpError((err as Error).message);

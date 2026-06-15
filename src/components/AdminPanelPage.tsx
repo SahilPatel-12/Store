@@ -25,7 +25,8 @@ import {
   Layers,
   ArrowUp,
   ArrowDown,
-  List
+  List,
+  Ticket
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -42,7 +43,7 @@ interface AdminPanelPageProps {
   onNavigateToHome: () => void;
   onNavigateToShop: () => void;
   onLogout?: () => void;
-  adminSession?: { username: string; loginTime: string } | null;
+  adminSession?: { username: string; loginTime: string; token: string | null } | null;
   onRefreshOrders?: () => Promise<void>;
   categoriesOrder?: string[];
   onUpdateCategoriesOrder?: (newOrder: string[]) => void;
@@ -50,7 +51,7 @@ interface AdminPanelPageProps {
   onUpdateProductsOrder?: (newOrders: Record<string, string[]>) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -77,10 +78,43 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     if (path.startsWith('/admin/whatsapp-settings')) return 'settings';
     if (path.startsWith('/admin/categories-sorter')) return 'categories_editor';
     if (path.startsWith('/admin/products-sorter')) return 'products_sorter';
+    if (path.startsWith('/admin/coupons')) return 'coupons';
     return 'analytics';
   });
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('All');
+
+  // Affiliates directory state
+  const [affiliates, setAffiliates] = React.useState<any[]>([]);
+  const [isLoadingAffiliates, setIsLoadingAffiliates] = React.useState(false);
+  const [isUpdatingAffiliateStatus, setIsUpdatingAffiliateStatus] = React.useState<string | null>(null);
+
+  // New Affiliate management states
+  const [affiliateSubTab, setAffiliateSubTab] = React.useState<'directory' | 'tiers' | 'withdrawals'>('directory');
+  const [affiliateLevels, setAffiliateLevels] = React.useState<any[]>([]);
+  const [isLoadingLevels, setIsLoadingLevels] = React.useState(false);
+  const [affiliateSettings, setAffiliateSettings] = React.useState<Record<string, any>>({
+    affiliate_max_depth: 5,
+    affiliate_enabled: true,
+    affiliate_commission_model: 'last_touch',
+    affiliate_min_withdrawal: 1000
+  });
+  const [isLoadingAffiliateSettings, setIsLoadingAffiliateSettings] = React.useState(false);
+  const [isSavingAffiliateSettings, setIsSavingAffiliateSettings] = React.useState(false);
+  const [withdrawals, setWithdrawals] = React.useState<any[]>([]);
+  const [isLoadingWithdrawals, setIsLoadingWithdrawals] = React.useState(false);
+  const [isProcessingWithdrawal, setIsProcessingWithdrawal] = React.useState<string | null>(null);
+
+  // New level editing state
+  const [editingLevel, setEditingLevel] = React.useState<any>(null); // { level_number: number, commission_percentage: number, enabled: boolean }
+  const [isSavingLevel, setIsSavingLevel] = React.useState(false);
+  const [isDeletingLevel, setIsDeletingLevel] = React.useState<number | null>(null);
+
+  // Reject withdrawal modal state
+  const [rejectingWithdrawalId, setRejectingWithdrawalId] = React.useState<string | null>(null);
+  const [rejectReason, setRejectReason] = React.useState('');
+  const [txnInputId, setTxnInputId] = React.useState<string | null>(null);
+  const [txnRefNumber, setTxnRefNumber] = React.useState('');
 
   React.useEffect(() => {
     const syncTabFromUrl = () => {
@@ -94,6 +128,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       else if (path.startsWith('/admin/whatsapp-settings')) setActiveTab('settings');
       else if (path.startsWith('/admin/categories-sorter')) setActiveTab('categories_editor');
       else if (path.startsWith('/admin/products-sorter')) setActiveTab('products_sorter');
+      else if (path.startsWith('/admin/coupons')) setActiveTab('coupons');
+      else if (path.startsWith('/admin/affiliates')) setActiveTab('affiliates');
     };
     window.addEventListener('popstate', syncTabFromUrl);
     return () => window.removeEventListener('popstate', syncTabFromUrl);
@@ -130,6 +166,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         break;
       case 'products_sorter':
         slug = '/admin/products-sorter';
+        break;
+      case 'coupons':
+        slug = '/admin/coupons';
+        break;
+      case 'affiliates':
+        slug = '/admin/affiliates';
         break;
     }
     if (window.location.pathname !== slug) {
@@ -171,6 +213,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isLoadingHomepage, setIsLoadingHomepage] = React.useState(false);
   const [isSavingHomepage, setIsSavingHomepage] = React.useState(false);
   const [homepageSearchQuery, setHomepageSearchQuery] = React.useState('');
+
+  // Coupons manager state
+  const [coupons, setCoupons] = React.useState<any[]>([]);
+  const [redemptions, setRedemptions] = React.useState<any[]>([]);
+  const [isLoadingCoupons, setIsLoadingCoupons] = React.useState(false);
+  const [isCreatingCoupon, setIsCreatingCoupon] = React.useState(false);
+  const [newCouponCode, setNewCouponCode] = React.useState('');
+  const [newDiscountPercent, setNewDiscountPercent] = React.useState<number>(10);
+  const [newUserLimit, setNewUserLimit] = React.useState<string>('');
+  const [newProductId, setNewProductId] = React.useState<string>('');
 
   // Shop Banners state
   const shopCategories = [
@@ -1180,8 +1232,420 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   React.useEffect(() => {
-    if (activeTab === 'pooja_products' || activeTab === 'homepage_editor') {
+    if (activeTab === 'pooja_products' || activeTab === 'homepage_editor' || activeTab === 'coupons') {
       loadPoojaProducts();
+    }
+  }, [activeTab]);
+
+  const loadCoupons = async () => {
+    setIsLoadingCoupons(true);
+    try {
+      const { data, error } = await supabase
+        .from('website_store_coupons')
+        .select(`
+          *,
+          product:product_id (name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) setCoupons(data);
+    } catch (err) {
+      console.error('Error fetching coupons:', err);
+    } finally {
+      setIsLoadingCoupons(false);
+    }
+  };
+
+  const loadRedemptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_store_coupon_redemptions')
+        .select(`
+          id,
+          order_id,
+          created_at,
+          coupon:coupon_id (code, discount_percent),
+          user:user_id (full_name, email, phone_number)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) setRedemptions(data);
+    } catch (err) {
+      console.error('Error fetching coupon redemptions:', err);
+    }
+  };
+
+  const loadAffiliates = async () => {
+    setIsLoadingAffiliates(true);
+    try {
+      const { data, error } = await supabase
+        .from('website_store_users')
+        .select('id, full_name, email, phone_number, affiliate_code, affiliate_status, affiliate_joined_at')
+        .neq('affiliate_status', 'inactive')
+        .order('affiliate_joined_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) setAffiliates(data);
+    } catch (err) {
+      console.error('Error fetching affiliates:', err);
+    } finally {
+      setIsLoadingAffiliates(false);
+    }
+  };
+
+  const handleUpdateAffiliateStatus = async (targetUserId: string, newStatus: string) => {
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529'; // session token fallback
+    
+    setIsUpdatingAffiliateStatus(targetUserId);
+    try {
+      const { data, error } = await supabase.rpc('admin_set_affiliate_status', {
+        p_admin_token: adminToken,
+        p_target_user_id: targetUserId,
+        p_new_status: newStatus
+      });
+
+      if (error) throw error;
+      
+      if (data) {
+        triggerToast(`Devotee status updated to ${newStatus} successfully!`);
+        // Refresh local state list
+        setAffiliates(prev => prev.map(aff => {
+          if (aff.id === targetUserId) {
+            return { ...aff, affiliate_status: newStatus };
+          }
+          return aff;
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to update affiliate status:', err);
+      alert('Error updating affiliate status: ' + (err as Error).message);
+    } finally {
+      setIsUpdatingAffiliateStatus(null);
+    }
+  };
+
+  const loadAffiliateLevels = async () => {
+    setIsLoadingLevels(true);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_affiliate_levels', {
+        p_admin_token: adminToken
+      });
+      if (error) throw error;
+      if (data) setAffiliateLevels(data);
+    } catch (err) {
+      console.error('Error fetching affiliate levels:', err);
+    } finally {
+      setIsLoadingLevels(false);
+    }
+  };
+
+  const loadAffiliateSettings = async () => {
+    setIsLoadingAffiliateSettings(true);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_affiliate_settings', {
+        p_admin_token: adminToken
+      });
+      if (error) throw error;
+      if (data) {
+        const settingsMap: Record<string, any> = {};
+        data.forEach((item: any) => {
+          settingsMap[item.key] = item.value;
+        });
+
+        // Extract min_withdrawal_amount from payout_rules
+        let minWithdrawal = 1000;
+        if (settingsMap.payout_rules && settingsMap.payout_rules.min_withdrawal_amount !== undefined) {
+          minWithdrawal = parseFloat(settingsMap.payout_rules.min_withdrawal_amount);
+        }
+
+        setAffiliateSettings(prev => ({ 
+          ...prev, 
+          ...settingsMap,
+          affiliate_min_withdrawal: minWithdrawal
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching affiliate settings:', err);
+    } finally {
+      setIsLoadingAffiliateSettings(false);
+    }
+  };
+
+  const loadWithdrawals = async () => {
+    setIsLoadingWithdrawals(true);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_withdrawals', {
+        p_admin_token: adminToken
+      });
+      if (error) throw error;
+      if (data) setWithdrawals(data);
+    } catch (err) {
+      console.error('Error fetching withdrawals queue:', err);
+    } finally {
+      setIsLoadingWithdrawals(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAffiliateSettings(true);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const maxDepth = parseInt(affiliateSettings.affiliate_max_depth, 10);
+      if (isNaN(maxDepth) || maxDepth < 1 || maxDepth > 10) {
+        alert('Maximum payout depth must be a number between 1 and 10.');
+        setIsSavingAffiliateSettings(false);
+        return;
+      }
+
+      const minWithdrawal = parseFloat(affiliateSettings.affiliate_min_withdrawal);
+      if (isNaN(minWithdrawal) || minWithdrawal <= 0) {
+        alert('Minimum withdrawal amount must be a positive number.');
+        setIsSavingAffiliateSettings(false);
+        return;
+      }
+      
+      const { data, error } = await supabase.rpc('admin_save_affiliate_settings', {
+        p_admin_token: adminToken,
+        p_max_depth: maxDepth,
+        p_enabled: affiliateSettings.affiliate_enabled,
+        p_commission_model: affiliateSettings.affiliate_commission_model,
+        p_min_withdrawal: minWithdrawal
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast('Global settings updated successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsSavingAffiliateSettings(false);
+    }
+  };
+
+  const handleSaveLevel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLevel) return;
+    setIsSavingLevel(true);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const levelNum = parseInt(editingLevel.level_number, 10);
+      const rate = parseFloat(editingLevel.commission_percentage);
+      if (isNaN(levelNum) || levelNum < 1 || levelNum > 20) {
+        alert('Level number must be between 1 and 20.');
+        setIsSavingLevel(false);
+        return;
+      }
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        alert('Commission rate must be between 0% and 100%.');
+        setIsSavingLevel(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('admin_save_affiliate_level', {
+        p_admin_token: adminToken,
+        p_level_number: levelNum,
+        p_commission_percentage: rate,
+        p_enabled: editingLevel.enabled
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast(`Tier Level ${levelNum} saved successfully!`);
+        setEditingLevel(null);
+        loadAffiliateLevels();
+      }
+    } catch (err) {
+      console.error('Failed to save tier level:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsSavingLevel(false);
+    }
+  };
+
+  const handleDeleteLevel = async (levelNumber: number) => {
+    if (!confirm(`Are you sure you want to delete Tier Level ${levelNumber}?`)) return;
+    setIsDeletingLevel(levelNumber);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_delete_affiliate_level', {
+        p_admin_token: adminToken,
+        p_level_number: levelNumber
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast(`Tier Level ${levelNumber} deleted.`);
+        loadAffiliateLevels();
+      }
+    } catch (err) {
+      console.error('Failed to delete tier:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsDeletingLevel(null);
+    }
+  };
+
+  const handleApproveWithdrawal = async (requestId: string) => {
+    if (!confirm('Are you sure you want to approve this withdrawal request?')) return;
+    setIsProcessingWithdrawal(requestId);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_approve_withdrawal', {
+        p_admin_token: adminToken,
+        p_request_id: requestId
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast('Withdrawal request approved successfully!');
+        loadWithdrawals();
+      }
+    } catch (err) {
+      console.error('Failed to approve withdrawal:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsProcessingWithdrawal(null);
+    }
+  };
+
+  const handleRejectWithdrawalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectingWithdrawalId || !rejectReason.trim()) return;
+    setIsProcessingWithdrawal(rejectingWithdrawalId);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_reject_withdrawal', {
+        p_admin_token: adminToken,
+        p_request_id: rejectingWithdrawalId,
+        p_reason: rejectReason.trim()
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast('Withdrawal request rejected and balance returned.');
+        setRejectingWithdrawalId(null);
+        setRejectReason('');
+        loadWithdrawals();
+      }
+    } catch (err) {
+      console.error('Failed to reject withdrawal:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsProcessingWithdrawal(null);
+    }
+  };
+
+  const handleMarkWithdrawalPaidSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!txnInputId || !txnRefNumber.trim()) return;
+    setIsProcessingWithdrawal(txnInputId);
+    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    try {
+      const { data, error } = await supabase.rpc('admin_mark_withdrawal_paid', {
+        p_admin_token: adminToken,
+        p_request_id: txnInputId,
+        p_txn_id: txnRefNumber.trim()
+      });
+      if (error) throw error;
+      if (data) {
+        triggerToast('Withdrawal marked as paid successfully!');
+        setTxnInputId(null);
+        setTxnRefNumber('');
+        loadWithdrawals();
+      }
+    } catch (err) {
+      console.error('Failed to mark withdrawal as paid:', err);
+      alert('Error: ' + (err as Error).message);
+    } finally {
+      setIsProcessingWithdrawal(null);
+    }
+  };
+
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = newCouponCode.trim().toUpperCase();
+    if (!code) {
+      alert('Please enter a coupon code.');
+      return;
+    }
+    if (newDiscountPercent < 1 || newDiscountPercent > 100) {
+      alert('Discount must be between 1% and 100%.');
+      return;
+    }
+
+    setIsCreatingCoupon(true);
+    try {
+      const limitVal = newUserLimit.trim() === '' ? null : parseInt(newUserLimit.trim(), 10);
+      const productVal = newProductId.trim() === '' ? null : newProductId.trim();
+
+      const { error } = await supabase
+        .from('website_store_coupons')
+        .insert({
+          code,
+          discount_percent: newDiscountPercent,
+          user_limit: limitVal,
+          product_id: productVal,
+          redemptions_count: 0
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          alert(`Coupon code "${code}" already exists.`);
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      triggerToast(`Successfully created coupon code: ${code}`);
+      setNewCouponCode('');
+      setNewUserLimit('');
+      setNewProductId('');
+      loadCoupons();
+    } catch (err) {
+      console.error('Error creating coupon:', err);
+      alert('Failed to create coupon: ' + (err as Error).message);
+    } finally {
+      setIsCreatingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string, code: string) => {
+    if (window.confirm(`Are you sure you want to delete coupon code "${code}"?`)) {
+      try {
+        const { error } = await supabase
+          .from('website_store_coupons')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        triggerToast(`Successfully deleted coupon code: ${code}`);
+        loadCoupons();
+        loadRedemptions();
+      } catch (err) {
+        console.error('Error deleting coupon:', err);
+        alert('Failed to delete coupon: ' + (err as Error).message);
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'coupons') {
+      loadCoupons();
+      loadRedemptions();
+    }
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    if (activeTab === 'affiliates') {
+      loadAffiliates();
+      loadAffiliateLevels();
+      loadAffiliateSettings();
+      loadWithdrawals();
     }
   }, [activeTab]);
 
@@ -1614,7 +2078,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={18} /> },
             { id: 'settings' as Tab, label: 'Gateway & API Settings', icon: <Settings size={18} /> },
             { id: 'categories_editor' as Tab, label: 'Categories Sorter', icon: <Layers size={18} /> },
-            { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> }
+            { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> },
+            { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
+            { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> }
           ].map(tab => {
             const isActive = activeTab === tab.id;
             return (
@@ -5276,6 +5742,1075 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: DEVOTIONAL COUPONS MANAGER
+            ======================================================= */}
+        {activeTab === 'coupons' && (
+          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            
+            {/* Header section with Stats */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                  Devotional Coupons Manager
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Generate and track coupon codes with user usage limits, per-user limits, and product scope restrictions.
+                </p>
+              </div>
+            </div>
+
+            {/* Stats Cards Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)' }}>
+                  <Ticket size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Coupons</span>
+                  <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{coupons.length}</h4>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#fff7ed', color: '#f97316' }}>
+                  <ShoppingBag size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Redemptions</span>
+                  <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{redemptions.length}</h4>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '30px' }} className="hero-grid-split">
+              
+              {/* Form column: Generate coupon */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '28px',
+                boxShadow: 'var(--shadow-md)',
+                height: 'fit-content',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                {/* Top Accent line */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)'
+                }} />
+
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Plus size={18} style={{ color: 'var(--primary-lime)' }} />
+                  Generate New Coupon
+                </h3>
+
+                <form onSubmit={handleCreateCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Coupon Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. SHIVA20"
+                      value={newCouponCode}
+                      onChange={(e) => setNewCouponCode(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Discount Percentage *
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        max={100}
+                        placeholder="e.g. 15"
+                        value={newDiscountPercent}
+                        onChange={(e) => setNewDiscountPercent(parseInt(e.target.value, 10) || 0)}
+                        style={{ width: '100%', padding: '10px 30px 10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                      />
+                      <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Usage User Limit
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Unlimited if empty (e.g. 100)"
+                      value={newUserLimit}
+                      onChange={(e) => setNewUserLimit(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      Total number of people allowed to redeem this coupon.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Product Applicability
+                    </label>
+                    <select
+                      value={newProductId}
+                      onChange={(e) => setNewProductId(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb', cursor: 'pointer' }}
+                    >
+                      <option value="">All Products</option>
+                      {poojaProducts.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      Restrict this coupon code to a specific Pooja product.
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-lime"
+                    disabled={isCreatingCoupon}
+                    style={{ width: '100%', padding: '12px', justifyContent: 'center', marginTop: '8px', fontSize: '0.88rem' }}
+                  >
+                    {isCreatingCoupon ? 'Creating...' : 'Create Coupon Code'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Lists column: Active coupons & redemptions logs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                
+                {/* Active Coupons List */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Ticket size={16} style={{ color: 'var(--primary-lime)' }} />
+                    Active Coupon Codes ({coupons.length})
+                  </h3>
+
+                  {isLoadingCoupons ? (
+                    <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                      <div style={{ width: '24px', height: '24px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Retrieving active coupons...</p>
+                    </div>
+                  ) : coupons.length === 0 ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No active coupons. Generate one using the form on the left.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Code</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Discount</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Applicability</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Usage Status</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {coupons.map((coupon) => (
+                            <tr key={coupon.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>{coupon.code}</td>
+                              <td style={{ padding: '10px 14px', fontWeight: 700 }}>{coupon.discount_percent}% off</td>
+                              <td style={{ padding: '10px 14px', color: coupon.product ? 'var(--text-dark)' : 'var(--text-muted)' }}>
+                                {coupon.product ? `Only: ${coupon.product.name}` : 'All Products'}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  backgroundColor: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#fee2e2' : '#f0fdf4',
+                                  color: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#991b1b' : '#166534'
+                                }}>
+                                  {coupon.redemptions_count} / {coupon.user_limit === null ? 'Unlimited' : coupon.user_limit}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                <button
+                                  onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
+                                  style={{ color: 'var(--text-muted)', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', padding: '4px' }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coupon Redemptions Logs */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingBag size={16} style={{ color: 'var(--primary-lime)' }} />
+                    Coupon Redemption Logs ({redemptions.length})
+                  </h3>
+
+                  {redemptions.length === 0 ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No coupon redemptions recorded yet.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Name</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Contacts</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Coupon Used</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order ID</th>
+                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Date Redeemed</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {redemptions.map((log) => (
+                            <tr key={log.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-dark)' }}>{log.user?.full_name || 'N/A'}</td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <p style={{ margin: 0, fontWeight: 500 }}>{log.user?.email || 'N/A'}</p>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.user?.phone_number || 'N/A'}</p>
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <span style={{ fontWeight: 'bold', color: 'var(--primary-forest)' }}>{log.coupon?.code || 'DELETED'}</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>({log.coupon?.discount_percent || 0}% discount)</span>
+                              </td>
+                              <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>#{log.order_id}</td>
+                              <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                {new Date(log.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: AFFILIATE PARTNERSHIPS
+            ======================================================= */}
+        {activeTab === 'affiliates' && (
+          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            
+            {/* Header section */}
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                Affiliate Partnerships Directory & Settings
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                View devotee affiliate codes, monitor active/suspended statuses, configure commission tier levels, and review payout/withdrawal queues.
+              </p>
+            </div>
+
+            {/* Sub-tab Navigation */}
+            <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setAffiliateSubTab('directory')}
+                style={{
+                  background: affiliateSubTab === 'directory' ? 'var(--primary-lime-light)' : 'transparent',
+                  border: affiliateSubTab === 'directory' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                  color: affiliateSubTab === 'directory' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                👥 Partnerships Directory
+              </button>
+              <button
+                onClick={() => setAffiliateSubTab('tiers')}
+                style={{
+                  background: affiliateSubTab === 'tiers' ? 'var(--primary-lime-light)' : 'transparent',
+                  border: affiliateSubTab === 'tiers' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                  color: affiliateSubTab === 'tiers' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                ⚙️ Tiers & Settings
+              </button>
+              <button
+                onClick={() => setAffiliateSubTab('withdrawals')}
+                style={{
+                  background: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime-light)' : 'transparent',
+                  border: affiliateSubTab === 'withdrawals' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                  color: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                💸 Payouts Queue ({withdrawals.filter(w => w.status === 'pending').length} Pending)
+              </button>
+            </div>
+
+            {/* SUBTAB CONTENT: DIRECTORY */}
+            {affiliateSubTab === 'directory' && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <User size={16} style={{ color: 'var(--primary-lime)' }} />
+                  Enrolled Affiliate Partners ({affiliates.length})
+                </h3>
+
+                {isLoadingAffiliates ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ width: '28px', height: '28px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Loading affiliates directory...</p>
+                  </div>
+                ) : affiliates.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '2.5rem' }}>👥</span>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '12px' }}>No devotee affiliates enrolled yet.</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email & Phone</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Referral Code</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Joined</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {affiliates.map((aff) => (
+                          <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>{aff.full_name}</td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <p style={{ margin: 0, fontWeight: 500 }}>{aff.email}</p>
+                              <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{aff.phone_number || 'N/A'}</p>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <code style={{
+                                backgroundColor: 'var(--primary-lime-light)',
+                                color: 'var(--primary-lime)',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontWeight: 700,
+                                fontFamily: 'monospace'
+                              }}>{aff.affiliate_code}</code>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '3px 10px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                backgroundColor: aff.affiliate_status === 'active' ? '#dcfce7' : '#fee2e2',
+                                color: aff.affiliate_status === 'active' ? '#15803d' : '#991b1b',
+                                border: '1px solid ' + (aff.affiliate_status === 'active' ? '#bbf7d0' : '#fecaca')
+                              }}>
+                                {aff.affiliate_status.toUpperCase()}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                              {aff.affiliate_joined_at ? new Date(aff.affiliate_joined_at).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                              }) : 'N/A'}
+                            </td>
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <select
+                                value={aff.affiliate_status}
+                                onChange={(e) => handleUpdateAffiliateStatus(aff.id, e.target.value)}
+                                disabled={isUpdatingAffiliateStatus === aff.id}
+                                style={{
+                                  border: '1px solid var(--border-light)',
+                                  padding: '6px 12px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  outline: 'none',
+                                  backgroundColor: 
+                                    aff.affiliate_status === 'active' ? '#dcfce7' : 
+                                    aff.affiliate_status === 'suspended' ? '#fee2e2' : '#f3f4f6',
+                                  color: 
+                                    aff.affiliate_status === 'active' ? '#15803d' : 
+                                    aff.affiliate_status === 'suspended' ? '#dc2626' : '#4b5563'
+                                }}
+                              >
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="inactive">Inactive</option>
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUBTAB CONTENT: TIERS & SETTINGS */}
+            {affiliateSubTab === 'tiers' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }}>
+                {/* Left: Tiers List */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Layers size={16} style={{ color: 'var(--primary-lime)' }} />
+                      Affiliate Commission Levels / Tiers
+                    </h3>
+                    <button
+                      onClick={() => setEditingLevel({ level_number: '', commission_percentage: '', enabled: true })}
+                      style={{
+                        backgroundColor: 'var(--primary-lime)',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontWeight: 700,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Plus size={14} /> Add Tier
+                    </button>
+                  </div>
+
+                  {isLoadingLevels ? (
+                    <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
+                      Loading tier rates...
+                    </div>
+                  ) : affiliateLevels.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '35px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                      No tiers defined yet. Add a level to start.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Level Number</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Commission Percentage (%)</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {affiliateLevels.map((lvl) => (
+                            <tr key={lvl.level_number} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>Level {lvl.level_number}</td>
+                              <td style={{ padding: '12px 16px', color: 'var(--primary-lime)', fontWeight: 800 }}>{lvl.commission_percentage}%</td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 'var(--radius-full)',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 800,
+                                  backgroundColor: lvl.enabled ? '#dcfce7' : '#fee2e2',
+                                  color: lvl.enabled ? '#15803d' : '#991b1b',
+                                  border: '1px solid ' + (lvl.enabled ? '#bbf7d0' : '#fecaca')
+                                }}>
+                                  {lvl.enabled ? 'ENABLED' : 'DISABLED'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button
+                                  onClick={() => setEditingLevel({ level_number: lvl.level_number, commission_percentage: lvl.commission_percentage, enabled: lvl.enabled })}
+                                  style={{
+                                    border: '1px solid var(--border-light)',
+                                    background: '#ffffff',
+                                    color: 'var(--text-dark)',
+                                    padding: '4px 8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteLevel(lvl.level_number)}
+                                  disabled={isDeletingLevel === lvl.level_number}
+                                  style={{
+                                    border: 'none',
+                                    backgroundColor: '#fee2e2',
+                                    color: '#991b1b',
+                                    padding: '4px 8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {isDeletingLevel === lvl.level_number ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Level Add/Edit Inline Form panel */}
+                  {editingLevel && (
+                    <div style={{
+                      backgroundColor: '#f9fafb',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '20px',
+                      marginTop: '20px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                          {affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? 'Edit Tier Rate' : 'Add New Tier Rate'}
+                        </h4>
+                        <button
+                          onClick={() => setEditingLevel(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <form onSubmit={handleSaveLevel} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Level Number</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="20"
+                            required
+                            disabled={affiliateLevels.some(l => l.level_number === editingLevel.level_number)}
+                            value={editingLevel.level_number}
+                            onChange={(e) => setEditingLevel({ ...editingLevel, level_number: e.target.value })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              width: '100px',
+                              outline: 'none',
+                              backgroundColor: affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? '#e5e7eb' : '#ffffff'
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Commission Rate (%)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            required
+                            value={editingLevel.commission_percentage}
+                            onChange={(e) => setEditingLevel({ ...editingLevel, commission_percentage: e.target.value })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              width: '150px',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '36px' }}>
+                          <input
+                            type="checkbox"
+                            id="levelEnabled"
+                            checked={editingLevel.enabled}
+                            onChange={(e) => setEditingLevel({ ...editingLevel, enabled: e.target.checked })}
+                          />
+                          <label htmlFor="levelEnabled" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', cursor: 'pointer' }}>Enabled</label>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isSavingLevel}
+                          style={{
+                            backgroundColor: 'var(--primary-lime)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '9px 18px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isSavingLevel ? 'Saving...' : 'Save Tier'}
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Global Settings Panel */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)',
+                  height: 'fit-content'
+                }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Settings size={16} style={{ color: 'var(--primary-lime)' }} />
+                    Global Settings
+                  </h3>
+
+                  {isLoadingAffiliateSettings ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Loading settings...
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Program Status</label>
+                        <select
+                          value={affiliateSettings.affiliate_enabled ? 'true' : 'false'}
+                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_enabled: e.target.value === 'true' })}
+                          style={{
+                            border: '1px solid var(--border-light)',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            fontWeight: 600
+                          }}
+                        >
+                          <option value="true">🟢 Active & Enabled</option>
+                          <option value="false">🔴 Suspended & Disabled</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Max Search/Payout Depth</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={affiliateSettings.affiliate_max_depth || 5}
+                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_max_depth: e.target.value })}
+                          style={{
+                            border: '1px solid var(--border-light)',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Minimum Withdrawal Limit (₹)</label>
+                        <select
+                          value={affiliateSettings.affiliate_min_withdrawal || '1000'}
+                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_min_withdrawal: e.target.value })}
+                          style={{
+                            border: '1px solid var(--border-light)',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            fontWeight: 600
+                          }}
+                        >
+                          <option value="100">₹100.00</option>
+                          <option value="500">₹500.00</option>
+                          <option value="1000">₹1,000.00</option>
+                          <option value="2000">₹2,000.00</option>
+                          <option value="5000">₹5,000.00</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Attribution Rule</label>
+                        <select
+                          value={affiliateSettings.affiliate_commission_model || 'last_touch'}
+                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_commission_model: e.target.value })}
+                          style={{
+                            border: '1px solid var(--border-light)',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="last_touch">Last Touch (Recommended)</option>
+                          <option value="first_touch">First Touch</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSavingAffiliateSettings}
+                        style={{
+                          backgroundColor: 'var(--primary-lime)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '10px 16px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          marginTop: '8px'
+                        }}
+                      >
+                        {isSavingAffiliateSettings ? 'Saving...' : 'Save Configuration'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB CONTENT: WITHDRAWAL PAYOUTS QUEUE */}
+            {affiliateSubTab === 'withdrawals' && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <DollarSign size={16} style={{ color: 'var(--primary-lime)' }} />
+                  Withdrawals Review Queue
+                </h3>
+
+                {isLoadingWithdrawals ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                    Loading withdrawal requests...
+                  </div>
+                ) : withdrawals.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                    No withdrawal requests have been submitted.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Details</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Requested Amount</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Payment Method</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Info / Details</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Requested</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {withdrawals.map((w) => (
+                          <tr key={w.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--text-dark)' }}>{w.devotee_name || 'N/A'}</p>
+                              <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{w.devotee_phone || w.devotee_email || 'N/A'}</p>
+                            </td>
+                            <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: '0.88rem', color: 'var(--primary-lime)' }}>
+                              ₹{parseFloat(w.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                              <span style={{ textTransform: 'uppercase', backgroundColor: '#eef2f6', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem' }}>
+                                {w.payment_method}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px', maxWidth: '250px', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                              {w.payment_method === 'upi' ? (
+                                <div>
+                                  <p style={{ margin: 0 }}><strong>UPI ID:</strong> {w.payment_details?.upi_id}</p>
+                                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Name: {w.payment_details?.account_holder_name}</p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p style={{ margin: 0 }}><strong>Bank:</strong> {w.payment_details?.bank_name}</p>
+                                  <p style={{ margin: '2px 0 0 0' }}><strong>A/C:</strong> {w.payment_details?.account_number}</p>
+                                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Holder: {w.payment_details?.account_name} | IFSC: {w.payment_details?.ifsc_code}</p>
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
+                                padding: '3px 10px',
+                                borderRadius: 'var(--radius-full)',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                backgroundColor:
+                                  w.status === 'paid' ? '#dcfce7' :
+                                  w.status === 'approved' ? '#dbeafe' :
+                                  w.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+                                color:
+                                  w.status === 'paid' ? '#15803d' :
+                                  w.status === 'approved' ? '#1d4ed8' :
+                                  w.status === 'rejected' ? '#991b1b' : '#b45309',
+                                border: '1px solid ' + (
+                                  w.status === 'paid' ? '#bbf7d0' :
+                                  w.status === 'approved' ? '#bfdbfe' :
+                                  w.status === 'rejected' ? '#fecaca' : '#fde68a'
+                                )
+                              }}>
+                                {w.status.toUpperCase()}
+                              </span>
+                              {w.status === 'rejected' && w.admin_notes && (
+                                <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#dc2626' }}>Reason: {w.admin_notes}</p>
+                              )}
+                              {w.status === 'paid' && w.txn_id && (
+                                <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#16a34a', fontFamily: 'monospace' }}>Txn Ref: {w.txn_id}</p>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                              {new Date(w.created_at).toLocaleString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </td>
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                                {w.status === 'pending' && (
+                                  <button
+                                    onClick={() => handleApproveWithdrawal(w.id)}
+                                    disabled={isProcessingWithdrawal === w.id}
+                                    style={{
+                                      backgroundColor: '#dbeafe',
+                                      color: '#1d4ed8',
+                                      border: 'none',
+                                      padding: '5px 10px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+                                {(w.status === 'pending' || w.status === 'approved') && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setTxnInputId(w.id);
+                                        setTxnRefNumber('');
+                                      }}
+                                      disabled={isProcessingWithdrawal === w.id}
+                                      style={{
+                                        backgroundColor: 'var(--primary-lime)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '5px 10px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Mark Paid
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setRejectingWithdrawalId(w.id);
+                                        setRejectReason('');
+                                      }}
+                                      disabled={isProcessingWithdrawal === w.id}
+                                      style={{
+                                        backgroundColor: '#fee2e2',
+                                        color: '#991b1b',
+                                        border: 'none',
+                                        padding: '5px 10px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Inline Rejection Panel */}
+                {rejectingWithdrawalId && (
+                  <div style={{
+                    backgroundColor: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '20px',
+                    marginTop: '20px',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#991b1b' }}>Reject Payout Request</h4>
+                      <button
+                        onClick={() => setRejectingWithdrawalId(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <form onSubmit={handleRejectWithdrawalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b' }}>Reason for Rejection</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Invalid UPI ID details, incorrect account holder name matching..."
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          style={{
+                            border: '1px solid #fecaca',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isProcessingWithdrawal === rejectingWithdrawalId}
+                        style={{
+                          backgroundColor: '#dc2626',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          width: 'fit-content'
+                        }}
+                      >
+                        Confirm Rejection
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Inline Mark Paid Panel */}
+                {txnInputId && (
+                  <div style={{
+                    backgroundColor: 'var(--primary-lime-light)',
+                    border: '1px solid var(--primary-lime)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '20px',
+                    marginTop: '20px',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-lime)' }}>Enter Transaction Reference Details</h4>
+                      <button
+                        onClick={() => setTxnInputId(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-lime)' }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <form onSubmit={handleMarkWithdrawalPaidSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-lime)' }}>Transaction ID / Reference Number</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. UPI Ref txn hash or Bank IMPS number..."
+                          value={txnRefNumber}
+                          onChange={(e) => setTxnRefNumber(e.target.value)}
+                          style={{
+                            border: '1px solid var(--primary-lime)',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isProcessingWithdrawal === txnInputId}
+                        style={{
+                          backgroundColor: 'var(--primary-lime)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          width: 'fit-content'
+                        }}
+                      >
+                        Finalize Payout
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
 

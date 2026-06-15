@@ -540,4 +540,12 @@ button {
   }
 }
 
+/* Referral Tree Collapsible Details Marker Hack */
+details.referral-details summary::-webkit-details-marker {
+  display: none !important;
+}
+details.referral-details > summary {
+  list-style: none !important;
+}
+
 

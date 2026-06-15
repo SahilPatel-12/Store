@@ -152,6 +152,12 @@ function App() {
   
   const [loggedInUser, setLoggedInUser] = React.useState<{ id: string; fullName: string; email: string; phoneNumber: string } | null>(() => {
     try {
+      const storedToken = localStorage.getItem('session_token');
+      if (!storedToken || storedToken === '260529') {
+        localStorage.removeItem('mantra_user_session');
+        localStorage.removeItem('session_token');
+        return null;
+      }
       const stored = localStorage.getItem('mantra_user_session');
       return stored ? JSON.parse(stored) : null;
     } catch (e) {
@@ -159,17 +165,19 @@ function App() {
     }
   });
 
+  const [profileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'>('info');
+
   const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | null>(null);
   const [pendingBuyNow, setPendingBuyNow] = React.useState<{ product: Product; qty: number } | null>(null);
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
 
-  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string } | null>(() => {
+  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string; token: string | null } | null>(() => {
     try {
       const stored = localStorage.getItem('ridae_admin_auth_session');
       if (stored) {
         const session = JSON.parse(stored);
         if (session && session.isAuthenticated && session.expireTime > Date.now()) {
-          return { username: session.username, loginTime: session.loginTime };
+          return { username: session.username, loginTime: session.loginTime, token: session.token || null };
         }
       }
       return null;
@@ -212,6 +220,51 @@ function App() {
       console.error(e);
     }
   }, [productsState]);
+
+  React.useEffect(() => {
+    const parseAndLogReferral = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const refCode = urlParams.get('ref');
+        
+        if (refCode && refCode.startsWith('MP')) {
+          console.log('[Referral Engine] Detected referral code in URL:', refCode);
+          
+          // 1. Call validate_referral_code RPC
+          const { data: valData, error: valError } = await supabase.rpc('validate_referral_code', {
+            p_code: refCode
+          });
+
+          if (!valError && valData && valData.length > 0 && valData[0].is_valid) {
+            console.log('[Referral Engine] Active referral code verified:', refCode, 'Referrer:', valData[0].referrer_name);
+            
+            // 2. Log click to DB
+            const { error: clickError } = await supabase.rpc('log_referral_click', {
+              p_referral_code: refCode,
+              p_landing_page: window.location.pathname + window.location.search,
+              p_device_id: 'browser_client',
+              p_ip: '127.0.0.1', // DB resolved or fallback
+              p_user_agent: navigator.userAgent
+            });
+
+            if (clickError) {
+              console.warn('[Referral Engine] Click logging failed:', clickError.message);
+            }
+
+            // 3. Save to localStorage with current timestamp
+            localStorage.setItem('mantra_referral_code', refCode);
+            localStorage.setItem('mantra_referral_time', Date.now().toString());
+          } else {
+            console.warn('[Referral Engine] Referral code is invalid or suspended:', refCode);
+          }
+        }
+      } catch (err) {
+        console.error('[Referral Engine] Error processing referral parameter:', err);
+      }
+    };
+
+    parseAndLogReferral();
+  }, []);
 
   const [selectedCategoryName, setSelectedCategoryName] = React.useState<string>('Rudraksha');
   const [searchQueryTerm, setSearchQueryTerm] = React.useState<string>('');
@@ -647,6 +700,8 @@ function App() {
     showcaseImage?: string;
   } | null>(null);
 
+  const [hasLoadedInitial, setHasLoadedInitial] = React.useState(false);
+
   // Shop Banners: main banner carousel + category banners
   const [shopBannersConfig, setShopBannersConfig] = React.useState<{
     mainBanners?: string[];  // main shop header carousel images
@@ -731,8 +786,8 @@ function App() {
     }
     return [
       'https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1600&q=80',
-      'https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=1600&q=80',
-      'https://images.unsplash.com/photo-1561571994-3c61c554181a?auto=format&fit=crop&w=1600&q=80'
+      'https://images.unsplash.com/photo-1608976328321-df6ff1a27944?auto=format&fit=crop&w=1600&q=80',
+      'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1600&q=80'
     ];
   }, [homepageConfig]);
 
@@ -776,11 +831,22 @@ function App() {
 
   // Fetch published products on mount and page transition
   React.useEffect(() => {
-    loadPublishedProducts();
-    loadHomepageSettings();
-    loadShopBannersSettings();
-    loadCategoriesOrder();
-    loadProductsOrder();
+    const initializeAppData = async () => {
+      try {
+        await Promise.all([
+          loadPublishedProducts(),
+          loadHomepageSettings(),
+          loadShopBannersSettings(),
+          loadCategoriesOrder(),
+          loadProductsOrder()
+        ]);
+      } catch (err) {
+        console.error('Error loading initial app config:', err);
+      } finally {
+        setHasLoadedInitial(true);
+      }
+    };
+    initializeAppData();
   }, [currentPageState]);  // Lifted stateful orders
   const [ordersState, setOrdersState] = React.useState<LocalOrder[]>(() => {
     try {
@@ -919,6 +985,23 @@ function App() {
   }, [cart]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+
+  // Lifted coupon state
+  const [appliedCouponCode, setAppliedCouponCode] = React.useState('');
+  const [discountPercent, setDiscountPercent] = React.useState(0);
+  const [appliedCouponProductId, setAppliedCouponProductId] = React.useState<string | null>(null);
+
+  // Auto-invalidate coupon if the restricted product is removed from cart
+  React.useEffect(() => {
+    if (appliedCouponProductId) {
+      const hasProduct = cart.some(item => item.product.id === appliedCouponProductId);
+      if (!hasProduct) {
+        setAppliedCouponCode('');
+        setDiscountPercent(0);
+        setAppliedCouponProductId(null);
+      }
+    }
+  }, [cart, appliedCouponProductId]);
   
   // Countdown Timer state
   const [timeLeft, setTimeLeft] = React.useState({
@@ -979,6 +1062,9 @@ function App() {
 
   const handleClearCart = () => {
     setCart([]);
+    setAppliedCouponCode('');
+    setDiscountPercent(0);
+    setAppliedCouponProductId(null);
   };
 
   const handleBuyNow = (product: Product, qty: number) => {
@@ -1055,6 +1141,7 @@ function App() {
               >
                 Shop
               </a>
+
               <div 
                 style={{ position: 'relative' }}
                 onMouseEnter={() => setCategoriesDropdownOpen(true)}
@@ -1290,6 +1377,7 @@ function App() {
               🛍️ Shop Sacred Items
             </a>
 
+
             {/* Mobile Categories Accordion Grid */}
             <div style={{ padding: '4px 0' }}>
               <div 
@@ -1397,7 +1485,32 @@ function App() {
           `}</style>
         </div>
       }>
-        {currentPage === 'home' ? (
+        {!hasLoadedInitial ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '60vh',
+            gap: '16px',
+            color: 'var(--primary-forest)'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              border: '3px solid var(--border-light)',
+              borderTopColor: 'var(--primary-lime)',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, opacity: 0.8 }}>Invoking sacred items...</span>
+            <style>{`
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        ) : currentPage === 'home' ? (
         <>
           {/* 2. Hero Section - Carousel Slider */}
           <section id="hero" style={{ padding: '24px 0 32px 0' }}>
@@ -2714,6 +2827,14 @@ function App() {
           onBackToShop={() => setCurrentPage('shop')}
           onClearCart={handleClearCart}
           onCheckout={() => setCurrentPage('checkout')}
+          loggedInUser={loggedInUser}
+          appliedCouponCode={appliedCouponCode}
+          onApplyCoupon={(code, percent, productId) => {
+            setAppliedCouponCode(code);
+            setDiscountPercent(percent);
+            setAppliedCouponProductId(productId);
+          }}
+          discountPercent={discountPercent}
         />
       ) : currentPage === 'checkout' ? (
         <CheckoutPage
@@ -2722,6 +2843,13 @@ function App() {
           onBackToShop={() => setCurrentPage('shop')}
           onOrderComplete={handleClearCart}
           loggedInUser={loggedInUser}
+          appliedCouponCode={appliedCouponCode}
+          onApplyCoupon={(code, percent, productId) => {
+            setAppliedCouponCode(code);
+            setDiscountPercent(percent);
+            setAppliedCouponProductId(productId);
+          }}
+          discountPercent={discountPercent}
           onOrderSuccess={async (details) => {
             const newOrder: LocalOrder = {
               ...details,
@@ -2766,6 +2894,34 @@ function App() {
               }
 
               if (error) throw error;
+
+              // Record coupon redemption if one was applied
+              if (details.appliedCouponCode && loggedInUser) {
+                try {
+                  const { data: couponData, error: couponFetchError } = await supabase
+                    .from('website_store_coupons')
+                    .select('id, redemptions_count')
+                    .eq('code', details.appliedCouponCode)
+                    .single();
+
+                  if (!couponFetchError && couponData) {
+                    await supabase
+                      .from('website_store_coupon_redemptions')
+                      .insert({
+                        coupon_id: couponData.id,
+                        user_id: loggedInUser.id,
+                        order_id: newOrder.orderId
+                      });
+
+                    await supabase
+                      .from('website_store_coupons')
+                      .update({ redemptions_count: (couponData.redemptions_count || 0) + 1 })
+                      .eq('id', couponData.id);
+                  }
+                } catch (couponErr) {
+                  console.error('Error logging coupon redemption:', couponErr);
+                }
+              }
 
               // Proactively sync shipping details to user saved addresses if logged in
               if (loggedInUser) {
@@ -2842,9 +2998,11 @@ function App() {
           onNavigateToHome={() => setCurrentPage('home')}
           onNavigateToOrders={() => setCurrentPage('orders')}
           loggedInUser={loggedInUser}
+          initialTab={profileInitialTab}
           onLogout={() => {
             try {
               localStorage.removeItem('mantra_user_session');
+              localStorage.removeItem('session_token');
             } catch (e) {}
             setLoggedInUser(null);
             setCurrentPage('shop');
@@ -2854,9 +3012,10 @@ function App() {
         <UserAuthPage
           onNavigateToHome={() => setCurrentPage('home')}
           onNavigateToShop={() => setCurrentPage('shop')}
-          onLoginSuccess={(userSession) => {
+          onLoginSuccess={(userSession, token) => {
             try {
               localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
+              localStorage.setItem('session_token', token);
             } catch (e) {}
             setLoggedInUser(userSession);
             
@@ -2895,19 +3054,20 @@ function App() {
         <PoliciesPage />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
-          onLoginSuccess={(username) => {
+          onLoginSuccess={(username, token) => {
             try {
               const expireTime = Date.now() + 2 * 60 * 60 * 1000; // 2 hour session validity
               const session = {
                 isAuthenticated: true,
                 username: username,
                 loginTime: new Date().toISOString(),
-                expireTime: expireTime
+                expireTime: expireTime,
+                token: token
               };
               localStorage.setItem('ridae_admin_auth_session', JSON.stringify(session));
               localStorage.setItem('ridae_admin_auth', 'true');
             } catch (e) {}
-            setCurrentAdmin({ username, loginTime: new Date().toISOString() });
+            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token });
             setIsAdminAuthenticated(true);
             setCurrentPage('admin');
           }}

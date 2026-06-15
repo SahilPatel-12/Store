@@ -39,6 +39,7 @@ export interface OrderDetails {
   pincode: string;
   placedAt: Date;
   razorpayPaymentId?: string;
+  appliedCouponCode?: string;
 }
 
 interface OrderSuccessPageProps {
