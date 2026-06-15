@@ -4,13 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20.19.0"
+    "node": "22"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "vite preview --port 3000 --host 0.0.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
