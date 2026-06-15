@@ -1,0 +1,22 @@
+{
+  "step_index": 1128,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-15T06:51:41Z",
+  "content": "I will update the database migration file `20260615000000_dynamic_invoice_settings.sql` to alter the `orders` table to include columns that correspond directly to all checkout invoice fields (subtotal, discount, pandit_dakshina, tax, and shipping_cost).",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "CodeContent": "\"-- Migration: Add invoice_settings to poojas, products, and combo poojas, and seed global_invoice_settings\\n-- Date: 2026-06-15\\n\\n-- 1. Alter tables to add JSONB column for invoice_settings\\nALTER TABLE public.one_rupee_poojas ADD COLUMN IF NOT EXISTS invoice_settings JSONB DEFAULT '{}'::jsonb;\\nALTER TABLE public.general_poojas ADD COLUMN IF NOT EXISTS invoice_settings JSONB DEFAULT '{}'::jsonb;\\nALTER TABLE public.problem_poojas ADD COLUMN IF NOT EXISTS invoice_settings JSONB DEFAULT '{}'::jsonb;\\nALTER TABLE public.combo_poojas ADD COLUMN IF NOT EXISTS invoice_settings JSONB DEFAULT '{}'::jsonb;\\nALTER TABLE public.website_pooja_products ADD COLUMN IF NOT EXISTS invoice_settings JSONB DEFAULT '{}'::jsonb;\\n\\n-- 2. Seed default global invoice settings row if not present\\n-- Note: ON CONFLICT is used to insert defaults, but does not overwrite user edits if it already exists.\\nINSERT INTO public.website_settings (key, value)\\nVALUES (\\n  'global_invoice_settings',\\n  '{\\n    \\\"store_products\\\": {\\n      \\\"gst_percent\\\": 0,\\n      \\\"discount_percent\\\": 0,\\n      \\\"delivery_charge\\\": 100,\\n      \\\"delivery_free_above\\\": 150\\n    },\\n    \\\"one_rupee_poojas\\\": {\\n      \\\"gst_percent\\\": 0,\\n      \\\"discount_percent\\\": 0\\n    },\\n    \\\"general_poojas\\\": {\\n      \\\"gst_percent\\\": 0,\\n      \\\"discount_percent\\\": 0\\n    },\\n    \\\"problem_poojas\\\": {\\n      \\\"gst_percent\\\": 0,\\n      \\\"discount_percent\\\": 0\\n    },\\n    \\\"combo_poojas\\\": {\\n      \\\"gst_percent\\\": 0,\\n      \\\"discount_percent\\\": 0\\n    }\\n  }'::jsonb\\n)\\nON CONFLICT (key) DO NOTHING;\\n\\n-- 3. Add invoice breakdown columns to orders table to store completed checkout totals\\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS subtotal NUMERIC DEFAULT 0;\\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0;\\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pandit_dakshina NUMERIC DEFAULT 0;\\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax NUMERIC DEFAULT 0;\\nALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_cost NU\n<truncated 19 bytes>",
+        "Description": "\"Added order table column alters in migration script.\"",
+        "IsArtifact": "false",
+        "Overwrite": "true",
+        "TargetFile": "\"/Applications/sahil_MP_app/APP/mantrapuja/migrations/20260615000000_dynamic_invoice_settings.sql\"",
+        "toolAction": "\"Writing migration updates to file\"",
+        "toolSummary": "\"Write file\""
+      }
+    }
+  ]
+}

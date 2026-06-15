@@ -1,0 +1,23 @@
+{
+  "step_index": 1210,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-05-29T11:35:11Z",
+  "content": "I will write the implementation plan in `implementation_plan.md` detailing the schema migration, custom section visibility toolbar, specs tab editing, price updates in the details page, custom section R2 icon editing, and disabling inline editing in the card preview.",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "ArtifactMetadata": "{\"ArtifactType\":\"implementation_plan\",\"RequestFeedback\":true,\"Summary\":\"Detailed architectural design for making specs tabs fully editable, allowing dynamic addition/removal of sections like FAQs or Ritual steps via a dynamic visibility toolbar, uploading custom section-header icons to Cloudflare R2, enabling price editing on details pages, disabling inline edits on storefront card previews, and providing a database migration script.\"}",
+        "CodeContent": "\"# Implementation Plan: Rich Section Controls, Specs Tabs, & Custom Section Icons\\n\\nThis plan outlines the architecture and implementation steps to make the pooja visual editor 100% customizable:\\n1. **Disabling Card Inline Editing**: Convert the storefront card preview panel into a read-only live preview/demo, focusing all edit interactions entirely on the detailed workspace panel.\\n2. **Dynamic Price Editing on Detail Page**: Enable inline editing for both the primary price and original strike-through price directly within the pricing section of the detail workspace.\\n3. **Fully Customizable Specifications Tabs**: Migrate specs (\\\"Material\\\", \\\"Weight\\\", \\\"Dimensions\\\", \\\"Origin\\\") from category-based defaults to dynamic, editable fields saved individually per product.\\n4. **Devotional Section Visibility Toolbar**: Integrate a dynamic checks toolbar at the top of the detail workspace to allow editors to check/uncheck optional sections (FAQs, Vedic Steps, Sacred Samagri, Priest details, etc.). Unchecking hides the section in both the preview and devotee views; checking initializes it with placeholder templates for immediate inline editing.\\n5. **R2 Section Icons Customization**: Enable editors to click on Lucide icons in section headers (like Book, Calendar, Award) when in `editable` mode to upload customized image icons directly to Cloudflare R2, storing the links under a structured `custom_icons` JSONB state.\\n6. **Supabase Schema Migration**: Provide a SQL script `04_add_customizable_specs_and_icons.sql` adding specifications and custom icons columns.\\n\\n---\\n\\n## 🛠️ Database Schema Upgrades\\n\\nWe will create a new migration [04_add_customizable_specs_and_icons.sql](file:///Users/sahilpatel/Desktop/New_Mantra_puja/Store/src/migrations/04_add_customizable_specs_and_icons.sql):\\n```sql\\nALTER TABLE public.website_pooja_products \\nADD COLUMN IF NOT EXISTS material TEXT,\\nADD COLUMN IF NOT EXISTS weight TEXT,\\nADD COLUMN IF NOT EXISTS dimensions TEXT,\\nADD COLUMN IF NOT EXISTS origin TEXT,\\nADD COLUMN IF NO\n<truncated 3707 bytes>",
+        "Description": "\"Create the implementation plan to make specs tabs editable, customize section visibility via checklist toggles, upload custom icons, edit prices inline, and make cards read-only.\"",
+        "IsArtifact": "true",
+        "Overwrite": "true",
+        "TargetFile": "\"/Users/sahilpatel/.gemini/antigravity-ide/brain/f03e047f-420e-4932-aadd-5556b435e976/implementation_plan.md\"",
+        "toolAction": "\"Writing the implementation plan for custom tabs and toolbar\"",
+        "toolSummary": "\"Write implementation_plan.md\""
+      }
+    }
+  ]
+}

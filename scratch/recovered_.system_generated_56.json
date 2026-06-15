@@ -1,0 +1,22 @@
+{
+  "step_index": 56,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-03T12:01:33Z",
+  "content": "I will modify `app/(tabs)/puja.tsx` using `multi_replace_file_content` to fetch general pujas from `general_poojas` and listen to the same table for realtime changes.",
+  "thinking": "**Reviewing Target Code**\n\nI'm now focusing on `app/(tabs)/puja.tsx`. I pinpointed the exact lines needing adjustments, specifically from 455 to 488, by examining the file. My goal is to precisely identify the modification target to prepare the next steps.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "Description": "\"Redirecting loadGeneralPoojas and generalSubscription from website_pooja_products to general_poojas in puja.tsx\"",
+        "Instruction": "\"Update Supabase table names from website_pooja_products to general_poojas and format property mappings accordingly\"",
+        "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":486,\"ReplacementContent\":\"  const loadGeneralPoojas = React.useCallback(async () => {\\n    try {\\n      const { data, error } = await supabase\\n        .from('general_poojas')\\n        .select('*')\\n        .eq('status', 'published')\\n        .eq('is_active', true)\\n        .order('created_at', { ascending: false });\\n      if (error) throw error;\\n      if (data) {\\n        const formatted = data.map(p => ({\\n          id: p.id,\\n          title: p.title,\\n          originalPrice: p.original_price || '',\\n          offerPrice: p.offer_price || '',\\n          price: p.offer_price || '',\\n          rating: p.rating || '5.0',\\n          reviews: p.reviews || '0',\\n          provider: p.provider || 'Vedic Pandits',\\n          description: p.tagline || '',\\n          time: '2 Hours',\\n          image: p.image_url || 'https://pub-3027d8d3defe4496978413d3c630aa44.r2.dev/god.png',\\n        }));\\n        setGeneralPujas(formatted);\\n      }\\n    } catch (err) {\\n      console.error('[Puja Screen] Error loading dynamic general poojas:', err);\\n    }\\n  }, []);\",\"StartLine\":457,\"TargetContent\":\"  const loadGeneralPoojas = React.useCallback(async () => {\\n    try {\\n      const { data, error } = await supabase\\n        .from('website_pooja_products')\\n        .select('*')\\n        .eq('is_published', true)\\n        .order('created_at', { ascending: false });\\n      if (error) throw error;\\n      if (data) {\\n        const formatted = data.map(p => ({\\n          id: p.id,\\n          title: p.name,\\n          originalPrice: p.original_price ? '₹' + p.original_price : '',\\n          offerPrice: p.price ? '₹' + p.price : '',\\n          price: p.price ? '₹' + p.price : '',\\n          rating: p.rating ? String(p.rating) : '5.0',\\n          reviews: p.reviews_count ? String(p.reviews_count) : '0',\\n          provider: p.temple_association || 'Vedic Pandits',\\n          description: p.short_description || p.subtitle || '',\\n          time: p.duration || '45-60 mins',\\n          image: p.image\n<truncated 1059 bytes>",
+        "TargetFile": "\"/Applications/sahil_MP_app/APP/mantrapuja/app/(tabs)/puja.tsx\"",
+        "toolAction": "\"Updating Puja screen queries\"",
+        "toolSummary": "\"File edit\""
+      }
+    }
+  ]
+}

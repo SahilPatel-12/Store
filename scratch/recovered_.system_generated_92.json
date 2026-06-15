@@ -1,0 +1,21 @@
+{
+  "step_index": 92,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-03T12:07:39Z",
+  "content": "I will edit `app/all_pujas.tsx` to restore the original table (`website_pooja_products`) query and format mappings, so that the Shop page displays store products correctly.",
+  "tool_calls": [
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "Description": "\"Reverting loadGeneralPoojas and productsSubscription to target website_pooja_products table in all_pujas.tsx\"",
+        "Instruction": "\"Revert Supabase queries from general_poojas to website_pooja_products in all_pujas.tsx\"",
+        "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":170,\"ReplacementContent\":\"    async function loadGeneralPoojas() {\\n      try {\\n        const { data, error } = await supabase\\n          .from('website_pooja_products')\\n          .select('*')\\n          .eq('is_published', true)\\n          .order('created_at', { ascending: false });\\n        if (error) throw error;\\n        if (data) {\\n          const formatted = data.map(p => ({\\n            id: p.id,\\n            title: p.name,\\n            originalPrice: p.original_price ? '₹' + p.original_price : '',\\n            price: p.price ? '₹' + p.price : '',\\n            rating: p.rating ? String(p.rating) : '5.0',\\n            reviews: p.reviews_count ? String(p.reviews_count) : '0',\\n            provider: p.temple_association || 'Vedic Shrine',\\n            category: p.category || 'All',\\n            image: p.image || 'https://pub-3027d8d3defe4496978413d3c630aa44.r2.dev/god.png',\\n          }));\\n          setGeneralPujas(formatted);\\n        }\\n      } catch (err) {\\n        console.error('[All Pujas Grid] Error loading dynamic general poojas:', err);\\n      }\\n    }\",\"StartLine\":142,\"TargetContent\":\"    async function loadGeneralPoojas() {\\n      try {\\n        const { data, error } = await supabase\\n          .from('general_poojas')\\n          .select('*')\\n          .eq('status', 'published')\\n          .eq('is_active', true)\\n          .order('created_at', { ascending: false });\\n        if (error) throw error;\\n        if (data) {\\n          const formatted = data.map(p => ({\\n            id: p.id,\\n            title: p.title,\\n            originalPrice: p.original_price || '',\\n            price: p.offer_price || '',\\n            rating: p.rating || '5.0',\\n            reviews: p.reviews || '0',\\n            provider: p.provider || 'Vedic Shrine',\\n            category: p.category || 'All',\\n            image: p.image_url || 'https://pub-3027d8d3defe4496978413d3c630aa44.r2.dev/god.png',\\n          }));\\n          setGeneralPujas(formatted);\\n        }\\n      } catch (\n<truncated 927 bytes>",
+        "TargetFile": "\"/Applications/sahil_MP_app/APP/mantrapuja/app/all_pujas.tsx\"",
+        "toolAction": "\"Reverting shop screen database queries\"",
+        "toolSummary": "\"File edit\""
+      }
+    }
+  ]
+}

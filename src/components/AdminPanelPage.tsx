@@ -26,7 +26,9 @@ import {
   ArrowUp,
   ArrowDown,
   List,
-  Ticket
+  Ticket,
+  Copy,
+  EyeOff
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -1784,6 +1786,109 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         console.error(err);
         alert('Failed to delete: ' + (err as Error).message);
       }
+    }
+  };
+
+  const handleDuplicatePoojaProduct = async (product: PoojaProduct) => {
+    try {
+      const clone = { ...product };
+      clone.name = `${product.name} (Copy)`;
+      clone.slug = `${product.slug}-copy-${Math.floor(Math.random() * 1000)}`;
+      clone.isPublished = false; // Start as draft (hidden)
+      
+      const dbPayload = {
+        name: clone.name,
+        sanskrit_name: clone.sanskritName || null,
+        short_name: clone.shortName || null,
+        slug: clone.slug,
+        category: clone.category || 'Rudraksha',
+        subtitle: clone.subtitle || null,
+        short_description: clone.shortDescription || null,
+        description: clone.description || '',
+        spiritual_significance: clone.spiritualSignificance || null,
+        material: clone.material || null,
+        weight: clone.weight || null,
+        dimensions: clone.dimensions || null,
+        origin: clone.origin || null,
+        custom_icons: (clone as any).customIcons || {},
+        booking_instructions: clone.bookingInstructions || null,
+        duration: clone.duration || null,
+        temple_association: clone.templeAssociation || null,
+        who_should_perform: clone.whoShouldPerform || null,
+        
+        rituals_included: clone.ritualsIncluded || [],
+        samagri_list: clone.samagriList || [],
+        priest_details: clone.priestDetails || { name: '', experience: '', bio: '', qualification: '' },
+        testimonials: clone.testimonials || [],
+        faqs: clone.faqs || [],
+        cta_labels: clone.ctaLabels || { primary: 'Book Now', secondary: 'Learn More' },
+        og_data: {
+          title: clone.ogData?.title || '',
+          description: clone.ogData?.description || '',
+          image: ''
+        },
+        schema_markup: clone.schemaMarkup || {},
+        
+        tags: clone.idealOccasions || [],
+        benefits: clone.benefits || [],
+        ideal_occasions: clone.idealOccasions || [],
+        offers: clone.offers || [],
+        badges: clone.badges || [],
+        
+        image: '📿',
+        banner_image: null,
+        gallery_images: [],
+        ritual_images: [],
+        priest_image: null,
+        certificates: [],
+        icon_image: null,
+        promo_creatives: [],
+        related_products: clone.relatedProducts || null,
+        
+        price: parseFloat(clone.price.toString()),
+        original_price: clone.originalPrice ? parseFloat(clone.originalPrice.toString()) : null,
+        rating: clone.rating || 4.8,
+        reviews_count: clone.reviewsCount || 0,
+        is_featured: clone.isFeatured || false,
+        is_trending: clone.isTrending || false,
+        in_stock: clone.inStock ?? true,
+        is_published: false,
+        published_at: null,
+        ui_labels: clone.uiLabels || {},
+        translations: clone.translations || {},
+        video_url: null
+      };
+
+      const { error } = await supabase
+        .from('website_pooja_products')
+        .insert([dbPayload]);
+
+      if (error) throw error;
+      triggerToast(`Product "${product.name}" duplicated successfully as draft!`);
+      loadPoojaProducts();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to duplicate product: ' + (err as Error).message);
+    }
+  };
+
+  const handleTogglePublishPoojaProduct = async (id: string, currentPublished: boolean, name: string) => {
+    try {
+      const newPublished = !currentPublished;
+      const { error } = await supabase
+        .from('website_pooja_products')
+        .update({ 
+          is_published: newPublished,
+          published_at: newPublished ? new Date().toISOString() : null
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      triggerToast(`Product "${name}" is now ${newPublished ? 'Published (visible)' : 'Draft (hidden)'}.`);
+      loadPoojaProducts();
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to ${currentPublished ? 'hide' : 'unhide'} product: ` + (err as Error).message);
     }
   };
 
@@ -5220,6 +5325,29 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                     }}
                                   >
                                     <Edit size={12} /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleTogglePublishPoojaProduct(product.id, product.isPublished, product.name)}
+                                    style={{
+                                      padding: '6px 12px', border: product.isPublished ? '1px solid #ffe2e2' : '1px solid #dcfce7',
+                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                      color: product.isPublished ? '#c2410c' : '#15803d', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                      backgroundColor: product.isPublished ? '#fffaf8' : '#f0fdf4', cursor: 'pointer'
+                                    }}
+                                  >
+                                    {product.isPublished ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    {product.isPublished ? 'Hide' : 'Unhide'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDuplicatePoojaProduct(product)}
+                                    style={{
+                                      padding: '6px 12px', border: '1px solid #e2e8f0',
+                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                      color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                      backgroundColor: '#f8fafc', cursor: 'pointer'
+                                    }}
+                                  >
+                                    <Copy size={12} /> Duplicate
                                   </button>
                                   <button
                                     onClick={() => handleDeletePoojaProduct(product.id, product.name)}

@@ -1,0 +1,24 @@
+{
+  "step_index": 686,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-05-29T10:48:56Z",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Added bulk selection and publishing states, and batch update handlers.\"",
+        "EndLine": "130",
+        "Instruction": "\"Add selectedPoojaIds and isBulkPublishing states, and the handleBulkPublishPooja batch publish function to AdminPanelPage.tsx.\"",
+        "ReplacementContent": "\"  const [showTemplatesDropdown, setShowTemplatesDropdown] = React.useState(false);\\n  const [selectedPoojaIds, setSelectedPoojaIds] = React.useState<Record<string, boolean>>({});\\n  const [isBulkPublishing, setIsBulkPublishing] = React.useState(false);\\n\\n  const handleBulkPublishPooja = async () => {\\n    const idsToPublish = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);\\n    if (idsToPublish.length === 0) {\\n      alert('Please select at least one Pooja product draft to publish.');\\n      return;\\n    }\\n\\n    if (window.confirm(`Are you sure you want to publish the ${idsToPublish.length} selected Pooja product drafts to the live website?`)) {\\n      setIsBulkPublishing(true);\\n      try {\\n        const { error } = await supabase\\n          .from('website_pooja_products')\\n          .update({ is_published: true, published_at: new Date().toISOString() })\\n          .in('id', idsToPublish);\\n\\n        if (error) throw error;\\n\\n        triggerToast(`Successfully published ${idsToPublish.length} Pooja products to live website!`);\\n        setSelectedPoojaIds({});\\n        loadPoojaProducts();\\n      } catch (err) {\\n        console.error(err);\\n        alert('Failed to publish: ' + (err as Error).message);\\n      } finally {\\n        setIsBulkPublishing(false);\\n      }\\n    }\\n  };\"",
+        "StartLine": "129",
+        "TargetContent": "\"  const [showTemplatesDropdown, setShowTemplatesDropdown] = React.useState(false);\"",
+        "TargetFile": "\"/Users/sahilpatel/Desktop/New_Mantra_puja/Store/src/components/AdminPanelPage.tsx\"",
+        "toolAction": "\"Adding bulk publishing states and handlers\"",
+        "toolSummary": "\"File edit AdminPanelPage.tsx\""
+      }
+    }
+  ]
+}

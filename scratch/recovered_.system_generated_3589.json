@@ -1,0 +1,23 @@
+{
+  "step_index": 3589,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-05T19:35:10Z",
+  "content": "I will create the database migration SQL script `08_create_affiliate_system.sql` in `src/migrations/` which defines the database tables and columns, indices, RLS policies, and inserts default system configuration settings.",
+  "thinking": "**Analyzing Pooja Products Data**\n\nOkay, I've got a solid grasp on the `website_pooja_products` table. It's dynamically storing our pooja products, as expected. The RLS setup, with open access for anonymous and authenticated users, makes perfect sense considering the admin panel's write operations. Now, I'm considering adding a `commission` column.\n\n\n**Designing Affiliate System Schema**\n\nI'm now detailing the migration file, `08_create_affiliate_system.sql`. It includes altering the `website_pooja_products` table to add a nullable `commission_percent` column. I'm also creating new tables: `website_store_affiliates`, `website_store_affiliate_clicks`, `website_store_affiliate_commissions`, `website_store_affiliate_withdrawals`, and `website_store_affiliate_settings`. RLS is enabled, and the old policies will be dropped.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "CodeContent": "\"-- Migration: Create Affiliate system tables and configure initial settings\\n\\n-- 1. Alter website_pooja_products to add commission_percent override\\nALTER TABLE public.website_pooja_products ADD COLUMN IF NOT EXISTS commission_percent INTEGER;\\n\\n-- 2. Create website_store_affiliates table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliates (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  user_id UUID NOT NULL UNIQUE REFERENCES public.website_store_users(id) ON DELETE CASCADE,\\n  code TEXT NOT NULL UNIQUE,\\n  enabled BOOLEAN NOT NULL DEFAULT TRUE,\\n  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())\\n);\\n\\n-- 3. Create website_store_affiliate_clicks table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliate_clicks (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  affiliate_id UUID NOT NULL REFERENCES public.website_store_affiliates(id) ON DELETE CASCADE,\\n  ip_address TEXT,\\n  device TEXT,\\n  browser TEXT,\\n  user_session TEXT,\\n  is_unique BOOLEAN NOT NULL DEFAULT TRUE,\\n  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())\\n);\\n\\n-- 4. Create website_store_affiliate_commissions table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliate_commissions (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  affiliate_id UUID NOT NULL REFERENCES public.website_store_affiliates(id) ON DELETE CASCADE,\\n  referee_id UUID REFERENCES public.website_store_users(id) ON DELETE SET NULL,\\n  order_id TEXT NOT NULL UNIQUE, -- matches website_store_orders(order_id)\\n  order_subtotal NUMERIC NOT NULL,\\n  commission_percent INTEGER NOT NULL,\\n  commission_amount NUMERIC NOT NULL,\\n  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Paid')),\\n  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())\\n);\\n\\n-- 5. Create website_store_affiliate_withdrawals table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliate_withdrawals (\\n  id UUID PRIMARY KEY DEFAULT gen_rando\n<truncated 4454 bytes>",
+        "Description": "\"Create DB migration for the Affiliate system.\"",
+        "IsArtifact": "false",
+        "Overwrite": "true",
+        "TargetFile": "\"/Applications/Store/Store/src/migrations/08_create_affiliate_system.sql\"",
+        "toolAction": "\"Creating migration SQL file\"",
+        "toolSummary": "\"Create migration SQL file\""
+      }
+    }
+  ]
+}

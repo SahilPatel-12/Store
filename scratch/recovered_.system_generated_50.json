@@ -1,0 +1,24 @@
+{
+  "step_index": 50,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-03T11:59:54Z",
+  "content": "I will create an implementation plan detailing the changes to redirect queries on the mobile app's Puja page from the store items (`website_pooja_products` table) to actual general pujas (`general_poojas` table). ",
+  "thinking": "**Analyzing the Mapping**\n\nI'm focused on the necessary mapping within `app/(tabs)/puja.tsx`. Currently, I'm analyzing the `loadGeneralPoojas` function and its data fetching from Supabase. I'm aiming to determine the precise data transformation required to effectively render the puja information within the UI.\n\n\n**Verifying Database Connections**\n\nI'm now cross-referencing the database table and subscription channel in `app/(tabs)/puja.tsx` and correcting the table name for realtime updates to `general_poojas`. The thought process has expanded to check `app/all_pujas.tsx`, ensuring consistency and real-time data sync using Supabase Realtime across multiple components. Now I'll check `app/puja_detail.tsx`.\n\n\n**Mapping the Puja Data**\n\nI've been looking closely at the data mapping logic in `app/puja_detail.tsx`, particularly around the fallback mechanism for data retrieval. I've realized that the `isWebsiteProduct` check, used to distinguish between data from `website_pooja_products` and `general_poojas`, correctly handles the field discrepancies (like `title` vs. `name`). Now, I'm checking the mapping using `setPuja` to ensure data from `general_poojas` is correctly transformed to the UI fields.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "ArtifactMetadata": "{\"ArtifactType\":\"implementation_plan\",\"RequestFeedback\":true,\"Summary\":\"Implementation plan to resolve the Puja page showing Store Items issue. Redirects general puja queries from the store table (website_pooja_products) to the correct pujas table (general_poojas) across relevant files, aligning their model formatting.\"}",
+        "CodeContent": "\"# Implementation Plan - Fix Puja Page Showing Store Items\\n\\nThe mobile app's Puja page currently lists products like \\\"13 Mukhi Rudraksha\\\" under the \\\"All Puja\\\" section. These items are store products fetched from the `website_pooja_products` database table. Instead, the page should fetch and display actual pujas from the `general_poojas` table (such as \\\"Kedarnath Puja\\\", \\\"Tirupati Puja\\\", etc.).\\n\\n## Proposed Changes\\n\\n### Mobile App Code base\\n\\n#### [MODIFY] [puja.tsx](file:///Applications/sahil_MP_app/APP/mantrapuja/app/(tabs)/puja.tsx)\\n- Modify `loadGeneralPoojas` to query from `general_poojas` instead of `website_pooja_products`.\\n- Update the columns mapping so that:\\n  - `title` maps to `p.title`\\n  - `originalPrice` maps directly to `p.original_price`\\n  - `offerPrice` and `price` map directly to `p.offer_price`\\n  - `rating` maps to `p.rating`\\n  - `reviews` maps to `p.reviews`\\n  - `provider` maps to `p.provider`\\n  - `description` maps to `p.tagline`\\n  - `image` maps to `p.image_url`\\n- Update the realtime subscription channel `generalSubscription` to listen to changes on the `general_poojas` table.\\n\\n#### [MODIFY] [all_pujas.tsx](file:///Applications/sahil_MP_app/APP/mantrapuja/app/all_pujas.tsx)\\n- Modify `loadGeneralPoojas` to query from `general_poojas` instead of `website_pooja_products`.\\n- Update the columns mapping accordingly to use `general_poojas` schema.\\n- Update the realtime subscription channel `productsSubscription` to listen to the `general_poojas` table.\\n\\n#### [MODIFY] [puja_detail.tsx](file:///Applications/sahil_MP_app/APP/mantrapuja/app/puja_detail.tsx)\\n- In the `loadPujaDetails` effect, add `general_poojas` table as a fallback query option after checking `one_rupee_poojas` and before checking `website_pooja_products` (or replacing/inserting it in the fallback logic).\\n- Since `general_poojas` does not have a `name` column, the existing `isWebsiteProduct` check (`const isWebsiteProduct = ('name' in dbData)`) will correctly evaluate to `false` and map the fields approp\n<truncated 758 bytes>",
+        "Description": "\"Creating implementation plan to redirect puja page queries from website_pooja_products to general_poojas\"",
+        "IsArtifact": "true",
+        "Overwrite": "true",
+        "TargetFile": "\"/Users/sahilpatel/.gemini/antigravity-ide/brain/00100fe0-c315-4095-980b-85f4acf113a8/implementation_plan.md\"",
+        "toolAction": "\"Creating implementation plan\"",
+        "toolSummary": "\"File writing\""
+      }
+    }
+  ]
+}

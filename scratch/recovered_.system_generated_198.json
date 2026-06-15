@@ -1,0 +1,24 @@
+{
+  "step_index": 198,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-05-29T10:05:42Z",
+  "content": "I will update `src/types/index.ts` to add the `PoojaProduct` typescript interface, inheriting from basic `Product` but including all database columns.",
+  "thinking": "**Examining TypeScript Interface**\n\nOkay, I'm currently focused on updating the `src/types/index.ts` file. I'm taking a close look at the existing `Product` interface to understand the current structure. I need to make sure the new `PoojaProduct` schema integrates seamlessly with the existing type definitions, so I'm paying close attention to the details of the lines in the given file content.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Extend TypeScript interfaces in src/types/index.ts to define PoojaProduct matching the database columns\"",
+        "EndLine": "43",
+        "Instruction": "\"Add PoojaProduct interface extending Product with all columns from website_pooja_products table\"",
+        "ReplacementContent": "\"export interface Product {\\n  id: string;\\n  name: string;\\n  description: string;\\n  price: number;\\n  originalPrice?: number;\\n  rating: number;\\n  reviewsCount: number;\\n  image: string;\\n  category: string;\\n  inStock: boolean;\\n  benefits: string[];\\n  popularity: number; // 1 to 100\\n  spiritualType: 'Rituals' | 'Meditation' | 'Vastu' | 'Wisdom' | 'Aromatherapy';\\n}\\n\\nexport interface PoojaProduct extends Product {\\n  sanskritName?: string;\\n  shortName?: string;\\n  slug: string;\\n  subtitle?: string;\\n  shortDescription?: string;\\n  spiritualSignificance?: string;\\n  ritualsIncluded?: Array<{ name: string; description: string; duration?: string }>;\\n  samagriList?: Array<{ name: string; quantity: string; description?: string }>;\\n  priestDetails?: { name: string; experience?: string; bio?: string; qualification?: string };\\n  duration?: string;\\n  idealOccasions?: string[];\\n  templeAssociation?: string;\\n  whoShouldPerform?: string;\\n  offers?: string[];\\n  badges?: string[];\\n  testimonials?: Array<{ author: string; content: string; location?: string; rating?: number }>;\\n  faqs?: Array<{ question: string; answer: string }>;\\n  bookingInstructions?: string;\\n  ctaLabels?: { primary?: string; secondary?: string };\\n  seoTitle?: string;\\n  seoDescription?: string;\\n  canonicalUrl?: string;\\n  ogData?: { title?: string; description?: string; image?: string };\\n  schemaMarkup?: Record<string, any>;\\n  imageAlt?: string;\\n  imageCaption?: string;\\n  isFeatured: boolean;\\n  isTrending: boolean;\\n  recommendationLogic?: string;\\n  relatedProducts?: string[];\\n  videoUrl?: string;\\n  translations?: Record<string, any>;\\n  uiLabels?: Record<string, string>;\\n  publishedAt?: string;\\n  isPublished: boolean;\\n  bannerImage?: string;\\n  galleryImages?: Array<{ url: string; alt?: string; caption?: string }>;\\n  ritualImages?: Array<{ url: string; name?: string; description?: string }>;\\n  priestImage?: string;\\n  certificates?: Array<{ url: string; name?: string; issuer?: string }>;\\n  iconImage?: string;\\n  promoC\n<truncated 619 bytes>",
+        "StartLine": "1",
+        "TargetContent": "\"export interface Product {\\n  id: string;\\n  name: string;\\n  description: string;\\n  price: number;\\n  originalPrice?: number;\\n  rating: number;\\n  reviewsCount: number;\\n  image: string;\\n  category: string;\\n  inStock: boolean;\\n  benefits: string[];\\n  popularity: number; // 1 to 100\\n  spiritualType: 'Rituals' | 'Meditation' | 'Vastu' | 'Wisdom' | 'Aromatherapy';\\n}\\n\\nexport interface CartItem {\\n  product: Product;\\n  quantity: number;\\n}\\n\\nexport interface LocalOrder {\\n  orderId: string;\\n  placedAt: Date;\\n  total: number;\\n  subtotal: number;\\n  discount: number;\\n  discountPercent: number;\\n  shipping: number;\\n  tax: number;\\n  paymentMethod: string;\\n  deliveryCity: string;\\n  deliveryState: string;\\n  fullName: string;\\n  email: string;\\n  addressLine1: string;\\n  addressLine2?: string;\\n  pincode: string;\\n  status: string; // 'Being Packed' | 'Shipped' | 'Delivered' | 'Cancelled'\\n  items: CartItem[];\\n}\"",
+        "TargetFile": "\"/Users/sahilpatel/Desktop/New_Mantra_puja/Store/src/types/index.ts\""
+      }
+    }
+  ]
+}

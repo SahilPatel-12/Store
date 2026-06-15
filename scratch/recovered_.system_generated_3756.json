@@ -1,0 +1,23 @@
+{
+  "step_index": 3756,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-05T19:41:59Z",
+  "content": "I will write the complete `walkthrough.md` file as an artifact to explain the design, implementation details, and verification results of the newly integrated Affiliate Program.",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "ArtifactMetadata": "{\"ArtifactType\":\"walkthrough\",\"RequestFeedback\":false,\"Summary\":\"Detailed walkthrough of the production-ready Affiliate Program system implementation, covering database migrations, client tracking, checkout integration, user portal dashboard, and admin manager sections.\"}",
+        "CodeContent": "\"# Walkthrough: Complete Production-Ready Affiliate Program\\n\\nWe have successfully implemented and verified the complete, production-ready **Affiliate Program system** for your eCommerce store. The system connects Supabase storage, real-time client-side tracking, checkout calculations with customizable logic, a customer-facing Affiliate Dashboard, and an extensive admin management panel.\\n\\n---\\n\\n## Technical Architecture & Changes\\n\\n### 1. Database Schema\\nCreated and applied the Supabase migrations file [08_create_affiliate_system.sql](file:///Applications/Store/Store/src/migrations/08_create_affiliate_system.sql) defining the following schemas:\\n- `public.website_store_affiliates`: Holds registered affiliate details, their unique referral code, active toggle status, and creation timestamps.\\n- `public.website_store_affiliate_clicks`: Tracks link clicks with full device details (IP, user agent, browser) and indicates whether a click is unique to prevent traffic spoofing.\\n- `public.website_store_affiliate_commissions`: Records calculated commission details per order, referrer, referee, status flow, and timestamp.\\n- `public.website_store_affiliate_withdrawals`: Logs withdrawal request details (UPI ID, bank particulars, request amount, status).\\n- `public.website_store_affiliate_settings`: Key-value JSONB parameters table for global variables.\\n- Added a `commission_percent` override column on `public.website_pooja_products`.\\n\\n```mermaid\\nerDiagram\\n    website_store_users ||--o| website_store_affiliates : \\\"is affiliate\\\"\\n    website_store_affiliates ||--o{ website_store_affiliate_clicks : \\\"receives click\\\"\\n    website_store_affiliates ||--o{ website_store_affiliate_commissions : \\\"earns commission\\\"\\n    website_store_affiliates ||--o{ website_store_affiliate_withdrawals : \\\"requests payout\\\"\\n    website_store_affiliate_settings {\\n        string key PK\\n        jsonb value\\n    }\\n```\\n\\n### 2. Attribution & URL Tracking\\nImplemented dynamic URL parsing in [App.tsx](file:///Applications/Store/Store/s\n<truncated 3178 bytes>",
+        "Description": "\"Create the walkthrough artifact for the Affiliate Program integration\"",
+        "IsArtifact": "true",
+        "Overwrite": "true",
+        "TargetFile": "\"/Users/sahilpatel/.gemini/antigravity-ide/brain/c1c6ad90-a17f-4682-b9ff-e25d054ce912/walkthrough.md\"",
+        "toolAction": "\"Creating walkthrough artifact for the Affiliate Program\"",
+        "toolSummary": "\"Create walkthrough.md\""
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "step_index": 3585,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-05T19:59:24Z",
+  "content": "I will create the SQL migration file `/Applications/Store/Store/src/migrations/08_create_affiliate_system.sql` containing all the database schema changes, tables, and policies, including dropping the `website_store_affiliate_clicks` table explicitly.",
+  "thinking": "**Examining SQL Structure**\n\nI'm currently focused on the structure the user provided. Specifically, I'm examining the SQL commands, paying close attention to the request to \"drop this table\". My goal is to accurately interpret this instruction and its implications for the migration file I'm creating.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "CodeContent": "\"-- Migration: Create Affiliate system tables and configure initial settings\\n\\n-- 0. Drop clicks table if it was created or exists\\nDROP TABLE IF EXISTS public.website_store_affiliate_clicks CASCADE;\\n\\n-- 1. Alter website_pooja_products to add commission_percent override\\nALTER TABLE public.website_pooja_products ADD COLUMN IF NOT EXISTS commission_percent INTEGER;\\n\\n-- 2. Create website_store_affiliates table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliates (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  user_id UUID NOT NULL UNIQUE REFERENCES public.website_store_users(id) ON DELETE CASCADE,\\n  code TEXT NOT NULL UNIQUE,\\n  enabled BOOLEAN NOT NULL DEFAULT TRUE,\\n  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())\\n);\\n\\n-- 3. Create website_store_affiliate_commissions table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliate_commissions (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  affiliate_id UUID NOT NULL REFERENCES public.website_store_affiliates(id) ON DELETE CASCADE,\\n  referee_id UUID REFERENCES public.website_store_users(id) ON DELETE SET NULL,\\n  order_id TEXT NOT NULL UNIQUE, -- matches website_store_orders(order_id)\\n  order_subtotal NUMERIC NOT NULL,\\n  commission_percent INTEGER NOT NULL,\\n  commission_amount NUMERIC NOT NULL,\\n  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Paid')),\\n  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())\\n);\\n\\n-- 4. Create website_store_affiliate_withdrawals table\\nCREATE TABLE IF NOT EXISTS public.website_store_affiliate_withdrawals (\\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\\n  affiliate_id UUID NOT NULL REFERENCES public.website_store_affiliates(id) ON DELETE CASCADE,\\n  amount NUMERIC NOT NULL,\\n  upi_id TEXT,\\n  bank_details JSONB, -- account_number, ifsc_code, bank_name, holder_name\\n  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Paid', 'Rejected')),\\n  created_at TIMEST\n<truncated 3434 bytes>",
+        "Description": "\"Create database schema migration for Affiliate Program omitting clicks table and adding dropping logic.\"",
+        "IsArtifact": "false",
+        "Overwrite": "true",
+        "TargetFile": "\"/Applications/Store/Store/src/migrations/08_create_affiliate_system.sql\"",
+        "toolAction": "\"Writing migration file\"",
+        "toolSummary": "\"Write migration file\""
+      }
+    }
+  ]
+}

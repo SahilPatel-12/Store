@@ -1,0 +1,25 @@
+{
+  "step_index": 3433,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-05T14:49:54Z",
+  "content": "I will replace the static coupon verification in `CheckoutPage.tsx` with dynamic Supabase checking.",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Update handleApplyCoupon in CheckoutPage.tsx to fetch and validate coupons from Supabase.\"",
+        "EndLine": "217",
+        "Instruction": "\"Replace handleApplyCoupon with async validation querying Supabase website_store_coupons and website_store_coupon_redemptions\"",
+        "ReplacementContent": "\"  const handleApplyCoupon = async () => {\\n    const formattedCode = couponCode.trim().toUpperCase();\\n    setCouponMessage({ text: '', type: '' });\\n\\n    if (!formattedCode) {\\n      onApplyCoupon('', 0, null);\\n      return;\\n    }\\n\\n    if (!loggedInUser) {\\n      setCouponMessage({ text: 'Please log in to apply devotional coupons.', type: 'error' });\\n      onApplyCoupon('', 0, null);\\n      return;\\n    }\\n\\n    setIsValidatingCoupon(true);\\n    try {\\n      // 1. Fetch coupon details from Supabase\\n      const { data: coupon, error: fetchError } = await supabase\\n        .from('website_store_coupons')\\n        .select('*')\\n        .eq('code', formattedCode)\\n        .maybeSingle();\\n\\n      if (fetchError) throw fetchError;\\n\\n      if (!coupon) {\\n        setCouponMessage({ text: 'Invalid coupon code.', type: 'error' });\\n        onApplyCoupon('', 0, null);\\n        return;\\n      }\\n\\n      // 2. Validate usage limit\\n      if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {\\n        setCouponMessage({ text: 'This coupon has reached its total usage limit.', type: 'error' });\\n        onApplyCoupon('', 0, null);\\n        return;\\n      }\\n\\n      // 3. Validate single-use limit (per user)\\n      const { data: existingRedemption, error: redemptionError } = await supabase\\n        .from('website_store_coupon_redemptions')\\n        .select('id')\\n        .eq('coupon_id', coupon.id)\\n        .eq('user_id', loggedInUser.id)\\n        .maybeSingle();\\n\\n      if (redemptionError) throw redemptionError;\\n\\n      if (existingRedemption) {\\n        setCouponMessage({ text: 'You have already used this coupon code.', type: 'error' });\\n        onApplyCoupon('', 0, null);\\n        return;\\n      }\\n\\n      // 4. Validate product constraint\\n      if (coupon.product_id) {\\n        const hasProduct = cart.some(item => item.product.id === coupon.product_id);\\n        if (!hasProduct) {\\n          const { data: productData } = await supabase\\n            .from('website_pooja_products')\\n \n<truncated 888 bytes>",
+        "StartLine": "208",
+        "TargetContent": "\"  const handleApplyCoupon = () => {\\n    const code = couponCode.trim().toUpperCase();\\n    if (VALID_COUPONS[code]) {\\n      setDiscountPercent(VALID_COUPONS[code]);\\n      setCouponMessage({ text: `✓ Coupon applied! ${VALID_COUPONS[code]}% off`, type: 'success' });\\n    } else {\\n      setDiscountPercent(0);\\n      setCouponMessage({ text: 'Invalid coupon code. Try DEVOTION10 or TEMPLE20.', type: 'error' });\\n    }\\n  };\"",
+        "TargetFile": "\"/Applications/Store/Store/src/components/CheckoutPage.tsx\"",
+        "toolAction": "\"Updating handleApplyCoupon in CheckoutPage\"",
+        "toolSummary": "\"CheckoutPage apply coupon query update\""
+      }
+    }
+  ]
+}

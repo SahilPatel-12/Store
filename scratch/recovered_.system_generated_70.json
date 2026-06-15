@@ -1,0 +1,25 @@
+{
+  "step_index": 70,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-01T06:16:17Z",
+  "content": "I will replace the `loadGeneralPoojas` query in `puja.tsx` to read from the `website_pooja_products` table and map the properties accordingly.",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Update loadGeneralPoojas to query website_pooja_products in puja.tsx\"",
+        "EndLine": "467",
+        "Instruction": "\"Replace loadGeneralPoojas implementation to query website_pooja_products and map keys correctly\"",
+        "ReplacementContent": "\"    async function loadGeneralPoojas() {\\n      try {\\n        const { data, error } = await supabase\\n          .from('website_pooja_products')\\n          .select('*')\\n          .eq('is_published', true)\\n          .order('created_at', { ascending: false });\\n        if (error) throw error;\\n        if (data) {\\n          const formatted = data.map(p => ({\\n            id: p.id,\\n            title: p.name,\\n            originalPrice: p.original_price ? '₹' + p.original_price : '',\\n            offerPrice: p.price ? '₹' + p.price : '',\\n            price: p.price ? '₹' + p.price : '',\\n            rating: p.rating ? String(p.rating) : '5.0',\\n            reviews: p.reviews_count ? String(p.reviews_count) : '0',\\n            provider: p.temple_association || 'Vedic Pandits',\\n            description: p.short_description || p.subtitle || '',\\n            time: p.duration || '45-60 mins',\\n            image: p.image || 'https://pub-3027d8d3defe4496978413d3c630aa44.r2.dev/god.png',\\n          }));\\n          setGeneralPujas(formatted);\\n        }\\n      } catch (err) {\\n        console.error('[Puja Screen] Error loading dynamic general poojas:', err);\\n      }\\n    }\"",
+        "StartLine": "436",
+        "TargetContent": "\"    async function loadGeneralPoojas() {\\n      try {\\n        const { data, error } = await supabase\\n          .from('general_poojas')\\n          .select('*')\\n          .eq('status', 'published')\\n          .eq('is_active', true)\\n          .order('sort_order_puja', { ascending: true, nullsFirst: false })\\n          .order('created_at', { ascending: false });\\n        if (error) throw error;\\n        if (data) {\\n          const formatted = data.map(p => ({\\n            id: p.id,\\n            title: p.title,\\n            originalPrice: p.original_price,\\n            offerPrice: p.offer_price,\\n            price: p.offer_price,\\n            rating: p.rating,\\n            reviews: p.reviews,\\n            provider: p.provider,\\n            description: 'by ' + p.provider,\\n            time: p.requirement || '45-60 mins',\\n            image: p.image_url,\\n          }));\\n          setGeneralPujas(formatted);\\n        }\\n      } catch (err) {\\n        console.error('[Puja Screen] Error loading dynamic general poojas:', err);\\n      }\\n    }\"",
+        "TargetFile": "\"/Users/sahilpatel/Desktop/New_Mantra_puja.nosync/APP/mantrapuja/app/(tabs)/puja.tsx\"",
+        "toolAction": "\"Updating loadGeneralPoojas logic in puja.tsx\"",
+        "toolSummary": "\"Update shop query\""
+      }
+    }
+  ]
+}

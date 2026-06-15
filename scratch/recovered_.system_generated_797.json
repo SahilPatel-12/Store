@@ -1,0 +1,25 @@
+{
+  "step_index": 797,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-05-29T10:54:26Z",
+  "thinking": "**Adding loadPublishedProducts**\n\nI'm currently working on modifying `App.tsx` and planning to use `replace_file_content` to insert `loadPublishedProducts` directly after the `productsState` initialization and the `localStorage` update effect. The goal is precise line matching for the insertion.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Fetch and merge published pooja products from Supabase database in App.tsx\"",
+        "EndLine": "285",
+        "Instruction": "\"Add the loadPublishedProducts function and hook it to a useEffect, updating the state accordingly\"",
+        "ReplacementContent": "\"  React.useEffect(() => {\\n    try {\\n      localStorage.setItem('ridae_products', JSON.stringify(productsState));\\n    } catch (e) {\\n      console.error(e);\\n    }\\n  }, [productsState]);\\n\\n  // Load published pooja products from Supabase and merge with static mock products\\n  const loadPublishedProducts = async () => {\\n    try {\\n      const { data, error } = await supabase\\n        .from('website_pooja_products')\\n        .select('*')\\n        .eq('is_published', true)\\n        .order('created_at', { ascending: false });\\n\\n      if (error) throw error;\\n      if (data) {\\n        const mappedData: Product[] = data.map((item: any) => ({\\n          id: item.id,\\n          name: item.name,\\n          description: item.description,\\n          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,\\n          originalPrice: item.original_price ? (typeof item.original_price === 'string' ? parseFloat(item.original_price) : item.original_price) : undefined,\\n          rating: typeof item.rating === 'string' ? parseFloat(item.rating) : (item.rating || 5.0),\\n          reviewsCount: item.reviews_count || 0,\\n          image: item.image || '📿',\\n          category: item.category,\\n          inStock: item.in_stock ?? true,\\n          benefits: item.benefits || [],\\n          popularity: item.popularity || 80,\\n          spiritualType: item.spiritual_type || 'Rituals',\\n          // custom fields to keep compatibility with PoojaProduct:\\n          sanskritName: item.sanskrit_name,\\n          shortName: item.short_name,\\n          slug: item.slug,\\n          subtitle: item.subtitle,\\n          shortDescription: item.short_description,\\n          spiritualSignificance: item.spiritual_significance,\\n          ritualsIncluded: item.rituals_included || [],\\n          samagriList: item.samagri_list || [],\\n          priestDetails: item.priest_details || { name: '', experience: '', bio: '', qualification: '' },\\n          duration: item.duration,\\n          idealOccasions: item.ideal_occasions || [],\\\n<truncated 2057 bytes>",
+        "StartLine": "278",
+        "TargetContent": "\"  React.useEffect(() => {\\n    try {\\n      localStorage.setItem('ridae_products', JSON.stringify(productsState));\\n    } catch (e) {\\n      console.error(e);\\n    }\\n  }, [productsState]);\"",
+        "TargetFile": "\"/Users/sahilpatel/Desktop/New_Mantra_puja/Store/src/App.tsx\"",
+        "toolAction": "\"Insert loadPublishedProducts into App.tsx\"",
+        "toolSummary": "\"Editing App.tsx for database fetching\""
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "step_index": 64,
+  "source": "MODEL",
+  "type": "PLANNER_RESPONSE",
+  "status": "DONE",
+  "created_at": "2026-06-03T12:02:03Z",
+  "content": "I will update `app/puja_detail.tsx` to add `general_poojas` to the fallback table check in the detail view loader.",
+  "thinking": "**Analyzing Puja Detail**\n\nI'm currently focused on `app/puja_detail.tsx`. I've started examining the code, specifically lines 1819-1849, to identify modification points. My goal is to understand how this component functions and pinpoint where changes are needed. I'm focusing on handling situations where data isn't immediately found.\n\n\n",
+  "tool_calls": [
+    {
+      "name": "replace_file_content",
+      "args": {
+        "AllowMultiple": "false",
+        "Description": "\"Adding general_poojas fallback check to loadPujaDetails in puja_detail.tsx\"",
+        "EndLine": "1849",
+        "Instruction": "\"Add Supabase query for general_poojas table as a fallback option when loading puja details\"",
+        "ReplacementContent": "\"        // If not found in one_rupee_poojas, check general_poojas\\n        if (!dbData) {\\n          console.log('[Puja Detail] Checking general_poojas fallback...');\\n          const { data: generalData, error: generalError } = await supabase\\n            .from('general_poojas')\\n            .select('*')\\n            .eq('id', pujaId)\\n            .maybeSingle();\\n          \\n          if (generalError) {\\n            console.error('[Puja Detail] Error loading from general_poojas:', generalError);\\n          }\\n          dbData = generalData;\\n        }\\n\\n        // If not found in general_poojas, check website_pooja_products\\n        if (!dbData) {\\n          console.log('[Puja Detail] Checking website_pooja_products fallback...');\\n          const { data: websiteData, error: websiteError } = await supabase\\n            .from('website_pooja_products')\\n            .select('*')\\n            .eq('id', pujaId)\\n            .maybeSingle();\\n          \\n          if (websiteError) {\\n            console.error('[Puja Detail] Error loading from website_pooja_products:', websiteError);\\n          }\\n          dbData = websiteData;\\n        }\"",
+        "StartLine": "1820",
+        "TargetContent": "\"        // If not found in one_rupee_poojas, check website_pooja_products\\n        if (!dbData) {\\n          console.log('[Puja Detail] Checking website_pooja_products fallback...');\\n          const { data: generalData, error: generalError } = await supabase\\n            .from('website_pooja_products')\\n            .select('*')\\n            .eq('id', pujaId)\\n            .maybeSingle();\\n          \\n          if (generalError) {\\n            console.error('[Puja Detail] Error loading from website_pooja_products:', generalError);\\n          }\\n          dbData = generalData;\\n        }\"",
+        "TargetFile": "\"/Applications/sahil_MP_app/APP/mantrapuja/app/puja_detail.tsx\"",
+        "toolAction": "\"Updating fallback in puja_detail.tsx\"",
+        "toolSummary": "\"File edit\""
+      }
+    }
+  ]
+}
