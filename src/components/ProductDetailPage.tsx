@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -90,7 +90,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
   // Interactive review system states
-  const [reviews, setReviews] = React.useState<Array<{ id: string; author: string; rating: number; date: string; content: string; verified: boolean }>>(() => {
+  const [reviews, setReviews] = React.useState<Array<{ id: string; author: string; rating: number; date: string; content: string; verified: boolean; imageUrls?: string[]; videoUrls?: string[] }>>(() => {
     const pooja = product as PoojaProduct;
     if (pooja.testimonials && pooja.testimonials.length > 0) {
       return pooja.testimonials.map((t: any, idx: number) => ({
@@ -99,7 +99,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         rating: t.rating !== undefined ? Number(t.rating) : 5,
         date: t.date || t.location || 'May 10, 2026',
         content: t.content || t.comment || '',
-        verified: t.verified !== undefined ? t.verified : true
+        verified: t.verified !== undefined ? t.verified : true,
+        imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
+        videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
       }));
     }
     try {
@@ -113,6 +115,14 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [reviewName, setReviewName] = React.useState('');
   const [reviewRating, setReviewRating] = React.useState(5);
   const [reviewComment, setReviewComment] = React.useState('');
+  const [reviewLocation, setReviewLocation] = React.useState('');
+  const [editingReviewId, setEditingReviewId] = React.useState<string | null>(null);
+
+  // Media upload states for reviews (Cloudflare R2 integration)
+  const [tempImageUrls, setTempImageUrls] = React.useState<string[]>([]);
+  const [tempVideoUrls, setTempVideoUrls] = React.useState<string[]>([]);
+  const [uploadingReviewImage, setUploadingReviewImage] = React.useState(false);
+  const [uploadingReviewVideo, setUploadingReviewVideo] = React.useState(false);
 
   const [reviewsHidden, setReviewsHidden] = React.useState<boolean>(() => {
     const pooja = product as PoojaProduct;
@@ -162,7 +172,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         rating: t.rating !== undefined ? Number(t.rating) : 5,
         date: t.date || t.location || 'May 10, 2026',
         content: t.content || t.comment || '',
-        verified: t.verified !== undefined ? t.verified : true
+        verified: t.verified !== undefined ? t.verified : true,
+        imageUrls: Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []),
+        videoUrls: Array.isArray(t.videoUrls) ? t.videoUrls : (t.videoUrl ? [t.videoUrl] : [])
       }));
     } else {
       try {
@@ -190,6 +202,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setReviewName('');
     setReviewRating(5);
     setReviewComment('');
+    setReviewLocation('');
+    setTempImageUrls([]);
+    setTempVideoUrls([]);
+    setEditingReviewId(null);
   }, [product.id, (product as PoojaProduct).testimonials, (product as PoojaProduct).uiLabels]);
 
   // Dynamic Pricing Updates
@@ -329,24 +345,95 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     }, 3000);
   };
 
+  const handleReviewImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingReviewImage(true);
+    try {
+      const urls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const url = await uploadToR2(file, 'reviews/images');
+        urls.push(url);
+      }
+      setTempImageUrls(prev => [...prev, ...urls]);
+      triggerToast("Review images uploaded successfully to Cloudflare R2!");
+    } catch (err) {
+      console.error(err);
+      alert("Image upload failed: " + (err as Error).message);
+    } finally {
+      setUploadingReviewImage(false);
+    }
+  };
+
+  const handleReviewVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingReviewVideo(true);
+    try {
+      const urls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const url = await uploadToR2(file, 'reviews/videos');
+        urls.push(url);
+      }
+      setTempVideoUrls(prev => [...prev, ...urls]);
+      triggerToast("Review videos uploaded successfully to Cloudflare R2!");
+    } catch (err) {
+      console.error(err);
+      alert("Video upload failed: " + (err as Error).message);
+    } finally {
+      setUploadingReviewVideo(false);
+    }
+  };
+
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewName.trim() || !reviewComment.trim()) return;
 
-    const newRev = {
-      id: 'r-user-' + Date.now(),
-      author: reviewName,
-      rating: reviewRating,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }),
-      content: reviewComment,
-      verified: true
-    };
+    const locationText = reviewLocation.trim() ? ` – ${reviewLocation.trim()}` : '';
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
 
-    const updated = [newRev, ...reviews];
+    let updated = [];
+    if (editingReviewId) {
+      updated = reviews.map(rev => {
+        if (rev.id === editingReviewId) {
+          const originalDateStr = rev.date.split(' – ')[0] || dateStr;
+          return {
+            ...rev,
+            author: reviewName.trim(),
+            rating: reviewRating,
+            date: `${originalDateStr}${locationText}`,
+            content: reviewComment.trim(),
+            imageUrls: [...tempImageUrls],
+            videoUrls: [...tempVideoUrls]
+          };
+        }
+        return rev;
+      });
+      setEditingReviewId(null);
+      triggerToast("Review updated successfully.");
+    } else {
+      const newRev = {
+        id: 'r-user-' + Date.now(),
+        author: reviewName.trim(),
+        rating: reviewRating,
+        date: `${dateStr}${locationText}`,
+        content: reviewComment.trim(),
+        verified: true,
+        imageUrls: [...tempImageUrls],
+        videoUrls: [...tempVideoUrls]
+      };
+      updated = [newRev, ...reviews];
+      triggerToast("Thank you! Review submitted successfully.");
+    }
+
     setReviews(updated);
     setReviewName('');
     setReviewComment('');
-    triggerToast("Thank you! Review submitted successfully.");
+    setReviewLocation('');
+    setTempImageUrls([]);
+    setTempVideoUrls([]);
 
     if (onUpdate) {
       onUpdate({ testimonials: updated });
@@ -2463,156 +2550,146 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   )}
 
                   {/* Trust Certificates */}
-                  {(Array.isArray(pooja.certificates) && pooja.certificates.length > 0) && (
+                  {(editable || (Array.isArray(pooja.certificates) && pooja.certificates.length > 0)) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
                         {renderSectionHeaderIcon('cert', <ShieldCheck size={22} style={{ color: 'var(--primary-lime)' }} />)} Authenticity & Certification
                       </h2>
                       <div style={{
                         backgroundColor: '#ffffff',
-                        padding: '20px',
+                        padding: '24px',
                         borderRadius: 'var(--radius-lg)',
                         border: '1px solid var(--border-light)',
                         boxShadow: 'var(--shadow-sm)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '12px'
+                        gap: '16px'
                       }}>
-                        {(pooja.certificates || []).map((cert, idx) => (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: idx < pooja.certificates!.length - 1 ? '1px solid var(--border-light)' : 'none', paddingBottom: idx < pooja.certificates!.length - 1 ? '12px' : 0, position: 'relative' }}>
-                            <div style={{ position: 'relative', width: '48px', height: '48px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-light)', flexShrink: 0 }}>
-                              {isRealUrl(cert.url) ? (
-                                <img
-                                  src={getDisplayImageUrl(cert.url)}
-                                  alt={cert.name || 'Certificate'}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  📜
+                        {editable ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {(pooja.certificates || []).map((cert, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  color: 'var(--text-muted)',
+                                  minWidth: '55px',
+                                  flexShrink: 0
+                                }}>
+                                  Step {idx + 1}
                                 </div>
-                              )}
-                              {editable && (
-                                <>
-                                  <label
-                                    htmlFor={`cert-upload-${idx}`}
-                                    style={{
-                                      position: 'absolute',
-                                      top: 0, left: 0, right: 0, bottom: 0,
-                                      backgroundColor: 'rgba(0,0,0,0.6)',
-                                      color: '#ffffff',
-                                      fontSize: '0.5rem',
-                                      fontWeight: 700,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      cursor: 'pointer',
-                                      opacity: 0,
-                                      transition: 'opacity 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                                  >
-                                    Upload
-                                  </label>
-                                  <input
-                                    id={`cert-upload-${idx}`}
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
-                                    onChange={async (e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file && onUpdate) {
-                                        try {
-                                          const cdnUrl = await uploadToR2(file, 'certificates');
-                                          const updated = [...(pooja.certificates || [])];
-                                          updated[idx] = { ...updated[idx], url: cdnUrl };
-                                          onUpdate({ certificates: updated });
-                                        } catch (err) {
-                                          alert('Upload failed: ' + (err as Error).message);
-                                        }
-                                      }
-                                    }}
-                                  />
-                                </>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                                {editable ? (
-                                  <InlineEdit
-                                    value={cert.name || ''}
-                                    onChange={(val) => {
-                                      const updated = [...(pooja.certificates || [])];
-                                      updated[idx] = { ...updated[idx], name: val };
-                                      onUpdate && onUpdate({ certificates: updated });
-                                    }}
-                                    placeholder="Certification Title"
-                                  />
-                                ) : (
-                                  cert.name || 'Vedic Certification'
-                                )}
-                              </span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                Issued by: {editable ? (
-                                  <InlineEdit
-                                    value={cert.issuer || ''}
-                                    onChange={(val) => {
-                                      const updated = [...(pooja.certificates || [])];
-                                      updated[idx] = { ...updated[idx], issuer: val };
-                                      onUpdate && onUpdate({ certificates: updated });
-                                    }}
-                                    placeholder="Authority/Issuer"
-                                  />
-                                ) : (
-                                  cert.issuer
-                                )}
-                              </span>
-                            </div>
-                            {editable && (
-                              <button
-                                onClick={() => {
-                                  const updated = pooja.certificates!.filter((_, i) => i !== idx);
-                                  onUpdate && onUpdate({ certificates: updated });
-                                }}
-                                style={{
-                                  border: 'none',
-                                  backgroundColor: 'transparent',
-                                  color: '#ef4444',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 700,
-                                  cursor: 'pointer'
-                                }}
-                                title="Delete Certificate"
-                              >
-                                ✕
-                              </button>
-                            )}
+                                <input
+                                  type="text"
+                                  value={cert.name || ''}
+                                  onChange={(e) => {
+                                    const updated = [...(pooja.certificates || [])];
+                                    updated[idx] = { ...updated[idx], name: e.target.value };
+                                    onUpdate && onUpdate({ certificates: updated });
+                                  }}
+                                  placeholder={`Enter step ${idx + 1} details...`}
+                                  style={{
+                                    flexGrow: 1,
+                                    padding: '8px 12px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border-light)',
+                                    fontSize: '0.9rem',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = pooja.certificates!.filter((_, i) => i !== idx);
+                                    onUpdate && onUpdate({ certificates: updated });
+                                  }}
+                                  style={{
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: '#ef4444',
+                                    fontSize: '1rem',
+                                    cursor: 'pointer',
+                                    padding: '4px 8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                  title="Delete Step"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = pooja.certificates || [];
+                                onUpdate && onUpdate({
+                                  certificates: [...current, { name: '', issuer: '', url: '' }]
+                                });
+                              }}
+                              style={{
+                                alignSelf: 'flex-start',
+                                color: 'var(--primary-lime)',
+                                border: '1px dashed var(--primary-lime)',
+                                backgroundColor: 'transparent',
+                                padding: '8px 16px',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.82rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                marginTop: '8px'
+                              }}
+                            >
+                              + Add Step
+                            </button>
                           </div>
-                        ))}
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {(pooja.certificates || [])
+                              .filter(c => c.name && c.name.trim() !== '')
+                              .map((cert, idx, arr) => (
+                                <div key={idx} style={{ display: 'flex', gap: '16px', position: 'relative' }}>
+                                  {/* Timeline connector line */}
+                                  {idx < arr.length - 1 && (
+                                    <div style={{
+                                      position: 'absolute',
+                                      left: '15px',
+                                      top: '30px',
+                                      bottom: '-22px',
+                                      width: '2px',
+                                      background: 'linear-gradient(to bottom, var(--primary-lime) 0%, #e5e7eb 100%)'
+                                    }} />
+                                  )}
+                                  
+                                  {/* Step Badge */}
+                                  <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--primary-lime-light)',
+                                    color: 'var(--primary-forest)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 800,
+                                    border: '2px solid var(--primary-lime)',
+                                    flexShrink: 0,
+                                    zIndex: 1
+                                  }}>
+                                    {idx + 1}
+                                  </div>
 
-                        {editable && (
-                          <button
-                            onClick={() => {
-                              const current = pooja.certificates || [];
-                              onUpdate && onUpdate({
-                                certificates: [...current, { name: 'New Certification Seal', issuer: 'Purity Association', url: '' }]
-                              });
-                            }}
-                            style={{
-                              alignSelf: 'flex-start',
-                              color: 'var(--primary-lime)',
-                              border: '1px dashed var(--primary-lime)',
-                              backgroundColor: 'transparent',
-                              padding: '8px 16px',
-                              borderRadius: 'var(--radius-md)',
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            + Add Certificate
-                          </button>
+                                  {/* Step Content */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
+                                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-dark)', lineHeight: '1.4' }}>
+                                      {cert.name}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2675,12 +2752,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '50px',
+              gridTemplateColumns: editable ? '1.2fr 0.8fr' : '1fr',
+              gap: '40px',
               alignItems: 'start',
               opacity: reviewsHidden ? 0.6 : 1,
               transition: 'opacity 0.25s ease'
-            }} className="hero-grid-split">
+            }} className={editable ? "hero-grid-split" : ""}>
 
               {/* Reviews list */}
               <div style={{ textAlign: 'left' }}>
@@ -2688,53 +2765,138 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
                 </h2>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: editable ? '1fr' : 'repeat(auto-fill, minmax(340px, 1fr))',
+                  gap: '24px'
+                }}>
                   {reviews.length === 0 ? (
-                    <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa' }}>
+                    <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa', gridColumn: '1 / -1' }}>
                       <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>No reviews yet for this product.</p>
-                      <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review below!</p>
+                      {editable && <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review on the right!</p>}
                     </div>
                   ) : (
                     reviews.map((rev) => (
                       <div
                         key={rev.id}
                         style={{
-                          padding: '20px',
+                          padding: '24px',
                           backgroundColor: '#ffffff',
                           borderRadius: 'var(--radius-lg)',
                           border: '1px solid var(--border-light)',
-                          boxShadow: 'var(--shadow-sm)'
+                          boxShadow: 'var(--shadow-sm)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          position: 'relative'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-dark)' }}>{rev.author}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rev.date}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteReview(rev.id)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#ef4444',
-                                cursor: 'pointer',
-                                padding: '2px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                              title="Delete Review"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                        <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {/* Initials Avatar */}
+                            <div style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #f97316 0%, #d97706 100%)',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.95rem',
+                              boxShadow: '0 2px 4px rgba(249, 115, 22, 0.25)',
+                              flexShrink: 0
+                            }}>
+                              {rev.author.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-dark)' }}>{rev.author}</span>
+                                {rev.verified !== false && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      backgroundColor: '#dcfce7',
+                                      color: '#15803d',
+                                      fontWeight: 800,
+                                      padding: '2px 6px',
+                                      borderRadius: '12px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '2px'
+                                    }}
+                                    title="Verified Devotee Purchase"
+                                  >
+                                    ✓ Verified
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{rev.date}</span>
+                            </div>
                           </div>
+
+                          {editable && (
+                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingReviewId(rev.id);
+                                  setReviewName(rev.author);
+                                  setReviewRating(rev.rating);
+                                  setReviewComment(rev.content);
+                                  const parts = rev.date.split(' – ');
+                                  setReviewLocation(parts[1] || '');
+                                  setTempImageUrls(rev.imageUrls || []);
+                                  setTempVideoUrls(rev.videoUrls || []);
+                                  const formElement = document.getElementById('admin-review-form');
+                                  if (formElement) {
+                                    formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--primary-forest)',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'var(--primary-lime-light)',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                title="Edit Review (Admin)"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReview(rev.id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#fef2f2',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                title="Delete Review (Admin)"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                           {[1, 2, 3, 4, 5].map((s) => (
                             <Star
                               key={s}
@@ -2745,9 +2907,64 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           ))}
                         </div>
 
-                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
-                          {rev.content}
+                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0, fontStyle: 'italic', textAlign: 'left' }}>
+                          "{rev.content}"
                         </p>
+
+                        {/* Review Media: Images & Videos */}
+                        {((rev.imageUrls && rev.imageUrls.length > 0) || (rev.videoUrls && rev.videoUrls.length > 0)) && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                            {/* Images Gallery */}
+                            {rev.imageUrls && rev.imageUrls.length > 0 && (
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {rev.imageUrls.map((url, i) => (
+                                  <a
+                                    key={i}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      width: '60px',
+                                      height: '60px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      overflow: 'hidden',
+                                      border: '1px solid var(--border-light)',
+                                      boxShadow: 'var(--shadow-sm)',
+                                      display: 'block'
+                                    }}
+                                  >
+                                    <img
+                                      src={url}
+                                      alt={`Review file ${i + 1}`}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Videos */}
+                            {rev.videoUrls && rev.videoUrls.length > 0 && (
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {rev.videoUrls.map((url, i) => (
+                                  <video
+                                    key={i}
+                                    src={url}
+                                    controls
+                                    preload="metadata"
+                                    style={{
+                                      maxWidth: '100%',
+                                      height: '80px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      border: '1px solid var(--border-light)',
+                                      boxShadow: 'var(--shadow-sm)'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -2755,91 +2972,227 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
 
               {/* Write a review form */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                padding: '30px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-light)',
-                boxShadow: 'var(--shadow-sm)',
-                textAlign: 'left'
-              }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
-                  Write a Review
-                </h3>
-                <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Your Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter your name"
-                      value={reviewName}
-                      onChange={(e) => setReviewName(e.target.value)}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem'
-                      }}
-                    />
-                  </div>
+              {editable && (
+                <div
+                  id="admin-review-form"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    padding: '30px',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)',
+                    textAlign: 'left',
+                    alignSelf: 'start'
+                  }}
+                >
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
+                    {editingReviewId ? 'Edit Devotee Review (Admin Panel)' : 'Add Devotee Review (Admin Panel)'}
+                  </h3>
+                  <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Devotee Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Priyanshu Verma"
+                        value={reviewName}
+                        onChange={(e) => setReviewName(e.target.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem'
+                        }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Star Rating</label>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {[1, 2, 3, 4, 5].map((s) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Location (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Delhi, Mumbai"
+                        value={reviewLocation}
+                        onChange={(e) => setReviewLocation(e.target.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Star Rating</label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            type="button"
+                            key={s}
+                            onClick={() => setReviewRating(s)}
+                            style={{ padding: '4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer' }}
+                          >
+                            <Star
+                              size={24}
+                              fill={s <= reviewRating ? '#fbbf24' : 'none'}
+                              color="#fbbf24"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Review Comment</label>
+                      <textarea
+                        required
+                        rows={4}
+                        placeholder="Share devotee feedback about this item..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          fontFamily: 'inherit',
+                          resize: 'none'
+                        }}
+                      />
+                    </div>
+
+                    {/* Media Upload: Images */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Add Images</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleReviewImageUpload}
+                          disabled={uploadingReviewImage}
+                          style={{ fontSize: '0.8rem', width: '100%' }}
+                        />
+                        {uploadingReviewImage && <span style={{ fontSize: '0.75rem', color: 'var(--primary-lime)' }}>Uploading...</span>}
+                      </div>
+                      
+                      {/* Uploaded Images Previews */}
+                      {tempImageUrls.length > 0 && (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {tempImageUrls.map((url, idx) => (
+                            <div key={idx} style={{ position: 'relative', width: '50px', height: '50px', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button
+                                type="button"
+                                onClick={() => setTempImageUrls(prev => prev.filter((_, i) => i !== idx))}
+                                style={{
+                                  position: 'absolute',
+                                  top: 0, right: 0,
+                                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  fontSize: '0.6rem',
+                                  padding: '2px 4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Media Upload: Videos */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Add Videos</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="file"
+                          accept="video/*"
+                          multiple
+                          onChange={handleReviewVideoUpload}
+                          disabled={uploadingReviewVideo}
+                          style={{ fontSize: '0.8rem', width: '100%' }}
+                        />
+                        {uploadingReviewVideo && <span style={{ fontSize: '0.75rem', color: 'var(--primary-lime)' }}>Uploading...</span>}
+                      </div>
+
+                      {/* Uploaded Videos Previews */}
+                      {tempVideoUrls.length > 0 && (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {tempVideoUrls.map((url, idx) => (
+                            <div key={idx} style={{ position: 'relative', width: '80px', height: '50px', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+                              <video src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button
+                                type="button"
+                                onClick={() => setTempVideoUrls(prev => prev.filter((_, i) => i !== idx))}
+                                style={{
+                                  position: 'absolute',
+                                  top: 0, right: 0,
+                                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  fontSize: '0.6rem',
+                                  padding: '2px 4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                      <button
+                        type="submit"
+                        className="btn-lime"
+                        style={{
+                          flexGrow: 1,
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          justifyContent: 'center',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        {editingReviewId ? 'Update Devotee Review' : 'Submit Blessing Review'}
+                      </button>
+                      {editingReviewId && (
                         <button
                           type="button"
-                          key={s}
-                          onClick={() => setReviewRating(s)}
-                          style={{ padding: '4px' }}
+                          onClick={() => {
+                            setEditingReviewId(null);
+                            setReviewName('');
+                            setReviewComment('');
+                            setReviewLocation('');
+                            setTempImageUrls([]);
+                            setTempVideoUrls([]);
+                          }}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-light)',
+                            backgroundColor: '#f3f4f6',
+                            color: 'var(--text-dark)',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
                         >
-                          <Star
-                            size={24}
-                            fill={s <= reviewRating ? '#fbbf24' : 'none'}
-                            color="#fbbf24"
-                          />
+                          Cancel
                         </button>
-                      ))}
+                      )}
                     </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.82rem', fontWeight: 800 }}>Review Comment</label>
-                    <textarea
-                      required
-                      rows={4}
-                      placeholder="Share your spiritual feedback about this item..."
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        fontFamily: 'inherit',
-                        resize: 'none'
-                      }}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn-lime"
-                    style={{
-                      padding: '12px',
-                      borderRadius: 'var(--radius-md)',
-                      justifyContent: 'center',
-                      marginTop: '8px'
-                    }}
-                  >
-                    Submit Blessing Review
-                  </button>
-                </form>
-              </div>
-
+                  </form>
+                </div>
+              )}
             </div>
           </div>
         </section>
