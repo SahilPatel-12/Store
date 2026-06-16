@@ -1614,14 +1614,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           padding: '12px 16px',
           textAlign: 'center'
         }}>
-          {/* Gokwik trust badges */}
+          {/* Secure checkout trust badges */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', flexWrap: 'wrap', opacity: 0.8, marginBottom: '6px' }}>
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Powered by</span>
-            <span style={{ fontWeight: 900, color: '#374151', fontSize: '0.72rem', letterSpacing: '-0.3px' }}>⚡ GoKwik</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🔒 PCI DSS COMPLIANT</span>
             <span style={{ width: '1px', height: '10px', backgroundColor: '#d1d5db' }} />
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🔒 PCI DSS</span>
-            <span style={{ width: '1px', height: '10px', backgroundColor: '#d1d5db' }} />
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🛡️ SSL Secure</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🛡️ SSL SECURE CHECKOUT</span>
           </div>
 
           <p style={{ fontSize: '0.64rem', color: '#9ca3af', margin: 0, lineHeight: 1.3 }}>

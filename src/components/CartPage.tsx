@@ -428,13 +428,18 @@ export const CartPage: React.FC<CartPageProps> = ({
                 className="btn-lime"
                 style={{
                   width: '100%',
-                  padding: '16px',
-                  borderRadius: 'var(--radius-md)',
-                  justifyContent: 'center',
-                  boxShadow: 'var(--shadow-sm)'
+                  padding: '18px 24px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '1.15rem',
+                  fontWeight: 900,
+                  boxShadow: '0 6px 20px rgba(132, 204, 22, 0.25)'
                 }}
               >
-                Proceed to Checkout →
+                <span style={{ letterSpacing: '0.5px' }}>PROCEED TO CHECKOUT</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{finalTotal.toFixed(2)}</span>
               </button>
 
               <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>

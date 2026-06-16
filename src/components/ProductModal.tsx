@@ -77,7 +77,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
   };
 
-  const handleIncrement = () => setQuantity(prev => prev + 1);
+  const handleIncrement = () => {
+    const limit = product?.purchaseLimit;
+    setQuantity(prev => {
+      if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
+        alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
+        return prev;
+      }
+      return prev + 1;
+    });
+  };
   const handleDecrement = () => setQuantity(prev => (prev > 1 ? prev - 1 : 1));
 
   return (

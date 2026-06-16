@@ -14,6 +14,7 @@ export interface Product {
   spiritualType: 'Rituals' | 'Meditation' | 'Vastu' | 'Wisdom' | 'Aromatherapy';
   subtitle?: string;
   shortDescription?: string;
+  purchaseLimit?: number;
 }
 
 export interface PoojaProduct extends Product {

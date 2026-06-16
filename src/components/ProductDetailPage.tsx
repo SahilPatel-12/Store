@@ -1765,7 +1765,14 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     {quantity}
                   </span>
                   <button
-                    onClick={() => setQuantity(prev => prev + 1)}
+                    onClick={() => setQuantity(prev => {
+                      const limit = product?.purchaseLimit;
+                      if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
+                        alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
+                        return prev;
+                      }
+                      return prev + 1;
+                    })}
                     style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
                   >
                     +

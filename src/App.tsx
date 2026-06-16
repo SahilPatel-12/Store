@@ -767,6 +767,7 @@ function App() {
           certificates: item.certificates || [],
           iconImage: item.icon_image,
           promoCreatives: item.promo_creatives || [],
+          purchaseLimit: item.purchase_limit ? Number(item.purchase_limit) : undefined,
         }));
 
         // Merge Supabase products with local products from localStorage to ensure locally added custom items persist and show up
@@ -783,9 +784,13 @@ function App() {
         const dbIds = new Set(mappedData.map(p => p.id));
         const uniqueLocalProducts = localProducts.filter(p => !dbIds.has(p.id));
         const combinedList = [...mappedData, ...uniqueLocalProducts];
-        const combinedIds = new Set(combinedList.map(p => p.id));
-        const missingMocks = visualMockProducts.filter(p => !combinedIds.has(p.id));
-        setProductsState([...combinedList, ...missingMocks]);
+        
+        // Only show fallback/mock products if no products are loaded from DB or local storage
+        if (combinedList.length > 0) {
+          setProductsState(combinedList);
+        } else {
+          setProductsState(visualMockProducts);
+        }
       }
     } catch (err) {
       console.error('Error loading published pooja products in storefront:', err);
@@ -1153,20 +1158,54 @@ function App() {
     if (!loggedInUser) {
       setPendingAddToCart({ product, qty: quantity });
     }
+
+    const limit = product.purchaseLimit;
+    let allowedQty = quantity;
+    let limitReached = false;
+
     setCart(prev => {
       const arr = Array.isArray(prev) ? prev.filter(Boolean) : [];
       const existingIdx = arr.findIndex(item => item?.product?.id === product.id);
+      const currentQty = existingIdx > -1 ? (arr[existingIdx]?.quantity || 0) : 0;
+
+      if (limit !== undefined && limit !== null && limit > 0) {
+        if (currentQty + quantity > limit) {
+          allowedQty = Math.max(0, limit - currentQty);
+          limitReached = true;
+        }
+      }
+
+      if (allowedQty <= 0) {
+        if (limitReached) {
+          setTimeout(() => {
+            alert(`You can only purchase a maximum of ${limit} units of "${product.name}" per order.`);
+          }, 0);
+        }
+        return arr;
+      }
+
       if (existingIdx > -1) {
         const nextCart = [...arr];
-        const currentQty = nextCart[existingIdx]?.quantity || 0;
         nextCart[existingIdx] = {
           ...nextCart[existingIdx],
-          quantity: currentQty + quantity
+          quantity: currentQty + allowedQty
         };
+        if (limitReached) {
+          setTimeout(() => {
+            alert(`You can only purchase a maximum of ${limit} units of "${product.name}" per order.`);
+          }, 0);
+        }
         return nextCart;
       }
-      return [...arr, { product, quantity }];
+
+      if (limitReached) {
+        setTimeout(() => {
+          alert(`You can only purchase a maximum of ${limit} units of "${product.name}" per order.`);
+        }, 0);
+      }
+      return [...arr, { product, quantity: allowedQty }];
     });
+
     // Open the right-side cart drawer
     setIsCartDrawerOpen(true);
   };
@@ -1177,10 +1216,20 @@ function App() {
       handleRemoveItem(productId);
       return;
     }
+
+    const product = productsState.find(p => p.id === productId);
+    const limit = product?.purchaseLimit;
+    let targetQty = quantity;
+
+    if (limit !== undefined && limit !== null && limit > 0 && quantity > limit) {
+      targetQty = limit;
+      alert(`You can only purchase a maximum of ${limit} units of "${product?.name || 'this item'}" per order.`);
+    }
+
     setCart(prev => {
       const arr = Array.isArray(prev) ? prev.filter(Boolean) : [];
       return arr.map(item =>
-        item?.product?.id === productId ? { ...item, quantity } : item
+        item?.product?.id === productId ? { ...item, quantity: targetQty } : item
       );
     });
   };

@@ -2034,7 +2034,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         published_at: finalProduct.publishedAt || null,
         ui_labels: finalProduct.uiLabels || {},
         translations: finalProduct.translations || {},
-        video_url: finalProduct.videoUrl || null
+        video_url: finalProduct.videoUrl || null,
+        purchase_limit: finalProduct.purchaseLimit ? parseInt(finalProduct.purchaseLimit.toString(), 10) : null
       };
 
       if (isNewPoojaProduct) {
@@ -2192,7 +2193,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         published_at: null,
         ui_labels: clone.uiLabels || {},
         translations: clone.translations || {},
-        video_url: null
+        video_url: null,
+        purchase_limit: clone.purchaseLimit || null
       };
 
       const { error } = await supabase
@@ -2252,6 +2254,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     spiritualType: 'Rituals' as Product['spiritualType'],
     benefitsInput: '',
     inStock: true,
+    purchaseLimit: '',
   });
 
   const categories = [
@@ -2322,6 +2325,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       description: productForm.description || 'Authentic ritual and meditation devotional item.',
       price: parseFloat(productForm.price),
       originalPrice: productForm.originalPrice ? parseFloat(productForm.originalPrice) : undefined,
+      purchaseLimit: productForm.purchaseLimit ? parseInt(productForm.purchaseLimit, 10) : undefined,
       rating: 4.8,
       reviewsCount: 1,
       image: productForm.image || '📿',
@@ -2347,6 +2351,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       spiritualType: 'Rituals',
       benefitsInput: '',
       inStock: true,
+      purchaseLimit: '',
     });
     triggerToast(`"${newProduct.name}" added to store successfully!`);
   };
@@ -2363,6 +2368,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       spiritualType: product.spiritualType,
       benefitsInput: product.benefits.join('\n'),
       inStock: product.inStock,
+      purchaseLimit: product.purchaseLimit ? product.purchaseLimit.toString() : '',
     });
   };
 
@@ -2382,7 +2388,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           category: productForm.category,
           spiritualType: productForm.spiritualType,
           inStock: productForm.inStock,
-          benefits: productForm.benefitsInput ? productForm.benefitsInput.split('\n').filter(Boolean) : p.benefits
+          benefits: productForm.benefitsInput ? productForm.benefitsInput.split('\n').filter(Boolean) : p.benefits,
+          purchaseLimit: productForm.purchaseLimit ? parseInt(productForm.purchaseLimit, 10) : undefined,
         };
       }
       return p;
@@ -2399,6 +2406,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       spiritualType: 'Rituals',
       benefitsInput: '',
       inStock: true,
+      purchaseLimit: '',
     });
     triggerToast('Product details updated successfully!');
   };
@@ -6176,6 +6184,31 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         }}
                       />
                     </div>
+
+                    {/* Purchase Limit Field */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Limit:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="No limit"
+                        value={editingPoojaProduct.purchaseLimit || ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                          updatePoojaField('purchaseLimit', val);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          color: '#ffffff',
+                          outline: 'none',
+                          fontSize: '0.8rem',
+                          width: '90px'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -7501,7 +7534,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
                 {/* Price */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>Price (₹) *</label>
@@ -7539,6 +7572,19 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     value={productForm.image}
                     onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', textAlign: 'center' }}
+                  />
+                </div>
+
+                {/* Purchase Limit */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>Purchase Limit</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="No limit"
+                    value={productForm.purchaseLimit || ''}
+                    onChange={(e) => setProductForm({ ...productForm, purchaseLimit: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', outline: 'none', fontSize: '0.88rem' }}
                   />
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShoppingBag, Sparkles, Plus, Minus, Trash2, Ticket, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
+import { X, ShoppingBag, Sparkles, Plus, Minus, Trash2, Ticket, ChevronDown, Gift } from 'lucide-react';
 import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
@@ -47,15 +47,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [couponSuccess, setCouponSuccess] = React.useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
   const [isCouponsDropdownOpen, setIsCouponsDropdownOpen] = React.useState(false);
-  const [isDetailsExpanded, setIsDetailsExpanded] = React.useState(false);
   const [availableCoupons, setAvailableCoupons] = React.useState<any[]>([]);
+  const [isCouponSectionExpanded, setIsCouponSectionExpanded] = React.useState(false);
 
-  // Promo Banner state
-  const promoBanners = [
-    "Flat Rs 101/- Off on all Prepaid orders",
-    "Free Shipping on orders above ₹500"
-  ];
-  const [currentPromoIdx, setCurrentPromoIdx] = React.useState(0);
+
 
   // Sync coupon code input when appliedCouponCode changes
   React.useEffect(() => {
@@ -295,34 +290,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </button>
         </div>
 
-        {/* Terracotta Promo Banner */}
-        <div style={{
-          backgroundColor: '#8c3b17',
-          color: '#ffffff',
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '0.78rem',
-          fontWeight: 600,
-          userSelect: 'none'
-        }}>
-          <button
-            onClick={() => setCurrentPromoIdx(prev => (prev - 1 + promoBanners.length) % promoBanners.length)}
-            style={{ color: '#fff', display: 'flex', alignItems: 'center' }}
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span style={{ textAlign: 'center', flexGrow: 1, padding: '0 8px' }}>
-            {promoBanners[currentPromoIdx]}
-          </span>
-          <button
-            onClick={() => setCurrentPromoIdx(prev => (prev + 1) % promoBanners.length)}
-            style={{ color: '#fff', display: 'flex', alignItems: 'center' }}
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+
 
         {/* Scrollable Body */}
         <div style={{
@@ -487,135 +455,179 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <div style={{
               backgroundColor: '#ffffff',
               borderRadius: '8px',
-              border: '1.5px dashed #d1d5db',
-              padding: '14px',
-              textAlign: 'left'
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+              overflow: 'hidden'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>Apply Coupon Code</span>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  placeholder="Enter Coupon Code"
-                  value={couponCodeInput}
-                  onChange={(e) => setCouponCodeInput(e.target.value)}
-                  style={{
-                    flexGrow: 1,
-                    padding: '8px 10px',
-                    borderRadius: '4px',
-                    border: '1px solid #d1d5db',
-                    fontSize: '0.82rem',
-                    outline: 'none'
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleApplyCoupon(couponCodeInput);
-                    }
-                  }}
-                />
-                {appliedCouponCode ? (
-                  <button
-                    onClick={handleRemoveCoupon}
-                    style={{
-                      padding: '8px 14px',
-                      backgroundColor: '#fee2e2',
-                      color: '#b91c1c',
-                      borderRadius: '4px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    Remove
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleApplyCoupon(couponCodeInput)}
-                    disabled={isValidatingCoupon}
-                    style={{
-                      padding: '8px 14px',
-                      backgroundColor: 'var(--primary-lime, #f97316)',
-                      color: '#ffffff',
-                      borderRadius: '4px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      opacity: isValidatingCoupon ? 0.7 : 1
-                    }}
-                  >
-                    Apply
-                  </button>
-                )}
-              </div>
-
-              {couponError && <p style={{ color: '#ef4444', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponError}</p>}
-              {couponSuccess && <p style={{ color: '#16a34a', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponSuccess}</p>}
-
-              {/* View Available Coupons Trigger */}
-              <div style={{ marginTop: '8px', borderTop: '1px solid #f3f4f6', paddingTop: '6px' }}>
-                <button
-                  onClick={() => setIsCouponsDropdownOpen(prev => !prev)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    fontSize: '0.74rem',
-                    color: 'var(--text-muted)',
-                    fontWeight: 700
-                  }}
-                >
-                  <span>% Available Coupons</span>
-                  <span style={{ color: 'var(--primary-lime, #f97316)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                    View Coupons <ChevronDown size={12} style={{ transform: isCouponsDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              {/* Compact Toggle Button Header */}
+              <button
+                onClick={() => setIsCouponSectionExpanded(prev => !prev)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  padding: '12px 14px',
+                  backgroundColor: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                    {appliedCouponCode ? `Coupon applied: ${appliedCouponCode}` : 'Apply Coupon Code'}
                   </span>
-                </button>
-                
-                {isCouponsDropdownOpen && (
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    marginTop: '8px',
-                    backgroundColor: '#f9fafb',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid #e5e7eb'
-                  }}>
-                    {availableCoupons.map((coupon, i) => (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          setCouponCodeInput(coupon.code);
-                          handleApplyCoupon(coupon.code);
-                          setIsCouponsDropdownOpen(false);
-                        }}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {appliedCouponCode ? (
+                    <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 700 }}>
+                      {discountPercent}% OFF
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.74rem', color: 'var(--primary-lime, #f97316)', fontWeight: 700 }}>
+                      View Offers
+                    </span>
+                  )}
+                  <ChevronDown size={14} style={{ color: '#9ca3af', transform: isCouponSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                </div>
+              </button>
+
+              {/* Collapsible Content Section */}
+              {isCouponSectionExpanded && (
+                <div style={{
+                  padding: '0 14px 14px 14px',
+                  borderTop: '1px solid #f3f4f6',
+                  backgroundColor: '#ffffff',
+                  textAlign: 'left',
+                  paddingTop: '12px'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter Coupon Code"
+                      value={couponCodeInput}
+                      onChange={(e) => setCouponCodeInput(e.target.value)}
+                      style={{
+                        flexGrow: 1,
+                        padding: '8px 10px',
+                        borderRadius: '4px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.82rem',
+                        outline: 'none'
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleApplyCoupon(couponCodeInput);
+                        }
+                      }}
+                    />
+                    {appliedCouponCode ? (
+                      <button
+                        onClick={handleRemoveCoupon}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '6px 8px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: '3px',
-                          border: '1px solid #f3f4f6',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.1s'
+                          padding: '8px 14px',
+                          backgroundColor: '#fee2e2',
+                          color: '#b91c1c',
+                          borderRadius: '4px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fff7ed')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
                       >
-                        <span style={{ fontWeight: 800, color: 'var(--primary-lime, #f97316)', fontSize: '0.76rem', letterSpacing: '0.5px' }}>
-                          {coupon.code}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
-                          Save {coupon.discount_percent}%
-                        </span>
-                      </div>
-                    ))}
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleApplyCoupon(couponCodeInput)}
+                        disabled={isValidatingCoupon}
+                        style={{
+                          padding: '8px 14px',
+                          backgroundColor: 'var(--primary-lime, #f97316)',
+                          color: '#ffffff',
+                          borderRadius: '4px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          opacity: isValidatingCoupon ? 0.7 : 1
+                        }}
+                      >
+                        Apply
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  {couponError && <p style={{ color: '#ef4444', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponError}</p>}
+                  {couponSuccess && <p style={{ color: '#16a34a', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponSuccess}</p>}
+
+                  {/* View Available Coupons Trigger */}
+                  <div style={{ marginTop: '10px', borderTop: '1px solid #f3f4f6', paddingTop: '8px' }}>
+                    <button
+                      onClick={() => setIsCouponsDropdownOpen(prev => !prev)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        fontSize: '0.74rem',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>% Available Coupons</span>
+                      <span style={{ color: 'var(--primary-lime, #f97316)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                        View Coupons <ChevronDown size={12} style={{ transform: isCouponsDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </span>
+                    </button>
+                    
+                    {isCouponsDropdownOpen && (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        marginTop: '8px',
+                        backgroundColor: '#f9fafb',
+                        padding: '8px',
+                        borderRadius: '4px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        {availableCoupons.map((coupon, i) => (
+                          <div
+                            key={i}
+                            onClick={() => {
+                              setCouponCodeInput(coupon.code);
+                              handleApplyCoupon(coupon.code);
+                              setIsCouponsDropdownOpen(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '6px 8px',
+                              backgroundColor: '#ffffff',
+                              borderRadius: '3px',
+                              border: '1px solid #f3f4f6',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.1s'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fff7ed')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                          >
+                            <span style={{ fontWeight: 800, color: 'var(--primary-lime, #f97316)', fontSize: '0.76rem', letterSpacing: '0.5px' }}>
+                              {coupon.code}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
+                              Save {coupon.discount_percent}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -781,20 +793,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             )}
 
-            {/* Estimated Total Details Accordion */}
+            {/* Estimated Total Details Section (Always Open) */}
             <div style={{ marginBottom: '12px' }}>
               <div
-                onClick={() => setIsDetailsExpanded(prev => !prev)}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  cursor: 'pointer',
                   userSelect: 'none'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                  {isDetailsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   <span>Estimated Total</span>
                 </div>
                 
@@ -813,47 +822,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Collapsed breakdown detail block */}
-              {isDetailsExpanded && (
-                <div style={{
-                  marginTop: '10px',
-                  padding: '10px 12px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '6px',
-                  border: '1px solid #e5e7eb',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  fontSize: '0.78rem',
-                  color: '#4b5563',
-                  textAlign: 'left'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Items Subtotal</span>
-                    <span>₹{formatPrice(subtotal)}</span>
-                  </div>
-                  {couponDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b91c1c' }}>
-                      <span>Coupon Discount ({discountPercent}%)</span>
-                      <span>-₹{formatPrice(couponDiscount)}</span>
-                    </div>
-                  )}
-                  {hasGift && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
-                      <span>🎁 Free Gift Value</span>
-                      <span>-₹{formatPrice(giftValue)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Delivery Charges</span>
-                    <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>GST (8%)</span>
-                    <span>₹{formatPrice(tax)}</span>
-                  </div>
+              {/* Breakdown detail block (always visible) */}
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 12px',
+                backgroundColor: '#f9fafb',
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                fontSize: '0.78rem',
+                color: '#4b5563',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Items Subtotal</span>
+                  <span>₹{formatPrice(subtotal)}</span>
                 </div>
-              )}
+                {couponDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b91c1c' }}>
+                    <span>Coupon Discount ({discountPercent}%)</span>
+                    <span>-₹{formatPrice(couponDiscount)}</span>
+                  </div>
+                )}
+                {hasGift && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
+                    <span>🎁 Free Gift Value</span>
+                    <span>-₹{formatPrice(giftValue)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Delivery Charges</span>
+                  <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>GST (8%)</span>
+                  <span>₹{formatPrice(tax)}</span>
+                </div>
+              </div>
             </div>
 
             {/* Branded Brown Checkout Button */}
@@ -864,48 +871,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 backgroundColor: '#9a3412', // rich terracotta brown
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                fontSize: '1rem',
-                fontWeight: 800,
+                borderRadius: '12px',
+                padding: '18px 24px',
+                fontSize: '1.15rem',
+                fontWeight: 900,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                transition: 'background-color 0.2s',
-                boxShadow: '0 4px 12px rgba(154, 52, 18, 0.15)'
+                transition: 'all 0.2s ease-in-out',
+                boxShadow: '0 6px 20px rgba(154, 52, 18, 0.25)'
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7c2d12')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9a3412')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#7c2d12';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(154, 52, 18, 0.35)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#9a3412';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(154, 52, 18, 0.25)';
+              }}
             >
-              <span>Checkout</span>
-              
-              {/* Payment Logos inside button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.72rem', opacity: 0.8, letterSpacing: '0.5px' }}>UPI / CARDS</span>
-                {/* Simulated payment icon shapes for cleaner rendering */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <span style={{ backgroundColor: '#ffffff', color: '#002f6c', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>Paytm</span>
-                  <span style={{ backgroundColor: '#ffffff', color: '#ea4335', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>GPay</span>
-                  <span style={{ backgroundColor: '#5f259f', color: '#ffffff', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>Pe</span>
-                </div>
-              </div>
-            </button>
-
-            {/* GoKwik subtext */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              marginTop: '10px',
-              fontSize: '0.7rem',
-              color: 'var(--text-muted)'
-            }}>
-              <span style={{ fontWeight: 700 }}>Flat Rs 101/- Off on all Prepaid orders</span>
-              <span style={{ marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                Powered by <strong style={{ color: '#0369a1', display: 'inline-flex', alignItems: 'center' }}><ShoppingBag size={10} style={{ marginRight: '1px' }} /> GoKwik</strong>
+              <span style={{ letterSpacing: '0.5px' }}>CHECKOUT NOW</span>
+              <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>
+                ₹{formatPrice(estimatedTotal)}
               </span>
-            </div>
+            </button>
           </div>
         )}
       </div>
