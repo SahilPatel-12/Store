@@ -213,7 +213,7 @@ export const CompressionStatusWidget: React.FC<{
           {item.status === 'selected' && 'Selected'}
           {item.status === 'compressing' && `Compressing (${item.progress || 0}%)`}
           {item.status === 'ready' && 'Compressed & Ready'}
-          {item.status === 'uploading' && 'Cloudflare Uploading...'}
+          {item.status === 'uploading' && `Uploading (${item.progress || 0}%)`}
           {item.status === 'uploaded' && 'Cloudflare Active'}
           {item.status === 'failed' && 'Failed'}
         </span>
@@ -222,7 +222,7 @@ export const CompressionStatusWidget: React.FC<{
       {(item.status === 'compressing' || item.status === 'uploading') && (
         <div style={{ width: '100%', height: '5px', backgroundColor: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
           <div style={{
-            width: item.status === 'uploading' ? '90%' : `${item.progress || 0}%`,
+            width: `${item.progress || 0}%`,
             height: '100%',
             backgroundColor: 'var(--primary-lime, #f97316)',
             borderRadius: '3px',

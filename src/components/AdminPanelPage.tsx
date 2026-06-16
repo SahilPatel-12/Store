@@ -249,22 +249,52 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         if (!prev[tempId]) return prev;
         return {
           ...prev,
-          [tempId]: { ...prev[tempId], status: 'uploading' }
+          [tempId]: { ...prev[tempId], status: 'uploading', progress: 0 }
         };
       });
 
-      const fileToUpload = item.compressedFile || item.file;
-      const cdnUrl = await uploadToR2(fileToUpload, item.pathPrefix, true);
+      let uploadProgress = 0;
+      const progressInterval = setInterval(() => {
+        if (uploadProgress < 75) {
+          uploadProgress += Math.floor(Math.random() * 10) + 5;
+        } else if (uploadProgress < 96) {
+          uploadProgress += Math.floor(Math.random() * 3) + 1;
+        }
+        setMediaQueue(prev => {
+          if (!prev[tempId] || prev[tempId].status !== 'uploading') return prev;
+          return {
+            ...prev,
+            [tempId]: { ...prev[tempId], progress: Math.min(uploadProgress, 96) }
+          };
+        });
+      }, 150);
 
-      setMediaQueue(prev => {
-        if (!prev[tempId]) return prev;
-        return {
-          ...prev,
-          [tempId]: { ...prev[tempId], status: 'uploaded', cdnUrl }
-        };
-      });
+      try {
+        const fileToUpload = item.compressedFile || item.file;
+        const cdnUrl = await uploadToR2(fileToUpload, item.pathPrefix, true);
 
-      return cdnUrl;
+        clearInterval(progressInterval);
+
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: { ...prev[tempId], status: 'uploaded', progress: 100, cdnUrl }
+          };
+        });
+
+        return cdnUrl;
+      } catch (err) {
+        clearInterval(progressInterval);
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: { ...prev[tempId], status: 'failed', progress: 0 }
+          };
+        });
+        throw err;
+      }
     };
 
     const traverseAndReplace = async (obj: any): Promise<any> => {
@@ -7785,6 +7815,98 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         </div>
       )}
 
+      {/* Premium Media Uploading & Saving Overlay Modal */}
+      {(isSavingPooja || isSavingHomepage || isSavingShopBanners) && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '480px',
+            width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                backgroundColor: '#f0fdf4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#16a34a',
+                animation: 'pulse 2s infinite'
+              }}>
+                <Upload size={32} />
+              </div>
+            </div>
+            
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>
+                Uploading & Saving Assets
+              </h3>
+              <p style={{ fontSize: '0.88rem', color: '#6b7280', margin: 0 }}>
+                Please wait while we compress and upload your media assets to Cloudflare R2 CDN, and update the database records.
+              </p>
+            </div>
+
+            {/* List of files in queue being processed */}
+            <div style={{
+              maxHeight: '240px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              padding: '4px',
+              textAlign: 'left'
+            }}>
+              {Object.keys(mediaQueue).length > 0 ? (
+                Object.entries(mediaQueue)
+                  .filter(([_, item]) => item.status !== 'uploaded' && item.status !== 'failed')
+                  .map(([tempId, _]) => (
+                    <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                  ))
+              ) : (
+                <div style={{ textAlign: 'center', padding: '16px', color: '#9ca3af', fontSize: '0.85rem' }}>
+                  Updating database records...
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.82rem', color: '#4b5563' }}>
+              <span style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid #e5e7eb',
+                borderTopColor: 'var(--primary-lime, #84cc16)',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <span>Finalizing updates, do not close this window...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CSS injection for animations and responsiveness */}
       <style>{`
         @keyframes slideUp {
@@ -7794,6 +7916,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.85; }
         }
         @media (max-width: 768px) {
           .profile-sidebar-wrapper {
