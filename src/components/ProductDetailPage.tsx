@@ -5,6 +5,7 @@ import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { CompressionStatusWidget } from '../lib/mediaCompressor';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -19,6 +20,9 @@ interface ProductDetailPageProps {
   onBuyNow?: (product: Product, quantity: number) => void;
   cart: { product: Product; quantity: number }[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
+  onFileSelect?: (file: File, pathPrefix: string) => Promise<string>;
+  mediaQueue?: Record<string, any>;
+  resolveMediaUrl?: (url: string) => string;
 }
 
 // Initial mock reviews database to supply rich devotee reviews
@@ -72,7 +76,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   onBuyNow,
   cart,
   onUpdateQuantity,
+  onFileSelect,
+  mediaQueue = {},
+  resolveMediaUrl,
 }) => {
+  const resolveMediaUrlLocal = (url?: string) => {
+    if (resolveMediaUrl && url) {
+      return resolveMediaUrl(url);
+    }
+    return url || '';
+  };
   const activeProducts = productsProp || [];
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
@@ -259,17 +272,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     let list: Array<{ url: string; alt: string; isEmoji: boolean; gradient: string; isVideo?: boolean; thumbnail?: string }> = [];
     if (pooja.galleryImages && pooja.galleryImages.length > 0) {
       list = pooja.galleryImages.map(img => ({
-        url: img.url,
+        url: resolveMediaUrlLocal(img.url),
         alt: img.alt || pooja.name,
         isEmoji: false,
         gradient: 'none',
         isVideo: (img as any).isVideo || false,
-        thumbnail: (img as any).thumbnail
+        thumbnail: resolveMediaUrlLocal((img as any).thumbnail)
       }));
     } else {
       list = [
-        { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient, isVideo: false },
-        { url: product.image, alt: product.name, isEmoji: !isRealUrl(product.image), gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', isVideo: false },
+        { url: resolveMediaUrlLocal(product.image), alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient, isVideo: false },
+        { url: resolveMediaUrlLocal(product.image), alt: product.name, isEmoji: !isRealUrl(product.image), gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', isVideo: false },
         { url: '🕉️', alt: 'Om', isEmoji: true, gradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', isVideo: false }
       ];
     }
@@ -278,16 +291,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     const poojaProd = product as PoojaProduct;
     if (poojaProd.videoUrl) {
       list.push({
-        url: poojaProd.videoUrl,
+        url: resolveMediaUrlLocal(poojaProd.videoUrl),
         alt: 'Product Video',
         isEmoji: false,
         gradient: 'none',
         isVideo: true,
-        thumbnail: poojaProd.uiLabels?.videoThumbnail
+        thumbnail: resolveMediaUrlLocal(poojaProd.uiLabels?.videoThumbnail)
       });
     }
     return list;
-  }, [product, pooja, selectedGradient]);
+  }, [product, pooja, selectedGradient, resolveMediaUrl]);
 
   // Keyboard navigation for Lightbox
   React.useEffect(() => {
@@ -585,7 +598,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 const file = e.target.files?.[0];
                 if (file && onUpdate) {
                   try {
-                    const cdnUrl = await uploadToR2(file, `section-icons-${section}`);
+                    const cdnUrl = onFileSelect ? await onFileSelect(file, `section-icons-${section}`) : await uploadToR2(file, `section-icons-${section}`);
                     const existingIcons = pooja.customIcons || {};
                     onUpdate({
                       customIcons: {
@@ -990,7 +1003,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       const file = e.target.files?.[0];
                       if (file && onUpdate) {
                         try {
-                          const cdnUrl = await uploadToR2(file, 'products/gallery');
+                          const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/gallery') : await uploadToR2(file, 'products/gallery');
                           if (pooja.galleryImages && pooja.galleryImages.length > 0) {
                             const updatedGallery = [...pooja.galleryImages];
                             updatedGallery[activeImageIndex] = { url: cdnUrl, alt: pooja.name };
@@ -1031,6 +1044,25 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>100% Temple Blessed & Energized</span>
               </div>
             </div>
+
+            {/* Global Compressor Widget for active gallery item */}
+            {editable && resolvedGallery[activeImageIndex] && (pooja.galleryImages?.[activeImageIndex]?.url?.startsWith('temp-media-') || pooja.videoUrl?.startsWith('temp-media-') || (pooja as any).image?.startsWith('temp-media-')) && (
+              (() => {
+                let tempId = '';
+                if (pooja.galleryImages?.[activeImageIndex]?.url?.startsWith('temp-media-')) {
+                  tempId = pooja.galleryImages[activeImageIndex].url;
+                } else if (pooja.videoUrl?.startsWith('temp-media-')) {
+                  tempId = pooja.videoUrl;
+                } else if ((pooja as any).image?.startsWith('temp-media-')) {
+                  tempId = (pooja as any).image;
+                }
+                return tempId ? (
+                  <div style={{ marginTop: '12px', width: '100%' }}>
+                    <CompressionStatusWidget tempId={tempId} mediaQueue={mediaQueue} />
+                  </div>
+                ) : null;
+              })()
+            )}
 
             {/* Video Thumbnail Control Panel when active item is video and in editable mode */}
             {editable && resolvedGallery[activeImageIndex]?.isVideo && (
@@ -1104,7 +1136,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           }
                           const file = new File([blob], `thumb-${Date.now()}.jpg`, { type: 'image/jpeg' });
                           try {
-                            const cdnUrl = await uploadToR2(file, 'products/thumbnails');
+                            const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/thumbnails') : await uploadToR2(file, 'products/thumbnails');
                             
                             // Check if the current video is in galleryImages
                             if (pooja.galleryImages && activeImageIndex < pooja.galleryImages.length) {
@@ -1345,7 +1377,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       const file = e.target.files?.[0];
                       if (file && onUpdate) {
                         try {
-                          const cdnUrl = await uploadToR2(file, 'products/gallery');
+                          const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/gallery') : await uploadToR2(file, 'products/gallery');
                           const currentGallery = pooja.galleryImages && pooja.galleryImages.length > 0
                             ? pooja.galleryImages
                             : [];
@@ -1396,7 +1428,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       const file = e.target.files?.[0];
                       if (file && onUpdate) {
                         try {
-                          const cdnUrl = await uploadToR2(file, 'products/videos');
+                          const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/videos') : await uploadToR2(file, 'products/videos');
                           const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
                           onUpdate({
                             galleryImages: [...currentGallery, { url: cdnUrl, alt: 'Product Video', isVideo: true } as any]
@@ -2433,7 +2465,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                     const file = e.target.files?.[0];
                                     if (file && onUpdate) {
                                       try {
-                                        const cdnUrl = await uploadToR2(file, 'priests');
+                                        const cdnUrl = onFileSelect ? await onFileSelect(file, 'priests') : await uploadToR2(file, 'priests');
                                         onUpdate({ priestImage: cdnUrl });
                                       } catch (err) {
                                         alert('Upload failed: ' + (err as Error).message);
@@ -2444,6 +2476,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                               </>
                             )}
                           </div>
+                          
+                          {/* Chief Priest Compressor status indicator */}
+                          {editable && pooja.priestImage && pooja.priestImage.startsWith('temp-media-') && (
+                            <div style={{ marginTop: '12px', width: '100%', maxWidth: '280px' }}>
+                              <CompressionStatusWidget tempId={pooja.priestImage} mediaQueue={mediaQueue} />
+                            </div>
+                          )}
 
                           <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '12px', marginBottom: '2px' }}>
                             {editable ? (

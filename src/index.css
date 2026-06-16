@@ -727,6 +727,35 @@ details.referral-details > summary {
   to { transform: scale(1); opacity: 1; }
 }
 
+/* Responsive mobile navigation tweaks */
+@media (max-width: 768px) {
+  .nav-logo {
+    height: 48px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-logo {
+    height: 40px !important;
+  }
+  .nav-actions {
+    gap: 8px !important;
+  }
+  .nav-actions button {
+    padding: 6px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .nav-actions {
+    gap: 4px !important;
+  }
+  .nav-actions button {
+    padding: 4px !important;
+  }
+}
+
+
 
 
 

@@ -35,7 +35,8 @@ import { supabase } from '../lib/supabase';
 import { encryptText, decryptText } from '../lib/crypto';
 import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
-import { uploadToR2 } from '../lib/cloudflare/r2';
+import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
+import { compressImage, compressVideo, CompressionStatusWidget } from '../lib/mediaCompressor';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 interface AdminPanelPageProps {
   products: Product[];
@@ -85,6 +86,219 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   });
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('All');
+
+  // Staging media compressor queue
+  const [mediaQueue, setMediaQueue] = React.useState<Record<string, {
+    file: File;
+    pathPrefix: string;
+    progress: number;
+    status: 'selected' | 'compressing' | 'ready' | 'uploading' | 'uploaded' | 'failed';
+    originalSize: number;
+    compressedSize: number;
+    percentSaved: number;
+    compressedFile?: File;
+    blobUrl: string;
+    cdnUrl?: string;
+    type: 'image' | 'video';
+  }>>({});
+
+  const mediaQueueRef = React.useRef<Record<string, any>>({});
+  React.useEffect(() => {
+    mediaQueueRef.current = mediaQueue;
+  }, [mediaQueue]);
+
+  const resolveMediaUrl = React.useCallback((url: string) => {
+    if (url && url.startsWith('temp-media-')) {
+      return mediaQueue[url]?.blobUrl || '';
+    }
+    return url;
+  }, [mediaQueue]);
+
+  const addToMediaQueue = async (
+    file: File,
+    pathPrefix: string,
+    onUpdateUrl: (url: string) => void
+  ): Promise<string> => {
+    const tempId = `temp-media-${crypto.randomUUID()}`;
+    const type = file.type.startsWith('video/') ? 'video' : 'image';
+    const blobUrl = URL.createObjectURL(file);
+
+    setMediaQueue(prev => ({
+      ...prev,
+      [tempId]: {
+        file,
+        pathPrefix,
+        progress: 0,
+        status: 'selected',
+        originalSize: file.size,
+        compressedSize: file.size,
+        percentSaved: 0,
+        blobUrl,
+        type
+      }
+    }));
+
+    onUpdateUrl(tempId);
+
+    // Run compression asynchronously
+    if (type === 'image') {
+      setMediaQueue(prev => {
+        if (!prev[tempId]) return prev;
+        return {
+          ...prev,
+          [tempId]: { ...prev[tempId], status: 'compressing', progress: 20 }
+        };
+      });
+      try {
+        const result = await compressImage(file);
+        const compBlobUrl = URL.createObjectURL(result.compressedFile);
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: {
+              ...prev[tempId],
+              status: 'ready',
+              progress: 100,
+              compressedFile: result.compressedFile,
+              compressedSize: result.compressedSize,
+              percentSaved: result.percentSaved,
+              blobUrl: compBlobUrl
+            }
+          };
+        });
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: { ...prev[tempId], status: 'failed' }
+          };
+        });
+      }
+    } else {
+      setMediaQueue(prev => {
+        if (!prev[tempId]) return prev;
+        return {
+          ...prev,
+          [tempId]: { ...prev[tempId], status: 'compressing', progress: 5 }
+        };
+      });
+      try {
+        const result = await compressVideo(file, (prog) => {
+          setMediaQueue(prev => {
+            if (!prev[tempId]) return prev;
+            return {
+              ...prev,
+              [tempId]: { ...prev[tempId], progress: prog }
+            };
+          });
+        });
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: {
+              ...prev[tempId],
+              status: 'ready',
+              progress: 100,
+              compressedFile: result.compressedFile,
+              compressedSize: result.compressedSize,
+              percentSaved: result.percentSaved
+            }
+          };
+        });
+      } catch (err) {
+        console.error('Video compression failed:', err);
+        setMediaQueue(prev => {
+          if (!prev[tempId]) return prev;
+          return {
+            ...prev,
+            [tempId]: { ...prev[tempId], status: 'failed' }
+          };
+        });
+      }
+    }
+
+    return tempId;
+  };
+
+  const processPendingUploads = async (payload: any): Promise<any> => {
+    if (!payload) return payload;
+
+    const uploadItem = async (tempId: string): Promise<string> => {
+      let item = mediaQueueRef.current[tempId];
+      if (!item) return tempId;
+
+      while (item.status === 'compressing' || item.status === 'selected') {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        item = mediaQueueRef.current[tempId];
+        if (!item) return tempId;
+      }
+
+      if (item.status === 'failed') {
+        throw new Error('Compression failed for staged file.');
+      }
+
+      if (item.status === 'uploaded' && item.cdnUrl) {
+        return item.cdnUrl;
+      }
+
+      setMediaQueue(prev => {
+        if (!prev[tempId]) return prev;
+        return {
+          ...prev,
+          [tempId]: { ...prev[tempId], status: 'uploading' }
+        };
+      });
+
+      const fileToUpload = item.compressedFile || item.file;
+      const cdnUrl = await uploadToR2(fileToUpload, item.pathPrefix, true);
+
+      setMediaQueue(prev => {
+        if (!prev[tempId]) return prev;
+        return {
+          ...prev,
+          [tempId]: { ...prev[tempId], status: 'uploaded', cdnUrl }
+        };
+      });
+
+      return cdnUrl;
+    };
+
+    const traverseAndReplace = async (obj: any): Promise<any> => {
+      if (typeof obj === 'string') {
+        if (obj.startsWith('temp-media-')) {
+          return await uploadItem(obj);
+        }
+        return obj;
+      }
+
+      if (Array.isArray(obj)) {
+        const result = [];
+        for (const element of obj) {
+          result.push(await traverseAndReplace(element));
+        }
+        return result;
+      }
+
+      if (obj !== null && typeof obj === 'object') {
+        if (obj.constructor && obj.constructor.name === 'File') {
+          return obj;
+        }
+        const result: Record<string, any> = {};
+        for (const key of Object.keys(obj)) {
+          result[key] = await traverseAndReplace(obj[key]);
+        }
+        return result;
+      }
+
+      return obj;
+    };
+
+    return await traverseAndReplace(payload);
+  };
 
   // Affiliates directory state
   const [affiliates, setAffiliates] = React.useState<any[]>([]);
@@ -209,8 +423,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   const [bannerImages, setBannerImages] = React.useState<string[]>([]);
   const [showcaseImage, setShowcaseImage] = React.useState<string>('');
-  const [isUploadingBanner, setIsUploadingBanner] = React.useState(false);
-  const [isUploadingShowcase, setIsUploadingShowcase] = React.useState(false);
   const [activePreviewSlide, setActivePreviewSlide] = React.useState(0);
 
   const [isLoadingHomepage, setIsLoadingHomepage] = React.useState(false);
@@ -236,8 +448,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   ];
   const [shopMainBanners, setShopMainBanners] = React.useState<string[]>([]);
   const [shopCategoryBanners, setShopCategoryBanners] = React.useState<Record<string, string[]>>({});
-  const [isUploadingShopMain, setIsUploadingShopMain] = React.useState(false);
-  const [isUploadingShopCategory, setIsUploadingShopCategory] = React.useState<Record<string, boolean>>({});
   const [isSavingShopBanners, setIsSavingShopBanners] = React.useState(false);
   const [isLoadingShopBanners, setIsLoadingShopBanners] = React.useState(false);
   const [shopBannerPreviewSlide, setShopBannerPreviewSlide] = React.useState(0);
@@ -297,6 +507,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     e.preventDefault();
     setIsSavingHomepage(true);
     try {
+      const finalBanners = await processPendingUploads(bannerImages);
+      const finalShowcase = await processPendingUploads(showcaseImage);
+
+      setBannerImages(finalBanners);
+      setShowcaseImage(finalShowcase);
+
       const { error } = await supabase
         .from('website_settings')
         .upsert({
@@ -313,8 +529,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             newArrivalsSubtitle,
             newArrivalsProductIds: activeNewArrivalsIds,
             cartExploreMoreProductIds: activeCartExploreMoreIds,
-            bannerImages,
-            showcaseImage
+            bannerImages: finalBanners,
+            showcaseImage: finalShowcase
           }
         });
       if (error) throw error;
@@ -333,22 +549,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingBanner(true);
     try {
-      const cdnUrl = await uploadToR2(file, 'homepage/banners');
-      setBannerImages(prev => [...prev, cdnUrl]);
-      triggerToast('Banner slide uploaded successfully!');
+      await addToMediaQueue(file, 'homepage/banners', (tempId) => {
+        setBannerImages(prev => [...prev, tempId]);
+      });
+      triggerToast('Banner slide queued for compression!');
     } catch (err) {
       console.error(err);
-      alert('Upload failed: ' + (err as Error).message);
+      alert('Failed to queue banner: ' + (err as Error).message);
     } finally {
-      setIsUploadingBanner(false);
+      e.target.value = '';
     }
   };
 
-  const handleRemoveBanner = (index: number) => {
+  const handleRemoveBanner = async (index: number) => {
+    const bannerUrl = bannerImages[index];
     setBannerImages(prev => prev.filter((_, idx) => idx !== index));
     triggerToast('Banner slide removed. Remember to save changes.');
+    if (bannerUrl && !bannerUrl.startsWith('temp-media-')) {
+      try {
+        await deleteFromR2(bannerUrl);
+      } catch (err) {
+        console.error('Failed to delete banner from R2:', err);
+      }
+    }
   };
 
   const handleMoveBanner = (index: number, direction: 'left' | 'right') => {
@@ -373,22 +597,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleShowcaseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingShowcase(true);
     try {
-      const cdnUrl = await uploadToR2(file, 'homepage/showcase');
-      setShowcaseImage(cdnUrl);
-      triggerToast('Showcase image uploaded successfully!');
+      await addToMediaQueue(file, 'homepage/showcase', (tempId) => {
+        setShowcaseImage(tempId);
+      });
+      triggerToast('Showcase image queued for compression!');
     } catch (err) {
       console.error(err);
-      alert('Upload failed: ' + (err as Error).message);
+      alert('Failed to queue showcase: ' + (err as Error).message);
     } finally {
-      setIsUploadingShowcase(false);
+      e.target.value = '';
     }
   };
 
-  const handleRemoveShowcase = () => {
+  const handleRemoveShowcase = async () => {
+    const showcaseUrl = showcaseImage;
     setShowcaseImage('');
     triggerToast('Showcase image cleared. Remember to save changes.');
+    if (showcaseUrl && !showcaseUrl.startsWith('temp-media-')) {
+      try {
+        await deleteFromR2(showcaseUrl);
+      } catch (err) {
+        console.error('Failed to delete showcase from R2:', err);
+      }
+    }
   };
 
   // ---- Shop Banners: load, save, upload, remove handlers ----
@@ -414,13 +646,19 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleSaveShopBanners = async () => {
     setIsSavingShopBanners(true);
     try {
+      const finalMain = await processPendingUploads(shopMainBanners);
+      const finalCat = await processPendingUploads(shopCategoryBanners);
+
+      setShopMainBanners(finalMain);
+      setShopCategoryBanners(finalCat);
+
       const { error } = await supabase
         .from('website_settings')
         .upsert({
           key: 'shop_banners_settings',
           value: {
-            mainBanners: shopMainBanners,
-            categoryBanners: shopCategoryBanners,
+            mainBanners: finalMain,
+            categoryBanners: finalCat,
           }
         });
       if (error) throw error;
@@ -436,22 +674,29 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleShopMainBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingShopMain(true);
     try {
-      const cdnUrl = await uploadToR2(file, 'shop/main-banners');
-      setShopMainBanners(prev => [...prev, cdnUrl]);
-      triggerToast('Main shop banner uploaded successfully!');
+      await addToMediaQueue(file, 'shop/main-banners', (tempId) => {
+        setShopMainBanners(prev => [...prev, tempId]);
+      });
+      triggerToast('Main shop banner queued for compression!');
     } catch (err) {
-      alert('Upload failed: ' + (err as Error).message);
+      alert('Failed to stage banner: ' + (err as Error).message);
     } finally {
-      setIsUploadingShopMain(false);
       e.target.value = '';
     }
   };
 
-  const handleShopMainBannerRemove = (index: number) => {
+  const handleShopMainBannerRemove = async (index: number) => {
+    const bannerUrl = shopMainBanners[index];
     setShopMainBanners(prev => prev.filter((_, i) => i !== index));
     triggerToast('Main banner removed. Remember to save.');
+    if (bannerUrl && !bannerUrl.startsWith('temp-media-')) {
+      try {
+        await deleteFromR2(bannerUrl);
+      } catch (err) {
+        console.error('Failed to delete shop main banner from R2:', err);
+      }
+    }
   };
 
   const handleMoveShopBanner = (index: number, direction: 'left' | 'right') => {
@@ -476,29 +721,36 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleCategoryBannerUpload = async (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingShopCategory(prev => ({ ...prev, [category]: true }));
     try {
       const folderKey = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const cdnUrl = await uploadToR2(file, `shop/category-banners/${folderKey}`);
-      setShopCategoryBanners(prev => ({
-        ...prev,
-        [category]: [...(prev[category] || []), cdnUrl]
-      }));
-      triggerToast(`${category} category banner uploaded!`);
+      await addToMediaQueue(file, `shop/category-banners/${folderKey}`, (tempId) => {
+        setShopCategoryBanners(prev => ({
+          ...prev,
+          [category]: [...(prev[category] || []), tempId]
+        }));
+      });
+      triggerToast(`${category} category banner queued for compression!`);
     } catch (err) {
-      alert('Upload failed: ' + (err as Error).message);
+      alert('Failed to stage category banner: ' + (err as Error).message);
     } finally {
-      setIsUploadingShopCategory(prev => ({ ...prev, [category]: false }));
       e.target.value = '';
     }
   };
 
-  const handleCategoryBannerRemove = (category: string, index: number) => {
+  const handleCategoryBannerRemove = async (category: string, index: number) => {
+    const bannerUrl = (shopCategoryBanners[category] || [])[index];
     setShopCategoryBanners(prev => ({
       ...prev,
       [category]: (prev[category] || []).filter((_, i) => i !== index)
     }));
     triggerToast(`${category} banner removed. Remember to save.`);
+    if (bannerUrl && !bannerUrl.startsWith('temp-media-')) {
+      try {
+        await deleteFromR2(bannerUrl);
+      } catch (err) {
+        console.error('Failed to delete category banner from R2:', err);
+      }
+    }
   };
 
   React.useEffect(() => {
@@ -886,7 +1138,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [showTemplatesDropdown, setShowTemplatesDropdown] = React.useState(false);
   const [selectedPoojaIds, setSelectedPoojaIds] = React.useState<Record<string, boolean>>({});
   const [isBulkPublishing, setIsBulkPublishing] = React.useState(false);
-  const [isUploadingVideo, setIsUploadingVideo] = React.useState(false);
 
   const allAvailableProducts = React.useMemo(() => {
     const combined = [...poojaProducts];
@@ -1689,74 +1940,76 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
     setIsSavingPooja(true);
     try {
-      const slugVal = editingPoojaProduct.slug || editingPoojaProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const idVal = editingPoojaProduct.id || `pooja-${Date.now()}`;
+      const finalProduct = await processPendingUploads(editingPoojaProduct);
+      
+      const slugVal = finalProduct.slug || finalProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const idVal = finalProduct.id || `pooja-${Date.now()}`;
       
       const dbPayload = {
         id: idVal,
-        name: editingPoojaProduct.name,
-        sanskrit_name: editingPoojaProduct.sanskritName || null,
-        short_name: editingPoojaProduct.shortName || null,
+        name: finalProduct.name,
+        sanskrit_name: finalProduct.sanskritName || null,
+        short_name: finalProduct.shortName || null,
         slug: slugVal,
-        category: editingPoojaProduct.category || 'Rudraksha',
-        subtitle: editingPoojaProduct.subtitle || null,
-        short_description: editingPoojaProduct.shortDescription || null,
-        description: editingPoojaProduct.description || '',
-        spiritual_significance: editingPoojaProduct.spiritualSignificance || null,
-        material: editingPoojaProduct.material || null,
-        weight: editingPoojaProduct.weight || null,
-        dimensions: editingPoojaProduct.dimensions || null,
-        origin: editingPoojaProduct.origin || null,
-        custom_icons: (editingPoojaProduct as any).customIcons || {},
-        booking_instructions: editingPoojaProduct.bookingInstructions || null,
-        duration: editingPoojaProduct.duration || null,
-        temple_association: editingPoojaProduct.templeAssociation || null,
-        who_should_perform: editingPoojaProduct.whoShouldPerform || null,
+        category: finalProduct.category || 'Rudraksha',
+        subtitle: finalProduct.subtitle || null,
+        short_description: finalProduct.shortDescription || null,
+        description: finalProduct.description || '',
+        spiritual_significance: finalProduct.spiritualSignificance || null,
+        material: finalProduct.material || null,
+        weight: finalProduct.weight || null,
+        dimensions: finalProduct.dimensions || null,
+        origin: finalProduct.origin || null,
+        custom_icons: finalProduct.customIcons || {},
+        booking_instructions: finalProduct.bookingInstructions || null,
+        duration: finalProduct.duration || null,
+        temple_association: finalProduct.templeAssociation || null,
+        who_should_perform: finalProduct.whoShouldPerform || null,
         
-        rituals_included: editingPoojaProduct.ritualsIncluded,
-        samagri_list: editingPoojaProduct.samagriList,
-        priest_details: editingPoojaProduct.priestDetails,
-        testimonials: editingPoojaProduct.testimonials || [],
-        faqs: editingPoojaProduct.faqs,
-        cta_labels: editingPoojaProduct.ctaLabels || { primary: 'Book Now', secondary: 'Learn More' },
-        og_data: editingPoojaProduct.ogData || { title: '', description: '', image: '' },
-        schema_markup: editingPoojaProduct.schemaMarkup || {},
+        rituals_included: finalProduct.ritualsIncluded,
+        samagri_list: finalProduct.samagriList,
+        priest_details: finalProduct.priestDetails,
+        testimonials: finalProduct.testimonials || [],
+        faqs: finalProduct.faqs,
+        cta_labels: finalProduct.ctaLabels || { primary: 'Book Now', secondary: 'Learn More' },
+        og_data: finalProduct.ogData || { title: '', description: '', image: '' },
+        schema_markup: finalProduct.schemaMarkup || {},
         
-        tags: editingPoojaProduct.idealOccasions || [],
-        benefits: editingPoojaProduct.benefits || [],
-        ideal_occasions: editingPoojaProduct.idealOccasions || [],
-        offers: editingPoojaProduct.offers || [],
-        badges: editingPoojaProduct.badges || [],
+        tags: finalProduct.idealOccasions || [],
+        benefits: finalProduct.benefits || [],
+        ideal_occasions: finalProduct.idealOccasions || [],
+        offers: finalProduct.offers || [],
+        badges: finalProduct.badges || [],
         
-        image: (editingPoojaProduct.galleryImages && editingPoojaProduct.galleryImages.length > 0)
-          ? editingPoojaProduct.galleryImages[0].url
-          : (editingPoojaProduct.image || '📿'),
-        banner_image: editingPoojaProduct.bannerImage || null,
-        gallery_images: editingPoojaProduct.galleryImages || [],
-        ritual_images: editingPoojaProduct.ritualImages || [],
-        priest_image: editingPoojaProduct.priestImage || null,
-        certificates: editingPoojaProduct.certificates,
-        icon_image: editingPoojaProduct.iconImage || null,
-        promo_creatives: editingPoojaProduct.promoCreatives || [],
-        related_products: editingPoojaProduct.relatedProducts || null,
+        image: (finalProduct.galleryImages && finalProduct.galleryImages.length > 0)
+          ? finalProduct.galleryImages[0].url
+          : (finalProduct.image || '📿'),
+        banner_image: finalProduct.bannerImage || null,
+        gallery_images: finalProduct.galleryImages || [],
+        ritual_images: finalProduct.ritualImages || [],
+        priest_image: finalProduct.priestImage || null,
+        certificates: finalProduct.certificates,
+        icon_image: finalProduct.iconImage || null,
+        promo_creatives: finalProduct.promoCreatives || [],
+        related_products: finalProduct.relatedProducts || null,
         
-        price: parseFloat(editingPoojaProduct.price.toString()),
-        original_price: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : null,
-        rating: editingPoojaProduct.rating || 4.8,
-        reviews_count: editingPoojaProduct.testimonials ? editingPoojaProduct.testimonials.length : (editingPoojaProduct.reviewsCount || 0),
-        is_featured: editingPoojaProduct.isFeatured || false,
-        is_trending: editingPoojaProduct.isTrending || false,
-        in_stock: editingPoojaProduct.inStock ?? true,
-        is_published: editingPoojaProduct.isPublished || false,
-        published_at: editingPoojaProduct.publishedAt || null,
-        ui_labels: editingPoojaProduct.uiLabels || {},
-        translations: editingPoojaProduct.translations || {},
-        video_url: editingPoojaProduct.videoUrl || null
+        price: parseFloat(finalProduct.price.toString()),
+        original_price: finalProduct.originalPrice ? parseFloat(finalProduct.originalPrice.toString()) : null,
+        rating: finalProduct.rating || 4.8,
+        reviews_count: finalProduct.testimonials ? finalProduct.testimonials.length : (finalProduct.reviewsCount || 0),
+        is_featured: finalProduct.isFeatured || false,
+        is_trending: finalProduct.isTrending || false,
+        in_stock: finalProduct.inStock ?? true,
+        is_published: finalProduct.isPublished || false,
+        published_at: finalProduct.publishedAt || null,
+        ui_labels: finalProduct.uiLabels || {},
+        translations: finalProduct.translations || {},
+        video_url: finalProduct.videoUrl || null
       };
 
       if (isNewPoojaProduct) {
         const insertPayload = { ...dbPayload } as any;
-        delete insertPayload.id; // Let database auto-generate a valid UUID
+        delete insertPayload.id;
         const { error } = await supabase
           .from('website_pooja_products')
           .insert([insertPayload]);
@@ -1766,7 +2019,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         const { error } = await supabase
           .from('website_pooja_products')
           .update(dbPayload)
-          .eq('id', editingPoojaProduct.id);
+          .eq('id', finalProduct.id);
         if (error) throw error;
         triggerToast('Pooja product details updated successfully!');
       }
@@ -1784,6 +2037,50 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleDeletePoojaProduct = async (id: string, name: string) => {
     if (window.confirm(`Are you absolutely sure you want to delete the Pooja Product "${name}"?`)) {
       try {
+        const targetProd = poojaProducts.find(p => p.id === id);
+        if (targetProd) {
+          const urlsToDelete: string[] = [];
+          if (targetProd.image) urlsToDelete.push(targetProd.image);
+          if (targetProd.bannerImage) urlsToDelete.push(targetProd.bannerImage);
+          if (targetProd.videoUrl) urlsToDelete.push(targetProd.videoUrl);
+          if (targetProd.priestImage) urlsToDelete.push(targetProd.priestImage);
+          if (targetProd.iconImage) urlsToDelete.push(targetProd.iconImage);
+          
+          if (Array.isArray(targetProd.galleryImages)) {
+            targetProd.galleryImages.forEach((img: any) => {
+              if (img && img.url) urlsToDelete.push(img.url);
+            });
+          }
+          if (Array.isArray(targetProd.ritualImages)) {
+            targetProd.ritualImages.forEach((img: any) => {
+              if (img && img.url) urlsToDelete.push(img.url);
+            });
+          }
+          if (targetProd.customIcons) {
+            Object.values(targetProd.customIcons).forEach((url: any) => {
+              if (typeof url === 'string') urlsToDelete.push(url);
+            });
+          }
+          
+          if (Array.isArray(targetProd.testimonials)) {
+            targetProd.testimonials.forEach((testi: any) => {
+              if (Array.isArray(testi.imageUrls)) {
+                testi.imageUrls.forEach((url: string) => urlsToDelete.push(url));
+              } else if (testi.imageUrl) {
+                urlsToDelete.push(testi.imageUrl);
+              }
+              if (Array.isArray(testi.videoUrls)) {
+                testi.videoUrls.forEach((url: string) => urlsToDelete.push(url));
+              } else if (testi.videoUrl) {
+                urlsToDelete.push(testi.videoUrl);
+              }
+            });
+          }
+
+          console.log(`[Delete Flow] Deleting ${urlsToDelete.length} assets from R2 for product ${name}`);
+          await Promise.all(urlsToDelete.map(url => deleteFromR2(url).catch(e => console.error(e))));
+        }
+
         const { error } = await supabase
           .from('website_pooja_products')
           .delete()
@@ -2972,7 +3269,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     {bannerImages.length > 0 ? (
                       <>
                         <img
-                          src={bannerImages[Math.min(activePreviewSlide, bannerImages.length - 1)]}
+                          src={resolveMediaUrl(bannerImages[Math.min(activePreviewSlide, bannerImages.length - 1)])}
                           alt="Simulated Banner"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -3295,7 +3592,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       {/* Upload button wrapper */}
                       <div>
                         <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Upload New Slide Image</label>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <label
                             htmlFor="banner-image-upload"
                             style={{
@@ -3306,7 +3603,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                               backgroundColor: '#ffffff',
                               border: '1px dashed var(--primary-lime)',
                               borderRadius: 'var(--radius-md)',
-                              cursor: isUploadingBanner ? 'not-allowed' : 'pointer',
+                              cursor: 'pointer',
                               color: 'var(--primary-lime)',
                               fontSize: '0.85rem',
                               fontWeight: 700,
@@ -3316,17 +3613,23 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             }}
                           >
                             <Upload size={16} />
-                            {isUploadingBanner ? 'Uploading slide to Cloudflare R2...' : 'Select slide file to upload'}
+                            Select slide file to upload
                           </label>
                           <input
                             type="file"
                             accept="image/*"
                             id="banner-image-upload"
-                            disabled={isUploadingBanner}
                             onChange={handleBannerUpload}
                             style={{ display: 'none' }}
                           />
                         </div>
+                        {bannerImages.some(img => img.startsWith('temp-media-')) && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
+                            {bannerImages.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                              <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                            ))}
+                          </div>
+                        )}
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
                           <strong>Recommended dimensions:</strong> 1920px (Width) × 460px (Height) or standard aspect ratio (e.g. 16:9). The storefront hero banner renders inside a <strong>fixed 460px height</strong> container.
                         </p>
@@ -3353,7 +3656,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                   boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
                                 }}
                               >
-                                <img src={banner} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={resolveMediaUrl(banner)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
@@ -3459,7 +3762,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                           {showcaseImage ? (
                             <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#fff', flexShrink: 0 }}>
-                              <img src={showcaseImage} alt="Showcase Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={resolveMediaUrl(showcaseImage)} alt="Showcase Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <button
                                 type="button"
                                 onClick={handleRemoveShowcase}
@@ -3502,7 +3805,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                 backgroundColor: '#ffffff',
                                 border: '1px dashed var(--primary-lime)',
                                 borderRadius: 'var(--radius-md)',
-                                cursor: isUploadingShowcase ? 'not-allowed' : 'pointer',
+                                cursor: 'pointer',
                                 color: 'var(--primary-lime)',
                                 fontSize: '0.8rem',
                                 fontWeight: 700,
@@ -3512,16 +3815,20 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                               }}
                             >
                               <Upload size={14} />
-                              {isUploadingShowcase ? 'Uploading to R2...' : 'Upload showcase image'}
+                              Upload showcase image
                             </label>
                             <input
                               type="file"
                               accept="image/*"
                               id="showcase-image-upload"
-                              disabled={isUploadingShowcase}
                               onChange={handleShowcaseUpload}
                               style={{ display: 'none' }}
                             />
+                            {showcaseImage && showcaseImage.startsWith('temp-media-') && (
+                              <div style={{ width: '100%', minWidth: '220px', marginTop: '4px' }}>
+                                <CompressionStatusWidget tempId={showcaseImage} mediaQueue={mediaQueue} />
+                              </div>
+                            )}
                             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                               <strong>Recommended dimensions:</strong> 560px (Width) × 760px (Height) or aspect ratio 3:4. Constrained inside a <strong>fixed aspect-ratio</strong> relative frame matching the right products column (height: 100%, min-height: 380px) to prevent layout shifting.
                             </span>
@@ -3859,7 +4166,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                     boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
                                   }}
                                 >
-                                  <img src={url} alt={`Main banner ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <img src={resolveMediaUrl(url)} alt={`Main banner ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
@@ -3899,25 +4206,33 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             </div>
                           )}
 
-                          <label
-                            htmlFor="shop-main-banner-upload"
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700,
-                              border: '1px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
-                              color: 'var(--primary-lime)', cursor: isUploadingShopMain ? 'not-allowed' : 'pointer',
-                              backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
-                            }}
-                          >
-                            <Upload size={14} />
-                            {isUploadingShopMain ? 'Uploading to Cloudflare R2...' : 'Add Main Banner Slide'}
-                          </label>
-                          <input
-                            type="file" id="shop-main-banner-upload" accept="image/*"
-                            disabled={isUploadingShopMain}
-                            onChange={handleShopMainBannerUpload}
-                            style={{ display: 'none' }}
-                          />
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <label
+                              htmlFor="shop-main-banner-upload"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700,
+                                border: '1px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
+                                color: 'var(--primary-lime)', cursor: 'pointer',
+                                backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
+                              }}
+                            >
+                              <Upload size={14} />
+                              Add Main Banner Slide
+                            </label>
+                            <input
+                              type="file" id="shop-main-banner-upload" accept="image/*"
+                              onChange={handleShopMainBannerUpload}
+                              style={{ display: 'none' }}
+                            />
+                          </div>
+                          {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
+                              {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                              ))}
+                            </div>
+                          )}
                           <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px' }}>
                             <strong>Recommended:</strong> 1920 × 320px (or 6:1 ratio). Displayed at fixed 320px height on the Shop page.
                           </p>
@@ -3934,7 +4249,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
                             {shopCategories.map(cat => {
                               const catBanners = shopCategoryBanners[cat] || [];
-                              const isUploading = isUploadingShopCategory[cat] || false;
                               return (
                                 <div key={cat} style={{
                                   border: '1px solid var(--border-light)',
@@ -3960,7 +4274,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                       {catBanners.map((url, idx) => (
                                         <div key={idx} style={{ position: 'relative', width: '54px', height: '36px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
-                                          <img src={url} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                          <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                           <button
                                             type="button"
                                             onClick={() => handleCategoryBannerRemove(cat, idx)}
@@ -3979,24 +4293,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                     style={{
                                       display: 'inline-flex', alignItems: 'center', gap: '5px',
                                       padding: '6px 10px', fontSize: '0.75rem', fontWeight: 700,
-                                      border: `1px dashed ${isUploading ? '#94a3b8' : 'var(--primary-lime)'}`,
+                                      border: '1px dashed var(--primary-lime)',
                                       borderRadius: 'var(--radius-sm)',
-                                      color: isUploading ? '#94a3b8' : 'var(--primary-lime)',
-                                      cursor: isUploading ? 'not-allowed' : 'pointer',
+                                      color: 'var(--primary-lime)',
+                                      cursor: 'pointer',
                                       backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
                                     }}
                                   >
                                     <Upload size={11} />
-                                    {isUploading ? 'Uploading...' : catBanners.length > 0 ? '+ Add Another' : 'Upload Banner'}
+                                    {catBanners.length > 0 ? '+ Add Another' : 'Upload Banner'}
                                   </label>
                                   <input
                                     type="file"
                                     id={`cat-banner-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`}
                                     accept="image/*"
-                                    disabled={isUploading}
                                     onChange={e => handleCategoryBannerUpload(cat, e)}
                                     style={{ display: 'none' }}
                                   />
+                                  {catBanners.some(img => img.startsWith('temp-media-')) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
+                                      {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                        <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -4123,7 +4443,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
                           }}
                         >
-                          <img src={url} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={resolveMediaUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
@@ -4173,19 +4493,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         display: 'inline-flex', alignItems: 'center', gap: '8px',
                         padding: '11px 20px', fontSize: '0.88rem', fontWeight: 700,
                         border: '1.5px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
-                        color: 'var(--primary-lime)', cursor: isUploadingShopMain ? 'not-allowed' : 'pointer',
-                        backgroundColor: isUploadingShopMain ? '#f8fafc' : '#f0fdf4', userSelect: 'none', transition: 'all 0.2s'
+                        color: 'var(--primary-lime)', cursor: 'pointer',
+                        backgroundColor: '#f0fdf4', userSelect: 'none', transition: 'all 0.2s'
                       }}
                     >
                       <Upload size={16} />
-                      {isUploadingShopMain ? 'Uploading to Cloudflare R2...' : '+ Add Banner Slide'}
+                      + Add Banner Slide
                     </label>
                     <input
                       type="file" id="shop-main-banner-upload-tab" accept="image/*"
-                      disabled={isUploadingShopMain}
                       onChange={handleShopMainBannerUpload}
                       style={{ display: 'none' }}
                     />
+                    {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
+                        {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                          <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                        ))}
+                      </div>
+                    )}
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       You can add multiple slides. Each slide auto-advances every 4.5 seconds on the shop page.
                     </span>
@@ -4208,7 +4534,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                     {shopCategories.map(cat => {
                       const catBanners = shopCategoryBanners[cat] || [];
-                      const isUploading = isUploadingShopCategory[cat] || false;
                       const inputId = `cat-tab-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`;
                       return (
                         <div key={cat} style={{
@@ -4235,7 +4560,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
                               {catBanners.map((url, idx) => (
                                 <div key={idx} style={{ position: 'relative', width: '68px', height: '44px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
-                                  <img src={url} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   <button
                                     type="button"
                                     onClick={() => handleCategoryBannerRemove(cat, idx)}
@@ -4255,24 +4580,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: '6px',
                               padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700,
-                              border: `1px dashed ${isUploading ? '#94a3b8' : 'var(--primary-lime)'}`,
+                              border: '1px dashed var(--primary-lime)',
                               borderRadius: 'var(--radius-sm)',
-                              color: isUploading ? '#94a3b8' : 'var(--primary-lime)',
-                              cursor: isUploading ? 'not-allowed' : 'pointer',
+                              color: 'var(--primary-lime)',
+                              cursor: 'pointer',
                               backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
                             }}
                           >
                             <Upload size={12} />
-                            {isUploading ? 'Uploading...' : catBanners.length > 0 ? '+ Add More' : 'Upload Banner'}
+                            {catBanners.length > 0 ? '+ Add More' : 'Upload Banner'}
                           </label>
                           <input
                             type="file"
                             id={inputId}
                             accept="image/*"
-                            disabled={isUploading}
                             onChange={e => handleCategoryBannerUpload(cat, e)}
                             style={{ display: 'none' }}
                           />
+                          {catBanners.some(img => img.startsWith('temp-media-')) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
+                              {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -5719,30 +6050,34 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         color: '#ffffff'
                       }}>
                         <Upload size={14} />
-                        {isUploadingVideo ? 'Uploading...' : 'Choose Video'}
+                        Choose Video
                         <input
                           type="file"
                           accept="video/*"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            setIsUploadingVideo(true);
                             try {
-                              const cdnUrl = await uploadToR2(file, 'products/videos');
-                              updatePoojaField('videoUrl', cdnUrl);
-                              triggerToast('Video uploaded successfully!');
+                              await addToMediaQueue(file, 'products/videos', (tempId) => {
+                                updatePoojaField('videoUrl', tempId);
+                              });
+                              triggerToast('Video queued for compression!');
                             } catch (err) {
                               console.error(err);
-                              alert('Upload failed: ' + (err as Error).message);
+                              alert('Failed to stage video: ' + (err as Error).message);
                             } finally {
-                              setIsUploadingVideo(false);
+                              e.target.value = '';
                             }
                           }}
                           style={{ display: 'none' }}
-                          disabled={isUploadingVideo}
                         />
                       </label>
                     </div>
+                    {editingPoojaProduct.videoUrl && editingPoojaProduct.videoUrl.startsWith('temp-media-') && (
+                      <div style={{ width: '100%', maxWidth: '300px', marginTop: '4px' }}>
+                        <CompressionStatusWidget tempId={editingPoojaProduct.videoUrl} mediaQueue={mediaQueue} />
+                      </div>
+                    )}
 
                     {/* Video Thumbnail Input */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -5931,6 +6266,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         onUpdate={(fields) => updatePoojaFields(fields)}
                         cart={[]}
                         onUpdateQuantity={() => {}}
+                        onFileSelect={async (file, prefix) => {
+                          return await addToMediaQueue(file, prefix, () => {});
+                        }}
+                        mediaQueue={mediaQueue}
+                        resolveMediaUrl={resolveMediaUrl}
                       />
                     </div>
                   </div>

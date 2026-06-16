@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 const endpoint = import.meta.env.VITE_CLOUDFLARE_ENDPOINT || '';
 const accessKeyId = import.meta.env.VITE_CLOUDFLARE_ACCESS_KEY_ID || '';
@@ -109,9 +109,9 @@ async function compressImage(file: File, maxDimension = 1920, quality = 0.8): Pr
  * @param file The File object to upload
  * @param pathPrefix Directory prefix (e.g. 'products/thumbnails')
  */
-export async function uploadToR2(file: File, pathPrefix: string = 'products'): Promise<string> {
-  // Compress image client-side before uploading
-  const processedFile = await compressImage(file);
+export async function uploadToR2(file: File, pathPrefix: string = 'products', skipCompression = false): Promise<string> {
+  // Compress image client-side before uploading unless skipped
+  const processedFile = skipCompression ? file : await compressImage(file);
 
   const uniqueId = crypto.randomUUID();
   const nameParts = processedFile.name.split('.');
@@ -140,4 +140,47 @@ export async function uploadToR2(file: File, pathPrefix: string = 'products'): P
     throw new Error('Could not upload asset to Cloudflare R2 storage: ' + (error as Error).message);
   }
 }
+
+/**
+ * Deletes a file from Cloudflare R2 based on its public CDN URL.
+ * @param url The public CDN URL of the asset to delete
+ */
+export async function deleteFromR2(url: string): Promise<void> {
+  if (!url) return;
+  // If the url is a local blob preview URL or mock, skip R2 delete
+  if (url.startsWith('blob:') || !url.startsWith('http')) {
+    return;
+  }
+
+  try {
+    const cleanBaseUrl = publicBaseUrl.endsWith('/') ? publicBaseUrl.slice(0, -1) : publicBaseUrl;
+    let key = '';
+    
+    if (url.startsWith(cleanBaseUrl)) {
+      key = url.replace(cleanBaseUrl + '/', '');
+    } else {
+      // Fallback: parse pathname
+      try {
+        const urlObj = new URL(url);
+        key = decodeURIComponent(urlObj.pathname.substring(1));
+      } catch (e) {
+        return;
+      }
+    }
+
+    if (!key) return;
+
+    console.log(`[R2] Initiating delete for Key: ${key}`);
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+    console.log(`[R2] Successfully deleted key: ${key}`);
+  } catch (error) {
+    console.error('R2 deletion failed:', error);
+  }
+}
+
 

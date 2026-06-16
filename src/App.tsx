@@ -1100,29 +1100,6 @@ function App() {
     }
   }, [cart]);
 
-  // Auto-gift logic: Golden Pyrite Bracelet is automatically added when a qualifying bracelet is in the cart
-  React.useEffect(() => {
-    const hasQualifyingBracelet = cart.some(item => {
-      if (!item?.product) return false;
-      if (item.product.id === 'gift-pyrite-bracelet') return false;
-      const name = (item.product.name || '').toLowerCase();
-      return (
-        name.includes('rashi') || 
-        name.includes('kavach') || 
-        name.includes('bracelet') || 
-        name.includes('yog')
-      );
-    });
-    
-    const hasGift = cart.some(item => item?.product?.id === 'gift-pyrite-bracelet');
-    
-    if (hasQualifyingBracelet && !hasGift) {
-      const giftProduct = productsState.find(p => p.id === 'gift-pyrite-bracelet') || visualMockProducts[0];
-      setCart(prev => [...prev, { product: { ...giftProduct, price: 0 }, quantity: 1 }]);
-    } else if (!hasQualifyingBracelet && hasGift) {
-      setCart(prev => prev.filter(item => item?.product?.id !== 'gift-pyrite-bracelet'));
-    }
-  }, [cart, productsState]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -1267,6 +1244,7 @@ function App() {
             <img 
               src={logo} 
               alt="Mantra Puja Logo" 
+              className="nav-logo"
               style={{ 
                 height: '65px', 
                 objectFit: 'contain'
@@ -1407,7 +1385,7 @@ function App() {
           </div>
 
           {/* Profile & Cart actions (Right side) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} className="nav-actions">
 
             <button
               onClick={() => setCurrentPage('profile')}

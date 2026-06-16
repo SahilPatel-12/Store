@@ -52,7 +52,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   // Promo Banner state
   const promoBanners = [
-    "Free Golden Pyrite Bracelets with Rashi Bracelets",
     "Flat Rs 101/- Off on all Prepaid orders",
     "Free Shipping on orders above ₹500"
   ];
@@ -137,7 +136,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         pool = selectedPool;
       }
     }
-    return pool.filter(p => p && p.id && p.id !== 'gift-pyrite-bracelet' && !cartIds.has(p.id)).slice(0, 6);
+    return pool.filter(p => p && p.id && !cartIds.has(p.id)).slice(0, 6);
   }, [products, items, exploreMoreProductIds]);
 
   const handleApplyCoupon = async (code: string) => {
@@ -344,7 +343,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {items.map((item) => {
                 if (!item || !item.product) return null;
-                const isGift = item.product.id === 'gift-pyrite-bracelet';
+                const isGift = false;
                 const originalPrice = item.product.originalPrice || item.product.price;
                 const hasDiscount = !!item.product.originalPrice && item.product.originalPrice > item.product.price;
                 const discountPct = hasDiscount ? Math.round(((originalPrice - item.product.price) / originalPrice) * 100) : 0;
