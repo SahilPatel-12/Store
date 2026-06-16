@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Star, Plus, Minus } from 'lucide-react';
 import { ProductModal } from './components/ProductModal';
+import { CartDrawer } from './components/CartDrawer';
 import type { OrderDetails } from './components/OrderSuccessPage';
 import type { Product, CartItem, LocalOrder } from './types';
 import { supabase } from './lib/supabase';
@@ -47,6 +48,84 @@ const categories = [
   'Women Bracelets',
   'Evil Eye',
   'Gifting'
+];
+
+const visualMockProducts: Product[] = [
+  {
+    id: 'gift-pyrite-bracelet',
+    name: 'Golden Pyrite Bracelet',
+    description: 'Beautiful Golden Pyrite Bracelet for wealth, luck, and positive energy.',
+    price: 0,
+    originalPrice: 1400,
+    image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&q=80',
+    category: 'Bracelet',
+    rating: 4.9,
+    reviewsCount: 312,
+    inStock: true,
+    benefits: ['Attracts money', 'Brings luck'],
+    popularity: 99,
+    spiritualType: 'Meditation'
+  },
+  {
+    id: 'shani-shanti-bracelet',
+    name: 'Shani Shanti Kavach Bracelet',
+    description: 'Handcrafted crystal bracelet to pacify Shani Dev and bring protection.',
+    price: 1998,
+    originalPrice: 4002,
+    image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&q=80',
+    category: 'Bracelet',
+    rating: 4.8,
+    reviewsCount: 154,
+    inStock: true,
+    benefits: ['Saturn protection', 'Mental peace'],
+    popularity: 95,
+    spiritualType: 'Meditation'
+  },
+  {
+    id: 'maha-dhanyog-bracelet',
+    name: 'Maha Dhanyog Bracelet',
+    description: 'Vedic-energized bracelet for financial growth and business success.',
+    price: 999,
+    originalPrice: 2001,
+    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&q=80',
+    category: 'Bracelet',
+    rating: 4.9,
+    reviewsCount: 220,
+    inStock: true,
+    benefits: ['Attracts prosperity', 'Business success'],
+    popularity: 97,
+    spiritualType: 'Meditation'
+  },
+  {
+    id: 'meen-rashi-bracelet',
+    name: 'Meen (Pisces) Rashi Crystal Bracelet',
+    description: 'Customized crystal bracelet designed for Pisces rashi natives.',
+    price: 999,
+    originalPrice: 1999,
+    image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&q=80',
+    category: 'Bracelet',
+    rating: 4.7,
+    reviewsCount: 98,
+    inStock: true,
+    benefits: ['Rashi balance', 'Emotional healing'],
+    popularity: 90,
+    spiritualType: 'Meditation'
+  },
+  {
+    id: 'karungali-mala',
+    name: 'Karungali Mala',
+    description: 'Pure ebony wood beads mala for positive vibration and focus.',
+    price: 799,
+    originalPrice: 2099,
+    image: 'https://images.unsplash.com/photo-1596567130084-07d13f742943?w=400&q=80',
+    category: 'Necklaces/Mala',
+    rating: 4.8,
+    reviewsCount: 180,
+    inStock: true,
+    benefits: ['Negative energy removal', 'Enhances focus'],
+    popularity: 96,
+    spiritualType: 'Meditation'
+  }
 ];
 
 const initialOrders: LocalOrder[] = [
@@ -147,6 +226,20 @@ const initialOrders: LocalOrder[] = [
 
 function App() {
   const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth'>('shop');
+  
+  const [globalAlert, setGlobalAlert] = React.useState<{
+    message: string;
+    title?: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    window.alert = (msg) => {
+      setGlobalAlert({
+        message: String(msg),
+        title: "Mantra Puja Store"
+      });
+    };
+  }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [mobileCategoriesExpanded, setMobileCategoriesExpanded] = React.useState(false);
   
@@ -541,7 +634,8 @@ function App() {
         setSearchQueryTerm(q);
         setCurrentPageState('search');
       } else if (path === '/cart' || path === '/cart/') {
-        setCurrentPageState('cart');
+        setCurrentPageState('shop');
+        setIsCartDrawerOpen(true);
       } else if (path === '/checkout' || path === '/checkout/') {
         if (loggedInUser) {
           setCurrentPageState('checkout');
@@ -689,8 +783,10 @@ function App() {
 
         const dbIds = new Set(mappedData.map(p => p.id));
         const uniqueLocalProducts = localProducts.filter(p => !dbIds.has(p.id));
-        
-        setProductsState([...mappedData, ...uniqueLocalProducts]);
+        const combinedList = [...mappedData, ...uniqueLocalProducts];
+        const combinedIds = new Set(combinedList.map(p => p.id));
+        const missingMocks = visualMockProducts.filter(p => !combinedIds.has(p.id));
+        setProductsState([...combinedList, ...missingMocks]);
       }
     } catch (err) {
       console.error('Error loading published pooja products in storefront:', err);
@@ -701,6 +797,7 @@ function App() {
     featuredProductIds?: string[];
     saleProductIds?: string[];
     newArrivalsProductIds?: string[];
+    cartExploreMoreProductIds?: string[];
     featuredTitle?: string;
     featuredSubtitle?: string;
     saleTitle?: string;
@@ -979,10 +1076,17 @@ function App() {
   }, [productsState, wishlist]);
 
   // State for visual interactions
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = React.useState(false);
   const [cart, setCart] = React.useState<CartItem[]>(() => {
     try {
       const stored = localStorage.getItem('ridae_cart');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item: any) => item && item.product && typeof item.product === 'object' && item.product.id);
+        }
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -996,6 +1100,30 @@ function App() {
     }
   }, [cart]);
 
+  // Auto-gift logic: Golden Pyrite Bracelet is automatically added when a qualifying bracelet is in the cart
+  React.useEffect(() => {
+    const hasQualifyingBracelet = cart.some(item => {
+      if (!item?.product) return false;
+      if (item.product.id === 'gift-pyrite-bracelet') return false;
+      const name = (item.product.name || '').toLowerCase();
+      return (
+        name.includes('rashi') || 
+        name.includes('kavach') || 
+        name.includes('bracelet') || 
+        name.includes('yog')
+      );
+    });
+    
+    const hasGift = cart.some(item => item?.product?.id === 'gift-pyrite-bracelet');
+    
+    if (hasQualifyingBracelet && !hasGift) {
+      const giftProduct = productsState.find(p => p.id === 'gift-pyrite-bracelet') || visualMockProducts[0];
+      setCart(prev => [...prev, { product: { ...giftProduct, price: 0 }, quantity: 1 }]);
+    } else if (!hasQualifyingBracelet && hasGift) {
+      setCart(prev => prev.filter(item => item?.product?.id !== 'gift-pyrite-bracelet'));
+    }
+  }, [cart, productsState]);
+
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   // Lifted coupon state
@@ -1006,7 +1134,7 @@ function App() {
   // Auto-invalidate coupon if the restricted product is removed from cart
   React.useEffect(() => {
     if (appliedCouponProductId) {
-      const hasProduct = cart.some(item => item.product.id === appliedCouponProductId);
+      const hasProduct = cart.some(item => item?.product?.id === appliedCouponProductId);
       if (!hasProduct) {
         setAppliedCouponCode('');
         setDiscountPercent(0);
@@ -1042,41 +1170,51 @@ function App() {
   }, []);
 
   const handleAddToCartWithQty = (product: Product, quantity = 1, force = false) => {
-    if (!loggedInUser && !force) {
-      alert("Please log in or register to add items to your cart.");
+    if (!product || !product.id) return;
+    if (force) {
+      // guest bypass
+    }
+    if (!loggedInUser) {
       setPendingAddToCart({ product, qty: quantity });
-      setAuthRedirectPage('cart');
-      setCurrentPage('user-auth');
-      return;
     }
     setCart(prev => {
-      const existingIdx = prev.findIndex(item => item.product.id === product.id);
+      const arr = Array.isArray(prev) ? prev.filter(Boolean) : [];
+      const existingIdx = arr.findIndex(item => item?.product?.id === product.id);
       if (existingIdx > -1) {
-        const nextCart = [...prev];
+        const nextCart = [...arr];
+        const currentQty = nextCart[existingIdx]?.quantity || 0;
         nextCart[existingIdx] = {
           ...nextCart[existingIdx],
-          quantity: nextCart[existingIdx].quantity + quantity
+          quantity: currentQty + quantity
         };
         return nextCart;
       }
-      return [...prev, { product, quantity }];
+      return [...arr, { product, quantity }];
     });
+    // Open the right-side cart drawer
+    setIsCartDrawerOpen(true);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    if (!productId) return;
     if (quantity <= 0) {
       handleRemoveItem(productId);
       return;
     }
-    setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
+    setCart(prev => {
+      const arr = Array.isArray(prev) ? prev.filter(Boolean) : [];
+      return arr.map(item =>
+        item?.product?.id === productId ? { ...item, quantity } : item
+      );
+    });
   };
 
   const handleRemoveItem = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+    if (!productId) return;
+    setCart(prev => {
+      const arr = Array.isArray(prev) ? prev.filter(Boolean) : [];
+      return arr.filter(item => item?.product?.id !== productId);
+    });
   };
 
   const handleClearCart = () => {
@@ -1087,15 +1225,8 @@ function App() {
   };
 
   const handleBuyNow = (product: Product, qty: number) => {
-    if (!loggedInUser) {
-      alert("Please log in or register to buy this item.");
-      setPendingBuyNow({ product, qty });
-      setAuthRedirectPage('cart');
-      setCurrentPage('user-auth');
-    } else {
-      handleAddToCartWithQty(product, qty);
-      setCurrentPage('checkout');
-    }
+    handleAddToCartWithQty(product, qty);
+    setIsCartDrawerOpen(true);
   };
 
   const handleToggleWishlist = (id: string) => {
@@ -1322,7 +1453,7 @@ function App() {
               )}
             </button>
             <button
-              onClick={() => setCurrentPage('cart')}
+              onClick={() => setIsCartDrawerOpen(true)}
               className={`navbar-cart-btn ${isCartBouncing ? "cart-bounce-animation" : ""}`}
               style={{
                 position: 'relative',
@@ -1671,7 +1802,7 @@ function App() {
             display: 'grid',
             gridTemplateColumns: '1fr 1.3fr',
             gap: '24px'
-          }} className="featured-grid-wrap hero-grid-split">
+          }} className="featured-grid-wrap">
             
             {/* Left Column: Dynamized Showcase Image */}
             <div style={{
@@ -1893,7 +2024,7 @@ function App() {
                         <div style={{ marginTop: 'auto' }}>
                           {product.inStock ? (
                             (() => {
-                              const cartItem = cart.find(item => item.product.id === product.id);
+                              const cartItem = cart.find(item => item?.product?.id === product.id);
                               const qty = cartItem ? cartItem.quantity : 0;
                               if (qty > 0) {
                                 return (
@@ -2078,17 +2209,14 @@ function App() {
             fontWeight: 950,
             color: 'var(--text-dark)',
             textAlign: 'center'
-          }}>
+          }} className="sale-heading">
             {homepageConfig?.saleTitle || "Exceptional Discounts up to 30%"}
           </h2>
 
           {/* Timer Countdown Grid */}
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
             margin: '8px 0'
-          }}>
+          }} className="sale-countdown-container">
             <div className="flex-center" style={{ flexDirection: 'column' }}>
               <div className="countdown-box">{timeLeft.days}</div>
               <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Days</span>
@@ -2320,7 +2448,7 @@ function App() {
                     <div style={{ marginTop: 'auto' }}>
                       {product.inStock ? (
                         (() => {
-                          const cartItem = cart.find(item => item.product.id === product.id);
+                          const cartItem = cart.find(item => item?.product?.id === product.id);
                           const qty = cartItem ? cartItem.quantity : 0;
                           if (qty > 0) {
                             return (
@@ -2672,7 +2800,7 @@ function App() {
                     <div style={{ marginTop: 'auto' }}>
                       {product.inStock ? (
                         (() => {
-                          const cartItem = cart.find(item => item.product.id === product.id);
+                          const cartItem = cart.find(item => item?.product?.id === product.id);
                           const qty = cartItem ? cartItem.quantity : 0;
                           if (qty > 0) {
                             return (
@@ -2858,7 +2986,7 @@ function App() {
       ) : currentPage === 'checkout' ? (
         <CheckoutPage
           cart={cart}
-          onBackToCart={() => setCurrentPage('cart')}
+          onBackToCart={() => { setCurrentPage('shop'); setIsCartDrawerOpen(true); }}
           onBackToShop={() => setCurrentPage('shop')}
           onOrderComplete={handleClearCart}
           loggedInUser={loggedInUser}
@@ -3004,7 +3132,7 @@ function App() {
           onAddToCart={handleAddToCartWithQty}
           onNavigateToShop={() => setCurrentPage('shop')}
           onNavigateToHome={() => setCurrentPage('home')}
-          onNavigateToCart={() => setCurrentPage('cart')}
+          onNavigateToCart={() => setIsCartDrawerOpen(true)}
         />
       ) : currentPage === 'profile' ? (
         <UserProfilePage
@@ -3052,12 +3180,11 @@ function App() {
             
             if (pendingAddToCart) {
               handleAddToCartWithQty(pendingAddToCart.product, pendingAddToCart.qty, true);
-              setPendingAddToCart(null);
-              setCurrentPage('cart');
+              setIsCartDrawerOpen(true);
             } else if (pendingBuyNow) {
               handleAddToCartWithQty(pendingBuyNow.product, pendingBuyNow.qty, true);
               setPendingBuyNow(null);
-              setCurrentPage('cart');
+              setIsCartDrawerOpen(true);
             } else if (authRedirectPage) {
               setCurrentPage(authRedirectPage, { bypassAuthCheck: true });
               setAuthRedirectPage(null);
@@ -3200,7 +3327,7 @@ function App() {
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setCurrentPage('cart')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                  <button onClick={() => setIsCartDrawerOpen(true)} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
                     Shopping Cart
                   </button>
                 </li>
@@ -3293,6 +3420,35 @@ function App() {
         />
       )}
 
+      <CartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={() => setIsCartDrawerOpen(false)}
+        cartItems={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+        onCheckout={() => {
+          setIsCartDrawerOpen(false);
+          if (!loggedInUser) {
+            setAuthRedirectPage('checkout');
+            setCurrentPage('user-auth');
+          } else {
+            setCurrentPage('checkout');
+          }
+        }}
+        loggedInUser={loggedInUser}
+        appliedCouponCode={appliedCouponCode}
+        discountPercent={discountPercent}
+        onApplyCoupon={(code, percent, productId) => {
+          setAppliedCouponCode(code);
+          setDiscountPercent(percent);
+          setAppliedCouponProductId(productId);
+        }}
+        products={productsState}
+        exploreMoreProductIds={Array.isArray(homepageConfig?.cartExploreMoreProductIds) ? homepageConfig.cartExploreMoreProductIds : []}
+        onAddToCart={handleAddToCartWithQty}
+      />
+
       {floatingEffects.map(effect => (
         <span
           key={effect.id}
@@ -3374,20 +3530,6 @@ function App() {
         }
 
         @media (max-width: 900px) {
-          .hero-grid-split {
-            grid-template-columns: 1fr !important;
-          }
-          .hero-grid-split > div:last-child {
-            min-height: 250px !important;
-            height: 250px !important;
-          }
-          .hero-grid-split > div:first-child {
-            padding: 30px 24px !important;
-            text-align: center !important;
-          }
-          .hero-grid-split h1 {
-            font-size: 2.4rem !important;
-          }
           .featured-grid-wrap {
             grid-template-columns: 1fr !important;
           }
@@ -3404,6 +3546,22 @@ function App() {
           }
         }
       `}</style>
+
+      {/* Global Custom Alert Modal */}
+      {globalAlert && (
+        <div className="alert-overlay" onClick={() => setGlobalAlert(null)}>
+          <div className="alert-container" onClick={(e) => e.stopPropagation()}>
+            <div className="alert-icon-box">
+              <img src={logo} alt="Mantra Puja Logo" style={{ height: '32px', objectFit: 'contain' }} />
+            </div>
+            <h3 className="alert-title">{globalAlert.title || "Notification"}</h3>
+            <p className="alert-message">{globalAlert.message}</p>
+            <button className="alert-btn" onClick={() => setGlobalAlert(null)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

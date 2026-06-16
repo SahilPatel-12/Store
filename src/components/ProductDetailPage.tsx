@@ -1751,7 +1751,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
 
             {/* Main Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 0.5fr', gap: '12px', marginTop: '8px' }}>
+            <div className="product-actions-grid">
               {(() => {
                 const cartItem = cart.find(item => item.product.id === product.id);
                 const qty = cartItem ? cartItem.quantity : 0;
@@ -2866,7 +2866,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: editable ? '1fr' : 'repeat(auto-fill, minmax(340px, 1fr))',
+                  gridTemplateColumns: editable ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
                   gap: '24px'
                 }}>
                   {reviews.length === 0 ? (

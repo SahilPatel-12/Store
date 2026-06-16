@@ -2900,7 +2900,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
                     {/* SUBTAB: PAYOUT REQUESTS & HISTORY */}
                     {devoteeSubTab === 'payout' && (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }} className="hero-grid-split">
                         
                         {/* Payout History queue list */}
                         <div style={{

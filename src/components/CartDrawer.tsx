@@ -1,7 +1,14 @@
 import React from 'react';
-import { X, ShoppingBag, Sparkles, Plus, Minus } from 'lucide-react';
-import type { CartItem } from '../types';
+import { X, ShoppingBag, Sparkles, Plus, Minus, Trash2, Ticket, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
+import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { supabase } from '../lib/supabase';
+
+const formatPrice = (val: any): string => {
+  if (val === undefined || val === null) return '0.00';
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  return (typeof num === 'number' && !isNaN(num)) ? num.toFixed(2) : '0.00';
+};
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -10,58 +17,214 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
+  onCheckout: () => void;
+  loggedInUser?: { id: string; fullName: string; email: string; phoneNumber: string } | null;
+  appliedCouponCode: string;
+  onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
+  discountPercent: number;
+  products: Product[];
+  exploreMoreProductIds?: string[];
+  onAddToCart?: (product: Product, quantity?: number) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
   onClose,
-  cartItems,
+  cartItems = [],
   onUpdateQuantity,
   onRemoveItem,
-  onClearCart,
+  onCheckout,
+  loggedInUser,
+  appliedCouponCode,
+  onApplyCoupon,
+  discountPercent,
+  products = [],
+  exploreMoreProductIds = [],
+  onAddToCart,
 }) => {
-  const [checkoutState, setCheckoutState] = React.useState<'idle' | 'processing' | 'success'>('idle');
+  const [couponCodeInput, setCouponCodeInput] = React.useState(appliedCouponCode);
+  const [couponError, setCouponError] = React.useState('');
+  const [couponSuccess, setCouponSuccess] = React.useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+  const [isCouponsDropdownOpen, setIsCouponsDropdownOpen] = React.useState(false);
+  const [isDetailsExpanded, setIsDetailsExpanded] = React.useState(false);
+  const [availableCoupons, setAvailableCoupons] = React.useState<any[]>([]);
 
+  // Promo Banner state
+  const promoBanners = [
+    "Free Golden Pyrite Bracelets with Rashi Bracelets",
+    "Flat Rs 101/- Off on all Prepaid orders",
+    "Free Shipping on orders above ₹500"
+  ];
+  const [currentPromoIdx, setCurrentPromoIdx] = React.useState(0);
+
+  // Sync coupon code input when appliedCouponCode changes
   React.useEffect(() => {
-    if (!isOpen) {
-      // Reset checkout status when closed
-      setCheckoutState('idle');
+    setCouponCodeInput(appliedCouponCode);
+    if (appliedCouponCode) {
+      setCouponSuccess(`Coupon ${appliedCouponCode} applied! (${discountPercent}% OFF)`);
+      setCouponError('');
+    } else {
+      setCouponSuccess('');
+    }
+  }, [appliedCouponCode, discountPercent]);
+
+  // Fetch available coupons from database
+  React.useEffect(() => {
+    async function fetchCoupons() {
+      try {
+        const { data } = await supabase
+          .from('website_store_coupons')
+          .select('code, discount_percent')
+          .limit(5);
+        if (data && data.length > 0) {
+          setAvailableCoupons(data);
+        } else {
+          setAvailableCoupons([
+            { code: 'DEVOTION10', discount_percent: 10 },
+            { code: 'SHIV30', discount_percent: 30 }
+          ]);
+        }
+      } catch (err) {
+        console.error(err);
+        setAvailableCoupons([
+          { code: 'DEVOTION10', discount_percent: 10 },
+          { code: 'SHIV30', discount_percent: 30 }
+        ]);
+      }
+    }
+    if (isOpen) {
+      fetchCoupons();
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Pricing calculations
+  const items = Array.isArray(cartItems) ? cartItems.filter(Boolean) : [];
+  const subtotal = items.reduce((sum, item) => sum + (item?.product?.price || 0) * (item?.quantity || 1), 0);
+  const couponDiscount = subtotal * (discountPercent / 100);
+  
+  // Free Pyrite gift calculation (priced at 0 in cart, original 1400)
+  const giftItem = items.find(item => item?.product?.id === 'gift-pyrite-bracelet');
+  const hasGift = !!giftItem;
+  const giftValue = 1400;
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const shippingFee = subtotal > 50 || subtotal === 0 ? 0 : 5.99;
-  const spiritualDiscount = subtotal > 100 ? subtotal * 0.1 : 0; // 10% auto-discount for bulk blessings
-  const total = subtotal + shippingFee - spiritualDiscount;
+  // Free shipping above ₹500 (calculated after coupon discount)
+  const shippingCost = (subtotal - couponDiscount) > 500 || subtotal === 0 ? 0 : 49;
+  const tax = Math.max(0, (subtotal - couponDiscount) * 0.08); // 8% sales tax
+  const estimatedTotal = Math.max(0, subtotal - couponDiscount + shippingCost + tax);
 
-  const handleCheckout = () => {
-    setCheckoutState('processing');
-    setTimeout(() => {
-      setCheckoutState('success');
-      setTimeout(() => {
-        onClearCart();
-        onClose();
-      }, 2500);
-    }, 2000);
-  };
+  // Calculate actual savings
+  const originalTotal = items.reduce((sum, item) => {
+    if (!item?.product) return sum;
+    const origPrice = item.product.originalPrice || item.product.price;
+    // Special case for gift: original price is 1400, selling price is 0
+    if (item.product.id === 'gift-pyrite-bracelet') {
+      return sum + giftValue;
+    }
+    return sum + origPrice * (item?.quantity || 1);
+  }, 0);
 
-  const getCategoryGradient = (category: string) => {
-    switch (category) {
-      case 'kits':
-        return 'linear-gradient(135deg, #ffedd5 0%, #ffebd5 100%)';
-      case 'idols':
-        return 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
-      case 'incense':
-        return 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)';
-      case 'books':
-        return 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)';
-      case 'accessories':
-      default:
-        return 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)';
+  const totalSaved = Math.max(0, originalTotal - (subtotal - couponDiscount) + (hasGift ? giftValue : 0));
+
+  // Explore more items (filtering out cart items)
+  const crossSellProducts = React.useMemo(() => {
+    const cartIds = new Set(items.map(item => item?.product?.id).filter(Boolean));
+    let pool = Array.isArray(products) ? products : [];
+    const validIds = Array.isArray(exploreMoreProductIds) ? exploreMoreProductIds : [];
+    if (validIds.length > 0) {
+      const selectedPool = pool.filter(p => p && p.id && validIds.includes(p.id));
+      if (selectedPool.length > 0) {
+        pool = selectedPool;
+      }
+    }
+    return pool.filter(p => p && p.id && p.id !== 'gift-pyrite-bracelet' && !cartIds.has(p.id)).slice(0, 6);
+  }, [products, items, exploreMoreProductIds]);
+
+  const handleApplyCoupon = async (code: string) => {
+    setCouponError('');
+    setCouponSuccess('');
+    const formattedCode = code.trim().toUpperCase();
+    if (!formattedCode) {
+      onApplyCoupon('', 0, null);
+      return;
+    }
+
+    if (!loggedInUser) {
+      setCouponError('Please log in to apply coupons.');
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      const { data: coupon, error: fetchError } = await supabase
+        .from('website_store_coupons')
+        .select('*')
+        .eq('code', formattedCode)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!coupon) {
+        setCouponError('Invalid coupon code.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
+        setCouponError('Coupon usage limit reached.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      const { data: existingRedemption, error: redemptionError } = await supabase
+        .from('website_store_coupon_redemptions')
+        .select('id')
+        .eq('coupon_id', coupon.id)
+        .eq('user_id', loggedInUser.id)
+        .maybeSingle();
+
+      if (redemptionError) throw redemptionError;
+
+      if (existingRedemption) {
+        setCouponError('You have already used this coupon.');
+        onApplyCoupon('', 0, null);
+        return;
+      }
+
+      if (coupon.product_id) {
+        const hasProduct = items.some(item => item?.product?.id === coupon.product_id);
+        if (!hasProduct) {
+          const { data: productData } = await supabase
+            .from('website_pooja_products')
+            .select('name')
+            .eq('id', coupon.product_id)
+            .maybeSingle();
+          const productName = productData?.name || 'a specific product';
+          setCouponError(`This coupon is only valid for: ${productName}.`);
+          onApplyCoupon('', 0, null);
+          return;
+        }
+      }
+
+      onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
+      setCouponSuccess(`Coupon ${formattedCode} applied successfully!`);
+    } catch (err) {
+      console.error('Error applying coupon:', err);
+      setCouponError('Error occurred applying coupon.');
+      onApplyCoupon('', 0, null);
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
+
+  const handleRemoveCoupon = () => {
+    onApplyCoupon('', 0, null);
+    setCouponCodeInput('');
+    setCouponSuccess('');
+    setCouponError('');
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -71,264 +234,669 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.4)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 100,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 1000,
         display: 'flex',
-        justifyContent: 'flex-end'
+        justifyContent: 'flex-end',
       }}
       onClick={onClose}
     >
       <div
-        className="glass"
         style={{
           width: '100%',
-          maxWidth: '450px',
+          maxWidth: '430px',
           height: '100%',
+          backgroundColor: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '-10px 0 30px rgba(0, 0, 0, 0.15)',
-          animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-          position: 'relative'
+          boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.12)',
+          animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drawer Header */}
+        {/* Header Section */}
         <div style={{
-          padding: '24px 20px',
-          borderBottom: '1px solid var(--border-color)',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border-light)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          backgroundColor: '#ffffff'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ShoppingBag size={20} style={{ color: 'var(--primary-gold)' }} />
-            <h2 style={{ fontSize: '1.4rem' }}>Sacred Cart</h2>
-          </div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+            Your Cart ({items.length} {items.length === 1 ? 'item' : 'items'})
+          </h2>
           <button
             onClick={onClose}
             style={{
               padding: '6px',
               borderRadius: '50%',
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
+              backgroundColor: '#f3f4f6',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all var(--transition-fast)'
+              color: 'var(--text-dark)',
+              transition: 'background-color 0.2s'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--border-color)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-primary)'}
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Success Screen */}
-        {checkoutState === 'success' ? (
-          <div className="flex-center" style={{
-            flexGrow: 1,
-            flexDirection: 'column',
-            padding: '40px',
-            textAlign: 'center',
-            backgroundColor: 'var(--bg-secondary)'
-          }}>
-            <div className="pulse-gold-anim flex-center float-anim" style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-gold))',
-              color: '#ffffff',
-              marginBottom: '24px'
-            }}>
-              <Sparkles size={40} />
-            </div>
-            <h3 style={{ fontSize: '1.6rem', marginBottom: '12px' }}>Order Placed!</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-              Your order has been energized. May your home be filled with divine light and positive vibrations.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Scrollable Items list */}
+        {/* Terracotta Promo Banner */}
+        <div style={{
+          backgroundColor: '#8c3b17',
+          color: '#ffffff',
+          padding: '8px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.78rem',
+          fontWeight: 600,
+          userSelect: 'none'
+        }}>
+          <button
+            onClick={() => setCurrentPromoIdx(prev => (prev - 1 + promoBanners.length) % promoBanners.length)}
+            style={{ color: '#fff', display: 'flex', alignItems: 'center' }}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span style={{ textAlign: 'center', flexGrow: 1, padding: '0 8px' }}>
+            {promoBanners[currentPromoIdx]}
+          </span>
+          <button
+            onClick={() => setCurrentPromoIdx(prev => (prev + 1) % promoBanners.length)}
+            style={{ color: '#fff', display: 'flex', alignItems: 'center' }}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {/* Scrollable Body */}
+        <div style={{
+          flexGrow: 1,
+          overflowY: 'auto',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          backgroundColor: '#f9fafb'
+        }}>
+          {/* Cart Items List */}
+          {items.length === 0 ? (
             <div style={{
-              flexGrow: 1,
-              overflowY: 'auto',
-              padding: '20px'
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '40px 20px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              flexGrow: 1
             }}>
-              {cartItems.length === 0 ? (
-                <div className="flex-center" style={{
-                  height: '100%',
-                  flexDirection: 'column',
-                  textAlign: 'center',
-                  padding: '40px 20px',
-                  color: 'var(--text-secondary)'
-                }}>
-                  <ShoppingBag size={48} strokeWidth={1} style={{ marginBottom: '16px', color: 'var(--border-color)' }} />
-                  <p style={{ fontSize: '1rem', fontWeight: 500 }}>Your cart is empty</p>
-                  <p style={{ fontSize: '0.85rem', marginTop: '4px' }}>Add sacred items to begin your spiritual journey.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {cartItems.map((item) => (
-                    <div
-                      key={item.product.id}
-                      style={{
-                        display: 'flex',
-                        gap: '12px',
-                        padding: '12px',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)'
-                      }}
-                    >
-                      {/* Product Thumbnail */}
-                      <div
-                        className="flex-center"
-                        style={{
-                          width: '70px',
-                          height: '70px',
-                          borderRadius: 'var(--radius-sm)',
-                          background: getCategoryGradient(item.product.category),
-                          flexShrink: 0,
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {isImageUrl(item.product.image) ? (
-                          <img
-                            src={getDisplayImageUrl(item.product.image)}
-                            alt={item.product.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: '2rem' }}>{item.product.image}</span>
-                        )}
+              <ShoppingBag size={48} strokeWidth={1} style={{ marginBottom: '12px', color: '#cbd5e1' }} />
+              <p style={{ fontSize: '0.95rem', fontWeight: 600 }}>Your cart is empty</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Add some divine items to begin your spiritual journey.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {items.map((item) => {
+                if (!item || !item.product) return null;
+                const isGift = item.product.id === 'gift-pyrite-bracelet';
+                const originalPrice = item.product.originalPrice || item.product.price;
+                const hasDiscount = !!item.product.originalPrice && item.product.originalPrice > item.product.price;
+                const discountPct = hasDiscount ? Math.round(((originalPrice - item.product.price) / originalPrice) * 100) : 0;
+
+                return (
+                  <div
+                    key={item.product.id}
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                    }}
+                  >
+                    {/* Item Image */}
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '6px',
+                      backgroundColor: '#f3f4f6',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {isImageUrl(item.product.image) ? (
+                        <img
+                          src={getDisplayImageUrl(item.product.image)}
+                          alt={item.product.name || 'product'}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: '2rem' }}>{typeof item.product.image === 'string' ? item.product.image : '📿'}</span>
+                      )}
+                    </div>
+
+                    {/* Metadata & Title */}
+                    <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'left' }}>
+                      <div>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dark)', lineHeight: 1.2 }}>
+                          {isGift && <Gift size={13} style={{ display: 'inline-block', color: 'var(--primary-lime, #f97316)', marginRight: '4px', verticalAlign: 'text-bottom' }} />}
+                          {item.product.name}
+                        </h4>
+                        
+                        {/* Price details */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                          {isGift ? (
+                            <>
+                              <span style={{ textDecoration: 'line-through', fontSize: '0.8rem', color: '#9ca3af' }}>₹{formatPrice(giftValue)}</span>
+                              <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.82rem' }}>FREE</span>
+                            </>
+                          ) : (
+                            <>
+                              {hasDiscount && (
+                                <span style={{ textDecoration: 'line-through', fontSize: '0.8rem', color: '#9ca3af' }}>₹{formatPrice(originalPrice)}</span>
+                              )}
+                              <span style={{ fontWeight: 800, fontSize: '0.82rem', color: '#111827' }}>₹{formatPrice(item.product.price)}</span>
+                              {hasDiscount && (
+                                <span style={{ color: '#16a34a', fontSize: '0.72rem', fontWeight: 700 }}>({discountPct}% OFF)</span>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Item Details */}
-                      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                        <span style={{
-                          fontSize: '0.92rem',
-                          fontWeight: 600,
-                          color: 'var(--primary-deep)',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}>
-                          {item.product.name}
-                        </span>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                          ₹{item.product.price.toFixed(2)} each
-                        </span>
-
-                        {/* Quantity controls */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                      {/* Quantity & Delete buttons row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                        {isGift ? (
+                          <div style={{
+                            padding: '3px 8px',
+                            backgroundColor: '#f3f4f6',
+                            borderRadius: '4px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: '#4b5563'
+                          }}>
+                            Qty: 1
+                          </div>
+                        ) : (
                           <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '12px',
-                            border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '4px',
                             overflow: 'hidden',
                             backgroundColor: '#ffffff'
                           }}>
                             <button
-                              onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                              style={{ padding: '3px 8px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                             >
-                              <Minus size={14} strokeWidth={2.5} />
+                              <Minus size={12} strokeWidth={2.5} />
                             </button>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, minWidth: '16px', textAlign: 'center' }}>
+                            <span style={{ padding: '0 4px', fontSize: '0.8rem', fontWeight: 800, minWidth: '16px', textAlign: 'center' }}>
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                              style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              style={{ padding: '3px 8px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                             >
-                              <Plus size={14} strokeWidth={2.5} />
+                              <Plus size={12} strokeWidth={2.5} />
                             </button>
                           </div>
+                        )}
 
+                        {!isGift && (
                           <button
                             onClick={() => onRemoveItem(item.product.id)}
-                            style={{
-                              border: 'none',
-                              backgroundColor: 'transparent',
-                              color: '#ef4444',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
+                            style={{ color: '#9ca3af', border: 'none', background: 'none', cursor: 'pointer', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
                           >
-                            Remove
+                            <Trash2 size={15} />
                           </button>
-                        </div>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Coupon Code Input Card */}
+          {items.length > 0 && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              border: '1.5px dashed #d1d5db',
+              padding: '14px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>Apply Coupon Code</span>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Enter Coupon Code"
+                  value={couponCodeInput}
+                  onChange={(e) => setCouponCodeInput(e.target.value)}
+                  style={{
+                    flexGrow: 1,
+                    padding: '8px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '0.82rem',
+                    outline: 'none'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleApplyCoupon(couponCodeInput);
+                    }
+                  }}
+                />
+                {appliedCouponCode ? (
+                  <button
+                    onClick={handleRemoveCoupon}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: '#fee2e2',
+                      color: '#b91c1c',
+                      borderRadius: '4px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleApplyCoupon(couponCodeInput)}
+                    disabled={isValidatingCoupon}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: 'var(--primary-lime, #f97316)',
+                      color: '#ffffff',
+                      borderRadius: '4px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      opacity: isValidatingCoupon ? 0.7 : 1
+                    }}
+                  >
+                    Apply
+                  </button>
+                )}
+              </div>
+
+              {couponError && <p style={{ color: '#ef4444', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponError}</p>}
+              {couponSuccess && <p style={{ color: '#16a34a', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponSuccess}</p>}
+
+              {/* View Available Coupons Trigger */}
+              <div style={{ marginTop: '8px', borderTop: '1px solid #f3f4f6', paddingTop: '6px' }}>
+                <button
+                  onClick={() => setIsCouponsDropdownOpen(prev => !prev)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    fontSize: '0.74rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: 700
+                  }}
+                >
+                  <span>% Available Coupons</span>
+                  <span style={{ color: 'var(--primary-lime, #f97316)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                    View Coupons <ChevronDown size={12} style={{ transform: isCouponsDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </span>
+                </button>
+                
+                {isCouponsDropdownOpen && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    marginTop: '8px',
+                    backgroundColor: '#f9fafb',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    {availableCoupons.map((coupon, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          setCouponCodeInput(coupon.code);
+                          handleApplyCoupon(coupon.code);
+                          setIsCouponsDropdownOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '6px 8px',
+                          backgroundColor: '#ffffff',
+                          borderRadius: '3px',
+                          border: '1px solid #f3f4f6',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.1s'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fff7ed')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                      >
+                        <span style={{ fontWeight: 800, color: 'var(--primary-lime, #f97316)', fontSize: '0.76rem', letterSpacing: '0.5px' }}>
+                          {coupon.code}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
+                          Save {coupon.discount_percent}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Explore More upselling section */}
+          {items.length > 0 && crossSellProducts.length > 0 && (
+            <div style={{ textAlign: 'left' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
+                Explore More
+              </h3>
+              
+              <div
+                className="no-scrollbar"
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  scrollSnapType: 'x mandatory',
+                  WebkitOverflowScrolling: 'touch'
+                }}
+              >
+                {crossSellProducts.map((product) => {
+                  const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
+                  const discountPct = hasDiscount ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100) : 0;
+
+                  return (
+                    <div
+                      key={product.id}
+                      style={{
+                        width: '180px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        flexShrink: 0,
+                        scrollSnapAlign: 'start',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      {/* Product Thumbnail */}
+                      <div style={{
+                        width: '100%',
+                        height: '110px',
+                        borderRadius: '6px',
+                        backgroundColor: '#f3f4f6',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {isImageUrl(product.image) ? (
+                          <img
+                            src={getDisplayImageUrl(product.image)}
+                            alt={product.name || 'product'}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '2.5rem' }}>{typeof product.image === 'string' ? product.image : '📿'}</span>
+                        )}
+                      </div>
+
+                      {/* Product details */}
+                      <h4 style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: 'var(--text-dark)',
+                        marginTop: '8px',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        height: '32px',
+                        lineHeight: 1.2
+                      }} title={product.name}>
+                        {product.name}
+                      </h4>
+
+                      {/* Pricing with originalPrice */}
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        {hasDiscount && (
+                          <span style={{ textDecoration: 'line-through', fontSize: '0.74rem', color: '#9ca3af' }}>₹{product.originalPrice}</span>
+                        )}
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                      </div>
+
+                      {/* Discount Tag & Add to Cart button */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
+                        {hasDiscount ? (
+                          <span style={{
+                            backgroundColor: '#e6f4ea',
+                            color: '#137333',
+                            fontSize: '0.68rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700
+                          }}>
+                            {discountPct}% off
+                          </span>
+                        ) : (
+                          <div />
+                        )}
+
+                        <button
+                          onClick={() => onAddToCart ? onAddToCart(product, 1) : onUpdateQuantity(product.id, 1)}
+                          style={{
+                            padding: '4px 12px',
+                            border: '1px solid var(--primary-lime, #f97316)',
+                            backgroundColor: 'transparent',
+                            color: 'var(--primary-lime, #f97316)',
+                            borderRadius: '4px',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--primary-lime, #f97316)';
+                            e.currentTarget.style.color = '#ffffff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = 'var(--primary-lime, #f97316)';
+                          }}
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Area: Savings, Total breakdown, and Checkout button */}
+        {items.length > 0 && (
+          <div style={{
+            borderTop: '1px solid var(--border-light)',
+            boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.04)',
+            backgroundColor: '#ffffff',
+            padding: '16px'
+          }}>
+            {/* Savings Banner */}
+            {totalSaved > 0 && (
+              <div style={{
+                backgroundColor: '#e6f4ea',
+                color: '#137333',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                marginBottom: '12px'
+              }}>
+                <Sparkles size={14} fill="#137333" />
+                <span>₹{formatPrice(totalSaved)} Saved so far!</span>
+              </div>
+            )}
+
+            {/* Estimated Total Details Accordion */}
+            <div style={{ marginBottom: '12px' }}>
+              <div
+                onClick={() => setIsDetailsExpanded(prev => !prev)}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                  {isDetailsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  <span>Estimated Total</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  {originalTotal > estimatedTotal && (
+                    <span style={{ textDecoration: 'line-through', fontSize: '0.82rem', color: '#9ca3af' }}>₹{formatPrice(originalTotal)}</span>
+                  )}
+                  <span style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                    ₹{formatPrice(estimatedTotal)}
+                  </span>
+                  {originalTotal > estimatedTotal && (
+                    <span style={{ color: '#16a34a', fontSize: '0.74rem', fontWeight: 700 }}>
+                      ({Math.round(((originalTotal - estimatedTotal) / originalTotal) * 100)}% OFF)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Collapsed breakdown detail block */}
+              {isDetailsExpanded && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '0.78rem',
+                  color: '#4b5563',
+                  textAlign: 'left'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Items Subtotal</span>
+                    <span>₹{formatPrice(subtotal)}</span>
+                  </div>
+                  {couponDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b91c1c' }}>
+                      <span>Coupon Discount ({discountPercent}%)</span>
+                      <span>-₹{formatPrice(couponDiscount)}</span>
+                    </div>
+                  )}
+                  {hasGift && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
+                      <span>🎁 Free Gift Value</span>
+                      <span>-₹{formatPrice(giftValue)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Delivery Charges</span>
+                    <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>GST (8%)</span>
+                    <span>₹{formatPrice(tax)}</span>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Checkout Order Summary Section */}
-            {cartItems.length > 0 && (
-              <div style={{
-                padding: '24px',
-                backgroundColor: '#ffffff',
-                borderTop: '1px solid var(--border-color)',
-                boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.05)'
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Items Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Divine Shipping</span>
-                    <span>{shippingFee === 0 ? <span style={{ color: 'green', fontWeight: 600 }}>FREE</span> : `₹${shippingFee.toFixed(2)}`}</span>
-                  </div>
-
-                  {spiritualDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'green' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Sparkles size={14} /> Spiritual Discount
-                      </span>
-                      <span>-₹{spiritualDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '1.2rem',
-                    fontWeight: 700,
-                    paddingTop: '8px',
-                    borderTop: '1px solid var(--border-color)',
-                    color: 'var(--primary-deep)'
-                  }}>
-                    <span>Total Amount</span>
-                    <span>₹{total.toFixed(2)}</span>
-                  </div>
+            {/* Branded Brown Checkout Button */}
+            <button
+              onClick={onCheckout}
+              style={{
+                width: '100%',
+                backgroundColor: '#9a3412', // rich terracotta brown
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                fontSize: '1rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                transition: 'background-color 0.2s',
+                boxShadow: '0 4px 12px rgba(154, 52, 18, 0.15)'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7c2d12')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9a3412')}
+            >
+              <span>Checkout</span>
+              
+              {/* Payment Logos inside button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.72rem', opacity: 0.8, letterSpacing: '0.5px' }}>UPI / CARDS</span>
+                {/* Simulated payment icon shapes for cleaner rendering */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <span style={{ backgroundColor: '#ffffff', color: '#002f6c', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>Paytm</span>
+                  <span style={{ backgroundColor: '#ffffff', color: '#ea4335', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>GPay</span>
+                  <span style={{ backgroundColor: '#5f259f', color: '#ffffff', fontSize: '0.55rem', fontWeight: 900, padding: '1px 4px', borderRadius: '2px', fontFamily: 'sans-serif' }}>Pe</span>
                 </div>
-
-                <button
-                  onClick={handleCheckout}
-                  disabled={checkoutState === 'processing'}
-                  className="btn-primary"
-                  style={{
-                    width: '100%',
-                    justifyContent: 'center',
-                    padding: '14px'
-                  }}
-                >
-                  {checkoutState === 'processing' ? 'Processing Blessings...' : 'Energize & Place Order'}
-                </button>
               </div>
-            )}
-          </>
+            </button>
+
+            {/* GoKwik subtext */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              marginTop: '10px',
+              fontSize: '0.7rem',
+              color: 'var(--text-muted)'
+            }}>
+              <span style={{ fontWeight: 700 }}>Flat Rs 101/- Off on all Prepaid orders</span>
+              <span style={{ marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                Powered by <strong style={{ color: '#0369a1', display: 'inline-flex', alignItems: 'center' }}><ShoppingBag size={10} style={{ marginRight: '1px' }} /> GoKwik</strong>
+              </span>
+            </div>
+          </div>
         )}
       </div>
     </div>

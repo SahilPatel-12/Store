@@ -196,6 +196,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [featuredTitle, setFeaturedTitle] = React.useState('Our Featured Collection');
   const [featuredSubtitle, setFeaturedSubtitle] = React.useState('Get 30% off when you purchase our featured bundle');
   const [featuredProductIds, setFeaturedProductIds] = React.useState<string[]>([]);
+  const [cartExploreMoreProductIds, setCartExploreMoreProductIds] = React.useState<string[]>([]);
 
   const [saleTitle, setSaleTitle] = React.useState('Exceptional Discounts up to 30%');
   const [saleSubtitle, setSaleSubtitle] = React.useState('EXCLUSIVE OFFERS WEEK');
@@ -256,6 +257,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           setFeaturedTitle(val.featuredTitle || 'Our Featured Collection');
           setFeaturedSubtitle(val.featuredSubtitle || 'Get 30% off when you purchase our featured bundle');
           setFeaturedProductIds(val.featuredProductIds || []);
+          setCartExploreMoreProductIds(val.cartExploreMoreProductIds || []);
 
           setSaleTitle(val.saleTitle || 'Exceptional Discounts up to 30%');
           setSaleSubtitle(val.saleSubtitle || 'EXCLUSIVE OFFERS WEEK');
@@ -310,6 +312,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             newArrivalsTitle,
             newArrivalsSubtitle,
             newArrivalsProductIds: activeNewArrivalsIds,
+            cartExploreMoreProductIds: activeCartExploreMoreIds,
             bannerImages,
             showcaseImage
           }
@@ -907,6 +910,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const activeNewArrivalsIds = React.useMemo(() => {
     return newArrivalsProductIds.filter(id => allAvailableProducts.some(p => p.id === id)).slice(0, 4);
   }, [newArrivalsProductIds, allAvailableProducts]);
+
+  const activeCartExploreMoreIds = React.useMemo(() => {
+    return cartExploreMoreProductIds.filter(id => allAvailableProducts.some(p => p.id === id));
+  }, [cartExploreMoreProductIds, allAvailableProducts]);
 
   const handleBulkPublishPooja = async () => {
     const idsToPublish = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
@@ -3707,6 +3714,64 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Cart Drawer Explore More Upselling Section */}
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Cart Drawer: Explore More Upselling Products</h4>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1'
+                      }}>
+                        {activeCartExploreMoreIds.length} Selected
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Select the products you want to display in the "Explore More" upselling section of the slide-over cart drawer. These items will be shown to users to encourage cross-selling.
+                      </p>
+                      {/* Products scroll list */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select items to display in Explore More</label>
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {allAvailableProducts
+                            .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
+                            .map((p) => {
+                              const checked = activeCartExploreMoreIds.includes(p.id);
+                              return (
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setCartExploreMoreProductIds(prev => {
+                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id));
+                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                        return [...cleanPrev, p.id];
+                                      });
+                                    }}
+                                  />
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {isImageUrl(p.image) ? (
+                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                    )}
+                                  </div>
+                                  <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {/* ============================================================
                       SECTION 4 (Shop Banners): Main Banner + Category Banners
                       ============================================================ */}
@@ -6322,7 +6387,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
             {/* SUBTAB CONTENT: TIERS & SETTINGS */}
             {affiliateSubTab === 'tiers' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }} className="hero-grid-split">
                 {/* Left: Tiers List */}
                 <div style={{
                   backgroundColor: '#ffffff',

@@ -1,5 +1,5 @@
-export const isImageUrl = (val: string | undefined | null): boolean => {
-  if (!val) return false;
+export const isImageUrl = (val: any): boolean => {
+  if (!val || typeof val !== 'string') return false;
   const s = val.trim();
   return (
     s.startsWith('http://') ||
@@ -14,8 +14,8 @@ export const isImageUrl = (val: string | undefined | null): boolean => {
   );
 };
 
-export const getDisplayImageUrl = (val: string | undefined | null): string => {
-  if (!val) return '';
+export const getDisplayImageUrl = (val: any): string => {
+  if (!val || typeof val !== 'string') return '';
   let s = val.trim();
   if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('//')) {
     return s;
