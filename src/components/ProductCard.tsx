@@ -44,7 +44,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div
-      className="fade-in-entry"
+      className="fade-in-entry product-card-main"
       style={{
         borderRadius: '16px',
         border: '1px solid var(--border-light)',

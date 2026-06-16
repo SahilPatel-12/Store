@@ -160,13 +160,13 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
         <div className="container">
           {bannerImages.length > 0 ? (
             /* === Dynamic Image Carousel === */
-            <div style={{
+            <div className="shop-banner-container" style={{
               position: 'relative',
               borderRadius: 'var(--radius-lg)',
               overflow: 'hidden',
-              height: '280px',
-              backgroundColor: '#1c1917',
-              boxShadow: 'var(--shadow-lg)'
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
+              border: '1px solid var(--border-light)',
+              backgroundColor: '#1c1917'
             }}>
               {/* Slides */}
               {bannerImages.map((src, idx) => (
@@ -174,121 +174,115 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                   key={idx}
                   style={{
                     position: 'absolute',
-                    inset: 0,
-                    transition: 'opacity 0.7s ease',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
                     opacity: idx === bannerSlide ? 1 : 0,
+                    transition: 'opacity 0.8s ease-in-out',
+                    zIndex: idx === bannerSlide ? 1 : 0,
                     pointerEvents: idx === bannerSlide ? 'auto' : 'none',
                   }}
                 >
                   <img
                     src={src}
                     alt={`${categoryName} banner ${idx + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
                   />
-                  {/* Gradient overlay */}
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(90deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)'
-                  }} />
                 </div>
               ))}
 
-              {/* Text overlay */}
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                padding: '32px 48px',
-                zIndex: 2
-              }}>
-                <span style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '2px',
-                  color: 'var(--primary-lime)',
-                  marginBottom: '8px',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.5)'
-                }}>
-                  Collection
-                </span>
-                <h1 style={{
-                  fontSize: '2.5rem',
-                  fontWeight: 800,
-                  lineHeight: 1.2,
-                  marginBottom: '10px',
-                  color: '#ffffff',
-                  textShadow: '0 2px 12px rgba(0,0,0,0.5)'
-                }}>
-                  {categoryName}
-                </h1>
-                <p style={{
-                  fontSize: '0.9rem',
-                  color: 'rgba(255,255,255,0.85)',
-                  lineHeight: 1.5,
-                  maxWidth: '460px',
-                  textShadow: '0 1px 6px rgba(0,0,0,0.4)'
-                }}>
-                  {categoryDescriptions[categoryName] || 'Explore our energized devotional items blessed under traditional temple rituals.'}
-                </p>
-              </div>
-
-              {/* Prev / Next arrows */}
+              {/* Circular dots/indicators */}
               {bannerImages.length > 1 && (
-                <>
-                  <button
-                    onClick={handlePrev}
-                    aria-label="Previous"
-                    style={{
-                      position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
-                      zIndex: 4, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-                      border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
-                      width: '38px', height: '38px', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', cursor: 'pointer', color: '#ffffff', transition: 'background 0.2s'
-                    }}
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    aria-label="Next"
-                    style={{
-                      position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
-                      zIndex: 4, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-                      border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
-                      width: '38px', height: '38px', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', cursor: 'pointer', color: '#ffffff', transition: 'background 0.2s'
-                    }}
-                  >
-                    <ChevronRight size={18} />
-                  </button>
+                <div style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  gap: '8px',
+                  zIndex: 10
+                }}>
+                  {bannerImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setBannerSlide(idx)}
+                      style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: idx === bannerSlide ? 'var(--primary-lime)' : 'rgba(255,255,255,0.4)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        transition: 'background-color 0.2s',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
 
-                  {/* Dot indicators */}
-                  <div style={{
-                    position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)',
-                    display: 'flex', gap: '7px', zIndex: 4
-                  }}>
-                    {bannerImages.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setBannerSlide(idx)}
-                        aria-label={`Slide ${idx + 1}`}
-                        style={{
-                          width: idx === bannerSlide ? '22px' : '7px',
-                          height: '7px',
-                          borderRadius: '4px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          backgroundColor: idx === bannerSlide ? '#ffffff' : 'rgba(255,255,255,0.4)'
-                        }}
-                      />
-                    ))}
-                  </div>
-                </>
+              {/* Chevron Left Arrow */}
+              {bannerImages.length > 1 && (
+                <button
+                  onClick={handlePrev}
+                  style={{
+                    position: 'absolute',
+                    left: '16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+
+              {/* Chevron Right Arrow */}
+              {bannerImages.length > 1 && (
+                <button
+                  onClick={handleNext}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                >
+                  <ChevronRight size={24} />
+                </button>
               )}
             </div>
           ) : (

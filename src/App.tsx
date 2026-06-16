@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Star, Plus, Minus } from 'lucide-react';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
+import { SeamlessCheckoutModal } from './components/SeamlessCheckoutModal';
 import type { OrderDetails } from './components/OrderSuccessPage';
 import type { Product, CartItem, LocalOrder } from './types';
 import { supabase } from './lib/supabase';
@@ -260,6 +261,7 @@ function App() {
 
   const [profileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'>('info');
 
+  const [isSeamlessCheckoutOpen, setIsSeamlessCheckoutOpen] = React.useState(false);
   const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | 'cart' | null>(null);
   const [pendingBuyNow, setPendingBuyNow] = React.useState<{ product: Product; qty: number } | null>(null);
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
@@ -477,17 +479,21 @@ function App() {
   ) => {
     setMobileMenuOpen(false);
     setMobileCategoriesExpanded(false);
+
+    if (page === 'checkout') {
+      setIsSeamlessCheckoutOpen(true);
+      return;
+    }
+
     // Intercept protected devotee page routing
-    if (page === 'checkout' || page === 'wishlist' || page === 'orders' || page === 'profile') {
+    if (page === 'wishlist' || page === 'orders' || page === 'profile') {
       if (!loggedInUser && !options?.bypassAuthCheck) {
         if (page !== 'profile') {
-          alert(`Please log in or register to access ${page === 'checkout' ? 'checkout' : page}.`);
+          alert(`Please log in or register to access ${page}.`);
         }
         setAuthRedirectPage(
           page === 'profile'
             ? 'profile'
-            : page === 'checkout'
-            ? 'cart'
             : page
         );
         page = 'user-auth';
@@ -522,9 +528,6 @@ function App() {
         break;
       case 'cart':
         path = '/cart';
-        break;
-      case 'checkout':
-        path = '/checkout';
         break;
       case 'success':
         path = '/success';
@@ -637,12 +640,8 @@ function App() {
         setCurrentPageState('shop');
         setIsCartDrawerOpen(true);
       } else if (path === '/checkout' || path === '/checkout/') {
-        if (loggedInUser) {
-          setCurrentPageState('checkout');
-        } else {
-          setAuthRedirectPage('cart');
-          setCurrentPageState('user-auth');
-        }
+        setCurrentPageState('shop');
+        setIsSeamlessCheckoutOpen(true);
       } else if (path === '/success' || path === '/success/') {
         setCurrentPageState('success');
       } else if (path === '/orders' || path === '/orders/') {
@@ -1841,6 +1840,7 @@ function App() {
                         cursor: 'pointer',
                         gap: '8px'
                       }}
+                      className="featured-product-card"
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-6px)';
                         e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
@@ -2006,15 +2006,15 @@ function App() {
                               const qty = cartItem ? cartItem.quantity : 0;
                               if (qty > 0) {
                                 return (
-                                  <div style={{
+                                  <div className="qty-selector-wrap" style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     backgroundColor: 'var(--primary-deep)',
                                     borderRadius: '8px',
-                                    padding: '4px',
+                                    padding: '2px',
                                     width: '100%',
-                                    height: '40px',
+                                    height: '36px',
                                     boxSizing: 'border-box'
                                   }}>
                                     <button
@@ -2077,6 +2077,7 @@ function App() {
                               }
                               return (
                                 <button
+                                  className="add-to-cart-btn"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleAddToCartWithQty(product, 1);
@@ -2129,26 +2130,40 @@ function App() {
 
               </div>
 
-              {/* Bottom lime green checkout banner */}
-              <div style={{
-                marginTop: 'auto',
+              {/* Bottom checkout banner */}
+              <div className="bundle-checkout-bar" style={{
+                marginTop: '24px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                textAlign: 'center'
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                borderRadius: '16px',
+                backgroundColor: 'var(--primary-lime-light, #fff7ed)',
+                border: '1px solid rgba(249, 115, 22, 0.15)',
+                boxShadow: 'var(--shadow-sm)'
               }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bundle Total</span>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                    ₹{Math.round(getFeaturedProducts().reduce((sum, p) => sum + p.price, 0))}
+                  </span>
+                </div>
                 <button
                   onClick={() => {
                     getFeaturedProducts().forEach(p => handleAddToCartWithQty(p, 1));
                   }}
-                  className="btn-lime"
-                  style={{ width: '100%', padding: '16px' }}
+                  className="btn-primary"
+                  style={{ 
+                    padding: '12px 24px',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    borderRadius: '12px',
+                    margin: 0,
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.2)'
+                  }}
                 >
                   Add Bundle to Cart
                 </button>
-                <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                  Total: ₹{Math.round(getFeaturedProducts().reduce((sum, p) => sum + p.price, 0))}
-                </span>
               </div>
             </div>
 
@@ -2265,6 +2280,7 @@ function App() {
                     cursor: 'pointer',
                     gap: '12px'
                   }}
+                  className="sale-product-card"
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-6px)';
                     e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
@@ -2430,9 +2446,10 @@ function App() {
                           const qty = cartItem ? cartItem.quantity : 0;
                           if (qty > 0) {
                             return (
-                              <div style={{
+                              <div className="qty-selector-wrap" style={{
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifySelf: 'stretch',
                                 justifyContent: 'space-between',
                                 backgroundColor: 'var(--primary-deep)',
                                 borderRadius: '8px',
@@ -2501,6 +2518,7 @@ function App() {
                           }
                           return (
                             <button
+                              className="add-to-cart-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleAddToCartWithQty(product, 1);
@@ -3407,12 +3425,7 @@ function App() {
         onClearCart={handleClearCart}
         onCheckout={() => {
           setIsCartDrawerOpen(false);
-          if (!loggedInUser) {
-            setAuthRedirectPage('checkout');
-            setCurrentPage('user-auth');
-          } else {
-            setCurrentPage('checkout');
-          }
+          setIsSeamlessCheckoutOpen(true);
         }}
         loggedInUser={loggedInUser}
         appliedCouponCode={appliedCouponCode}
@@ -3425,6 +3438,144 @@ function App() {
         products={productsState}
         exploreMoreProductIds={Array.isArray(homepageConfig?.cartExploreMoreProductIds) ? homepageConfig.cartExploreMoreProductIds : []}
         onAddToCart={handleAddToCartWithQty}
+      />
+
+      <SeamlessCheckoutModal
+        isOpen={isSeamlessCheckoutOpen}
+        onClose={() => setIsSeamlessCheckoutOpen(false)}
+        cart={cart}
+        loggedInUser={loggedInUser}
+        onLoginSuccess={(userSession, token) => {
+          try {
+            localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
+            localStorage.setItem('session_token', token);
+          } catch (e) {}
+          setLoggedInUser(userSession);
+        }}
+        appliedCouponCode={appliedCouponCode}
+        onApplyCoupon={(code, percent, productId) => {
+          setAppliedCouponCode(code);
+          setDiscountPercent(percent);
+          setAppliedCouponProductId(productId);
+        }}
+        discountPercent={discountPercent}
+        onOrderSuccess={async (details) => {
+          const newOrder: LocalOrder = {
+            ...details,
+            userId: loggedInUser?.id,
+            status: 'Being Packed'
+          };
+          
+          try {
+            const orderPayload: any = {
+              order_id: newOrder.orderId,
+              user_id: newOrder.userId || null,
+              items: newOrder.items,
+              subtotal: newOrder.subtotal,
+              discount: newOrder.discount,
+              discount_percent: newOrder.discountPercent,
+              shipping: newOrder.shipping,
+              tax: newOrder.tax,
+              total: newOrder.total,
+              payment_method: newOrder.paymentMethod,
+              delivery_city: newOrder.deliveryCity,
+              delivery_state: newOrder.deliveryState,
+              full_name: newOrder.fullName,
+              email: newOrder.email,
+              address_line1: newOrder.addressLine1,
+              address_line2: newOrder.addressLine2 || null,
+              pincode: newOrder.pincode,
+              phone_number: newOrder.phoneNumber,
+              status: newOrder.status,
+              razorpay_payment_id: newOrder.razorpayPaymentId || null
+            };
+
+            let { error } = await supabase.from('website_store_orders').insert(orderPayload);
+            
+            if (error) {
+              if (error.code === 'PGRST204' || (error.message && error.message.includes('razorpay_payment_id'))) {
+                console.warn('razorpay_payment_id column is missing. Retrying insert without it...');
+                const { razorpay_payment_id, ...fallbackPayload } = orderPayload;
+                const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
+                error = retryResult.error;
+              }
+            }
+
+            if (error) throw error;
+
+            if (details.appliedCouponCode && loggedInUser) {
+              try {
+                const { data: couponData, error: couponFetchError } = await supabase
+                  .from('website_store_coupons')
+                  .select('id, redemptions_count')
+                  .eq('code', details.appliedCouponCode)
+                  .single();
+
+                if (!couponFetchError && couponData) {
+                  await supabase
+                    .from('website_store_coupon_redemptions')
+                    .insert({
+                      coupon_id: couponData.id,
+                      user_id: loggedInUser.id,
+                      order_id: newOrder.orderId
+                    });
+
+                  await supabase
+                    .from('website_store_coupons')
+                    .update({ redemptions_count: (couponData.redemptions_count || 0) + 1 })
+                    .eq('id', couponData.id);
+                }
+              } catch (couponErr) {
+                console.error('Error logging coupon redemption:', couponErr);
+              }
+            }
+
+            if (loggedInUser) {
+              try {
+                const { data: existing, error: findError } = await supabase
+                  .from('website_store_addresses')
+                  .select('id')
+                  .eq('user_id', loggedInUser.id)
+                  .eq('street', details.addressLine1)
+                  .eq('city', details.deliveryCity)
+                  .eq('state', details.deliveryState)
+                  .eq('zip', details.pincode);
+
+                if (!findError && (!existing || existing.length === 0)) {
+                  const { count, error: countError } = await supabase
+                    .from('website_store_addresses')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', loggedInUser.id);
+                  
+                  const isDefault = !countError && (count === 0);
+
+                  await supabase
+                    .from('website_store_addresses')
+                    .insert({
+                      user_id: loggedInUser.id,
+                      type: 'Checkout Address',
+                      name: details.fullName,
+                      phone: details.phoneNumber,
+                      street: details.addressLine1,
+                      city: details.deliveryCity,
+                      state: details.deliveryState,
+                      zip: details.pincode,
+                      is_default: isDefault
+                    });
+                }
+              } catch (syncErr) {
+                console.error('Failed to sync shipping address during checkout:', syncErr);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to save order to Supabase:', err);
+          }
+
+          setOrdersState(prev => [newOrder, ...prev]);
+          setOrderDetails(details);
+          setCurrentPage('success');
+        }}
+        onOrderComplete={handleClearCart}
       />
 
       {floatingEffects.map(effect => (
@@ -3503,7 +3654,7 @@ function App() {
           
           /* Scale hero banner down on mobile viewports */
           #hero .container > div {
-            height: 240px !important;
+            height: auto !important;
           }
         }
 
@@ -3517,7 +3668,51 @@ function App() {
         }
         @media (max-width: 600px) {
           .sub-grid-2x2 {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+          .featured-grid-wrap > div:first-child {
+            height: 280px !important;
+          }
+          .featured-product-card {
+            padding: 8px !important;
+            border-radius: 12px !important;
+            gap: 6px !important;
+          }
+          .featured-product-card h3 {
+            font-size: 0.82rem !important;
+            margin-bottom: 2px !important;
+          }
+          .featured-product-card span {
+            font-size: 0.95rem !important;
+          }
+          .featured-product-card .qty-selector-wrap {
+            height: 34px !important;
+            padding: 2px !important;
+          }
+          .featured-product-card .qty-selector-wrap span {
+            font-size: 0.75rem !important;
+          }
+          .featured-product-card .qty-selector-wrap button {
+            width: 26px !important;
+            height: 26px !important;
+          }
+          .featured-product-card .add-to-cart-btn {
+            padding: 8px 12px !important;
+            font-size: 0.75rem !important;
+            border-radius: 6px !important;
+          }
+          .bundle-checkout-bar {
+            padding: 12px 14px !important;
+            margin-top: 16px !important;
+          }
+          .bundle-checkout-bar button {
+            padding: 10px 16px !important;
+            font-size: 0.82rem !important;
+            border-radius: 10px !important;
+          }
+          .bundle-checkout-bar span:last-child {
+            font-size: 1.1rem !important;
           }
           .desktop-search {
             display: none !important;

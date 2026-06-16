@@ -216,188 +216,191 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     <div style={{ paddingBottom: '60px' }}>
 
       {/* 1. Header Banner — image carousel if images exist, else decorated fallback */}
-      <section style={{ padding: '0 0 32px 0' }}>
-        {mainBannerImages.length > 0 ? (
-          /* === Dynamic Image Carousel === */
-          <div style={{
-            position: 'relative',
-            borderRadius: 'var(--radius-lg)',
-            overflow: 'hidden',
-            height: '320px',
-            backgroundColor: '#1c1917',
-            boxShadow: 'var(--shadow-lg)'
-          }}>
-            {/* Slides */}
-            {mainBannerImages.map((src, idx) => (
-              <div
-                key={idx}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  transition: 'opacity 0.7s ease',
-                  opacity: idx === mainBannerSlide ? 1 : 0,
-                  pointerEvents: idx === mainBannerSlide ? 'auto' : 'none',
-                }}
-              >
-                <img
-                  src={src}
-                  alt={`Shop banner ${idx + 1}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-                {/* Gradient overlay */}
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(90deg, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.05) 60%, transparent 100%)'
-                }} />
-              </div>
-            ))}
-
-            {/* Text overlay on top of image */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              padding: '32px 48px',
-              zIndex: 2
+      <section style={{ padding: '24px 0 32px 0' }}>
+        <div className="container">
+          {mainBannerImages.length > 0 ? (
+            /* === Dynamic Image Carousel === */
+            <div className="shop-banner-container" style={{
+              position: 'relative',
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
+              border: '1px solid var(--border-light)',
+              backgroundColor: '#1c1917'
             }}>
-              <h1 style={{
-                fontSize: '2.4rem',
-                fontWeight: 800,
-                lineHeight: 1.2,
-                marginBottom: '10px',
-                color: '#ffffff',
-                textShadow: '0 2px 12px rgba(0,0,0,0.5)'
-              }}>
-                The Divine Shop
-              </h1>
-              <p style={{
-                fontSize: '0.95rem',
-                color: 'rgba(255,255,255,0.88)',
-                lineHeight: 1.6,
-                maxWidth: '480px',
-                textShadow: '0 1px 6px rgba(0,0,0,0.4)'
-              }}>
-                Authentic, priest-energized spiritual items for your sacred space.
-              </p>
-            </div>
-
-            {/* Nav arrows */}
-            {mainBannerImages.length > 1 && (
-              <>
-                <button
-                  onClick={handlePrevBanner}
-                  aria-label="Previous banner"
+              {/* Slides */}
+              {mainBannerImages.map((src, idx) => (
+                <div
+                  key={idx}
                   style={{
-                    position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)',
-                    zIndex: 4, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
-                    width: '40px', height: '40px', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', cursor: 'pointer', color: '#ffffff',
-                    transition: 'background 0.2s'
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: idx === mainBannerSlide ? 1 : 0,
+                    transition: 'opacity 0.8s ease-in-out',
+                    zIndex: idx === mainBannerSlide ? 1 : 0,
+                    pointerEvents: idx === mainBannerSlide ? 'auto' : 'none',
                   }}
                 >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  onClick={handleNextBanner}
-                  aria-label="Next banner"
-                  style={{
-                    position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)',
-                    zIndex: 4, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%',
-                    width: '40px', height: '40px', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', cursor: 'pointer', color: '#ffffff',
-                    transition: 'background 0.2s'
-                  }}
-                >
-                  <ChevronRight size={20} />
-                </button>
+                  <img
+                    src={src}
+                    alt={`Shop banner ${idx + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              ))}
 
-                {/* Dot indicators */}
+              {/* Circular dots/indicators */}
+              {mainBannerImages.length > 1 && (
                 <div style={{
-                  position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
-                  display: 'flex', gap: '8px', zIndex: 4
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  gap: '8px',
+                  zIndex: 10
                 }}>
                   {mainBannerImages.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setMainBannerSlide(idx)}
-                      aria-label={`Go to slide ${idx + 1}`}
                       style={{
-                        width: idx === mainBannerSlide ? '24px' : '8px',
-                        height: '8px',
-                        borderRadius: '4px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: idx === mainBannerSlide ? 'var(--primary-lime)' : 'rgba(255,255,255,0.4)',
                         border: 'none',
                         cursor: 'pointer',
-                        transition: 'all 0.3s ease',
-                        backgroundColor: idx === mainBannerSlide
-                          ? '#ffffff'
-                          : 'rgba(255,255,255,0.45)'
+                        padding: 0,
+                        transition: 'background-color 0.2s',
                       }}
                     />
                   ))}
                 </div>
-              </>
-            )}
-          </div>
-        ) : (
-          /* === Fallback: Decorated Static Banner === */
-          <div style={{
-            backgroundColor: 'var(--primary-forest)',
-            borderRadius: 'var(--radius-lg)',
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            minHeight: '280px',
-            position: 'relative'
-          }}>
-            <div style={{
-              position: 'absolute', top: '10%', left: '5%',
-              width: '100px', height: '100px', borderRadius: '50%',
-              background: 'rgba(249, 115, 22, 0.15)', filter: 'blur(40px)', zIndex: 0
-            }}></div>
+              )}
 
+              {/* Chevron Left Arrow */}
+              {mainBannerImages.length > 1 && (
+                <button
+                  onClick={handlePrevBanner}
+                  style={{
+                    position: 'absolute',
+                    left: '16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+
+              {/* Chevron Right Arrow */}
+              {mainBannerImages.length > 1 && (
+                <button
+                  onClick={handleNextBanner}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.6)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.3)'}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              )}
+            </div>
+          ) : (
+            /* === Fallback: Decorated Static Banner === */
             <div style={{
-              display: 'grid', gridTemplateColumns: '1.2fr 1fr',
-              width: '100%', height: '100%', zIndex: 1
-            }} className="hero-grid-split">
+              backgroundColor: 'var(--primary-forest)',
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: '280px',
+              position: 'relative'
+            }}>
               <div style={{
-                padding: '32px 40px', display: 'flex', flexDirection: 'column',
-                justifyContent: 'center', textAlign: 'left', color: '#ffffff'
-              }}>
-                <h1 style={{
-                  fontSize: '2.4rem', fontWeight: 800, lineHeight: 1.2,
-                  marginBottom: '12px', fontFamily: 'var(--font-sans)', color: '#ffffff'
-                }}>
-                  The Divine Shop
-                </h1>
-                <p style={{ fontSize: '0.95rem', opacity: 0.8, lineHeight: 1.5, maxWidth: '480px' }}>
-                  Explore our curated collections of authentic, priest-energized spiritual items designed to invite divine energy, focus, and peace into your sacred space.
-                </p>
-              </div>
+                position: 'absolute', top: '10%', left: '5%',
+                width: '100px', height: '100px', borderRadius: '50%',
+                background: 'rgba(249, 115, 22, 0.15)', filter: 'blur(40px)', zIndex: 0
+              }}></div>
 
-              <div className="flex-center float-anim" style={{ position: 'relative', height: '240px' }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1.2fr 1fr',
+                width: '100%', height: '100%', zIndex: 1
+              }} className="hero-grid-split">
                 <div style={{
-                  position: 'absolute', width: '180px', height: '180px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(255,255,255,0.05))',
-                  border: '1px solid rgba(255,255,255,0.1)', zIndex: 0
-                }}></div>
-                <div style={{
-                  position: 'absolute', width: '130px', height: '130px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, rgba(254, 243, 237, 0.15) 0%, rgba(253, 230, 138, 0.05) 100%)',
-                  zIndex: 1
-                }}></div>
-                <span style={{
-                  fontSize: '6.5rem', zIndex: 2, userSelect: 'none',
-                  filter: 'drop-shadow(0 10px 20px rgba(249, 115, 22, 0.2))'
-                }}>🕉️</span>
+                  padding: '32px 40px', display: 'flex', flexDirection: 'column',
+                  justifyContent: 'center', textAlign: 'left', color: '#ffffff'
+                }}>
+                  <h1 style={{
+                    fontSize: '2.4rem', fontWeight: 800, lineHeight: 1.2,
+                    marginBottom: '12px', fontFamily: 'var(--font-sans)', color: '#ffffff'
+                  }}>
+                    The Divine Shop
+                  </h1>
+                  <p style={{ fontSize: '0.95rem', opacity: 0.8, lineHeight: 1.5, maxWidth: '480px' }}>
+                    Explore our curated collections of authentic, priest-energized spiritual items designed to invite divine energy, focus, and peace into your sacred space.
+                  </p>
+                </div>
+
+                <div className="flex-center float-anim" style={{ position: 'relative', height: '240px' }}>
+                  <div style={{
+                    position: 'absolute', width: '180px', height: '180px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(255,255,255,0.05))',
+                    border: '1px solid rgba(255,255,255,0.1)', zIndex: 0
+                  }}></div>
+                  <div style={{
+                    position: 'absolute', width: '130px', height: '130px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, rgba(254, 243, 237, 0.15) 0%, rgba(253, 230, 138, 0.05) 100%)',
+                    zIndex: 1
+                  }}></div>
+                  <span style={{
+                    fontSize: '6.5rem', zIndex: 2, userSelect: 'none',
+                    filter: 'drop-shadow(0 10px 20px rgba(249, 115, 22, 0.2))'
+                  }}>🕉️</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
 

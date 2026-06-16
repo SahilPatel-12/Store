@@ -286,12 +286,17 @@ button {
   animation: pulse-gold 2s infinite;
 }
 
-.hero-slider-container {
-  height: 460px;
+.hero-slider-container,
+.shop-banner-container {
+  width: 100%;
+  aspect-ratio: 2.2;
+  height: auto;
 }
 
 .featured-card-img-box {
-  height: 170px;
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
 }
 
 /* ==========================================
@@ -447,10 +452,10 @@ button {
     gap: 16px !important;
   }
   .hero-slider-container {
-    height: 300px !important;
+    height: auto !important;
   }
   .featured-card-img-box {
-    height: 140px !important;
+    height: auto !important;
   }
 }
 
@@ -460,14 +465,58 @@ button {
   .wishlist-product-grid,
   .new-arrivals-grid,
   .sale-row-grid {
-    grid-template-columns: repeat(1, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
   .hero-slider-container {
-    height: 200px !important;
+    height: auto !important;
   }
   .featured-card-img-box {
-    height: 120px !important;
+    height: auto !important;
+  }
+
+  /* Unified Mobile App UI styles for all Product Cards */
+  .product-card-main,
+  .sale-product-card,
+  .featured-product-card {
+    padding: 8px !important;
+    border-radius: 12px !important;
+    gap: 6px !important;
+  }
+  .product-card-main h3,
+  .sale-product-card h3,
+  .featured-product-card h3 {
+    font-size: 0.82rem !important;
+    margin-bottom: 2px !important;
+  }
+  .product-card-main span,
+  .sale-product-card span,
+  .featured-product-card span {
+    font-size: 0.95rem !important;
+  }
+  .product-card-main .qty-selector-wrap,
+  .sale-product-card .qty-selector-wrap,
+  .featured-product-card .qty-selector-wrap {
+    height: 34px !important;
+    padding: 2px !important;
+  }
+  .product-card-main .qty-selector-wrap span,
+  .sale-product-card .qty-selector-wrap span,
+  .featured-product-card .qty-selector-wrap span {
+    font-size: 0.75rem !important;
+  }
+  .product-card-main .qty-selector-wrap button,
+  .sale-product-card .qty-selector-wrap button,
+  .featured-product-card .qty-selector-wrap button {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  .product-card-main button,
+  .sale-product-card .add-to-cart-btn,
+  .featured-product-card .add-to-cart-btn {
+    padding: 8px 12px !important;
+    font-size: 0.75rem !important;
+    border-radius: 6px !important;
   }
 }
 
@@ -753,6 +802,23 @@ details.referral-details > summary {
   .nav-actions button {
     padding: 4px !important;
   }
+}
+
+/* Seamless Checkout Modal Overlay and Bottom Sheet responsive design */
+@media (max-width: 600px) {
+  .seamless-checkout-card {
+    max-height: 100% !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  }
+}
+
+@keyframes slideUpMobile {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 
