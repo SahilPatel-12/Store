@@ -114,9 +114,13 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
         urlObj.searchParams.set('pass', decryptedToken);
         
         // Clean phone number to 10 digits for Indian gateway routing
+        const isWa = urlObj.searchParams.get('priority') === 'wa';
         let cleanPhone = targetPhone.replace(/[^\d]/g, '');
         if (cleanPhone.length > 10 && (cleanPhone.startsWith('91') || cleanPhone.startsWith('0'))) {
           cleanPhone = cleanPhone.slice(-10);
+        }
+        if (isWa && cleanPhone.length === 10) {
+          cleanPhone = '91' + cleanPhone;
         }
         urlObj.searchParams.set('phone', cleanPhone);
         urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
