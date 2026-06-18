@@ -326,15 +326,24 @@ button {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 
   .profile-sidebar-wrapper nav {
+    display: flex !important;
     flex-direction: row !important;
+    flex-wrap: nowrap !important;
     overflow-x: auto !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
     padding-bottom: 8px !important;
     gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Hide scrollbars but allow scrolling on horizontal nav */
@@ -352,6 +361,7 @@ button {
     padding: 10px 14px !important;
     font-size: 0.82rem !important;
     white-space: nowrap !important;
+    box-sizing: border-box !important;
   }
 
   /* Hide vertical spacing divider line */

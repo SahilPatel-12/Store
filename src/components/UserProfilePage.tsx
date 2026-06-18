@@ -1252,7 +1252,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
           <h1 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.5px' }}>
             Namaste, {userProfile.name}
           </h1>
-          <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.95rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.95rem', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span>{userProfile.email}</span>
             <span>•</span>
             <span style={{ color: '#fed7aa', fontWeight: 700 }}>{userProfile.spiritualGoal}</span>
@@ -1847,9 +1847,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                   <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>Live Tracking Progress</span>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
+                                <div className="tracking-progress-timeline" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
                                   {/* Progress bar line */}
-                                  <div style={{
+                                  <div className="tracking-progress-line" style={{
                                     position: 'absolute',
                                     top: '7px',
                                     left: '12.5%',
