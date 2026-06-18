@@ -30,7 +30,8 @@ import {
   Copy,
   EyeOff,
   QrCode,
-  Lock
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -2757,6 +2758,66 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     triggerToast(`Order #${orderId} payment marked as ${paymentStatus}!`);
   };
 
+  const handleDeclinePayment = async (orderId: string) => {
+    const order = orders.find(o => o.orderId === orderId);
+    if (!order) return;
+
+    const currentCount = order.paymentDeclineCount || 0;
+    const newCount = currentCount + 1;
+    const isCancelled = newCount >= 3;
+
+    try {
+      const updateData: any = {
+        payment_status: 'Declined',
+        payment_decline_count: newCount
+      };
+      if (isCancelled) {
+        updateData.status = 'Cancelled';
+      }
+
+      const { error } = await supabase
+        .from('website_store_orders')
+        .update(updateData)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      triggerToast(
+        isCancelled 
+          ? `Order #${orderId} payment declined (Attempt ${newCount}/3). Order has been automatically cancelled!`
+          : `Order #${orderId} payment declined (Attempt ${newCount}/3). User notified to re-upload.`
+      );
+    } catch (err) {
+      console.error('Failed to decline payment in Supabase:', err);
+      triggerToast('Failed to decline payment. Please try again.');
+      return;
+    }
+
+    setOrders(prev => prev.map(o => {
+      if (o.orderId === orderId) {
+        return { 
+          ...o, 
+          paymentStatus: 'Declined', 
+          paymentDeclineCount: newCount,
+          status: isCancelled ? 'Cancelled' : o.status
+        };
+      }
+      return o;
+    }));
+
+    setSelectedOrderDetails(prev => {
+      if (prev && prev.orderId === orderId) {
+        return { 
+          ...prev, 
+          paymentStatus: 'Declined', 
+          paymentDeclineCount: newCount,
+          status: isCancelled ? 'Cancelled' : prev.status
+        };
+      }
+      return prev;
+    });
+  };
+
   // Filter products by query
   const filteredProducts = React.useMemo(() => {
     return products.filter(p => 
@@ -3571,10 +3632,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       {/* Right: Status Fulfillers */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>FULFILLMENT STATUS</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>FULFILLMENT STATUS</span>
+                            {order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && (
+                              <span style={{ fontSize: '0.62rem', color: '#c2410c', fontWeight: 800, textTransform: 'uppercase' }}>(Locked - Awaiting Payment)</span>
+                            )}
+                          </div>
                           <select
                             value={order.status}
                             onChange={(e) => handleUpdateOrderStatus(order.orderId, e.target.value)}
+                            disabled={order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed'}
                             style={{
                               padding: '8px 12px',
                               borderRadius: 'var(--radius-md)',
@@ -3582,9 +3649,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                               outline: 'none',
                               fontSize: '0.82rem',
                               fontWeight: 700,
-                              backgroundColor: badge.bg,
-                              color: badge.text,
-                              cursor: 'pointer'
+                              backgroundColor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#f3f4f6' : badge.bg,
+                              color: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#9ca3af' : badge.text,
+                              cursor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 'not-allowed' : 'pointer',
+                              opacity: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 0.6 : 1
                             }}
                           >
                             <option value="Being Packed">Preparing Package</option>
@@ -9145,26 +9213,42 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     </span>
                   </div>
 
-                  {/* Approve/Confirm Button */}
-                  {selectedOrderDetails.paymentStatus !== 'Confirmed' ? (
-                    <button
-                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
-                      className="btn-lime"
-                      style={{
-                        padding: '10px',
-                        justifyContent: 'center',
-                        fontSize: '0.82rem',
-                        fontWeight: 800,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        width: '100%',
-                        border: 'none',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}
-                    >
-                      Approve & Confirm Payment
-                    </button>
-                  ) : (
+                  {/* Decline warning alert */}
+                  {selectedOrderDetails.paymentDeclineCount !== undefined && selectedOrderDetails.paymentDeclineCount > 0 && (
+                    <div style={{
+                      padding: '10px 12px',
+                      backgroundColor: '#fffbeb',
+                      border: '1.5px solid #fef3c7',
+                      borderRadius: '6px',
+                      color: '#b45309',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
+                      <span>
+                        Payment declined {selectedOrderDetails.paymentDeclineCount} time(s). (Attempt {selectedOrderDetails.paymentDeclineCount}/3)
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Approve/Confirm & Decline Buttons */}
+                  {selectedOrderDetails.status === 'Cancelled' ? (
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: '#fee2e2',
+                      color: '#dc2626',
+                      borderRadius: '6px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      textAlign: 'center',
+                      border: '1px solid #fca5a5'
+                    }}>
+                      Order has been Cancelled. No payment actions available.
+                    </div>
+                  ) : selectedOrderDetails.paymentStatus === 'Confirmed' ? (
                     <button
                       onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Pending')}
                       style={{
@@ -9183,6 +9267,44 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     >
                       Revert Payment to Pending
                     </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                      <button
+                        onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
+                        className="btn-lime"
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          justifyContent: 'center',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          border: 'none',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                      >
+                        Approve & Confirm
+                      </button>
+                      <button
+                        onClick={() => handleDeclinePayment(selectedOrderDetails.orderId)}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          justifyContent: 'center',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
+                          border: 'none',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                      >
+                        Decline Payment
+                      </button>
+                    </div>
                   )}
                   <div style={{ 
                     position: 'relative', 

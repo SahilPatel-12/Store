@@ -58,6 +58,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [uploadingOrderId, setUploadingOrderId] = React.useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = React.useState<Record<string, string>>({});
   const [copiedUpiOrderId, setCopiedUpiOrderId] = React.useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = React.useState<Record<string, File>>({});
 
   React.useEffect(() => {
     async function loadConfig() {
@@ -87,13 +88,23 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       
       const { error } = await supabase
         .from('website_store_orders')
-        .update({ payment_screenshot: url })
+        .update({ 
+          payment_screenshot: url,
+          payment_status: 'Pending'
+        })
         .eq('order_id', orderId);
       
       if (error) throw error;
       
       // Update local state in parent
-      setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, paymentScreenshot: url } : o));
+      setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, paymentScreenshot: url, paymentStatus: 'Pending' } : o));
+
+      // Clear selected file
+      setSelectedFiles(prev => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
     } catch (err) {
       console.error('Failed to upload proof of payment:', err);
       setUploadErrors(prev => ({ ...prev, [orderId]: 'Failed to upload screenshot. Please verify connection and try again.' }));
@@ -109,6 +120,18 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       setTimeout(() => setCopiedUpiOrderId(null), 2000);
     } catch (err) {
       console.error('Failed to copy UPI ID:', err);
+    }
+  };
+
+  const handleUpiRedirect = (orderId: string, amount: number) => {
+    const upi = barcodeSettings?.upiId || '7974478098@paytm';
+    const uri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${amount.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = uri;
+    } else {
+      alert("UPI App direct launching is only supported on mobile devices. Please scan the QR code to pay ₹" + amount.toFixed(2) + "!");
     }
   };
 
@@ -147,7 +170,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
             razorpayPaymentId: o.razorpay_payment_id || undefined,
             paymentScreenshot: o.payment_screenshot || undefined,
-            paymentStatus: o.payment_status || 'Pending'
+            paymentStatus: o.payment_status || 'Pending',
+            paymentDeclineCount: o.payment_decline_count || 0
           }));
           setOrders(mappedOrders);
           if (showToast) setFeedbackToast('Order statuses successfully synced!');
@@ -805,7 +829,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     )}
 
                     {/* UPI QR Payment and Screenshot Upload Panel */}
-                    {isUpi && !isConfirmed && (
+                    {isUpi && !isConfirmed && order.status !== 'Cancelled' && (
                       <div style={{
                         marginTop: '24px',
                         paddingTop: '20px',
@@ -823,6 +847,21 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           <p style={{ fontSize: '0.8rem', color: '#78350f', marginBottom: '16px', lineHeight: 1.4 }}>
                             Please scan the QR code to complete your payment of <strong>₹{order.total.toFixed(2)}</strong>. After making the payment, upload your transaction confirmation screenshot below.
                           </p>
+
+                          {order.paymentStatus === 'Declined' && (
+                            <div style={{
+                              backgroundColor: '#fee2e2',
+                              border: '1.5px solid #fca5a5',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '12px',
+                              marginBottom: '16px',
+                              color: '#991b1b',
+                              fontSize: '0.78rem',
+                              fontWeight: 700
+                            }}>
+                              ⚠️ Your payment was not done properly. Please check your transaction details and re-upload a valid payment screenshot. (Decline Attempt {order.paymentDeclineCount || 0} of 3)
+                            </div>
+                          )}
 
                           <div style={{
                             display: 'grid',
@@ -873,9 +912,23 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                 borderRadius: 'var(--radius-sm)',
                                 border: '1px solid #e5e7eb',
                               }}>
-                                <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-dark)', wordBreak: 'break-all', textAlign: 'left' }}>
-                                  {barcodeSettings?.upiId || '7974478098@paytm'}
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                                  <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
+                                  <a
+                                    href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${order.total.toFixed(2)}&cu=INR&tn=Order%20${order.orderId}`}
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      color: 'var(--primary-lime, #15803d)',
+                                      fontFamily: 'monospace',
+                                      textDecoration: 'underline',
+                                      cursor: 'pointer',
+                                      wordBreak: 'break-all'
+                                    }}
+                                  >
+                                    {barcodeSettings?.upiId || '7974478098@paytm'}
+                                  </a>
+                                </div>
                                 <button
                                   onClick={() => handleCopyOrderUpi(order.orderId, barcodeSettings?.upiId || '7974478098@paytm')}
                                   style={{
@@ -897,11 +950,118 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                   {copiedUpiOrderId === order.orderId ? 'Copied' : 'Copy'}
                                 </button>
                               </div>
+
+                              <button
+                                onClick={() => handleUpiRedirect(order.orderId, order.total)}
+                                style={{
+                                  marginTop: '10px',
+                                  width: '100%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'var(--primary-lime)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  transition: 'background-color 0.2s',
+                                  boxShadow: 'var(--shadow-sm)'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                              >
+                                ⚡ Pay via UPI App
+                              </button>
                             </div>
 
                             {/* Upload Screen Column */}
                             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center' }}>
-                              {order.paymentScreenshot ? (
+                              {uploadingOrderId === order.orderId ? (
+                                <div style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  textAlign: 'center',
+                                  padding: '24px 16px',
+                                  border: '2px dashed var(--primary-lime)',
+                                  borderRadius: 'var(--radius-md)',
+                                  backgroundColor: '#ffffff',
+                                  minHeight: '160px',
+                                  justifyContent: 'center'
+                                }}>
+                                  <div style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    border: '2px solid #e5e7eb',
+                                    borderTopColor: 'var(--primary-lime)',
+                                    borderRadius: '50%',
+                                    margin: '0 auto 8px auto',
+                                    animation: 'spin-anim 1s linear infinite',
+                                  }} />
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
+                                </div>
+                              ) : selectedFiles[order.orderId] ? (
+                                <div style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  textAlign: 'center',
+                                  padding: '16px',
+                                  backgroundColor: '#fffbeb',
+                                  border: '1.5px dashed var(--primary-lime)',
+                                  borderRadius: 'var(--radius-md)',
+                                }}>
+                                  <img
+                                    src={URL.createObjectURL(selectedFiles[order.orderId])}
+                                    alt="Selected Preview"
+                                    style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '4px', marginBottom: '8px', border: '1px solid var(--border-light)' }}
+                                  />
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)', wordBreak: 'break-all' }}>
+                                    Selected: {selectedFiles[order.orderId].name}
+                                  </span>
+                                  <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+                                    <button
+                                      onClick={() => handleOrderScreenshotUpload(order.orderId, selectedFiles[order.orderId])}
+                                      className="btn-lime"
+                                      style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 800,
+                                        borderRadius: 'var(--radius-sm)',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Submit
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedFiles(prev => {
+                                          const next = { ...prev };
+                                          delete next[order.orderId];
+                                          return next;
+                                        });
+                                      }}
+                                      style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: '#ffffff',
+                                        border: '1px solid var(--border-light)',
+                                        color: 'var(--text-dark)',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        borderRadius: 'var(--radius-sm)',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : order.paymentScreenshot ? (
                                 <div style={{
                                   display: 'flex',
                                   flexDirection: 'column',
@@ -945,7 +1105,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                       accept="image/*"
                                       onChange={(e) => {
                                         const file = e.target.files?.[0];
-                                        if (file) handleOrderScreenshotUpload(order.orderId, file);
+                                        if (file) {
+                                          setSelectedFiles(prev => ({ ...prev, [order.orderId]: file }));
+                                        }
                                       }}
                                       style={{ display: 'none' }}
                                     />
@@ -969,37 +1131,21 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary-lime)')}
                                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#d1d5db')}
                                 >
-                                  {uploadingOrderId === order.orderId ? (
-                                    <div style={{ textAlign: 'center' }}>
-                                      <div style={{
-                                        width: '20px',
-                                        height: '20px',
-                                        border: '2px solid #e5e7eb',
-                                        borderTopColor: 'var(--primary-lime)',
-                                        borderRadius: '50%',
-                                        margin: '0 auto 8px auto',
-                                        animation: 'spin-anim 1s linear infinite',
-                                      }} />
-                                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
-                                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                                        Upload Payment Screenshot
-                                      </span>
-                                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                        JPG, PNG files
-                                      </span>
-                                    </>
-                                  )}
+                                  <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
+                                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                                    Upload Payment Screenshot
+                                  </span>
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    JPG, PNG files
+                                  </span>
                                   <input
                                     type="file"
                                     accept="image/*"
-                                    disabled={uploadingOrderId === order.orderId}
                                     onChange={(e) => {
                                       const file = e.target.files?.[0];
-                                      if (file) handleOrderScreenshotUpload(order.orderId, file);
+                                      if (file) {
+                                        setSelectedFiles(prev => ({ ...prev, [order.orderId]: file }));
+                                      }
                                     }}
                                     style={{ display: 'none' }}
                                   />

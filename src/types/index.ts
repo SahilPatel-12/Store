@@ -107,6 +107,7 @@ export interface LocalOrder {
   razorpayPaymentId?: string;
   paymentScreenshot?: string;
   paymentStatus?: string;
+  paymentDeclineCount?: number;
   gstPercentSnapshot?: number;
   gstAmountSnapshot?: number;
   deliveryAmountSnapshot?: number;

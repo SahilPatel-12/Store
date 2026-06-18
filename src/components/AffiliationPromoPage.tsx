@@ -306,14 +306,12 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     setOtpError('');
     try {
       if (isNewUser) {
-        const placeholderEmail = `devotee_${otpTargetPhone}@spiritual.com`;
         let newUser;
         try {
           const res = await supabase
             .from('website_store_users')
             .insert({
               full_name: '',
-              email: placeholderEmail,
               phone_number: otpTargetPhone,
               password_hash: '',
               last_login_at: new Date().toISOString()
@@ -735,15 +733,15 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Progression Levels */}
+          {/* Card 3: Lifetime Rewards */}
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0 }}>
               <Award size={24} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>Level Progression</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>Lifetime Earnings</h3>
               <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, lineHeight: 1.5 }}>
-                Start as an **Affiliate** (Level 1). Grow to a **Distributor** (Level 2) and **Super Distributor** (Level 3) to unlock deep network payouts.
+                Refer one or multiple devotees. Get a flat 10% commission on their first purchase and lifetime rewards whenever they buy again.
               </p>
             </div>
           </div>

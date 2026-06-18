@@ -21,18 +21,17 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
   const testPhone = '999' + Math.floor(1000000 + Math.random() * 9000000); // Unique 10-digit test phone starting with 999
-  const placeholderEmail = `devotee_${testPhone}@spiritual.com`;
   let userId = '';
 
   try {
     console.log(`[Test] 1. Simulating signup for phone number: ${testPhone}`);
     
-    // Insert new user with empty name and placeholder email
+    // Insert new user with empty name and null email
     const { data: newUser, error: insertErr } = await supabase
       .from('website_store_users')
       .insert({
         full_name: '',
-        email: placeholderEmail,
+        email: null,
         phone_number: testPhone,
         password_hash: '',
         last_login_at: new Date().toISOString()

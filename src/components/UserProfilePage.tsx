@@ -21,6 +21,8 @@ import {
   Share2,
   MessageCircle,
   Upload,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
@@ -56,105 +58,11 @@ const InstagramIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20,
   </svg>
 );
 
-interface ReferralTreeNodeProps {
-  node: any;
-  search: string;
-  highlightText: (text: string, query: string) => React.ReactNode;
-  doesNodeOrDescendantMatch: (node: any, query: string) => boolean;
-}
 
-const ReferralTreeNode: React.FC<ReferralTreeNodeProps> = ({
-  node,
-  search,
-  highlightText,
-  doesNodeOrDescendantMatch,
-}) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const hasChildren = node.children && node.children.length > 0;
-
-  // Auto-expand if search query changes and matches this node or its descendants
-  React.useEffect(() => {
-    if (search && doesNodeOrDescendantMatch(node, search)) {
-      setIsOpen(true);
-    }
-  }, [search, node, doesNodeOrDescendantMatch]);
-
-  const handleToggle = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
-    if (e.currentTarget.open !== isOpen) {
-      setIsOpen(e.currentTarget.open);
-    }
-  };
-
-  const matches = doesNodeOrDescendantMatch(node, search);
-  if (!matches) return null;
-
-  const isExpanded = search ? true : isOpen;
-  const displayName = node.full_name && node.full_name.trim() !== '' ? node.full_name : node.user_id;
-
-  return (
-    <div style={{ marginLeft: node.level > 1 ? '16px' : '0px', marginTop: '10px' }}>
-      {hasChildren ? (
-        <details
-          className="referral-details"
-          open={isExpanded}
-          onToggle={handleToggle}
-          style={{ borderLeft: '2px solid var(--primary-lime)', paddingLeft: '12px' }}
-        >
-          <summary style={{ cursor: 'pointer', outline: 'none', listStyle: 'none', fontWeight: 700, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{
-              color: 'var(--primary-lime)',
-              fontSize: '0.8rem',
-              display: 'inline-block',
-              transition: 'transform 0.2s ease',
-              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'
-            }}>
-              ▼
-            </span>
-            <span>👤 {highlightText(displayName, search)}</span>
-            <span style={{ fontSize: '0.72rem', padding: '1px 8px', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
-              Level {node.level} (Referrer)
-            </span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              Joined: {new Date(node.joined_at).toLocaleDateString()}
-            </span>
-          </summary>
-          <div style={{ marginTop: '4px' }}>
-            {node.children.map((child: any) => (
-              <ReferralTreeNode
-                key={child.user_id}
-                node={child}
-                search={search}
-                highlightText={highlightText}
-                doesNodeOrDescendantMatch={doesNodeOrDescendantMatch}
-              />
-            ))}
-          </div>
-        </details>
-      ) : (
-        <div style={{
-          paddingLeft: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          borderLeft: node.level > 1 ? '2px solid var(--border-light)' : '2px solid transparent',
-          color: 'var(--text-dark)',
-          flexWrap: 'wrap'
-        }}>
-          <span>• 👤 {highlightText(displayName, search)}</span>
-          <span style={{ fontSize: '0.72rem', padding: '1px 8px', backgroundColor: '#f3f4f6', color: '#4b5563', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
-            Level {node.level}
-          </span>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            Joined: {new Date(node.joined_at).toLocaleDateString()}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
 
 interface UserProfilePageProps {
   orders: LocalOrder[];
+  setOrders?: React.Dispatch<React.SetStateAction<LocalOrder[]>>;
   wishlist: Record<string, boolean>;
   onToggleWishlist: (productId: string) => void;
   onAddToCart: (product: Product, quantity?: number) => void;
@@ -182,6 +90,7 @@ interface Address {
 
 export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   orders,
+  setOrders,
   wishlist,
   onToggleWishlist,
   onAddToCart,
@@ -198,11 +107,28 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'
   >(initialTab || 'info');
 
+  const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth <= 900 : false);
+  const [mobileShowMenu, setMobileShowMenu] = React.useState(!initialTab);
+
   React.useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
+      setMobileShowMenu(false);
     }
   }, [initialTab]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 900;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setMobileShowMenu(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Affiliate State
   const [affiliateProfile, setAffiliateProfile] = React.useState<{
@@ -243,6 +169,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const [uploadingOrderId, setUploadingOrderId] = React.useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = React.useState<Record<string, string>>({});
   const [copiedUpiOrderId, setCopiedUpiOrderId] = React.useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = React.useState<Record<string, File>>({});
 
   React.useEffect(() => {
     async function loadConfig() {
@@ -272,12 +199,25 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       
       const { error } = await supabase
         .from('website_store_orders')
-        .update({ payment_screenshot: url })
+        .update({ 
+          payment_screenshot: url,
+          payment_status: 'Pending'
+        })
         .eq('order_id', orderId);
       
       if (error) throw error;
       
       setLocalScreenshots(prev => ({ ...prev, [orderId]: url }));
+      if (setOrders) {
+        setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, paymentScreenshot: url, paymentStatus: 'Pending' } : o));
+      }
+
+      // Clear selected file
+      setSelectedFiles(prev => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
     } catch (err) {
       console.error('Failed to upload proof of payment:', err);
       setUploadErrors(prev => ({ ...prev, [orderId]: 'Failed to upload screenshot. Please verify connection and try again.' }));
@@ -295,6 +235,19 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       console.error('Failed to copy UPI ID:', err);
     }
   };
+
+  const handleUpiRedirect = (orderId: string, amount: number) => {
+    const upi = barcodeSettings?.upiId || '7974478098@paytm';
+    const uri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${amount.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = uri;
+    } else {
+      alert("UPI App direct launching is only supported on mobile devices. Please scan the QR code to pay ₹" + amount.toFixed(2) + "!");
+    }
+  };
+
   const [upiId, setUpiId] = React.useState('');
   const [upiHolderName, setUpiHolderName] = React.useState('');
   const [bankHolderName, setBankHolderName] = React.useState('');
@@ -748,40 +701,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     return referralTree.filter(n => activeLevels.includes(n.level));
   }, [referralTree, activeLevels]);
 
-  // Recursively reconstruct the parent-child node hierarchy tree
-  const buildTree = (nodes: typeof referralTree, rootId: string) => {
-    const map = new Map<string, any>();
-    nodes.forEach(n => {
-      map.set(n.user_id, { ...n, children: [] });
-    });
-    const rootNodes: any[] = [];
-    nodes.forEach(n => {
-      const node = map.get(n.user_id);
-      if (!n.referred_by || n.referred_by === rootId) {
-        rootNodes.push(node);
-      } else {
-        const parent = map.get(n.referred_by);
-        if (parent) {
-          parent.children.push(node);
-        } else {
-          rootNodes.push(node);
-        }
-      }
-    });
-    return rootNodes;
-  };
 
-  const doesNodeOrDescendantMatch = (node: any, query: string): boolean => {
-    if (!activeLevels.includes(node.level)) return false;
-    if (!query) return true;
-    const lowerQuery = query.toLowerCase();
-    const displayName = node.full_name && node.full_name.trim() !== '' ? node.full_name : node.user_id;
-    if (displayName.toLowerCase().includes(lowerQuery)) return true;
-    if (node.children && node.children.length > 0) {
-      return node.children.some((child: any) => doesNodeOrDescendantMatch(child, query));
-    }
-    return false;
-  };
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
@@ -936,6 +856,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       paymentMethod: o.paymentMethod,
       status: o.status,
       paymentStatus: o.paymentStatus || 'Pending',
+      paymentDeclineCount: o.paymentDeclineCount || 0,
       paymentScreenshot: localScreenshots[o.orderId] || o.paymentScreenshot,
       items: o.items.map((i) => ({
         name: i.product.name,
@@ -975,11 +896,14 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     if (!loggedInUser) return;
     setIsSavingProfile(true);
     try {
+      const trimmedEmail = userProfile.email ? userProfile.email.trim() : '';
+      const emailToSave = trimmedEmail !== '' ? trimmedEmail : null;
+
       const { error } = await supabase
         .from('website_store_users')
         .update({
           full_name: userProfile.name,
-          email: userProfile.email
+          email: emailToSave
         })
         .eq('id', loggedInUser.id);
 
@@ -989,7 +913,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         onProfileUpdate({
           id: loggedInUser.id,
           fullName: userProfile.name,
-          email: userProfile.email,
+          email: emailToSave || '',
           phoneNumber: loggedInUser.phoneNumber
         });
       }
@@ -1260,239 +1184,411 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         </div>
       </section>
 
-      {/* 2. Main Dashboard Split Layout */}
+      {/* 2. Main Dashboard Layout Container */}
       <div className="container" style={{ marginTop: '40px' }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '260px 1fr',
-          gap: '40px',
-          alignItems: 'start'
-        }} className="hero-grid-split">
-          
-          {/* Dashboard Left Sidebar Tabs */}
-          <aside style={{
-            backgroundColor: '#ffffff',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-light)',
-            padding: '16px',
-            boxShadow: 'var(--shadow-sm)'
-          }} className="profile-sidebar-wrapper">
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              
-              <button
-                onClick={() => setActiveTab('info')}
-                className={`profile-nav-btn ${activeTab === 'info' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'info' ? 700 : 500,
-                  backgroundColor: activeTab === 'info' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'info' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <User size={18} />
-                <span>Edit Profile</span>
-              </button>
-
-              <button
-                onClick={onNavigateToOrders}
-                className={`profile-nav-btn ${activeTab === 'orders' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'orders' ? 700 : 500,
-                  backgroundColor: activeTab === 'orders' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'orders' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <Package size={18} />
-                <span>My Devotional Orders</span>
-                {allOrders.length > 0 && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    backgroundColor: activeTab === 'orders' ? 'var(--primary-lime)' : 'var(--border-light)',
-                    color: activeTab === 'orders' ? 'var(--text-dark)' : 'var(--text-muted)',
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)'
-                  }}>
-                    {allOrders.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab('addresses')}
-                className={`profile-nav-btn ${activeTab === 'addresses' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'addresses' ? 700 : 500,
-                  backgroundColor: activeTab === 'addresses' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'addresses' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <MapPin size={18} />
-                <span>Saved Delivery Addresses</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('wishlist')}
-                className={`profile-nav-btn ${activeTab === 'wishlist' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'wishlist' ? 700 : 500,
-                  backgroundColor: activeTab === 'wishlist' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'wishlist' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <Heart size={18} />
-                <span>Sacred Wishlist</span>
-                {wishlistedProducts.length > 0 && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    backgroundColor: 'var(--primary-lime)',
-                    color: 'var(--text-dark)',
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)'
-                  }}>
-                    {wishlistedProducts.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className={`profile-nav-btn ${activeTab === 'notifications' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'notifications' ? 700 : 500,
-                  backgroundColor: activeTab === 'notifications' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'notifications' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <Bell size={18} />
-                <span>Notification Settings</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('affiliate')}
-                className={`profile-nav-btn ${activeTab === 'affiliate' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'affiliate' ? 700 : 500,
-                  backgroundColor: activeTab === 'affiliate' ? 'var(--primary-lime-light)' : 'transparent',
-                  color: activeTab === 'affiliate' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <Sparkles size={18} />
-                <span>Affiliate Partnership</span>
-                {affiliateProfile && affiliateProfile.affiliate_status === 'active' && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    backgroundColor: '#fef3c7',
-                    color: '#d97706',
-                    fontSize: '0.65rem',
-                    fontWeight: 800,
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius-full)',
-                    border: '1.5px solid #fde68a'
-                  }}>
-                    Active
-                  </span>
-                )}
-              </button>
-
-              <div className="profile-sidebar-nav-divider" style={{ height: '1px', backgroundColor: 'var(--border-light)', margin: '12px 0' }} />
-
-              <button
-                onClick={() => setActiveTab('logout')}
-                className={`profile-nav-btn logout-btn ${activeTab === 'logout' ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                  fontWeight: activeTab === 'logout' ? 700 : 500,
-                  backgroundColor: activeTab === 'logout' ? '#fef2f2' : 'transparent',
-                  color: activeTab === 'logout' ? '#dc2626' : 'var(--text-muted)',
-                  transition: 'all 0.15s'
-                }}
-              >
-                <LogOut size={18} />
-                <span>Secure Logout</span>
-              </button>
-
-            </nav>
-          </aside>
-
-          {/* Dashboard Right Main Panel */}
-          <main className="profile-content-panel" style={{
-            backgroundColor: '#ffffff',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-light)',
-            padding: '32px',
-            boxShadow: 'var(--shadow-sm)',
-            minHeight: '480px',
-            textAlign: 'left'
-          }}>
+        {isMobile && mobileShowMenu ? (
+          /* Mobile Menu Index View */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 8px' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '8px', textAlign: 'left' }}>
+              Account Settings
+            </h2>
             
-            {/* ==============================================
-                TAB: USER INFORMATION (EDIT PROFILE)
-                ============================================== */}
-            {activeTab === 'info' && (
+            {[
+              { tab: 'info', label: 'Edit Profile', desc: 'Update contact info and puja goals', icon: <User size={20} color="var(--primary-lime)" />, badge: null },
+              { tab: 'orders', label: 'My Devotional Orders', desc: 'Track historical and active orders', icon: <Package size={20} color="#3b82f6" />, badge: allOrders.length > 0 ? allOrders.length : null },
+              { tab: 'addresses', label: 'Saved Delivery Addresses', desc: 'Manage shipping destinations', icon: <MapPin size={20} color="#10b981" />, badge: null },
+              { tab: 'wishlist', label: 'Sacred Wishlist', desc: 'Items saved for auspicious days', icon: <Heart size={20} color="#ec4899" />, badge: wishlistedProducts.length > 0 ? wishlistedProducts.length : null },
+              { tab: 'notifications', label: 'Notification Settings', desc: 'Manage email and blessing alerts', icon: <Bell size={20} color="#f59e0b" />, badge: null },
+              { tab: 'affiliate', label: 'Affiliate Partnership', desc: 'Earn commissions and check dashboard', icon: <Sparkles size={20} color="#8b5cf6" />, badge: affiliateProfile && affiliateProfile.affiliate_status === 'active' ? 'Active' : null },
+            ].map((item) => (
+              <button
+                key={item.tab}
+                onClick={() => {
+                  setActiveTab(item.tab as any);
+                  setMobileShowMenu(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-light)',
+                  backgroundColor: '#ffffff',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  width: '100%',
+                  outline: 'none'
+                }}
+                className="profile-mobile-menu-item"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--primary-lime-light)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>{item.label}</h4>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>{item.desc}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {item.badge !== null && (
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      backgroundColor: item.tab === 'affiliate' ? '#fff7ed' : 'var(--primary-lime-light)',
+                      color: item.tab === 'affiliate' ? '#c2410c' : 'var(--primary-lime)',
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-full)',
+                      border: item.tab === 'affiliate' ? '1.5px solid #ffedd5' : '1px solid var(--border-light)'
+                    }}>
+                      {item.badge}
+                    </span>
+                  )}
+                  <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                </div>
+              </button>
+            ))}
+
+            <div style={{ height: '1px', backgroundColor: 'var(--border-light)', margin: '12px 0' }} />
+
+            {/* Logout button */}
+            <button
+              onClick={() => {
+                setActiveTab('logout');
+                setMobileShowMenu(false);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid #fee2e2',
+                backgroundColor: '#fffbfa',
+                textAlign: 'left',
+                cursor: 'pointer',
+                width: '100%',
+                outline: 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  backgroundColor: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <LogOut size={20} color="#dc2626" />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#dc2626', margin: 0 }}>Secure Logout</h4>
+                  <p style={{ fontSize: '0.78rem', color: '#f87171', margin: '2px 0 0 0' }}>Sign out of your active session</p>
+                </div>
+              </div>
+              <ChevronRight size={16} color="#f87171" />
+            </button>
+          </div>
+        ) : (
+          /* Normal Dashboard Layout */
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '260px 1fr',
+            gap: isMobile ? '20px' : '40px',
+            alignItems: 'start'
+          }} className="hero-grid-split">
+            
+            {/* Dashboard Left Sidebar Tabs (desktop only) */}
+            {!isMobile && (
+              <aside style={{
+                backgroundColor: '#ffffff',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-light)',
+                padding: '16px',
+                boxShadow: 'var(--shadow-sm)'
+              }} className="profile-sidebar-wrapper">
+                <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`profile-nav-btn ${activeTab === 'info' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'info' ? 700 : 500,
+                      backgroundColor: activeTab === 'info' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'info' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <User size={18} />
+                    <span>Edit Profile</span>
+                  </button>
+
+                  <button
+                    onClick={onNavigateToOrders}
+                    className={`profile-nav-btn ${activeTab === 'orders' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'orders' ? 700 : 500,
+                      backgroundColor: activeTab === 'orders' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'orders' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Package size={18} />
+                    <span>My Devotional Orders</span>
+                    {allOrders.length > 0 && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        backgroundColor: activeTab === 'orders' ? 'var(--primary-lime)' : 'var(--border-light)',
+                        color: activeTab === 'orders' ? 'var(--text-dark)' : 'var(--text-muted)',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-full)'
+                      }}>
+                        {allOrders.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('addresses')}
+                    className={`profile-nav-btn ${activeTab === 'addresses' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'addresses' ? 700 : 500,
+                      backgroundColor: activeTab === 'addresses' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'addresses' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <MapPin size={18} />
+                    <span>Saved Delivery Addresses</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('wishlist')}
+                    className={`profile-nav-btn ${activeTab === 'wishlist' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'wishlist' ? 700 : 500,
+                      backgroundColor: activeTab === 'wishlist' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'wishlist' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Heart size={18} />
+                    <span>Sacred Wishlist</span>
+                    {wishlistedProducts.length > 0 && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        backgroundColor: 'var(--primary-lime)',
+                        color: 'var(--text-dark)',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-full)'
+                      }}>
+                        {wishlistedProducts.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('notifications')}
+                    className={`profile-nav-btn ${activeTab === 'notifications' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'notifications' ? 700 : 500,
+                      backgroundColor: activeTab === 'notifications' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'notifications' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Bell size={18} />
+                    <span>Notification Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('affiliate')}
+                    className={`profile-nav-btn ${activeTab === 'affiliate' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'affiliate' ? 700 : 500,
+                      backgroundColor: activeTab === 'affiliate' ? 'var(--primary-lime-light)' : 'transparent',
+                      color: activeTab === 'affiliate' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Sparkles size={18} />
+                    <span>Affiliate Partnership</span>
+                    {affiliateProfile && affiliateProfile.affiliate_status === 'active' && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        backgroundColor: '#fef3c7',
+                        color: '#d97706',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: 'var(--radius-full)',
+                        border: '1.5px solid #fde68a'
+                      }}>
+                        Active
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="profile-sidebar-nav-divider" style={{ height: '1px', backgroundColor: 'var(--border-light)', margin: '12px 0' }} />
+
+                  <button
+                    onClick={() => setActiveTab('logout')}
+                    className={`profile-nav-btn logout-btn ${activeTab === 'logout' ? 'active' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: '0.9rem',
+                      fontWeight: activeTab === 'logout' ? 700 : 500,
+                      backgroundColor: activeTab === 'logout' ? '#fef2f2' : 'transparent',
+                      color: activeTab === 'logout' ? '#dc2626' : 'var(--text-muted)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <LogOut size={18} />
+                    <span>Secure Logout</span>
+                  </button>
+
+                </nav>
+              </aside>
+            )}
+
+            {/* Dashboard Content Area */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', overflow: 'hidden' }}>
+              {isMobile && (
+                <button
+                  onClick={() => setMobileShowMenu(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    padding: '10px 16px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'var(--text-dark)',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-sm)',
+                    alignSelf: 'flex-start',
+                    transition: 'all 0.15s ease',
+                    marginBottom: '8px'
+                  }}
+                  className="btn-back-menu"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back to Menu</span>
+                </button>
+              )}
+
+              {/* Dashboard Right Main Content Panel */}
+              <main className="profile-content-panel" style={{
+                backgroundColor: '#ffffff',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-light)',
+                padding: isMobile ? '20px' : '32px',
+                boxShadow: 'var(--shadow-sm)',
+                minHeight: '480px',
+                textAlign: 'left',
+                overflow: 'hidden',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
+                
+                {/* Carousel Inner Container */}
+                <div
+                  className="profile-carousel-inner"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flexWrap: 'nowrap',
+                    transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+                    transform: `translateX(-${(() => {
+                      const tabTabs = ['info', 'orders', 'addresses', 'wishlist', 'notifications', 'affiliate', 'logout'];
+                      const activeIndex = tabTabs.indexOf(activeTab);
+                      return activeIndex !== -1 ? activeIndex : 0;
+                    })() * 100}%)`,
+                    width: '100%',
+                    alignItems: 'flex-start'
+                  }}
+                >
+              
+              {/* ==============================================
+                  TAB: USER INFORMATION (EDIT PROFILE)
+                  ============================================== */}
+              <div className={`profile-carousel-slide ${activeTab === 'info' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                   <div>
@@ -1695,12 +1791,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 )}
 
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: ORDERS (MOCK + RECENT LIVE ORDERS)
                 ============================================== */}
-            {activeTab === 'orders' && (
+            <div className={`profile-carousel-slide ${activeTab === 'orders' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>My Devotional Orders</h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Trace the shipment progress and history of your ordered sacred items.</p>
@@ -1719,7 +1815,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {allOrders.map((order) => {
-                      const isPendingUpi = order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed';
+                      const isPendingUpi = order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && order.status !== 'Cancelled';
                       const badge = getStatusColor(order.status);
                       return (
                         <div
@@ -1937,6 +2033,21 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                     Please scan the QR code to complete your payment of <strong>₹{order.total.toFixed(2)}</strong>. After making the payment, upload your transaction confirmation screenshot below.
                                   </p>
 
+                                  {order.paymentStatus === 'Declined' && (
+                                    <div style={{
+                                      backgroundColor: '#fee2e2',
+                                      border: '1.5px solid #fca5a5',
+                                      borderRadius: 'var(--radius-md)',
+                                      padding: '12px',
+                                      marginBottom: '16px',
+                                      color: '#991b1b',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 700
+                                    }}>
+                                      ⚠️ Your payment was not done properly. Please check your transaction details and re-upload a valid payment screenshot. (Decline Attempt {order.paymentDeclineCount || 0} of 3)
+                                    </div>
+                                  )}
+
                                   <div style={{
                                     display: 'grid',
                                     gridTemplateColumns: '1.1fr 1.9fr',
@@ -1986,9 +2097,23 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                         borderRadius: 'var(--radius-sm)',
                                         border: '1px solid #e5e7eb',
                                       }}>
-                                        <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-dark)', wordBreak: 'break-all', textAlign: 'left' }}>
-                                          {barcodeSettings?.upiId || '7974478098@paytm'}
-                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                                          <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
+                                          <a
+                                            href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${order.total.toFixed(2)}&cu=INR&tn=Order%20${order.id}`}
+                                            style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 800,
+                                              color: 'var(--primary-lime, #15803d)',
+                                              fontFamily: 'monospace',
+                                              textDecoration: 'underline',
+                                              cursor: 'pointer',
+                                              wordBreak: 'break-all'
+                                            }}
+                                          >
+                                            {barcodeSettings?.upiId || '7974478098@paytm'}
+                                          </a>
+                                        </div>
                                         <button
                                           onClick={() => handleCopyOrderUpi(order.id, barcodeSettings?.upiId || '7974478098@paytm')}
                                           style={{
@@ -2010,11 +2135,118 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                           {copiedUpiOrderId === order.id ? 'Copied' : 'Copy'}
                                         </button>
                                       </div>
+
+                                      <button
+                                        onClick={() => handleUpiRedirect(order.id, order.total)}
+                                        style={{
+                                          marginTop: '10px',
+                                          width: '100%',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          padding: '8px 12px',
+                                          borderRadius: '6px',
+                                          backgroundColor: 'var(--primary-lime)',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          fontSize: '0.78rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                          transition: 'background-color 0.2s',
+                                          boxShadow: 'var(--shadow-sm)'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                                      >
+                                        ⚡ Pay via UPI App
+                                      </button>
                                     </div>
 
                                     {/* Upload Screen Column */}
                                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center' }}>
-                                      {order.paymentScreenshot ? (
+                                      {uploadingOrderId === order.id ? (
+                                        <div style={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          textAlign: 'center',
+                                          padding: '24px 16px',
+                                          border: '2px dashed var(--primary-lime)',
+                                          borderRadius: 'var(--radius-md)',
+                                          backgroundColor: '#ffffff',
+                                          minHeight: '160px',
+                                          justifyContent: 'center'
+                                        }}>
+                                          <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            border: '2px solid #e5e7eb',
+                                            borderTopColor: 'var(--primary-lime)',
+                                            borderRadius: '50%',
+                                            margin: '0 auto 8px auto',
+                                            animation: 'spin-anim 1s linear infinite',
+                                          }} />
+                                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
+                                        </div>
+                                      ) : selectedFiles[order.id] ? (
+                                        <div style={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          textAlign: 'center',
+                                          padding: '16px',
+                                          backgroundColor: '#fffbeb',
+                                          border: '1.5px dashed var(--primary-lime)',
+                                          borderRadius: 'var(--radius-md)',
+                                        }}>
+                                          <img
+                                            src={URL.createObjectURL(selectedFiles[order.id])}
+                                            alt="Selected Preview"
+                                            style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '4px', marginBottom: '8px', border: '1px solid var(--border-light)' }}
+                                          />
+                                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)', wordBreak: 'break-all' }}>
+                                            Selected: {selectedFiles[order.id].name}
+                                          </span>
+                                          <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+                                            <button
+                                              onClick={() => handleOrderScreenshotUpload(order.id, selectedFiles[order.id])}
+                                              className="btn-lime"
+                                              style={{
+                                                flex: 1,
+                                                padding: '8px 12px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 800,
+                                                borderRadius: 'var(--radius-sm)',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              Submit
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setSelectedFiles(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[order.id];
+                                                  return next;
+                                                });
+                                              }}
+                                              style={{
+                                                padding: '8px 12px',
+                                                backgroundColor: '#ffffff',
+                                                border: '1px solid var(--border-light)',
+                                                color: 'var(--text-dark)',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 700,
+                                                borderRadius: 'var(--radius-sm)',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : order.paymentScreenshot ? (
                                         <div style={{
                                           display: 'flex',
                                           flexDirection: 'column',
@@ -2058,7 +2290,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                               accept="image/*"
                                               onChange={(e) => {
                                                 const file = e.target.files?.[0];
-                                                if (file) handleOrderScreenshotUpload(order.id, file);
+                                                if (file) {
+                                                  setSelectedFiles(prev => ({ ...prev, [order.id]: file }));
+                                                }
                                               }}
                                               style={{ display: 'none' }}
                                             />
@@ -2082,37 +2316,21 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                           onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary-lime)')}
                                           onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#d1d5db')}
                                         >
-                                          {uploadingOrderId === order.id ? (
-                                            <div style={{ textAlign: 'center' }}>
-                                              <div style={{
-                                                width: '20px',
-                                                height: '20px',
-                                                border: '2px solid #e5e7eb',
-                                                borderTopColor: 'var(--primary-lime)',
-                                                borderRadius: '50%',
-                                                margin: '0 auto 8px auto',
-                                                animation: 'spin-anim 1s linear infinite',
-                                              }} />
-                                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
-                                            </div>
-                                          ) : (
-                                            <>
-                                              <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
-                                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                                                Upload Payment Screenshot
-                                              </span>
-                                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                JPG, PNG files
-                                              </span>
-                                            </>
-                                          )}
+                                          <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
+                                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                                            Upload Payment Screenshot
+                                          </span>
+                                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                            JPG, PNG files
+                                          </span>
                                           <input
                                             type="file"
                                             accept="image/*"
-                                            disabled={uploadingOrderId === order.id}
                                             onChange={(e) => {
                                               const file = e.target.files?.[0];
-                                              if (file) handleOrderScreenshotUpload(order.id, file);
+                                              if (file) {
+                                                setSelectedFiles(prev => ({ ...prev, [order.id]: file }));
+                                              }
                                             }}
                                             style={{ display: 'none' }}
                                           />
@@ -2138,12 +2356,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 )}
 
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: SAVED ADDRESSES (MANAGE ADDRESSES)
                 ============================================== */}
-            {activeTab === 'addresses' && (
+            <div className={`profile-carousel-slide ${activeTab === 'addresses' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                   <div>
@@ -2390,12 +2608,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 </div>
 
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: WISHLIST (WISHLIST SYNC)
                 ============================================== */}
-            {activeTab === 'wishlist' && (
+            <div className={`profile-carousel-slide ${activeTab === 'wishlist' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>My Sacred Wishlist</h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Items saved for special poojas, auspicious days, or gifting. Synced in real-time.</p>
@@ -2511,12 +2729,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 )}
 
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: NOTIFICATION SETTINGS
                 ============================================== */}
-            {activeTab === 'notifications' && (
+            <div className={`profile-carousel-slide ${activeTab === 'notifications' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Communication Channels</h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Choose how you wish to receive order reports, daily blessings, and spiritual reminders.</p>
@@ -2723,12 +2941,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 </div>
 
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: AFFILIATE PARTNERSHIP
                 ============================================== */}
-            {activeTab === 'affiliate' && (
+            <div className={`profile-carousel-slide ${activeTab === 'affiliate' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 {(!affiliateProfile || affiliateProfile.affiliate_status === 'inactive') ? (
                   <div>
@@ -2764,14 +2982,14 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                           textAlign: 'left'
                         }} className="hero-grid-split">
                           <div style={{ padding: '16px', backgroundColor: 'var(--primary-lime-light)', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-lime)' }}>Level 1: Direct</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', margin: '4px 0' }}>8%</p>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>On immediate customer checkouts</span>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-lime)' }}>Direct Referrals</h4>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', margin: '4px 0' }}>10%</p>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>On referred devotee checkouts</span>
                           </div>
                           <div style={{ padding: '16px', backgroundColor: 'var(--primary-lime-light)', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#b45309' }}>Level 2: Network</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', margin: '4px 0' }}>3%</p>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>On sub-affiliate devotee signups</span>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#b45309' }}>Lifetime Rewards</h4>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', margin: '4px 0' }}>Unlimited</p>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Whenever they buy again</span>
                           </div>
                         </div>
 
@@ -2807,9 +3025,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                           lineHeight: 1.6,
                           marginBottom: '24px'
                         }}>
-                          <h4 style={{ color: 'var(--text-dark)', fontWeight: 800, marginBottom: '6px' }}>1. Tiers and Commissions</h4>
+                          <h4 style={{ color: 'var(--text-dark)', fontWeight: 800, marginBottom: '6px' }}>1. Referral Commissions</h4>
                           <p style={{ marginBottom: '16px' }}>
-                            You will receive 8.00% commission on purchases made directly through your referral link (Level 1). If a customer referred by you enrolls as an affiliate, you will receive a secondary 3.00% commission on purchases made through their referral links (Level 2).
+                            You will receive a 10.00% commission on purchases made by users referred through your personal referral link. Share with one or multiple people and receive lifetime commissions whenever your referred devotees make a purchase.
                           </p>
 
                           <h4 style={{ color: 'var(--text-dark)', fontWeight: 800, marginBottom: '6px' }}>2. Holding Period and Security Lock</h4>
@@ -3021,28 +3239,71 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                       <div>
                         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>Affiliate Devotee Dashboard</h2>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Track your referral links, sub-affiliate devotee network, and commission earnings.
+                          Track your referral links and commission earnings.
                         </p>
                       </div>
                       
-                      <span style={{
-                        padding: '4px 14px',
-                        borderRadius: 'var(--radius-full)',
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        backgroundColor: affiliateProfile.affiliate_status === 'active' ? '#dcfce7' : '#fee2e2',
-                        color: affiliateProfile.affiliate_status === 'active' ? '#15803d' : '#991b1b',
-                        border: '1px solid ' + (affiliateProfile.affiliate_status === 'active' ? '#bbf7d0' : '#fecaca'),
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: affiliateProfile.affiliate_status === 'active' ? '#15803d' : '#991b1b' }} />
-                        Status: {affiliateProfile.affiliate_status.toUpperCase()}
-                      </span>
+                      {(() => {
+                        const status = affiliateProfile.affiliate_status;
+                        let bg = '#fee2e2';
+                        let text = '#991b1b';
+                        let border = '#fecaca';
+                        if (status === 'active') {
+                          bg = '#dcfce7';
+                          text = '#15803d';
+                          border = '#bbf7d0';
+                        } else if (status === 'pending') {
+                          bg = '#fff7ed';
+                          text = '#c2410c';
+                          border = '#ffedd5';
+                        }
+                        return (
+                          <span style={{
+                            padding: '4px 14px',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            backgroundColor: bg,
+                            color: text,
+                            border: `1px solid ${border}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: text }} />
+                            Status: {status.toUpperCase()}
+                          </span>
+                        );
+                      })()}
                     </div>
 
-                    {/* Suspension Banner */}
+                    {affiliateProfile.affiliate_status === 'pending' ? (
+                      /* Application Pending Approval Banner */
+                      <div style={{
+                        backgroundColor: '#fffbeb',
+                        border: '1.5px solid #fef3c7',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '40px 24px',
+                        textAlign: 'center',
+                        boxShadow: 'var(--shadow-sm)',
+                        margin: '24px 0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px'
+                      }}>
+                        <span style={{ fontSize: '3.5rem', display: 'block' }}>⏳</span>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b45309', margin: 0 }}>
+                          Application Pending Approval
+                        </h3>
+                        <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, maxWidth: '480px', lineHeight: 1.6 }}>
+                          Your application to the Mantra Puja Devotee Partner Program is currently under review by our temple administrators. 
+                          Once approved, your unique sharing link, barcode scanner, and commission console will be unlocked here. Thank you for your patience!
+                        </p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        {/* Suspension Banner */}
                     {affiliateProfile.affiliate_status === 'suspended' && (
                       <div style={{
                         backgroundColor: '#fef2f2',
@@ -3092,12 +3353,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                       </div>
 
                       <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Network Size</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Referrals</span>
                         <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary-lime)', marginTop: '4px' }}>
-                          {filteredReferralTree.length} Devotees
+                          {filteredReferralTree.filter(n => n.level === 1).length} Devotees
                         </div>
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                          {filteredReferralTree.filter(n => n.level === 1).length} Direct / {filteredReferralTree.filter(n => n.level > 1).length} Network
+                          Devotees referred by you
                         </span>
                       </div>
 
@@ -3386,7 +3647,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        🌿 Referral Network Tree
+                        🌿 Referred Devotees
                       </button>
                       <button
                         onClick={() => setDevoteeSubTab('earnings')}
@@ -3438,7 +3699,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                           <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span>🌿</span>
-                            Searchable Network Explorer
+                            Searchable Referrals List
                             <button
                               onClick={() => {
                                 fetchReferralTree();
@@ -3454,7 +3715,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                 alignItems: 'center',
                                 transition: 'color 0.2s',
                               }}
-                              title="Refresh Network Data"
+                              title="Refresh Referrals Data"
                             >
                               <RefreshCw size={14} className={treeLoading ? 'spin' : ''} />
                             </button>
@@ -3477,9 +3738,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         
                         {treeLoading ? (
                           <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                            Loading network tree...
+                            Loading referrals...
                           </div>
-                        ) : filteredReferralTree.length === 0 ? (
+                        ) : filteredReferralTree.filter(n => n.level === 1).length === 0 ? (
                           <div style={{
                             padding: '24px',
                             textAlign: 'center',
@@ -3490,8 +3751,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             color: 'var(--text-muted)',
                             lineHeight: 1.5
                           }}>
-                            You do not have any sub-affiliate devotee referrals in your network yet.<br />
-                            Share your link to start building your network tree!
+                            You do not have any devotee referrals yet.<br />
+                            Share your link to start earning rewards!
                           </div>
                         ) : (
                           <div style={{
@@ -3502,36 +3763,39 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             maxHeight: '400px',
                             overflowY: 'auto'
                           }}>
-                            {buildTree(filteredReferralTree, loggedInUser?.id || '').map(node => (
-                              <ReferralTreeNode
-                                key={node.user_id}
-                                node={node}
-                                search={referralSearch}
-                                highlightText={highlightText}
-                                doesNodeOrDescendantMatch={doesNodeOrDescendantMatch}
-                              />
-                            ))}
-                          </div>
-                        )}
-
-                        <div style={{
-                          marginTop: '12px',
-                          borderTop: '1px solid var(--border-light)',
-                          paddingTop: '16px'
-                        }}>
-                          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>Network Tier Breakdown</h4>
-                          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                            {activeLevels.map(lvl => {
-                              const count = filteredReferralTree.filter(n => n.level === lvl).length;
+                            {filteredReferralTree.filter(n => n.level === 1).map(node => {
+                              const displayName = node.full_name && node.full_name.trim() !== '' ? node.full_name : node.user_id;
                               return (
-                                <div key={lvl} style={{ padding: '8px 16px', backgroundColor: '#f9fafb', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}>
-                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Level {lvl}</span>
-                                  <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>{count} devotee{count !== 1 ? 's' : ''}</span>
+                                <div key={node.user_id} style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '12px 16px',
+                                  borderBottom: '1px solid var(--border-light)',
+                                  backgroundColor: '#ffffff',
+                                  borderRadius: 'var(--radius-md)',
+                                  marginBottom: '8px',
+                                  boxShadow: 'var(--shadow-sm)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>👤</span>
+                                    <div>
+                                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>
+                                        {highlightText(displayName, referralSearch)}
+                                      </h4>
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                        Joined: {new Date(node.joined_at).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: 700, backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
+                                    Referred Devotee
+                                  </span>
                                 </div>
                               );
                             })}
                           </div>
-                        </div>
+                        )}
                       </div>
                     )}
 
@@ -3549,34 +3813,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         gap: '20px'
                       }}>
                         <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                          📊 Commissions Ledger & Level breakdowns
+                          📊 Commissions Ledger
                         </h3>
-
-                        {/* Level breakdowns list */}
-                        <div>
-                          <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Earnings Breakdown by Tier Level</h4>
-                          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                            {activeLevels.map(lvl => {
-                              const levelBreakdownStats = (() => {
-                                const breakdown: Record<number, number> = {};
-                                commissions.forEach(c => {
-                                  if (c.status !== 'cancelled') {
-                                    const l = c.level;
-                                    breakdown[l] = (breakdown[l] || 0) + parseFloat(c.commission_amount);
-                                  }
-                                });
-                                return breakdown;
-                              })();
-                              const levelEarning = levelBreakdownStats[lvl] || 0.00;
-                              return (
-                                <div key={lvl} style={{ padding: '10px 20px', backgroundColor: 'var(--primary-lime-light)', border: '1px solid var(--primary-lime)', borderRadius: 'var(--radius-sm)', minWidth: '120px' }}>
-                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Level {lvl} Total</span>
-                                  <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-dark)' }}>₹{levelEarning.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
 
                         {/* Commissions Table */}
                         {isLoadingCommissions ? (
@@ -3594,7 +3832,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                 <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
                                   <th style={{ padding: '10px 14px', fontWeight: 700 }}>Buyer Devotee</th>
                                   <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order ID</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Level</th>
                                   <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order Total</th>
                                   <th style={{ padding: '10px 14px', fontWeight: 700 }}>Rate (%)</th>
                                   <th style={{ padding: '10px 14px', fontWeight: 700 }}>Earnings</th>
@@ -3607,7 +3844,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                   <tr key={comm.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                                     <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>{comm.buyer_name || 'Anonymous Devotee'}</td>
                                     <td style={{ padding: '10px 14px', fontFamily: 'monospace' }}>#{comm.order_id}</td>
-                                    <td style={{ padding: '10px 14px' }}>Level {comm.level}</td>
                                     <td style={{ padding: '10px 14px' }}>₹{parseFloat(comm.order_total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td style={{ padding: '10px 14px' }}>{comm.commission_percent}%</td>
                                     <td style={{ padding: '10px 14px', fontWeight: 800, color: comm.status === 'cancelled' ? '#991b1b' : 'var(--primary-lime)' }}>
@@ -3925,15 +4161,17 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                       </div>
                     )}
 
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
             {/* ==============================================
                 TAB: LOGOUT (SECURE LOGOUT SESSION CLEAR)
                 ============================================== */}
-            {activeTab === 'logout' && (
+            <div className={`profile-carousel-slide ${activeTab === 'logout' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                 <span style={{ fontSize: '4rem', display: 'block', marginBottom: '20px' }}>🧘‍♀️</span>
                 
@@ -3987,9 +4225,16 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 )}
 
               </div>
-            )}
+            </div>
+
+            </div> {/* End profile-carousel-inner */}
 
           </main>
+
+          </div> {/* Closes content area wrapper div */}
+        </div>
+      )}
+    </div> {/* Closes .container */}
 
         {showInstagramTip && (
           <div style={{
@@ -4082,7 +4327,5 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         )}
 
       </div>
-    </div>
-  </div>
   );
 };

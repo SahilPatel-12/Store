@@ -49,6 +49,7 @@ export const PoliciesPage: React.FC = () => {
               {/* Privacy */}
               <button
                 onClick={() => setActiveTab('privacy')}
+                className={`profile-nav-btn ${activeTab === 'privacy' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -71,6 +72,7 @@ export const PoliciesPage: React.FC = () => {
               {/* Refund */}
               <button
                 onClick={() => setActiveTab('refund')}
+                className={`profile-nav-btn ${activeTab === 'refund' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -93,6 +95,7 @@ export const PoliciesPage: React.FC = () => {
               {/* Shipping */}
               <button
                 onClick={() => setActiveTab('shipping')}
+                className={`profile-nav-btn ${activeTab === 'shipping' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -115,6 +118,7 @@ export const PoliciesPage: React.FC = () => {
               {/* Terms */}
               <button
                 onClick={() => setActiveTab('terms')}
+                className={`profile-nav-btn ${activeTab === 'terms' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

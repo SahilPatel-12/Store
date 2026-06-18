@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Star, Plus, Minus } from 'lucide-react';
+import { Search, User, ShoppingBag, Heart, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Star, Plus, Minus, Bell, AlertTriangle } from 'lucide-react';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
 import { SeamlessCheckoutModal } from './components/SeamlessCheckoutModal';
@@ -23,6 +23,7 @@ const OrdersPage = React.lazy(() => import('./components/OrdersPage').then(m => 
 const WishlistPage = React.lazy(() => import('./components/WishlistPage').then(m => ({ default: m.WishlistPage })));
 const AboutUsPage = React.lazy(() => import('./components/AboutUsPage').then(m => ({ default: m.AboutUsPage })));
 const ContactUsPage = React.lazy(() => import('./components/ContactUsPage').then(m => ({ default: m.ContactUsPage })));
+const NotificationsPage = React.lazy(() => import('./components/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const PoliciesPage = React.lazy(() => import('./components/PoliciesPage').then(m => ({ default: m.PoliciesPage })));
 const AdminPanelPage = React.lazy(() => import('./components/AdminPanelPage').then(m => ({ default: m.AdminPanelPage })));
 const AdminLoginPage = React.lazy(() => import('./components/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
@@ -227,8 +228,40 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications'>('shop');
   
+  const [readNotificationIds, setReadNotificationIds] = React.useState<string[]>(() => {
+    try {
+      const val = localStorage.getItem('read_notifications');
+      return val ? JSON.parse(val) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [dismissedPopupIds, setDismissedPopupIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('read_notifications', JSON.stringify(readNotificationIds));
+    } catch (e) {}
+  }, [readNotificationIds]);
+
+  const [clearedNotificationIds, setClearedNotificationIds] = React.useState<string[]>(() => {
+    try {
+      const val = localStorage.getItem('cleared_notifications');
+      return val ? JSON.parse(val) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('cleared_notifications', JSON.stringify(clearedNotificationIds));
+    } catch (e) {}
+  }, [clearedNotificationIds]);
+
   const [taxDeliverySettings, setTaxDeliverySettings] = React.useState({
     globalGstPercent: 8,
     globalDeliveryCharge: 49,
@@ -269,7 +302,7 @@ function App() {
   const [profileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'>('info');
 
   const [isSeamlessCheckoutOpen, setIsSeamlessCheckoutOpen] = React.useState(false);
-  const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | 'cart' | null>(null);
+  const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | 'cart' | 'notifications' | null>(null);
   const [pendingBuyNow, setPendingBuyNow] = React.useState<{ product: Product; qty: number } | null>(null);
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
   const [pendingAddToCart, setPendingAddToCart] = React.useState<{ product: Product; qty: number } | null>(null);
@@ -481,7 +514,7 @@ function App() {
   };
 
   const setCurrentPage = (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications',
     options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean }
   ) => {
     setMobileMenuOpen(false);
@@ -493,7 +526,7 @@ function App() {
     }
 
     // Intercept protected devotee page routing
-    if (page === 'wishlist' || page === 'orders' || page === 'profile') {
+    if (page === 'wishlist' || page === 'orders' || page === 'profile' || page === 'notifications') {
       if (!loggedInUser && !options?.bypassAuthCheck) {
         if (page !== 'profile') {
           alert(`Please log in or register to access ${page}.`);
@@ -556,6 +589,9 @@ function App() {
         break;
       case 'policies':
         path = '/policies';
+        break;
+      case 'notifications':
+        path = '/notifications';
         break;
       case 'admin-login':
       case 'admin':
@@ -672,6 +708,13 @@ function App() {
           setCurrentPageState('wishlist');
         } else {
           setAuthRedirectPage('wishlist');
+          setCurrentPageState('user-auth');
+        }
+      } else if (path === '/notifications' || path === '/notifications/') {
+        if (loggedInUser) {
+          setCurrentPageState('notifications');
+        } else {
+          setAuthRedirectPage('notifications');
           setCurrentPageState('user-auth');
         }
       } else if (path === '/about' || path === '/about/') {
@@ -1040,6 +1083,170 @@ function App() {
     }
   }, [ordersState]);
 
+  const notifications = React.useMemo(() => {
+    if (isAdminAuthenticated) return [];
+
+    const list: {
+      id: string;
+      orderId: string;
+      type: 
+        | 'order_placed'
+        | 'payment_pending'
+        | 'payment_verification_pending'
+        | 'payment_confirmed'
+        | 'payment_declined'
+        | 'order_prepared'
+        | 'order_shipped'
+        | 'order_delivered'
+        | 'order_cancelled';
+      message: string;
+      timestamp: Date;
+      read: boolean;
+      attemptCount?: number;
+    }[] = [];
+    
+    ordersState.forEach(order => {
+      // 1. Order Placed (Always shown)
+      list.push({
+        id: `${order.orderId}_placed`,
+        orderId: order.orderId,
+        type: 'order_placed',
+        message: `Your order #${order.orderId} has been successfully placed! Total amount: ₹${order.total.toFixed(2)}.`,
+        timestamp: order.placedAt,
+        read: readNotificationIds.includes(`${order.orderId}_placed`)
+      });
+
+      // 2. Payment Pending / Verification Pending (Only for UPI orders)
+      if (order.paymentMethod === 'Scan & Pay (UPI)') {
+        if (order.paymentStatus === 'Pending') {
+          if (order.paymentScreenshot) {
+            list.push({
+              id: `${order.orderId}_verification_pending`,
+              orderId: order.orderId,
+              type: 'payment_verification_pending',
+              message: `Payment screenshot for Order #${order.orderId} has been uploaded successfully. Admin verification is pending.`,
+              timestamp: order.placedAt,
+              read: readNotificationIds.includes(`${order.orderId}_verification_pending`)
+            });
+          } else {
+            list.push({
+              id: `${order.orderId}_payment_pending`,
+              orderId: order.orderId,
+              type: 'payment_pending',
+              message: `Please scan the QR code and upload your transaction confirmation screenshot for Order #${order.orderId} to begin verification.`,
+              timestamp: order.placedAt,
+              read: readNotificationIds.includes(`${order.orderId}_payment_pending`)
+            });
+          }
+        }
+      }
+
+      // 3. Payment Confirmed
+      if (order.paymentStatus === 'Confirmed') {
+        list.push({
+          id: `${order.orderId}_confirmed`,
+          orderId: order.orderId,
+          type: 'payment_confirmed',
+          message: `Your payment for Order #${order.orderId} has been successfully verified and confirmed by the admin!`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_confirmed`)
+        });
+      }
+
+      // 4. Payment Declined
+      if (order.paymentStatus === 'Declined') {
+        list.push({
+          id: `${order.orderId}_declined_${order.paymentDeclineCount || 0}`,
+          orderId: order.orderId,
+          type: 'payment_declined',
+          message: `Payment proof for Order #${order.orderId} was declined by the admin. (Attempt ${order.paymentDeclineCount || 1}/3). Please re-upload a valid transaction screenshot.`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_declined_${order.paymentDeclineCount || 0}`),
+          attemptCount: order.paymentDeclineCount || 1
+        });
+      }
+
+      // 5. Preparing Package (When payment confirmed and status is Being Packed)
+      if (order.status === 'Being Packed' && order.paymentStatus === 'Confirmed') {
+        list.push({
+          id: `${order.orderId}_prepared`,
+          orderId: order.orderId,
+          type: 'order_prepared',
+          message: `Your order #${order.orderId} is being prepared and packed for shipment.`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_prepared`)
+        });
+      }
+
+      // 6. Shipped Alert
+      if (order.status === 'Shipped') {
+        list.push({
+          id: `${order.orderId}_shipped`,
+          orderId: order.orderId,
+          type: 'order_shipped',
+          message: `Order #${order.orderId} has been shipped and is now in transit.`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_shipped`)
+        });
+      }
+
+      // 7. Delivered Alert
+      if (order.status === 'Delivered') {
+        list.push({
+          id: `${order.orderId}_delivered`,
+          orderId: order.orderId,
+          type: 'order_delivered',
+          message: `Order #${order.orderId} has been delivered. We hope it brings peace and positive energy!`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_delivered`)
+        });
+      }
+
+      // 8. Cancelled Alert
+      if (order.status === 'Cancelled') {
+        list.push({
+          id: `${order.orderId}_cancelled`,
+          orderId: order.orderId,
+          type: 'order_cancelled',
+          message: `Order #${order.orderId} was cancelled.`,
+          timestamp: order.placedAt,
+          read: readNotificationIds.includes(`${order.orderId}_cancelled`)
+        });
+      }
+    });
+
+    const NOTIFICATION_PRIORITY: Record<string, number> = {
+      order_placed: 1,
+      payment_pending: 2,
+      payment_verification_pending: 3,
+      payment_declined: 4,
+      payment_confirmed: 5,
+      order_prepared: 6,
+      order_shipped: 7,
+      order_delivered: 8,
+      order_cancelled: 9
+    };
+
+    return list
+      .filter(n => !clearedNotificationIds.includes(n.id))
+      .sort((a, b) => {
+        const timeDiff = b.timestamp.getTime() - a.timestamp.getTime();
+        if (timeDiff !== 0) return timeDiff;
+        const prioA = NOTIFICATION_PRIORITY[a.type] || 0;
+        const prioB = NOTIFICATION_PRIORITY[b.type] || 0;
+        return prioB - prioA;
+      });
+  }, [ordersState, readNotificationIds, clearedNotificationIds, isAdminAuthenticated]);
+
+  const unreadNotificationsCount = React.useMemo(() => {
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
+
+  const activePopupNotification = React.useMemo(() => {
+    if (isAdminAuthenticated) return null;
+    return notifications.find(n => n.type === 'payment_declined' && !n.read && !dismissedPopupIds.includes(n.id)) || null;
+  }, [notifications, dismissedPopupIds, isAdminAuthenticated]);
+
   const fetchOrdersFromSupabase = React.useCallback(async () => {
     try {
       let query = supabase.from('website_store_orders').select('*');
@@ -1079,7 +1286,8 @@ function App() {
           items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
           razorpayPaymentId: o.razorpay_payment_id || undefined,
           paymentScreenshot: o.payment_screenshot || undefined,
-          paymentStatus: o.payment_status || 'Pending'
+          paymentStatus: o.payment_status || 'Pending',
+          paymentDeclineCount: o.payment_decline_count || 0
         }));
         setOrdersState(mappedOrders);
       }
@@ -1492,11 +1700,46 @@ function App() {
           {/* Profile & Cart actions (Right side) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} className="nav-actions">
 
+            {!isAdminAuthenticated && (
+              <button
+                onClick={() => setCurrentPage('notifications')}
+                style={{
+                  position: 'relative',
+                  padding: '8px',
+                  color: currentPageState === 'notifications' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                  transition: 'color 0.2s'
+                }}
+                title="Sacred Alerts"
+              >
+                <Bell size={20} fill={currentPageState === 'notifications' ? 'var(--primary-lime)' : 'none'} />
+                {unreadNotificationsCount > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '0',
+                    right: '0',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.62rem',
+                    fontWeight: 800,
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => setCurrentPage('profile')}
               style={{
                 padding: '8px',
-                color: loggedInUser ? 'var(--primary-gold, #d97706)' : (currentPage === 'profile' || currentPage === 'user-auth' ? 'var(--primary-lime)' : 'var(--text-dark)'),
+                color: loggedInUser ? 'var(--primary-gold, #d97706)' : (currentPageState === 'profile' || currentPageState === 'user-auth' ? 'var(--primary-lime)' : 'var(--text-dark)'),
                 transition: 'color 0.2s'
               }}
               title={loggedInUser ? `Logged in as ${loggedInUser.fullName || loggedInUser.phoneNumber || 'Devotee'}` : "Spiritual Dashboard"}
@@ -3207,6 +3450,31 @@ function App() {
 
               // Proactively sync shipping details to user saved addresses if logged in
               if (loggedInUser) {
+                // Sync user email if it was entered during checkout
+                if (details.email && details.email.trim() !== '') {
+                  try {
+                    const cleanedEmail = details.email.trim();
+                    const isPlaceholder = loggedInUser.email && loggedInUser.email.startsWith('devotee_') && loggedInUser.email.endsWith('@spiritual.com');
+                    if (!loggedInUser.email || isPlaceholder || loggedInUser.email !== cleanedEmail) {
+                      const { error: userUpdateErr } = await supabase
+                        .from('website_store_users')
+                        .update({ email: cleanedEmail })
+                        .eq('id', loggedInUser.id);
+                      
+                      if (!userUpdateErr) {
+                        const updatedUser = {
+                          ...loggedInUser,
+                          email: cleanedEmail
+                        };
+                        localStorage.setItem('mantra_user_session', JSON.stringify(updatedUser));
+                        setLoggedInUser(updatedUser);
+                      }
+                    }
+                  } catch (emailErr) {
+                    console.error('Failed to sync user email from order:', emailErr);
+                  }
+                }
+
                 try {
                   const { data: existing, error: findError } = await supabase
                     .from('website_store_addresses')
@@ -3274,6 +3542,7 @@ function App() {
       ) : currentPage === 'profile' ? (
         <UserProfilePage
           orders={ordersState}
+          setOrders={setOrdersState}
           products={productsState}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
@@ -3328,6 +3597,34 @@ function App() {
             } else {
               setCurrentPage('profile', { bypassAuthCheck: true });
             }
+          }}
+        />
+      ) : currentPage === 'notifications' ? (
+        <NotificationsPage
+          orders={ordersState}
+          readNotificationIds={readNotificationIds}
+          clearedNotificationIds={clearedNotificationIds}
+          onMarkAsRead={(id) => {
+            if (!readNotificationIds.includes(id)) {
+              setReadNotificationIds(prev => [...prev, id]);
+            }
+          }}
+          onMarkAllAsRead={() => {
+            const allIds = notifications.map(n => n.id);
+            setReadNotificationIds(allIds);
+          }}
+          onClearNotification={(id) => {
+            if (!clearedNotificationIds.includes(id)) {
+              setClearedNotificationIds(prev => [...prev, id]);
+            }
+          }}
+          onClearAllNotifications={(ids) => {
+            setClearedNotificationIds(prev => [...prev, ...ids.filter(id => !prev.includes(id))]);
+          }}
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToOrders={() => {
+            setCurrentPage('orders');
           }}
         />
       ) : currentPage === 'wishlist' ? (
@@ -3708,6 +4005,31 @@ function App() {
             }
 
             if (loggedInUser) {
+              // Sync user email if it was entered during checkout
+              if (details.email && details.email.trim() !== '') {
+                try {
+                  const cleanedEmail = details.email.trim();
+                  const isPlaceholder = loggedInUser.email && loggedInUser.email.startsWith('devotee_') && loggedInUser.email.endsWith('@spiritual.com');
+                  if (!loggedInUser.email || isPlaceholder || loggedInUser.email !== cleanedEmail) {
+                    const { error: userUpdateErr } = await supabase
+                      .from('website_store_users')
+                      .update({ email: cleanedEmail })
+                      .eq('id', loggedInUser.id);
+                    
+                    if (!userUpdateErr) {
+                      const updatedUser = {
+                        ...loggedInUser,
+                        email: cleanedEmail
+                      };
+                      localStorage.setItem('mantra_user_session', JSON.stringify(updatedUser));
+                      setLoggedInUser(updatedUser);
+                    }
+                  }
+                } catch (emailErr) {
+                  console.error('Failed to sync user email from order:', emailErr);
+                }
+              }
+
               try {
                 const { data: existing, error: findError } = await supabase
                   .from('website_store_addresses')
@@ -3895,7 +4217,158 @@ function App() {
             display: none !important;
           }
         }
+        
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
       `}</style>
+
+      {/* Declined Payment Alert Pop-up Modal */}
+      {activePopupNotification && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px',
+          animation: 'fadeIn 0.2s ease-out'
+        }}
+        onClick={() => {
+          setDismissedPopupIds(prev => [...prev, activePopupNotification.id]);
+          if (!readNotificationIds.includes(activePopupNotification.id)) {
+            setReadNotificationIds(prev => [...prev, activePopupNotification.id]);
+          }
+        }}
+        >
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            border: '2px solid #ef4444',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '24px',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: '16px',
+            animation: 'scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ef4444'
+            }}>
+              <AlertTriangle size={28} />
+            </div>
+
+            <div>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 900,
+                color: '#1e293b',
+                margin: 0
+              }}>
+                Payment Verification Failed
+              </h3>
+              <p style={{
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                color: '#ef4444',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginTop: '4px',
+                margin: 0
+              }}>
+                Order #{activePopupNotification.orderId} • Attempt {activePopupNotification.attemptCount || 1}/3
+              </p>
+            </div>
+
+            <p style={{
+              fontSize: '0.88rem',
+              color: '#64748b',
+              lineHeight: '1.5',
+              margin: 0
+            }}>
+              Devotee, the admin has declined your uploaded payment verification screenshot. 
+              Please re-upload a valid transaction confirmation screenshot immediately to prevent your order from being automatically cancelled.
+            </p>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              width: '100%',
+              marginTop: '8px'
+            }}>
+              <button
+                onClick={() => {
+                  setDismissedPopupIds(prev => [...prev, activePopupNotification.id]);
+                  if (!readNotificationIds.includes(activePopupNotification.id)) {
+                    setReadNotificationIds(prev => [...prev, activePopupNotification.id]);
+                  }
+                  setCurrentPage('orders');
+                }}
+                className="btn-lime"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                Re-upload Payment Proof Now
+              </button>
+
+              <button
+                onClick={() => {
+                  setDismissedPopupIds(prev => [...prev, activePopupNotification.id]);
+                  if (!readNotificationIds.includes(activePopupNotification.id)) {
+                    setReadNotificationIds(prev => [...prev, activePopupNotification.id]);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  backgroundColor: 'transparent',
+                  border: '1.5px solid var(--border-light)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                Acknowledge & Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global Custom Alert Modal */}
       {globalAlert && (

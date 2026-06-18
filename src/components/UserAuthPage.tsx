@@ -246,15 +246,13 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     setOtpError('');
     try {
       if (isNewUser) {
-        // Complete registration write with placeholder values to satisfy unique and not-null constraints
-        const placeholderEmail = `devotee_${otpTargetPhone}@spiritual.com`;
+        // Complete registration write without placeholder email (nullable in database)
         let newUser;
         try {
           const res = await supabase
             .from('website_store_users')
             .insert({
               full_name: '',
-              email: placeholderEmail,
               phone_number: otpTargetPhone,
               password_hash: '',
               last_login_at: new Date().toISOString()

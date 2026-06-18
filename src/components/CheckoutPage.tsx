@@ -379,18 +379,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   };
 
-  const handleUpiRedirect = (scheme: string) => {
+  const handleUpiRedirect = () => {
     const upi = barcodeSettings?.upiId || '7974478098@paytm';
-    let uri = '';
-    if (scheme === 'gpay') {
-      uri = `tez://tez/pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-    } else if (scheme === 'phonepe') {
-      uri = `phonepe://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-    } else if (scheme === 'paytm') {
-      uri = `paytmmp://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-    } else {
-      uri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-    }
+    const uri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
 
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile) {
@@ -958,10 +949,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         justifyContent: 'space-between'
                       }}>
                         <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                          <span style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA</span>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', fontFamily: 'monospace' }}>
+                          <span style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
+                          <a
+                            href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`}
+                            style={{
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              color: 'var(--primary-lime, #15803d)',
+                              fontFamily: 'monospace',
+                              textDecoration: 'underline',
+                              cursor: 'pointer'
+                            }}
+                          >
                             {barcodeSettings?.upiId || '7974478098@paytm'}
-                          </span>
+                          </a>
                         </div>
                         <button
                           onClick={handleCopyUpi}
@@ -985,7 +986,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </button>
                       </div>
 
-                      {/* Pay via UPI App Buttons */}
+                      {/* Pay via UPI App Button */}
                       <div style={{
                         marginTop: '16px',
                         width: '100%',
@@ -993,139 +994,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         flexDirection: 'column',
                         gap: '8px'
                       }}>
-                        <p style={{
-                          fontSize: '0.76rem',
-                          fontWeight: 800,
-                          color: '#4b5563',
-                          textAlign: 'center',
-                          margin: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}>
-                          ⚡ <span>Pay via Mobile UPI App</span>
-                        </p>
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '8px'
-                        }}>
-                          <button
-                            onClick={() => handleUpiRedirect('gpay')}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d1d5db',
-                              backgroundColor: '#ffffff',
-                              cursor: 'pointer',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              color: '#1f2937',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.borderColor = '#4285F4';
-                              e.currentTarget.style.backgroundColor = '#f8fafd';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.borderColor = '#d1d5db';
-                              e.currentTarget.style.backgroundColor = '#ffffff';
-                            }}
-                          >
-                            <span style={{ color: '#4285F4', fontWeight: 900 }}>G</span>
-                            <span style={{ color: '#EA4335', fontWeight: 900 }}>P</span>
-                            <span style={{ color: '#FBBC05', fontWeight: 900 }}>a</span>
-                            <span style={{ color: '#34A853', fontWeight: 900 }}>y</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleUpiRedirect('phonepe')}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d1d5db',
-                              backgroundColor: '#ffffff',
-                              cursor: 'pointer',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              color: '#5f259f',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.borderColor = '#5f259f';
-                              e.currentTarget.style.backgroundColor = '#fbf7ff';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.borderColor = '#d1d5db';
-                              e.currentTarget.style.backgroundColor = '#ffffff';
-                            }}
-                          >
-                            <span>🟣 PhonePe</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleUpiRedirect('paytm')}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d1d5db',
-                              backgroundColor: '#ffffff',
-                              cursor: 'pointer',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              color: '#00baf2',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.borderColor = '#00baf2';
-                              e.currentTarget.style.backgroundColor = '#f4fdff';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.borderColor = '#d1d5db';
-                              e.currentTarget.style.backgroundColor = '#ffffff';
-                            }}
-                          >
-                            <span>🔵 Paytm</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleUpiRedirect('generic')}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d1d5db',
-                              backgroundColor: '#ffffff',
-                              cursor: 'pointer',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              color: 'var(--primary-lime)',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.borderColor = 'var(--primary-lime)';
-                              e.currentTarget.style.backgroundColor = 'var(--primary-lime-light)';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.borderColor = '#d1d5db';
-                              e.currentTarget.style.backgroundColor = '#ffffff';
-                            }}
-                          >
-                            <span>✨ Other UPI / Navi</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={handleUpiRedirect}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--primary-lime)',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontSize: '0.9rem',
+                            fontWeight: 800,
+                            transition: 'background-color 0.2s',
+                            boxShadow: 'var(--shadow-sm)',
+                            textAlign: 'center',
+                            gap: '6px',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
+                        >
+                          ⚡ Pay via Mobile UPI App
+                        </button>
                         <p style={{
                           fontSize: '0.62rem',
                           color: '#9ca3af',
@@ -1133,7 +1025,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           margin: 0,
                           lineHeight: 1.2
                         }}>
-                          * Direct redirection is supported on mobile devices.
+                          * Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.
                         </p>
                       </div>
                     </div>
