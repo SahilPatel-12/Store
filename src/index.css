@@ -321,7 +321,46 @@ button {
 
   /* Profile page layout stack */
   .profile-sidebar-wrapper {
-    margin-bottom: 20px;
+    padding: 12px !important;
+    margin-bottom: 16px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .profile-sidebar-wrapper nav {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  /* Hide scrollbars but allow scrolling on horizontal nav */
+  .profile-sidebar-wrapper nav::-webkit-scrollbar {
+    display: none !important;
+  }
+  .profile-sidebar-wrapper nav {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  .profile-sidebar-wrapper nav .profile-nav-btn {
+    width: auto !important;
+    flex-shrink: 0 !important;
+    padding: 10px 14px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* Hide vertical spacing divider line */
+  .profile-sidebar-wrapper nav .profile-sidebar-nav-divider {
+    display: none !important;
+  }
+
+  .profile-content-panel {
+    padding: 20px !important;
   }
   
   /* Form components responsiveness */
@@ -390,6 +429,13 @@ button {
 
   .tracking-progress-line {
     display: none !important;
+  }
+
+  .profile-membership-box {
+    flex-direction: column !important;
+    text-align: center !important;
+    align-items: center !important;
+    gap: 12px !important;
   }
 }
 

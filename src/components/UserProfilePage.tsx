@@ -1281,6 +1281,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
               
               <button
                 onClick={() => setActiveTab('info')}
+                className={`profile-nav-btn ${activeTab === 'info' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1302,6 +1303,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
               <button
                 onClick={onNavigateToOrders}
+                className={`profile-nav-btn ${activeTab === 'orders' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1336,6 +1338,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
               <button
                 onClick={() => setActiveTab('addresses')}
+                className={`profile-nav-btn ${activeTab === 'addresses' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1357,6 +1360,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
               <button
                 onClick={() => setActiveTab('wishlist')}
+                className={`profile-nav-btn ${activeTab === 'wishlist' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1391,6 +1395,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
               <button
                 onClick={() => setActiveTab('notifications')}
+                className={`profile-nav-btn ${activeTab === 'notifications' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1412,6 +1417,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
               <button
                 onClick={() => setActiveTab('affiliate')}
+                className={`profile-nav-btn ${activeTab === 'affiliate' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1445,10 +1451,11 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 )}
               </button>
 
-              <div style={{ height: '1px', backgroundColor: 'var(--border-light)', margin: '12px 0' }} />
+              <div className="profile-sidebar-nav-divider" style={{ height: '1px', backgroundColor: 'var(--border-light)', margin: '12px 0' }} />
 
               <button
                 onClick={() => setActiveTab('logout')}
+                className={`profile-nav-btn logout-btn ${activeTab === 'logout' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1472,7 +1479,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
           </aside>
 
           {/* Dashboard Right Main Panel */}
-          <main style={{
+          <main className="profile-content-panel" style={{
             backgroundColor: '#ffffff',
             borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--border-light)',
@@ -1656,7 +1663,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
                 {/* Account Details Box */}
                 {!isEditingProfile && (
-                  <div style={{
+                  <div className="profile-membership-box" style={{
                     marginTop: '32px',
                     padding: '20px',
                     backgroundColor: 'var(--primary-lime-light)',
