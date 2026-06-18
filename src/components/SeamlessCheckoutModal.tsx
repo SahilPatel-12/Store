@@ -699,6 +699,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   };
 
   const handleCloseModal = () => {
+    if (step === 'payment') {
+      if (!window.confirm('Are you sure you want to cancel checkout? Your payment will be cancelled by this action.')) {
+        return;
+      }
+    }
     setPaymentScreenshotUrl('');
     setIsUploadingScreenshot(false);
     setCopiedUpi(false);
@@ -786,7 +791,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     if (step === 'payment') {
       return (
         <button 
-          onClick={() => setStep('address')} 
+          onClick={() => {
+            if (window.confirm('Are you sure you want to go back? Your payment will be cancelled by this action.')) {
+              setStep('address');
+            }
+          }} 
           style={{ padding: '8px', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center' }}
         >
           <ChevronLeft size={20} />

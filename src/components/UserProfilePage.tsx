@@ -20,11 +20,13 @@ import {
   RefreshCw,
   Share2,
   MessageCircle,
+  Upload,
 } from 'lucide-react';
 import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { createReferralShareCard, uploadReferralShareCard } from '../lib/shareHelper';
+import { uploadToR2 } from '../lib/cloudflare/r2';
 
 const FacebookIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -234,6 +236,65 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const [isLoadingPayoutHistory, setIsLoadingPayoutHistory] = React.useState(false);
   const [isSubmittingPayout, setIsSubmittingPayout] = React.useState(false);
   const [payoutMethod, setPayoutMethod] = React.useState<'upi' | 'bank'>('upi');
+
+  // Payment Verification States for Profile Orders History
+  const [localScreenshots, setLocalScreenshots] = React.useState<Record<string, string>>({});
+  const [barcodeSettings, setBarcodeSettings] = React.useState<{ upiId?: string; barcodeUrl?: string } | null>(null);
+  const [uploadingOrderId, setUploadingOrderId] = React.useState<string | null>(null);
+  const [uploadErrors, setUploadErrors] = React.useState<Record<string, string>>({});
+  const [copiedUpiOrderId, setCopiedUpiOrderId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    async function loadConfig() {
+      try {
+        const { data: barcodeData } = await supabase
+          .from('website_settings')
+          .select('value')
+          .eq('key', 'payment_barcode_settings')
+          .single();
+        if (barcodeData && barcodeData.value) {
+          const val = barcodeData.value as { upi_id?: string; barcode_url?: string };
+          setBarcodeSettings({ upiId: val.upi_id, barcodeUrl: val.barcode_url });
+        }
+      } catch (err) {
+        console.error('Barcode settings load error:', err);
+      }
+    }
+    loadConfig();
+  }, []);
+
+  const handleOrderScreenshotUpload = async (orderId: string, file: File) => {
+    if (!file) return;
+    setUploadingOrderId(orderId);
+    setUploadErrors(prev => ({ ...prev, [orderId]: '' }));
+    try {
+      const url = await uploadToR2(file, 'orders/proofs');
+      
+      const { error } = await supabase
+        .from('website_store_orders')
+        .update({ payment_screenshot: url })
+        .eq('order_id', orderId);
+      
+      if (error) throw error;
+      
+      setLocalScreenshots(prev => ({ ...prev, [orderId]: url }));
+    } catch (err) {
+      console.error('Failed to upload proof of payment:', err);
+      setUploadErrors(prev => ({ ...prev, [orderId]: 'Failed to upload screenshot. Please verify connection and try again.' }));
+    } finally {
+      setUploadingOrderId(null);
+    }
+  };
+
+  const handleCopyOrderUpi = (orderId: string, upi: string) => {
+    try {
+      navigator.clipboard.writeText(upi);
+      setCopiedUpiOrderId(orderId);
+      setTimeout(() => setCopiedUpiOrderId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy UPI ID:', err);
+    }
+  };
   const [upiId, setUpiId] = React.useState('');
   const [upiHolderName, setUpiHolderName] = React.useState('');
   const [bankHolderName, setBankHolderName] = React.useState('');
@@ -874,6 +935,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       total: o.total,
       paymentMethod: o.paymentMethod,
       status: o.status,
+      paymentStatus: o.paymentStatus || 'Pending',
+      paymentScreenshot: localScreenshots[o.orderId] || o.paymentScreenshot,
       items: o.items.map((i) => ({
         name: i.product.name,
         qty: i.quantity,
@@ -881,7 +944,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         image: i.product.image,
       })),
     }));
-  }, [orders]);
+  }, [orders, localScreenshots]);
 
   // Feedback Messages auto-clear
   React.useEffect(() => {
@@ -1649,6 +1712,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {allOrders.map((order) => {
+                      const isPendingUpi = order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed';
                       const badge = getStatusColor(order.status);
                       return (
                         <div
@@ -1691,20 +1755,39 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                               </div>
                             </div>
 
-                            <span style={{
-                              backgroundColor: badge.bg,
-                              color: badge.text,
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              padding: '4px 12px',
-                              borderRadius: 'var(--radius-full)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}>
-                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badge.text }} />
-                              {order.status}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                backgroundColor: badge.bg,
+                                color: badge.text,
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                padding: '4px 12px',
+                                borderRadius: 'var(--radius-full)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badge.text }} />
+                                {order.status}
+                              </span>
+                              {isPendingUpi && (
+                                <span style={{
+                                  backgroundColor: '#fff7ed',
+                                  color: '#c2410c',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  padding: '4px 12px',
+                                  borderRadius: 'var(--radius-full)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  border: '1.5px solid #ffedd5'
+                                }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#c2410c' }} />
+                                  Payment Pending
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Order Products List */}
@@ -1823,6 +1906,219 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                     <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-muted)' }}>Delivered</span>
                                   </div>
 
+                                </div>
+                              </div>
+                            )}
+
+                            {/* UPI QR Payment and Screenshot Upload Panel */}
+                            {isPendingUpi && (
+                              <div style={{
+                                marginTop: '24px',
+                                paddingTop: '20px',
+                                borderTop: '1px solid var(--border-light)'
+                              }}>
+                                <div style={{
+                                  backgroundColor: '#fffbeb',
+                                  border: '1.5px solid #fef3c7',
+                                  borderRadius: 'var(--radius-lg)',
+                                  padding: '20px'
+                                }}>
+                                  <h5 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#92400e', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Sparkles size={16} style={{ color: '#d97706' }} /> Complete Direct UPI Payment
+                                  </h5>
+                                  <p style={{ fontSize: '0.8rem', color: '#78350f', marginBottom: '16px', lineHeight: 1.4 }}>
+                                    Please scan the QR code to complete your payment of <strong>₹{order.total.toFixed(2)}</strong>. After making the payment, upload your transaction confirmation screenshot below.
+                                  </p>
+
+                                  <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1.1fr 1.9fr',
+                                    gap: '20px',
+                                    alignItems: 'start'
+                                  }} className="hero-grid-split">
+                                    {/* QR Code Column */}
+                                    <div style={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      textAlign: 'center',
+                                      padding: '12px',
+                                      backgroundColor: '#ffffff',
+                                      border: '1.5px solid #f3f4f6',
+                                      borderRadius: 'var(--radius-md)',
+                                    }}>
+                                      {barcodeSettings?.barcodeUrl ? (
+                                        <img
+                                          src={barcodeSettings.barcodeUrl}
+                                          alt="UPI QR Code"
+                                          style={{ width: '130px', height: '130px', objectFit: 'contain', marginBottom: '8px' }}
+                                        />
+                                      ) : (
+                                        <img
+                                          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                                            `upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${order.total.toFixed(
+                                              2
+                                            )}&cu=INR&tn=Order%20${order.id}`
+                                          )}`}
+                                          alt="UPI QR Code"
+                                          style={{ width: '130px', height: '130px', objectFit: 'contain', marginBottom: '8px' }}
+                                        />
+                                      )}
+                                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                                        Scan to Pay ₹{order.total.toFixed(2)}
+                                      </span>
+
+                                      <div style={{
+                                        marginTop: '10px',
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        backgroundColor: '#fafafa',
+                                        padding: '6px 10px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid #e5e7eb',
+                                      }}>
+                                        <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-dark)', wordBreak: 'break-all', textAlign: 'left' }}>
+                                          {barcodeSettings?.upiId || '7974478098@paytm'}
+                                        </span>
+                                        <button
+                                          onClick={() => handleCopyOrderUpi(order.id, barcodeSettings?.upiId || '7974478098@paytm')}
+                                          style={{
+                                            padding: '4px 6px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            backgroundColor: copiedUpiOrderId === order.id ? '#dcfce7' : '#ffffff',
+                                            color: copiedUpiOrderId === order.id ? '#15803d' : 'var(--text-dark)',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: 'var(--radius-sm)',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '2px',
+                                            flexShrink: 0
+                                          }}
+                                        >
+                                          {copiedUpiOrderId === order.id ? <Check size={8} /> : <Copy size={8} />}
+                                          {copiedUpiOrderId === order.id ? 'Copied' : 'Copy'}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Upload Screen Column */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center' }}>
+                                      {order.paymentScreenshot ? (
+                                        <div style={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          textAlign: 'center',
+                                          padding: '16px',
+                                          backgroundColor: '#f0fdf4',
+                                          border: '1.5px dashed #bbf7d0',
+                                          borderRadius: 'var(--radius-md)',
+                                        }}>
+                                          <img
+                                            src={order.paymentScreenshot}
+                                            alt="Payment Screenshot"
+                                            style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '4px', marginBottom: '8px', border: '1px solid #bbf7d0' }}
+                                          />
+                                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <CheckCircle size={14} style={{ color: '#15803d' }} /> Receipt Uploaded
+                                          </span>
+                                          <p style={{ fontSize: '0.7rem', color: '#166534', marginTop: '2px', marginBottom: '10px' }}>
+                                            Awaiting confirmation from our admin team.
+                                          </p>
+                                          <label
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              padding: '5px 12px',
+                                              backgroundColor: '#ffffff',
+                                              border: '1px solid #bbf7d0',
+                                              borderRadius: 'var(--radius-sm)',
+                                              color: '#15803d',
+                                              fontSize: '0.72rem',
+                                              fontWeight: 700,
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            <Upload size={10} />
+                                            Re-upload proof
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleOrderScreenshotUpload(order.id, file);
+                                              }}
+                                              style={{ display: 'none' }}
+                                            />
+                                          </label>
+                                        </div>
+                                      ) : (
+                                        <label
+                                          style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '24px 16px',
+                                            border: '2px dashed #d1d5db',
+                                            borderRadius: 'var(--radius-md)',
+                                            cursor: 'pointer',
+                                            backgroundColor: '#ffffff',
+                                            transition: 'border-color 0.2s',
+                                            minHeight: '160px'
+                                          }}
+                                          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary-lime)')}
+                                          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#d1d5db')}
+                                        >
+                                          {uploadingOrderId === order.id ? (
+                                            <div style={{ textAlign: 'center' }}>
+                                              <div style={{
+                                                width: '20px',
+                                                height: '20px',
+                                                border: '2px solid #e5e7eb',
+                                                borderTopColor: 'var(--primary-lime)',
+                                                borderRadius: '50%',
+                                                margin: '0 auto 8px auto',
+                                                animation: 'spin-anim 1s linear infinite',
+                                              }} />
+                                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
+                                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                                                Upload Payment Screenshot
+                                              </span>
+                                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                JPG, PNG files
+                                              </span>
+                                            </>
+                                          )}
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            disabled={uploadingOrderId === order.id}
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (file) handleOrderScreenshotUpload(order.id, file);
+                                            }}
+                                            style={{ display: 'none' }}
+                                          />
+                                        </label>
+                                      )}
+
+                                      {uploadErrors[order.id] && (
+                                        <p style={{ color: '#ef4444', fontSize: '0.72rem', fontWeight: 600, marginTop: '6px', textAlign: 'center' }}>
+                                          {uploadErrors[order.id]}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             )}

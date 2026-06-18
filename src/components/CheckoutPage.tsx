@@ -522,7 +522,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       {/* ── Back nav ── */}
       <div className="container" style={{ paddingTop: '24px', paddingBottom: '8px' }}>
         <button
-          onClick={step === 'address' ? handleBackToCart : () => setStep(step === 'payment' ? 'address' : 'payment')}
+          onClick={() => {
+            if (step === 'address') {
+              handleBackToCart();
+            } else if (step === 'payment') {
+              if (window.confirm('Are you sure you want to go back? Your payment will be cancelled by this action.')) {
+                setStep('address');
+              }
+            } else {
+              setStep('payment');
+            }
+          }}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-lime)',
