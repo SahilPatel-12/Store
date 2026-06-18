@@ -72,6 +72,10 @@ export interface PoojaProduct extends Product {
   certificates?: Array<{ url: string; name?: string; issuer?: string }>;
   iconImage?: string;
   promoCreatives?: Array<{ url: string; position?: string }>;
+  gstOverrideEnabled?: boolean;
+  customGst?: number;
+  deliveryOverrideEnabled?: boolean;
+  customDelivery?: number;
 }
 
 export interface CartItem {
@@ -101,5 +105,11 @@ export interface LocalOrder {
   status: string; // 'Being Packed' | 'Shipped' | 'Delivered' | 'Cancelled'
   items: CartItem[];
   razorpayPaymentId?: string;
+  paymentScreenshot?: string;
+  paymentStatus?: string;
+  gstPercentSnapshot?: number;
+  gstAmountSnapshot?: number;
+  deliveryAmountSnapshot?: number;
+  freeDeliveryEligibleSnapshot?: boolean;
 }
 

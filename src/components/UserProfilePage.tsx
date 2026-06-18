@@ -18,10 +18,41 @@ import {
   Copy,
   Wallet,
   RefreshCw,
+  Share2,
+  MessageCircle,
 } from 'lucide-react';
 import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { createReferralShareCard, uploadReferralShareCard } from '../lib/shareHelper';
+
+const FacebookIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
+const TwitterIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
+  </svg>
+);
+
+const LinkedinIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+    <rect x="2" y="9" width="4" height="12" />
+    <circle cx="4" cy="4" r="2" />
+  </svg>
+);
+
+const InstagramIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
 
 interface ReferralTreeNodeProps {
   node: any;
@@ -210,6 +241,15 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const [bankIfsc, setBankIfsc] = React.useState('');
   const [bankName, setBankName] = React.useState('');
   const [referralSearch, setReferralSearch] = React.useState('');
+
+  // Sharing & Toast states
+  const shareMessage = '🙏 Join me on Mantra Puja and explore divine offerings! Bring peace, health & prosperity home. Access authentic Pujas, Yagnas and spiritual items here:';
+  const [showInstagramTip, setShowInstagramTip] = React.useState(false);
+  const [toastMsg, setToastMsg] = React.useState('');
+  const triggerToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 4000);
+  };
   const [devoteeSubTab, setDevoteeSubTab] = React.useState<'network' | 'earnings' | 'payout'>('network');
   const [minWithdrawalLimit, setMinWithdrawalLimit] = React.useState<number>(1000);
   const [activeLevels, setActiveLevels] = React.useState<number[]>([1, 2, 3]);
@@ -289,6 +329,224 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       setTreeLoading(false);
     }
   }, [loggedInUser]);
+
+  const getShareOrigin = () => {
+    const origin = window.location.origin;
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return 'https://mantrapuja.com';
+    }
+    return origin;
+  };
+
+  const handleNativeShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Generating blessings card...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardFile = new File([cardBlob], `MantraPuja-Blessings-Card.png`, { type: 'image/png' });
+      const filesArray = [cardFile];
+      
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+        await navigator.share({
+          title: 'Mantra Puja Referral',
+          text: fullMessage,
+          url: shareUrl,
+          files: filesArray
+        });
+        triggerToast('Blessings shared successfully!');
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Mantra Puja Referral',
+          text: fullMessage,
+          url: shareUrl
+        });
+        triggerToast('Shared link & message successfully!');
+      } else {
+        throw new Error('Native share not supported.');
+      }
+    } catch (err) {
+      console.error('Web Share API error:', err);
+      try {
+        const cardBlob = await createReferralShareCard(referralUrl);
+        const cardUrl = await uploadReferralShareCard(referralUrl, code);
+        const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+        const fullMessage = `${shareMessage}\n${shareUrl}`;
+        
+        try {
+          const item = new ClipboardItem({ 'image/png': cardBlob });
+          await navigator.clipboard.write([item]);
+          triggerToast('Blessings card image copied to clipboard! Paste it to share.');
+        } catch {
+          await navigator.clipboard.writeText(fullMessage);
+          triggerToast('Message & link copied to clipboard!');
+        }
+      } catch (innerErr) {
+        const fallbackUrl = `${shareOrigin}?ref=${code}`;
+        const fullMessage = `${shareMessage}\n${fallbackUrl}`;
+        await navigator.clipboard.writeText(fullMessage);
+        triggerToast('Link copied to clipboard!');
+      }
+    }
+  };
+
+  const handleWhatsappShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Preparing blessings card...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      try {
+        const item = new ClipboardItem({ 'image/png': cardBlob });
+        await navigator.clipboard.write([item]);
+        triggerToast('Blessings image copied! Open WhatsApp & Paste.');
+      } catch {
+        await navigator.clipboard.writeText(fullMessage);
+        triggerToast('Referral link copied!');
+      }
+      
+      setTimeout(() => {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(fullMessage)}`, '_blank');
+      }, 1200);
+    } catch (err) {
+      console.error('Failed to generate referral card image:', err);
+      const fallbackUrl = `${shareOrigin}?ref=${code}`;
+      const fullMessage = `${shareMessage}\n${fallbackUrl}`;
+      await navigator.clipboard.writeText(fullMessage);
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(fullMessage)}`, '_blank');
+    }
+  };
+
+  const handleFacebookShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Preparing Facebook sharing...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      try {
+        const item = new ClipboardItem({ 'image/png': cardBlob });
+        await navigator.clipboard.write([item]);
+        triggerToast('Blessings image copied! Open Facebook & Paste.');
+      } catch {
+        await navigator.clipboard.writeText(fullMessage);
+      }
+      
+      setTimeout(() => {
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+      }, 1200);
+    } catch (err) {
+      console.error(err);
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralUrl)}`, '_blank');
+    }
+  };
+
+  const handleTwitterShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Preparing Twitter sharing...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      try {
+        const item = new ClipboardItem({ 'image/png': cardBlob });
+        await navigator.clipboard.write([item]);
+        triggerToast('Blessings image copied! Open Twitter & Paste.');
+      } catch {
+        await navigator.clipboard.writeText(fullMessage);
+      }
+      
+      setTimeout(() => {
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`, '_blank');
+      }, 1200);
+    } catch (err) {
+      console.error(err);
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}&url=${encodeURIComponent(referralUrl)}`, '_blank');
+    }
+  };
+
+  const handleLinkedinShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Preparing LinkedIn sharing...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      try {
+        const item = new ClipboardItem({ 'image/png': cardBlob });
+        await navigator.clipboard.write([item]);
+        triggerToast('Blessings image copied! Open LinkedIn & Paste.');
+      } catch {
+        await navigator.clipboard.writeText(fullMessage);
+      }
+      
+      setTimeout(() => {
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank');
+      }, 1200);
+    } catch (err) {
+      console.error(err);
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralUrl)}`, '_blank');
+    }
+  };
+
+  const handleInstagramShare = async () => {
+    if (!affiliateProfile?.affiliate_code) return;
+    const code = affiliateProfile.affiliate_code;
+    const shareOrigin = getShareOrigin();
+    const referralUrl = `${shareOrigin}?ref=${code}`;
+    
+    triggerToast('Referral link copied! Generating card...');
+    try {
+      const cardBlob = await createReferralShareCard(referralUrl);
+      const cardUrl = await uploadReferralShareCard(referralUrl, code);
+      const shareUrl = `${shareOrigin}/share?ref=${code}&card=${encodeURIComponent(cardUrl)}`;
+      const fullMessage = `${shareMessage}\n${shareUrl}`;
+      
+      try {
+        const item = new ClipboardItem({ 'image/png': cardBlob });
+        await navigator.clipboard.write([item]);
+        triggerToast('Blessings image copied! Story tutorial opening...');
+      } catch {
+        await navigator.clipboard.writeText(fullMessage);
+      }
+    } catch (e) {
+      console.error('Error sharing blessings card:', e);
+      await navigator.clipboard.writeText(referralUrl);
+    }
+    setShowInstagramTip(true);
+  };
 
   const fetchCommissionsHistory = React.useCallback(async () => {
     if (!loggedInUser) return;
@@ -2544,7 +2802,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
                     {/* Share Info Box */}
                     <div style={{
-                      backgroundColor: 'var(--primary-lime-light)',
+                      backgroundColor: 'rgba(254, 243, 199, 0.4)',
                       border: '1.5px solid #ffedd5',
                       borderRadius: 'var(--radius-lg)',
                       padding: '24px',
@@ -2558,37 +2816,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         Your Devotional Share Info
                       </h3>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '20px' }} className="hero-grid-split">
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
-                            Your Code
-                          </label>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            backgroundColor: '#ffffff',
-                            border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '10px 14px',
-                            fontWeight: 'bold',
-                            color: 'var(--primary-forest)'
-                          }}>
-                            <span>{affiliateProfile.affiliate_code}</span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(affiliateProfile.affiliate_code);
-                                alert('Referral code copied to clipboard!');
-                              }}
-                              style={{ background: 'none', border: 'none', color: 'var(--primary-lime)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                              title="Copy Code"
-                            >
-                              <Copy size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
+                      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ flex: '1 1 300px' }}>
                           <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
                             Referral Sharing Link
                           </label>
@@ -2602,13 +2831,13 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             padding: '10px 14px',
                             fontSize: '0.85rem'
                           }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px', fontWeight: 600 }}>
                               {window.location.origin + '?ref=' + affiliateProfile.affiliate_code}
                             </span>
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(window.location.origin + '?ref=' + affiliateProfile.affiliate_code);
-                                alert('Referral sharing link copied to clipboard!');
+                                triggerToast('Referral link copied to clipboard!');
                               }}
                               style={{ background: 'none', border: 'none', color: 'var(--primary-lime)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
                               title="Copy Link"
@@ -2617,7 +2846,225 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             </button>
                           </div>
                         </div>
+
+                        {/* Referral Barcode / QR Code */}
+                        <div style={{ flex: '0 0 160px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', textAlign: 'center' }}>Referral QR Code</span>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`}
+                            alt="Referral QR Code"
+                            style={{ width: '120px', height: '120px', display: 'block' }}
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`;
+                                const response = await fetch(qrUrl);
+                                const blob = await response.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = `MantraPuja-Referral-QR-${affiliateProfile.affiliate_code}.png`;
+                                a.click();
+                                URL.revokeObjectURL(blobUrl);
+                              } catch {
+                                window.open(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`, '_blank');
+                              }
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--primary-lime)',
+                              cursor: 'pointer',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            Download QR
+                          </button>
+                        </div>
                       </div>
+
+                      <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '4px 0' }} />
+
+                      {/* SOCIAL SHARE CONSOLE */}
+                      <div>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Sparkles size={16} style={{ color: 'var(--primary-lime)' }} />
+                          🌸 Divine Blessings Share Console
+                        </h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          
+                          {/* Device native share */}
+                          <button
+                            onClick={handleNativeShare}
+                            style={{
+                              width: '100%',
+                              padding: '14px',
+                              backgroundColor: 'var(--primary-lime)',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '12px',
+                              fontSize: '0.92rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              boxShadow: '0 4px 10px rgba(22, 163, 74, 0.25)',
+                              transition: 'transform 0.2s, background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.backgroundColor = 'var(--primary-forest)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'none';
+                              e.currentTarget.style.backgroundColor = 'var(--primary-lime)';
+                            }}
+                          >
+                            <Share2 size={18} />
+                            Share This
+                          </button>
+
+                          {/* Channel items */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                            gap: '8px',
+                            marginTop: '4px'
+                          }}>
+                            
+                            <button
+                              onClick={handleWhatsappShare}
+                              style={{
+                                padding: '10px 8px',
+                                backgroundColor: '#16a34a',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <MessageCircle size={14} />
+                              WhatsApp
+                            </button>
+
+                            <button
+                              onClick={handleFacebookShare}
+                              style={{
+                                padding: '10px 8px',
+                                backgroundColor: '#1877f2',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <FacebookIcon size={14} />
+                              Facebook
+                            </button>
+
+                            <button
+                              onClick={handleTwitterShare}
+                              style={{
+                                padding: '10px 8px',
+                                backgroundColor: '#000000',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <TwitterIcon size={14} />
+                              Twitter
+                            </button>
+
+                            <button
+                              onClick={handleLinkedinShare}
+                              style={{
+                                padding: '10px 8px',
+                                backgroundColor: '#0077b5',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <LinkedinIcon size={14} />
+                              LinkedIn
+                            </button>
+
+                            <button
+                              onClick={handleInstagramShare}
+                              style={{
+                                padding: '10px 8px',
+                                backgroundColor: '#e1306c',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                transition: 'transform 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <InstagramIcon size={14} />
+                              Instagram
+                            </button>
+
+                          </div>
+
+                        </div>
+                      </div>
+
                     </div>
 
                     {/* Dashboard Sub-tabs */}
@@ -3241,9 +3688,98 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
           </main>
 
-        </div>
-      </div>
+        {showInstagramTip && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(45, 20, 14, 0.6)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              border: '2px solid #ffedd5',
+              padding: '32px',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+              position: 'relative',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: '0 0 16px 0', color: '#2d140e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <InstagramIcon size={24} color="#e1306c" />
+                Share on Instagram Stories
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+                Instagram does not support direct links or file transfers from web browsers. We have automatically uploaded your unified **Blessings Card** image to Cloudflare CDN and copied the share message containing your referral link and card preview link to your clipboard.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#fcf8f5', borderRadius: '16px', padding: '16px', border: '1px solid #ffedd5', marginBottom: '24px', fontSize: '0.85rem', color: '#4c1d11', textAlign: 'left' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <span style={{ fontWeight: 800, color: '#ea580c' }}>1.</span>
+                  <span>Open your Instagram App and swipe right to create a new **Story**.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <span style={{ fontWeight: 800, color: '#ea580c' }}>2.</span>
+                  <span>Use the **Link Sticker** to add your copied referral link.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <span style={{ fontWeight: 800, color: '#ea580c' }}>3.</span>
+                  <span>Paste the full spiritual message and dynamic barcode link directly on your story and publish!</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInstagramTip(false)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#ea580c',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.2)'
+                }}
+              >
+                Got It, Open Instagram
+              </button>
+            </div>
+          </div>
+        )}
 
+        {/* Toast popup */}
+        {toastMsg && (
+          <div style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#2d140e',
+            color: '#ffffff',
+            padding: '16px 24px',
+            borderRadius: '8px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            border: '1.5px solid #ea580c',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <CheckCircle size={18} style={{ color: '#ea580c' }} />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
+      </div>
     </div>
+  </div>
   );
 };

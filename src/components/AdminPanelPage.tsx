@@ -28,7 +28,9 @@ import {
   List,
   Ticket,
   Copy,
-  EyeOff
+  EyeOff,
+  QrCode,
+  Lock
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -38,6 +40,15 @@ import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
 import { compressImage, compressVideo, CompressionStatusWidget } from '../lib/mediaCompressor';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+
+const getLevelName = (levelNum: number | string) => {
+  const num = typeof levelNum === 'string' ? parseInt(levelNum, 10) : levelNum;
+  if (num === 1) return 'Affiliate';
+  if (num === 2) return 'Distributor';
+  if (num === 3) return 'Super Distributor';
+  return `Level ${num}`;
+};
+
 interface AdminPanelPageProps {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
@@ -52,9 +63,19 @@ interface AdminPanelPageProps {
   onUpdateCategoriesOrder?: (newOrder: string[]) => void;
   productsOrder?: Record<string, string[]>;
   onUpdateProductsOrder?: (newOrders: Record<string, string[]>) => void;
+  taxDeliverySettings?: {
+    globalGstPercent: number;
+    globalDeliveryCharge: number;
+    freeDeliveryThreshold: number;
+  };
+  onUpdateTaxDeliverySettings?: (newSettings: {
+    globalGstPercent: number;
+    globalDeliveryCharge: number;
+    freeDeliveryThreshold: number;
+  }) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -70,6 +91,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   onUpdateCategoriesOrder,
   productsOrder,
   onUpdateProductsOrder,
+  taxDeliverySettings,
+  onUpdateTaxDeliverySettings,
 }) => {
   const [activeTab, setActiveTab] = React.useState<Tab>(() => {
     const path = window.location.pathname;
@@ -79,6 +102,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     if (path.startsWith('/admin/homepage-customizer')) return 'homepage_editor';
     if (path.startsWith('/admin/shop-banners')) return 'shop_banners';
     if (path.startsWith('/admin/whatsapp-settings')) return 'settings';
+    if (path.startsWith('/admin/upi-settings')) return 'upi_settings';
     if (path.startsWith('/admin/categories-sorter')) return 'categories_editor';
     if (path.startsWith('/admin/products-sorter')) return 'products_sorter';
     if (path.startsWith('/admin/coupons')) return 'coupons';
@@ -372,6 +396,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       else if (path.startsWith('/admin/shop-banners')) setActiveTab('shop_banners');
       else if (path.startsWith('/admin/fulfillment-orders')) setActiveTab('orders');
       else if (path.startsWith('/admin/whatsapp-settings')) setActiveTab('settings');
+      else if (path.startsWith('/admin/upi-settings')) setActiveTab('upi_settings');
       else if (path.startsWith('/admin/categories-sorter')) setActiveTab('categories_editor');
       else if (path.startsWith('/admin/products-sorter')) setActiveTab('products_sorter');
       else if (path.startsWith('/admin/coupons')) setActiveTab('coupons');
@@ -407,6 +432,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       case 'settings':
         slug = '/admin/whatsapp-settings';
         break;
+      case 'upi_settings':
+        slug = '/admin/upi-settings';
+        break;
       case 'categories_editor':
         slug = '/admin/categories-sorter';
         break;
@@ -436,6 +464,19 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [razorpayKeySecret, setRazorpayKeySecret] = React.useState('');
   const [isSavingRazorpay, setIsSavingRazorpay] = React.useState(false);
   const [isRefreshingOrders, setIsRefreshingOrders] = React.useState(false);
+
+  // Barcode / UPI QR settings state
+  const [adminUpiId, setAdminUpiId] = React.useState('7974478098@paytm');
+  const [adminBarcodeUrl, setAdminBarcodeUrl] = React.useState('');
+  const [isSavingBarcode, setIsSavingBarcode] = React.useState(false);
+  const [previewAmount, setPreviewAmount] = React.useState('500');
+  const [previewOrderId, setPreviewOrderId] = React.useState('123456');
+
+  // Tax & Delivery settings state
+  const [globalGstPercent, setGlobalGstPercent] = React.useState('8');
+  const [globalDeliveryCharge, setGlobalDeliveryCharge] = React.useState('49');
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = React.useState('999');
+  const [isSavingTaxDelivery, setIsSavingTaxDelivery] = React.useState(false);
   // Homepage Customizer settings state
   const [featuredTitle, setFeaturedTitle] = React.useState('Our Featured Collection');
   const [featuredSubtitle, setFeaturedSubtitle] = React.useState('Get 30% off when you purchase our featured bundle');
@@ -828,6 +869,38 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             }
           }
         }
+
+        // 3. Fetch Tax & Delivery settings
+        if (taxDeliverySettings) {
+          setGlobalGstPercent(String(taxDeliverySettings.globalGstPercent));
+          setGlobalDeliveryCharge(String(taxDeliverySettings.globalDeliveryCharge));
+          setFreeDeliveryThreshold(String(taxDeliverySettings.freeDeliveryThreshold));
+        } else {
+          const { data: taxData } = await supabase
+            .from('website_settings')
+            .select('value')
+            .eq('key', 'tax_delivery_settings')
+            .single();
+          
+          if (taxData && taxData.value) {
+            const val = taxData.value as { global_gst_percent?: number; global_delivery_charge?: number; free_delivery_threshold?: number };
+            setGlobalGstPercent(String(val.global_gst_percent ?? 8));
+            setGlobalDeliveryCharge(String(val.global_delivery_charge ?? 49));
+            setFreeDeliveryThreshold(String(val.free_delivery_threshold ?? 999));
+          }
+        }
+
+        // 4. Fetch Direct Barcode / UPI QR settings
+        const { data: barcodeData } = await supabase
+          .from('website_settings')
+          .select('value')
+          .eq('key', 'payment_barcode_settings')
+          .single();
+        if (barcodeData && barcodeData.value) {
+          const val = barcodeData.value as { upi_id?: string; barcode_url?: string };
+          setAdminUpiId(val.upi_id || '7974478098@paytm');
+          setAdminBarcodeUrl(val.barcode_url || '');
+        }
       } catch (err) {
         console.error('Error fetching settings:', err);
       } finally {
@@ -835,7 +908,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       }
     }
 
-    if (activeTab === 'settings') {
+    if (activeTab === 'settings' || activeTab === 'upi_settings') {
       loadSettings();
     }
   }, [activeTab]);
@@ -895,6 +968,79 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       setIsSavingRazorpay(false);
     }
   };
+
+  const handleSaveTaxDeliverySettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTaxDelivery(true);
+    try {
+      const gstVal = parseFloat(globalGstPercent.toString());
+      const deliveryVal = parseFloat(globalDeliveryCharge.toString());
+      const thresholdVal = parseFloat(freeDeliveryThreshold.toString());
+
+      if (isNaN(gstVal) || isNaN(deliveryVal) || isNaN(thresholdVal)) {
+        alert('Please enter valid numeric values.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'tax_delivery_settings',
+          value: {
+            global_gst_percent: gstVal,
+            global_delivery_charge: deliveryVal,
+            free_delivery_threshold: thresholdVal
+          }
+        });
+
+      if (error) throw error;
+      
+      if (onUpdateTaxDeliverySettings) {
+        onUpdateTaxDeliverySettings({
+          globalGstPercent: gstVal,
+          globalDeliveryCharge: deliveryVal,
+          freeDeliveryThreshold: thresholdVal
+        });
+      }
+      triggerToast('Tax & Delivery Settings saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save settings: ' + (err as Error).message);
+    } finally {
+      setIsSavingTaxDelivery(false);
+    }
+  };
+
+  const handleSaveBarcodeSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminUpiId.trim() || !adminUpiId.includes('@')) {
+      alert('Please enter a valid UPI ID / VPA (e.g. name@upi).');
+      return;
+    }
+
+    setIsSavingBarcode(true);
+    try {
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'payment_barcode_settings',
+          value: {
+            upi_id: adminUpiId,
+            barcode_url: adminBarcodeUrl
+          }
+        });
+
+      if (error) throw error;
+      triggerToast('Direct Barcode Payment Settings saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save barcode settings: ' + (err as Error).message);
+    } finally {
+      setIsSavingBarcode(false);
+    }
+  };
+
+
 
   const handleRefreshOrders = async () => {
     if (!onRefreshOrders) return;
@@ -1168,6 +1314,72 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [showTemplatesDropdown, setShowTemplatesDropdown] = React.useState(false);
   const [selectedPoojaIds, setSelectedPoojaIds] = React.useState<Record<string, boolean>>({});
   const [isBulkPublishing, setIsBulkPublishing] = React.useState(false);
+  const [isBulkGSTApplying, setIsBulkGSTApplying] = React.useState(false);
+  const [isBulkDeliveryApplying, setIsBulkDeliveryApplying] = React.useState(false);
+
+  const handleBulkGSTApply = async () => {
+    const selectedIds = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
+    if (selectedIds.length === 0) return;
+    
+    const input = prompt("Enter the GST override percentage (0-100) to apply to selected products:");
+    if (input === null) return; // Cancelled
+    const pct = parseFloat(input);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      alert("Invalid percentage entered.");
+      return;
+    }
+    
+    setIsBulkGSTApplying(true);
+    try {
+      const { error } = await supabase
+        .from('website_pooja_products')
+        .update({
+          gst_override_enabled: true,
+          custom_gst: pct
+        })
+        .in('id', selectedIds);
+      if (error) throw error;
+      triggerToast(`Successfully applied ${pct}% GST override to ${selectedIds.length} products!`);
+      setSelectedPoojaIds({});
+      loadPoojaProducts();
+    } catch (err) {
+      alert("Bulk application failed: " + (err as Error).message);
+    } finally {
+      setIsBulkGSTApplying(false);
+    }
+  };
+
+  const handleBulkDeliveryApply = async () => {
+    const selectedIds = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
+    if (selectedIds.length === 0) return;
+    
+    const input = prompt("Enter the custom delivery charge (₹) to apply to selected products:");
+    if (input === null) return;
+    const cost = parseFloat(input);
+    if (isNaN(cost) || cost < 0) {
+      alert("Invalid delivery cost entered.");
+      return;
+    }
+    
+    setIsBulkDeliveryApplying(true);
+    try {
+      const { error } = await supabase
+        .from('website_pooja_products')
+        .update({
+          delivery_override_enabled: true,
+          custom_delivery: cost
+        })
+        .in('id', selectedIds);
+      if (error) throw error;
+      triggerToast(`Successfully applied ₹${cost} delivery override to ${selectedIds.length} products!`);
+      setSelectedPoojaIds({});
+      loadPoojaProducts();
+    } catch (err) {
+      alert("Bulk application failed: " + (err as Error).message);
+    } finally {
+      setIsBulkDeliveryApplying(false);
+    }
+  };
 
   const allAvailableProducts = React.useMemo(() => {
     const combined = [...poojaProducts];
@@ -1511,6 +1723,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           certificates: item.certificates,
           iconImage: item.icon_image,
           promoCreatives: item.promo_creatives || [],
+          gstOverrideEnabled: item.gst_override_enabled || false,
+          customGst: item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined,
+          deliveryOverrideEnabled: item.delivery_override_enabled || false,
+          customDelivery: item.custom_delivery !== undefined && item.custom_delivery !== null ? parseFloat(item.custom_delivery.toString()) : undefined,
         }));
         setPoojaProducts(mappedData);
       }
@@ -1746,7 +1962,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
       if (error) throw error;
       if (data) {
-        triggerToast(`Tier Level ${levelNum} saved successfully!`);
+        triggerToast(`Tier "${getLevelName(levelNum)}" saved successfully!`);
         setEditingLevel(null);
         loadAffiliateLevels();
       }
@@ -1759,7 +1975,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   const handleDeleteLevel = async (levelNumber: number) => {
-    if (!confirm(`Are you sure you want to delete Tier Level ${levelNumber}?`)) return;
+    if (!confirm(`Are you sure you want to delete Tier "${getLevelName(levelNumber)}"?`)) return;
     setIsDeletingLevel(levelNumber);
     const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
     try {
@@ -1769,7 +1985,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
       if (error) throw error;
       if (data) {
-        triggerToast(`Tier Level ${levelNumber} deleted.`);
+        triggerToast(`Tier "${getLevelName(levelNumber)}" deleted.`);
         loadAffiliateLevels();
       }
     } catch (err) {
@@ -2035,7 +2251,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         ui_labels: finalProduct.uiLabels || {},
         translations: finalProduct.translations || {},
         video_url: finalProduct.videoUrl || null,
-        purchase_limit: finalProduct.purchaseLimit ? parseInt(finalProduct.purchaseLimit.toString(), 10) : null
+        purchase_limit: finalProduct.purchaseLimit ? parseInt(finalProduct.purchaseLimit.toString(), 10) : null,
+        gst_override_enabled: finalProduct.gstOverrideEnabled || false,
+        custom_gst: finalProduct.gstOverrideEnabled ? (finalProduct.customGst !== undefined && finalProduct.customGst !== null ? parseFloat(finalProduct.customGst.toString()) : null) : null,
+        delivery_override_enabled: finalProduct.deliveryOverrideEnabled || false,
+        custom_delivery: finalProduct.deliveryOverrideEnabled ? (finalProduct.customDelivery !== undefined && finalProduct.customDelivery !== null ? parseFloat(finalProduct.customDelivery.toString()) : null) : null
       };
 
       if (isNewPoojaProduct) {
@@ -2194,7 +2414,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         ui_labels: clone.uiLabels || {},
         translations: clone.translations || {},
         video_url: null,
-        purchase_limit: clone.purchaseLimit || null
+        purchase_limit: clone.purchaseLimit || null,
+        gst_override_enabled: clone.gstOverrideEnabled || false,
+        custom_gst: clone.customGst !== undefined && clone.customGst !== null ? parseFloat(clone.customGst.toString()) : null,
+        delivery_override_enabled: clone.deliveryOverrideEnabled || false,
+        custom_delivery: clone.customDelivery !== undefined && clone.customDelivery !== null ? parseFloat(clone.customDelivery.toString()) : null
       };
 
       const { error } = await supabase
@@ -2439,6 +2663,35 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     triggerToast(`Order #${orderId} marked as ${status}!`);
   };
 
+  // Order payment status changes
+  const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('website_store_orders')
+        .update({ payment_status: paymentStatus })
+        .eq('order_id', orderId);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to update payment status in Supabase:', err);
+    }
+
+    setOrders(prev => prev.map(o => {
+      if (o.orderId === orderId) {
+        return { ...o, paymentStatus };
+      }
+      return o;
+    }));
+
+    setSelectedOrderDetails(prev => {
+      if (prev && prev.orderId === orderId) {
+        return { ...prev, paymentStatus };
+      }
+      return prev;
+    });
+
+    triggerToast(`Order #${orderId} payment marked as ${paymentStatus}!`);
+  };
+
   // Filter products by query
   const filteredProducts = React.useMemo(() => {
     return products.filter(p => 
@@ -2525,7 +2778,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'homepage_editor' as Tab, label: 'Homepage Customizer', icon: <Layout size={18} /> },
             { id: 'shop_banners' as Tab, label: 'Shop Banners', icon: <Upload size={18} /> },
             { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={18} /> },
-            { id: 'settings' as Tab, label: 'Gateway & API Settings', icon: <Settings size={18} /> },
+            { id: 'settings' as Tab, label: 'Gateway & Store Settings', icon: <Settings size={18} /> },
+            { id: 'upi_settings' as Tab, label: 'UPI QR Settings', icon: <QrCode size={18} /> },
             { id: 'categories_editor' as Tab, label: 'Categories Sorter', icon: <Layers size={18} /> },
             { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> },
             { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
@@ -3195,10 +3449,54 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Customer</span>
                           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.fullName}</span>
                         </div>
-                        <div>
+                         <div>
                           <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment</span>
                           <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-dark)' }}>{order.paymentMethod}</span>
                         </div>
+                        <div>
+                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Status</span>
+                          <span style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            backgroundColor: order.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
+                            color: order.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            textTransform: 'uppercase',
+                            display: 'inline-block',
+                            marginTop: '2px'
+                          }}>
+                            {order.paymentStatus || 'Pending'}
+                          </span>
+                        </div>
+                        {order.paymentScreenshot && (
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Proof</span>
+                            <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                              <img
+                                src={order.paymentScreenshot}
+                                alt="Proof screenshot thumbnail"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(order.paymentScreenshot, '_blank');
+                                }}
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  objectFit: 'cover',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-light)',
+                                  cursor: 'pointer',
+                                  boxShadow: 'var(--shadow-sm)',
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
+                                onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                title="Click to view full screen"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Charged</span>
                           <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</span>
@@ -4987,6 +5285,789 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               )}
             </div>
 
+            {/* Tax & Delivery Settings Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Top Accent line */}
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0,
+                height: '4px',
+                background: 'linear-gradient(90deg, #10b981 0%, var(--primary-lime) 100%)'
+              }} />
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                <div className="flex-center" style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#d1fae5',
+                  color: '#10b981'
+                }}>
+                  <Settings size={24} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                    Tax & Delivery Settings
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Manage global GST rates, default shipping fees, and free-delivery subtotal thresholds.
+                  </p>
+                </div>
+              </div>
+
+              {isLoadingSettings ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Tax settings...</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveTaxDeliverySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* GST percentage */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Global GST Percent (%) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 18"
+                      value={globalGstPercent}
+                      onChange={(e) => setGlobalGstPercent(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        transition: 'border-color 0.15s',
+                        backgroundColor: '#f9fafb'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                    />
+                  </div>
+
+                  {/* Shipping Fee */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Default Delivery Charge (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      placeholder="e.g. 49"
+                      value={globalDeliveryCharge}
+                      onChange={(e) => setGlobalDeliveryCharge(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        transition: 'border-color 0.15s',
+                        backgroundColor: '#f9fafb'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                    />
+                  </div>
+
+                  {/* Free Delivery Threshold */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Free Delivery Threshold Subtotal (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      placeholder="e.g. 999"
+                      value={freeDeliveryThreshold}
+                      onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        transition: 'border-color 0.15s',
+                        backgroundColor: '#f9fafb'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                    />
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
+                      If the cart subtotal reaches or exceeds this threshold, the delivery charge automatically drops to ₹0.
+                    </span>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isSavingTaxDelivery}
+                    className="btn-lime"
+                    style={{
+                      padding: '14px 28px',
+                      fontSize: '0.9rem',
+                      justifyContent: 'center',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      marginTop: '8px',
+                      cursor: isSavingTaxDelivery ? 'not-allowed' : 'pointer',
+                      opacity: isSavingTaxDelivery ? 0.75 : 1
+                    }}
+                  >
+                    {isSavingTaxDelivery ? 'Saving Settings...' : 'Save Tax & Delivery Settings'}
+                  </button>
+
+                </form>
+              )}
+            </div>
+
+            {/* Bulk Apply Override settings Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Top Accent line */}
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0,
+                height: '4px',
+                background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)'
+              }} />
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                <div className="flex-center" style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#dbeafe',
+                  color: '#2563eb'
+                }}>
+                  <Package size={24} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                    Bulk Product Modifier Tools
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Quickly overwrite GST percentages or delivery charges for all products in the catalog at once.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Bulk GST Apply */}
+                <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override GST %</h4>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="Enter GST % (e.g. 18)"
+                      id="bulk-gst-percent-input"
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        width: '180px',
+                        backgroundColor: '#ffffff',
+                        color: 'var(--text-dark)'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const input = document.getElementById('bulk-gst-percent-input') as HTMLInputElement;
+                        if (!input || input.value === '') {
+                          alert('Please enter a percentage value first.');
+                          return;
+                        }
+                        const pct = parseFloat(input.value);
+                        if (isNaN(pct) || pct < 0 || pct > 100) {
+                          alert('Please enter a valid percentage between 0 and 100.');
+                          return;
+                        }
+                        if (confirm(`Are you sure you want to set custom GST override to ${pct}% for ALL pooja products? This will update all items in the database.`)) {
+                          try {
+                            const { error } = await supabase
+                              .from('website_pooja_products')
+                              .update({
+                                gst_override_enabled: true,
+                                custom_gst: pct
+                              })
+                              .neq('id', 'placeholder-non-existent-id');
+                            
+                            if (error) throw error;
+                            triggerToast(`Successfully applied ${pct}% GST override to all products!`);
+                            loadPoojaProducts();
+                          } catch (err) {
+                            alert('Bulk update failed: ' + (err as Error).message);
+                          }
+                        }
+                      }}
+                      className="btn-lime"
+                      style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
+                    >
+                      Apply to All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to REMOVE GST overrides for ALL pooja products? They will revert to inheriting the global GST settings.`)) {
+                          try {
+                            const { error } = await supabase
+                              .from('website_pooja_products')
+                              .update({
+                                gst_override_enabled: false,
+                                custom_gst: null
+                              })
+                              .neq('id', 'placeholder-non-existent-id');
+                            
+                            if (error) throw error;
+                            triggerToast(`Successfully removed GST overrides from all products!`);
+                            loadPoojaProducts();
+                          } catch (err) {
+                            alert('Reset failed: ' + (err as Error).message);
+                          }
+                        }
+                      }}
+                      style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                    >
+                      Clear All Overrides
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bulk Delivery Apply */}
+                <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override Shipping Fee</h4>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Enter Delivery (e.g. 80)"
+                      id="bulk-delivery-charge-input"
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        width: '180px',
+                        backgroundColor: '#ffffff',
+                        color: 'var(--text-dark)'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const input = document.getElementById('bulk-delivery-charge-input') as HTMLInputElement;
+                        if (!input || input.value === '') {
+                          alert('Please enter a delivery charge value first.');
+                          return;
+                        }
+                        const cost = parseFloat(input.value);
+                        if (isNaN(cost) || cost < 0) {
+                          alert('Please enter a valid positive delivery charge.');
+                          return;
+                        }
+                        if (confirm(`Are you sure you want to set custom delivery override to ₹${cost} for ALL pooja products? This will update all items in the database.`)) {
+                          try {
+                            const { error } = await supabase
+                              .from('website_pooja_products')
+                              .update({
+                                delivery_override_enabled: true,
+                                custom_delivery: cost
+                              })
+                              .neq('id', 'placeholder-non-existent-id');
+                            
+                            if (error) throw error;
+                            triggerToast(`Successfully applied ₹${cost} delivery override to all products!`);
+                            loadPoojaProducts();
+                          } catch (err) {
+                            alert('Bulk update failed: ' + (err as Error).message);
+                          }
+                        }
+                      }}
+                      className="btn-lime"
+                      style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
+                    >
+                      Apply to All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to REMOVE delivery overrides for ALL pooja products? They will revert to inheriting the global delivery settings.`)) {
+                          try {
+                            const { error } = await supabase
+                              .from('website_pooja_products')
+                              .update({
+                                delivery_override_enabled: false,
+                                custom_delivery: null
+                              })
+                              .neq('id', 'placeholder-non-existent-id');
+                            
+                            if (error) throw error;
+                            triggerToast(`Successfully removed delivery overrides from all products!`);
+                            loadPoojaProducts();
+                          } catch (err) {
+                            alert('Reset failed: ' + (err as Error).message);
+                          }
+                        }
+                      }}
+                      style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                    >
+                      Clear All Overrides
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: DYNAMIC UPI QR SETTINGS
+            ======================================================= */}
+        {activeTab === 'upi_settings' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '30px',
+            alignItems: 'start',
+            maxWidth: '1200px',
+            margin: '0 auto',
+            textAlign: 'left'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '30px'
+            }}>
+              {/* Left Column: Configurations */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
+              }}>
+                {/* Top Accent line */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #10b981 0%, var(--primary-lime) 100%)'
+                }} />
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div className="flex-center" style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--primary-lime-light)',
+                    color: 'var(--primary-lime)'
+                  }}>
+                    <QrCode size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
+                      Dynamic UPI Payment Gateway
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Configure the shop's UPI address to dynamically generate payment barcodes for checkout.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Information Callout */}
+                <div style={{
+                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  display: 'flex',
+                  gap: '12px'
+                }}>
+                  <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>✨</span>
+                  <div>
+                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+                      Dynamic UPI Integration
+                    </h4>
+                    <p style={{ fontSize: '0.78rem', color: '#065f46', marginTop: '4px', lineHeight: '1.4' }}>
+                      Instead of a static image, the system generates an interactive UPI deep-link encoded into a QR code. When scanned, it automatically pre-fills the exact cart amount and order number in apps like GPay, PhonePe, and Paytm.
+                    </p>
+                  </div>
+                </div>
+
+                {isLoadingSettings ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div className="spinner" style={{
+                      width: '32px',
+                      height: '32px',
+                      border: '3px solid var(--border-light)',
+                      borderTopColor: 'var(--primary-lime)',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Settings...</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveBarcodeSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* UPI ID VPA Input */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Receiver UPI ID (VPA) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. name@upi or 7974478098@paytm"
+                        value={adminUpiId}
+                        onChange={(e) => setAdminUpiId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                        Your UPI Virtual Payment Address (e.g. UPI ID from PhonePe, Google Pay, or Paytm) where customer payments will go.
+                      </span>
+                    </div>
+
+                    <div style={{ borderTop: '1px dashed var(--border-light)', margin: '10px 0' }} />
+
+                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>
+                      Live Preview Simulator controls
+                    </h4>
+
+                    {/* Simulator Inputs */}
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '140px' }}>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
+                          Simulated Cart Total (₹)
+                        </label>
+                        <input
+                          type="number"
+                          value={previewAmount}
+                          onChange={(e) => setPreviewAmount(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: '140px' }}>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
+                          Simulated Order ID
+                        </label>
+                        <input
+                          type="text"
+                          value={previewOrderId}
+                          onChange={(e) => setPreviewOrderId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSavingBarcode}
+                      className="btn-lime"
+                      style={{
+                        padding: '14px 28px',
+                        fontSize: '0.9rem',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-md)',
+                        width: '100%',
+                        marginTop: '12px',
+                        cursor: isSavingBarcode ? 'not-allowed' : 'pointer',
+                        opacity: isSavingBarcode ? 0.75 : 1
+                      }}
+                    >
+                      {isSavingBarcode ? 'Saving UPI Configurations...' : 'Save UPI Configurations'}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Right Column: Customer Checkout Preview Mockup */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Live Customer Checkout Screen Preview
+                </span>
+
+                {/* Mobile Device Container wrapper */}
+                <div style={{
+                  width: '340px',
+                  height: '640px',
+                  border: '12px solid #1e293b',
+                  borderRadius: '36px',
+                  backgroundColor: '#ffffff',
+                  boxShadow: 'var(--shadow-xl)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  {/* Status Bar */}
+                  <div style={{
+                    height: '24px',
+                    backgroundColor: '#1e293b',
+                    padding: '0 20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    fontWeight: 700
+                  }}>
+                    <span>10:30 AM</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <span>📶</span>
+                      <span>🔋</span>
+                    </div>
+                  </div>
+
+                  {/* Speaker Notch */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '24px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '110px',
+                    height: '14px',
+                    backgroundColor: '#1e293b',
+                    borderRadius: '0 0 10px 10px',
+                    zIndex: 10
+                  }} />
+
+                  {/* App Screen Content */}
+                  <div style={{
+                    flexGrow: 1,
+                    padding: '24px 16px 16px',
+                    backgroundColor: '#f9fafb',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    textAlign: 'left'
+                  }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🕉️</span>
+                      <div>
+                        <h4 style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
+                          Mantra Puja Shop
+                        </h4>
+                        <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Secure Checkout</span>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #e5e7eb' }} />
+
+                    {/* Step Title */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Lock size={12} style={{ color: 'var(--primary-lime)' }} />
+                      <span style={{ fontSize: '0.72rem', fontWeight: 900, color: '#1f2937' }}>
+                        Direct Payment Details (UPI)
+                      </span>
+                    </div>
+
+                    {/* Amount Card */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--primary-lime-light)',
+                      border: '1px solid var(--primary-lime)',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '0.62rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                      <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                        ₹{parseFloat(previewAmount || '0').toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* QR Code container */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      backgroundColor: '#ffffff',
+                      padding: '16px 12px',
+                      borderRadius: '12px',
+                      border: '1px solid #e5e7eb',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                    }}>
+                      {adminUpiId.trim() && adminUpiId.includes('@') ? (
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=Mantra%20Puja&am=${parseFloat(previewAmount || '0').toFixed(2)}&cu=INR&tn=Order%20${previewOrderId}`)}`} 
+                          alt="Dynamic QR Code" 
+                          style={{
+                            width: '130px',
+                            height: '130px',
+                            objectFit: 'contain',
+                            borderRadius: '4px',
+                            border: '1px solid #f3f4f6',
+                            padding: '4px',
+                            marginBottom: '10px'
+                          }}
+                        />
+                      ) : (
+                        <div style={{ width: '130px', height: '130px', backgroundColor: '#fee2e2', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.68rem', color: '#ef4444', textAlign: 'center', fontWeight: 800, padding: '10px' }}>Invalid UPI VPA Configured</span>
+                        </div>
+                      )}
+
+                      <span style={{
+                        fontSize: '0.58rem',
+                        fontWeight: 800,
+                        color: 'var(--primary-lime)',
+                        backgroundColor: 'var(--primary-lime-light)',
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '8px'
+                      }}>
+                        Scan to Pay
+                      </span>
+
+                      {/* VPA Display & copy */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: '#f9fafb',
+                        padding: '5px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #e5e7eb',
+                        width: '100%',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.5rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID</span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                            {adminUpiId}
+                          </span>
+                        </div>
+                        <button type="button" style={{
+                          backgroundColor: 'var(--primary-lime)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '4px 6px',
+                          borderRadius: '3px',
+                          fontSize: '0.55rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}>
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Screenshot uploader container */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#374151' }}>
+                        Upload Screenshot proof *
+                      </span>
+                      <div style={{
+                        border: '1.5px dashed #d1d5db',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center',
+                        backgroundColor: '#fafafa',
+                        fontSize: '0.62rem',
+                        color: '#6b7280'
+                      }}>
+                        📁 Select image proof
+                      </div>
+                    </div>
+
+                    {/* Place Order button */}
+                    <button type="button" style={{
+                      backgroundColor: 'var(--primary-lime)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '10px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      marginTop: 'auto'
+                    }}>
+                      Submit Order Verification
+                    </button>
+                  </div>
+                </div>
+
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '340px' }}>
+                  This mobile screen is a simulated representation of what the customer sees when checking out on their device.
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -5598,39 +6679,79 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   </div>
                   <div style={{ display: 'flex', gap: '12px' }}>
                     {Object.values(selectedPoojaIds).filter(Boolean).length > 0 && (
-                      <button
-                        onClick={handleBulkPublishPooja}
-                        disabled={isBulkPublishing}
-                        className="btn-lime"
-                        style={{
-                          fontSize: '0.85rem',
-                          padding: '10px 20px',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--primary-forest, #15803d)',
-                          borderColor: 'var(--primary-forest, #15803d)',
-                          color: '#ffffff',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: '0 4px 6px -1px rgba(21, 128, 61, 0.3)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {isBulkPublishing ? (
-                          <>
-                            <div style={{
-                              width: '12px', height: '12px', border: '2px solid #ffffff',
-                              borderTopColor: 'transparent', borderRadius: '50%',
-                              animation: 'spin 0.6s linear infinite'
-                            }} />
-                            Publishing Selected...
-                          </>
-                        ) : (
-                          <>
-                            🚀 Publish Selected ({Object.values(selectedPoojaIds).filter(Boolean).length})
-                          </>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          onClick={handleBulkGSTApply}
+                          disabled={isBulkGSTApplying}
+                          className="btn-lime"
+                          style={{
+                            fontSize: '0.85rem',
+                            padding: '10px 20px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: '#2563eb',
+                            borderColor: '#2563eb',
+                            color: '#ffffff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isBulkGSTApplying ? 'Applying GST...' : 'Apply Bulk GST'}
+                        </button>
+                        <button
+                          onClick={handleBulkDeliveryApply}
+                          disabled={isBulkDeliveryApplying}
+                          className="btn-lime"
+                          style={{
+                            fontSize: '0.85rem',
+                            padding: '10px 20px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: '#7c3aed',
+                            borderColor: '#7c3aed',
+                            color: '#ffffff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isBulkDeliveryApplying ? 'Applying Delivery...' : 'Apply Bulk Delivery'}
+                        </button>
+                        <button
+                          onClick={handleBulkPublishPooja}
+                          disabled={isBulkPublishing}
+                          className="btn-lime"
+                          style={{
+                            fontSize: '0.85rem',
+                            padding: '10px 20px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'var(--primary-forest, #15803d)',
+                            borderColor: 'var(--primary-forest, #15803d)',
+                            color: '#ffffff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 4px 6px -1px rgba(21, 128, 61, 0.3)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isBulkPublishing ? (
+                            <>
+                              <div style={{
+                                width: '12px', height: '12px', border: '2px solid #ffffff',
+                                borderTopColor: 'transparent', borderRadius: '50%',
+                                animation: 'spin 0.6s linear infinite'
+                              }} />
+                              Publishing Selected...
+                            </>
+                          ) : (
+                            <>
+                              🚀 Publish Selected ({Object.values(selectedPoojaIds).filter(Boolean).length})
+                            </>
+                          )}
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => {
@@ -6209,6 +7330,86 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         }}
                       />
                     </div>
+
+                    {/* GST Override Settings */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={editingPoojaProduct.gstOverrideEnabled || false}
+                          onChange={(e) => {
+                            updatePoojaField('gstOverrideEnabled', e.target.checked);
+                            if (!e.target.checked) {
+                              updatePoojaField('customGst', null);
+                            }
+                          }}
+                        />
+                        Custom GST
+                      </label>
+                      {editingPoojaProduct.gstOverrideEnabled && (
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="GST %"
+                          value={editingPoojaProduct.customGst !== undefined && editingPoojaProduct.customGst !== null ? editingPoojaProduct.customGst : ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : null;
+                            updatePoojaField('customGst', val);
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: 'none',
+                            fontSize: '0.8rem',
+                            width: '70px'
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Delivery Override Settings */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={editingPoojaProduct.deliveryOverrideEnabled || false}
+                          onChange={(e) => {
+                            updatePoojaField('deliveryOverrideEnabled', e.target.checked);
+                            if (!e.target.checked) {
+                              updatePoojaField('customDelivery', null);
+                            }
+                          }}
+                        />
+                        Custom Delivery
+                      </label>
+                      {editingPoojaProduct.deliveryOverrideEnabled && (
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Delivery ₹"
+                          value={editingPoojaProduct.customDelivery !== undefined && editingPoojaProduct.customDelivery !== null ? editingPoojaProduct.customDelivery : ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : null;
+                            updatePoojaField('customDelivery', val);
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: 'none',
+                            fontSize: '0.8rem',
+                            width: '85px'
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -6739,9 +7940,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                 borderRadius: 'var(--radius-full)',
                                 fontSize: '0.72rem',
                                 fontWeight: 800,
-                                backgroundColor: aff.affiliate_status === 'active' ? '#dcfce7' : '#fee2e2',
-                                color: aff.affiliate_status === 'active' ? '#15803d' : '#991b1b',
-                                border: '1px solid ' + (aff.affiliate_status === 'active' ? '#bbf7d0' : '#fecaca')
+                                backgroundColor: 
+                                  aff.affiliate_status === 'active' ? '#dcfce7' : 
+                                  aff.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                color: 
+                                  aff.affiliate_status === 'active' ? '#15803d' : 
+                                  aff.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
+                                border: '1px solid ' + (
+                                  aff.affiliate_status === 'active' ? '#bbf7d0' : 
+                                  aff.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
+                                )
                               }}>
                                 {aff.affiliate_status.toUpperCase()}
                               </span>
@@ -6768,12 +7976,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                   outline: 'none',
                                   backgroundColor: 
                                     aff.affiliate_status === 'active' ? '#dcfce7' : 
+                                    aff.affiliate_status === 'pending' ? '#fef3c7' :
                                     aff.affiliate_status === 'suspended' ? '#fee2e2' : '#f3f4f6',
                                   color: 
                                     aff.affiliate_status === 'active' ? '#15803d' : 
+                                    aff.affiliate_status === 'pending' ? '#b45309' :
                                     aff.affiliate_status === 'suspended' ? '#dc2626' : '#4b5563'
                                 }}
                               >
+                                <option value="pending">Pending</option>
                                 <option value="active">Active</option>
                                 <option value="suspended">Suspended</option>
                                 <option value="inactive">Inactive</option>
@@ -6837,7 +8048,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Level Number</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Tier / Level</th>
                             <th style={{ padding: '12px 16px', fontWeight: 700 }}>Commission Percentage (%)</th>
                             <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
                             <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
@@ -6846,7 +8057,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         <tbody>
                           {affiliateLevels.map((lvl) => (
                             <tr key={lvl.level_number} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>Level {lvl.level_number}</td>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>{getLevelName(lvl.level_number)}</td>
                               <td style={{ padding: '12px 16px', color: 'var(--primary-lime)', fontWeight: 800 }}>{lvl.commission_percentage}%</td>
                               <td style={{ padding: '12px 16px' }}>
                                 <span style={{
@@ -6912,7 +8123,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                          {affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? 'Edit Tier Rate' : 'Add New Tier Rate'}
+                          {affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? `Edit Rate for ${getLevelName(editingLevel.level_number)}` : 'Add New Tier Rate'}
                         </h4>
                         <button
                           onClick={() => setEditingLevel(null)}
@@ -6923,7 +8134,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       </div>
                       <form onSubmit={handleSaveLevel} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Level Number</label>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Level Number (1=Affiliate, 2=Distributor, 3=Super Dist.)</label>
                           <input
                             type="number"
                             min="1"
@@ -7759,6 +8970,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     <User size={12} /> {selectedOrderDetails.fullName}
                   </p>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    User ID: <code style={{ backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '4.5px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.userId || 'Guest'}</code>
+                  </p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                     Email: {selectedOrderDetails.email}
                   </p>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -7775,6 +8989,131 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 </div>
 
               </div>
+
+              {/* Payment Screenshot Proof */}
+              {selectedOrderDetails.paymentScreenshot && (
+                <div style={{
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{
+                      fontSize: '0.78rem',
+                      color: 'var(--text-muted)',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      margin: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <Eye size={14} style={{ color: 'var(--primary-forest)' }} />
+                      Payment Proof Screenshot
+                    </h4>
+
+                    {/* Payment Status Badge */}
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      backgroundColor: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
+                      color: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {selectedOrderDetails.paymentStatus || 'Pending'}
+                    </span>
+                  </div>
+
+                  {/* Approve/Confirm Button */}
+                  {selectedOrderDetails.paymentStatus !== 'Confirmed' ? (
+                    <button
+                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
+                      className="btn-lime"
+                      style={{
+                        padding: '10px',
+                        justifyContent: 'center',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        border: 'none',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      Approve & Confirm Payment
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Pending')}
+                      style={{
+                        padding: '10px',
+                        justifyContent: 'center',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        border: 'none',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      Revert Payment to Pending
+                    </button>
+                  )}
+                  <div style={{ 
+                    position: 'relative', 
+                    overflow: 'hidden', 
+                    borderRadius: 'var(--radius-sm)', 
+                    border: '1px solid var(--border-light)', 
+                    backgroundColor: '#ffffff', 
+                    textAlign: 'center', 
+                    padding: '8px' 
+                  }}>
+                    <img 
+                      src={selectedOrderDetails.paymentScreenshot} 
+                      alt="Payment Screenshot Proof" 
+                      style={{ 
+                        maxWidth: '100%', 
+                        maxHeight: '220px', 
+                        objectFit: 'contain', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onClick={() => window.open(selectedOrderDetails.paymentScreenshot, '_blank')}
+                      onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
+                      onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                    />
+                    <div style={{ marginTop: '8px', fontSize: '0.78rem' }}>
+                      <a 
+                        href={selectedOrderDetails.paymentScreenshot} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        style={{ 
+                          color: 'var(--primary-forest)', 
+                          fontWeight: 700, 
+                          textDecoration: 'underline',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        View Full Screen
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Items Table list */}
               <div>

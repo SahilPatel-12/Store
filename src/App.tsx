@@ -27,6 +27,7 @@ const PoliciesPage = React.lazy(() => import('./components/PoliciesPage').then(m
 const AdminPanelPage = React.lazy(() => import('./components/AdminPanelPage').then(m => ({ default: m.AdminPanelPage })));
 const AdminLoginPage = React.lazy(() => import('./components/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
 const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m => ({ default: m.UserAuthPage })));
+const AffiliationPromoPage = React.lazy(() => import('./components/AffiliationPromoPage').then(m => ({ default: m.AffiliationPromoPage })));
 
 const categories = [
   'Rudraksha',
@@ -226,8 +227,14 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation'>('shop');
   
+  const [taxDeliverySettings, setTaxDeliverySettings] = React.useState({
+    globalGstPercent: 8,
+    globalDeliveryCharge: 49,
+    freeDeliveryThreshold: 999
+  });
+
   const [globalAlert, setGlobalAlert] = React.useState<{
     message: string;
     title?: string;
@@ -474,7 +481,7 @@ function App() {
   };
 
   const setCurrentPage = (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation',
     options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean }
   ) => {
     setMobileMenuOpen(false);
@@ -556,6 +563,9 @@ function App() {
         break;
       case 'user-auth':
         path = '/auth';
+        break;
+      case 'affiliation':
+        path = '/affiliation';
         break;
       default:
         path = '/';
@@ -672,6 +682,8 @@ function App() {
         setCurrentPageState('policies');
       } else if (path === '/auth' || path === '/auth/') {
         setCurrentPageState('user-auth');
+      } else if (path === '/affiliation' || path === '/affiliation/' || path === '/affiliation-program' || path === '/affiliation-program/') {
+        setCurrentPageState('affiliation');
       } else {
         setCurrentPageState('shop');
       }
@@ -768,6 +780,10 @@ function App() {
           iconImage: item.icon_image,
           promoCreatives: item.promo_creatives || [],
           purchaseLimit: item.purchase_limit ? Number(item.purchase_limit) : undefined,
+          gstOverrideEnabled: item.gst_override_enabled || false,
+          customGst: item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined,
+          deliveryOverrideEnabled: item.delivery_override_enabled || false,
+          customDelivery: item.custom_delivery !== undefined && item.custom_delivery !== null ? parseFloat(item.custom_delivery.toString()) : undefined,
         }));
 
         // Merge Supabase products with local products from localStorage to ensure locally added custom items persist and show up
@@ -875,6 +891,26 @@ function App() {
     }
   };
 
+  const loadTaxDeliverySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'tax_delivery_settings')
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value) {
+        setTaxDeliverySettings({
+          globalGstPercent: Number(data.value.global_gst_percent) ?? 8,
+          globalDeliveryCharge: Number(data.value.global_delivery_charge) ?? 49,
+          freeDeliveryThreshold: Number(data.value.free_delivery_threshold) ?? 999
+        });
+      }
+    } catch (err) {
+      console.error('Error loading tax and delivery settings:', err);
+    }
+  };
+
   const loadHomepageSettings = async () => {
     try {
       const { data, error } = await supabase
@@ -951,7 +987,8 @@ function App() {
           loadHomepageSettings(),
           loadShopBannersSettings(),
           loadCategoriesOrder(),
-          loadProductsOrder()
+          loadProductsOrder(),
+          loadTaxDeliverySettings()
         ]);
       } catch (err) {
         console.error('Error loading initial app config:', err);
@@ -1022,7 +1059,9 @@ function App() {
           pincode: o.pincode,
           status: o.status,
           items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
-          razorpayPaymentId: o.razorpay_payment_id || undefined
+          razorpayPaymentId: o.razorpay_payment_id || undefined,
+          paymentScreenshot: o.payment_screenshot || undefined,
+          paymentStatus: o.payment_status || 'Pending'
         }));
         setOrdersState(mappedOrders);
       }
@@ -3027,6 +3066,7 @@ function App() {
             setAppliedCouponProductId(productId);
           }}
           discountPercent={discountPercent}
+          taxDeliverySettings={taxDeliverySettings}
         />
       ) : currentPage === 'checkout' ? (
         <CheckoutPage
@@ -3042,6 +3082,7 @@ function App() {
             setAppliedCouponProductId(productId);
           }}
           discountPercent={discountPercent}
+          taxDeliverySettings={taxDeliverySettings}
           onOrderSuccess={async (details) => {
             const newOrder: LocalOrder = {
               ...details,
@@ -3070,16 +3111,35 @@ function App() {
                 pincode: newOrder.pincode,
                 phone_number: newOrder.phoneNumber,
                 status: newOrder.status,
-                razorpay_payment_id: newOrder.razorpayPaymentId || null
+                razorpay_payment_id: newOrder.razorpayPaymentId || null,
+                payment_screenshot: newOrder.paymentScreenshot || null,
+                payment_status: newOrder.paymentStatus || 'Pending',
+                gst_percent_snapshot: newOrder.gstPercentSnapshot ?? null,
+                gst_amount_snapshot: newOrder.gstAmountSnapshot ?? null,
+                delivery_amount_snapshot: newOrder.deliveryAmountSnapshot ?? null,
+                free_delivery_eligible_snapshot: newOrder.freeDeliveryEligibleSnapshot ?? null
               };
 
               let { error } = await supabase.from('website_store_orders').insert(orderPayload);
               
               if (error) {
-                // Check if error is due to missing razorpay_payment_id column in database
-                if (error.code === 'PGRST204' || (error.message && error.message.includes('razorpay_payment_id'))) {
-                  console.warn('razorpay_payment_id column is missing in remote database. Retrying insert without it...');
-                  const { razorpay_payment_id, ...fallbackPayload } = orderPayload;
+                // Check if error is due to missing columns in database
+                const isMissingRazorpay = error.code === 'PGRST204' && (error.message && error.message.includes('razorpay_payment_id'));
+                const isMissingScreenshot = error.code === 'PGRST204' && (error.message && error.message.includes('payment_screenshot'));
+                const isMissingPaymentStatus = error.code === 'PGRST204' && (error.message && error.message.includes('payment_status'));
+                
+                if (isMissingRazorpay || isMissingScreenshot || isMissingPaymentStatus) {
+                  console.warn('Handling missing order columns in remote database. Retrying...');
+                  const fallbackPayload = { ...orderPayload };
+                  if (isMissingRazorpay) {
+                    delete (fallbackPayload as any).razorpay_payment_id;
+                  }
+                  if (isMissingScreenshot) {
+                    delete (fallbackPayload as any).payment_screenshot;
+                  }
+                  if (isMissingPaymentStatus) {
+                    delete (fallbackPayload as any).payment_status;
+                  }
                   const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
                   error = retryResult.error;
                 }
@@ -3253,6 +3313,18 @@ function App() {
         <ContactUsPage />
       ) : currentPage === 'policies' ? (
         <PoliciesPage />
+      ) : currentPage === 'affiliation' ? (
+        <AffiliationPromoPage
+          loggedInUser={loggedInUser}
+          onLoginSuccess={(userSession, token) => {
+            try {
+              localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
+              localStorage.setItem('session_token', token);
+            } catch (e) {}
+            setLoggedInUser(userSession);
+          }}
+          onNavigateToProfile={() => setCurrentPage('profile')}
+        />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
           onLoginSuccess={(username, token) => {
@@ -3287,9 +3359,9 @@ function App() {
               localStorage.removeItem('ridae_admin_auth_session');
               localStorage.removeItem('ridae_admin_auth');
             } catch (e) {}
-            setIsAdminAuthenticated(false);
-            setCurrentAdmin(null);
-            setCurrentPage('admin-login');
+              setIsAdminAuthenticated(false);
+              setCurrentAdmin(null);
+              setCurrentPage('admin-login');
           }}
           adminSession={currentAdmin}
           onRefreshOrders={fetchOrdersFromSupabase}
@@ -3297,6 +3369,8 @@ function App() {
           onUpdateCategoriesOrder={setCategoriesOrder}
           productsOrder={productsOrder}
           onUpdateProductsOrder={setProductsOrder}
+          taxDeliverySettings={taxDeliverySettings}
+          onUpdateTaxDeliverySettings={setTaxDeliverySettings}
         />
       ) : (
         selectedProduct && (
@@ -3487,6 +3561,7 @@ function App() {
         products={productsState}
         exploreMoreProductIds={Array.isArray(homepageConfig?.cartExploreMoreProductIds) ? homepageConfig.cartExploreMoreProductIds : []}
         onAddToCart={handleAddToCartWithQty}
+        taxDeliverySettings={taxDeliverySettings}
       />
 
       <SeamlessCheckoutModal
@@ -3508,6 +3583,7 @@ function App() {
           setAppliedCouponProductId(productId);
         }}
         discountPercent={discountPercent}
+        taxDeliverySettings={taxDeliverySettings}
         onOrderSuccess={async (details) => {
           const newOrder: LocalOrder = {
             ...details,
@@ -3536,15 +3612,35 @@ function App() {
               pincode: newOrder.pincode,
               phone_number: newOrder.phoneNumber,
               status: newOrder.status,
-              razorpay_payment_id: newOrder.razorpayPaymentId || null
+              razorpay_payment_id: newOrder.razorpayPaymentId || null,
+              payment_screenshot: newOrder.paymentScreenshot || null,
+              payment_status: newOrder.paymentStatus || 'Pending',
+              gst_percent_snapshot: newOrder.gstPercentSnapshot ?? null,
+              gst_amount_snapshot: newOrder.gstAmountSnapshot ?? null,
+              delivery_amount_snapshot: newOrder.deliveryAmountSnapshot ?? null,
+              free_delivery_eligible_snapshot: newOrder.freeDeliveryEligibleSnapshot ?? null
             };
 
             let { error } = await supabase.from('website_store_orders').insert(orderPayload);
             
             if (error) {
-              if (error.code === 'PGRST204' || (error.message && error.message.includes('razorpay_payment_id'))) {
-                console.warn('razorpay_payment_id column is missing. Retrying insert without it...');
-                const { razorpay_payment_id, ...fallbackPayload } = orderPayload;
+              // Check if error is due to missing columns in database
+              const isMissingRazorpay = error.code === 'PGRST204' && (error.message && error.message.includes('razorpay_payment_id'));
+              const isMissingScreenshot = error.code === 'PGRST204' && (error.message && error.message.includes('payment_screenshot'));
+              const isMissingPaymentStatus = error.code === 'PGRST204' && (error.message && error.message.includes('payment_status'));
+              
+              if (isMissingRazorpay || isMissingScreenshot || isMissingPaymentStatus) {
+                console.warn('Handling missing order columns in remote database. Retrying...');
+                const fallbackPayload = { ...orderPayload };
+                if (isMissingRazorpay) {
+                  delete (fallbackPayload as any).razorpay_payment_id;
+                }
+                if (isMissingScreenshot) {
+                  delete (fallbackPayload as any).payment_screenshot;
+                }
+                if (isMissingPaymentStatus) {
+                  delete (fallbackPayload as any).payment_status;
+                }
                 const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
                 error = retryResult.error;
               }

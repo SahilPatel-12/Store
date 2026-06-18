@@ -46,25 +46,25 @@ async function run() {
     const decryptedToken = decryptNode(data.value.token, encryptionKey);
     const testOtp = '888888';
 
-    // Format 1: 12-digits (918819897434)
+    // Format 1: 12-digits (919009046430)
     const url1 = new URL(data.value.endpoint);
     url1.searchParams.set('pass', decryptedToken);
-    url1.searchParams.set('phone', '918819897434');
+    url1.searchParams.set('phone', '919009046430');
     url1.searchParams.set('Params', `${testOtp},Low CIBIL Score`);
 
-    console.log('Testing with 918819897434 (12 digits)...');
+    console.log('Testing with 919009046430 (12 digits)...');
     const res1 = await fetch(url1.toString());
     const body1 = await res1.text();
     console.log('Response status:', res1.status);
     console.log('Response body:', body1);
 
-    // Format 2: 10-digits (8819897434)
+    // Format 2: 10-digits (9009046430)
     const url2 = new URL(data.value.endpoint);
     url2.searchParams.set('pass', decryptedToken);
-    url2.searchParams.set('phone', '8819897434');
+    url2.searchParams.set('phone', '9009046430');
     url2.searchParams.set('Params', `${testOtp},Low CIBIL Score`);
 
-    console.log('\nTesting with 8819897434 (10 digits)...');
+    console.log('\nTesting with 9009046430 (10 digits)...');
     const res2 = await fetch(url2.toString());
     const body2 = await res2.text();
     console.log('Response status:', res2.status);

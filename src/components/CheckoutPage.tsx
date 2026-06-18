@@ -2,10 +2,6 @@ import React from 'react';
 import {
   ArrowLeft,
   Check,
-  CreditCard,
-  Smartphone,
-  Banknote,
-  Building2,
   MapPin,
   ShieldCheck,
   Truck,
@@ -15,21 +11,15 @@ import {
   Lock,
   Star,
   Plus,
+  Upload,
+  Copy,
 } from 'lucide-react';
 import type { CartItem } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { uploadToR2 } from '../lib/cloudflare/r2';
 
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
 
 interface Address {
   id: string;
@@ -53,6 +43,11 @@ interface CheckoutPageProps {
   appliedCouponCode: string;
   onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
   discountPercent: number;
+  taxDeliverySettings: {
+    globalGstPercent: number;
+    globalDeliveryCharge: number;
+    freeDeliveryThreshold: number;
+  };
 }
 
 type Step = 'address' | 'payment' | 'confirmation';
@@ -68,9 +63,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   appliedCouponCode,
   onApplyCoupon,
   discountPercent,
+  taxDeliverySettings,
 }) => {
   const [step, setStep] = React.useState<Step>('address');
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>('upi');
+  const [paymentMethod] = React.useState<PaymentMethod>('upi');
+
+  // Barcode / UPI QR direct payment states
+  const [barcodeSettings, setBarcodeSettings] = React.useState<{ upiId?: string; barcodeUrl?: string } | null>(null);
+  const [paymentScreenshotUrl, setPaymentScreenshotUrl] = React.useState('');
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = React.useState(false);
+  const [copiedUpi, setCopiedUpi] = React.useState(false);
 
   // Address fields
   const [fullName, setFullName] = React.useState('');
@@ -88,12 +90,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
 
   // Payment fields
-  const [upiId, setUpiId] = React.useState('');
-  const [cardNumber, setCardNumber] = React.useState('');
-  const [cardName, setCardName] = React.useState('');
-  const [cardExpiry, setCardExpiry] = React.useState('');
-  const [cardCvv, setCardCvv] = React.useState('');
-  const [bankSelected, setBankSelected] = React.useState('');
   const [paymentErrors, setPaymentErrors] = React.useState<Record<string, string>>({});
 
   // Coupon
@@ -114,24 +110,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Order ID generated once for confirmation
   const [orderId] = React.useState(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
 
-  const [razorpayConfig, setRazorpayConfig] = React.useState<{ keyId: string } | null>(null);
-
   React.useEffect(() => {
-    async function loadRazorpayConfig() {
+    async function loadConfigs() {
       try {
-        const { data } = await supabase
+        const { data: barcodeData } = await supabase
           .from('website_settings')
           .select('value')
-          .eq('key', 'razorpay_settings')
+          .eq('key', 'payment_barcode_settings')
           .single();
-        if (data && data.value) {
-          setRazorpayConfig({ keyId: data.value.keyId });
+        if (barcodeData && barcodeData.value) {
+          const val = barcodeData.value as { upi_id?: string; barcode_url?: string };
+          setBarcodeSettings({ upiId: val.upi_id, barcodeUrl: val.barcode_url });
         }
       } catch (err) {
-        console.error('Error loading Razorpay configuration:', err);
+        console.error('Barcode settings load error:', err);
       }
     }
-    loadRazorpayConfig();
+    loadConfigs();
   }, []);
 
   React.useEffect(() => {
@@ -184,6 +179,28 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   }, [loggedInUser]);
 
+  // Reset checkout/screenshot states on mount to prevent leakage
+  React.useEffect(() => {
+    setPaymentScreenshotUrl('');
+    setIsUploadingScreenshot(false);
+    setCopiedUpi(false);
+    setPaymentErrors({});
+  }, []);
+
+  const handleBackToCart = () => {
+    setPaymentScreenshotUrl('');
+    setIsUploadingScreenshot(false);
+    setCopiedUpi(false);
+    onBackToCart();
+  };
+
+  const handleBackToShop = () => {
+    setPaymentScreenshotUrl('');
+    setIsUploadingScreenshot(false);
+    setCopiedUpi(false);
+    onBackToShop();
+  };
+
   const handleSelectSavedAddress = (id: string) => {
     setSelectedAddressId(id);
     const addr = savedAddresses.find(a => a.id === id);
@@ -201,8 +218,27 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Calculations
   const subtotal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
   const discountAmount = subtotal * (discountPercent / 100);
-  const shippingCost = subtotal > 500 || subtotal === 0 ? 0 : 49;
-  const tax = (subtotal - discountAmount) * 0.08;
+  
+  // Dynamic shipping charge
+  const maxDelivery = cart.length === 0 ? 0 : Math.max(...cart.map(item => {
+    const p = item.product as any;
+    return p.deliveryOverrideEnabled && p.customDelivery !== undefined && p.customDelivery !== null
+      ? p.customDelivery
+      : taxDeliverySettings.globalDeliveryCharge;
+  }));
+  const shippingCost = (subtotal - discountAmount) >= taxDeliverySettings.freeDeliveryThreshold || subtotal === 0 ? 0 : maxDelivery;
+
+  // Dynamic tax calculation
+  const tax = cart.reduce((totalTax, item) => {
+    const p = item.product as any;
+    const itemSubtotal = p.price * item.quantity;
+    const itemDiscountedSubtotal = itemSubtotal * (1 - discountPercent / 100);
+    const itemGstPercent = p.gstOverrideEnabled && p.customGst !== undefined && p.customGst !== null
+      ? p.customGst
+      : taxDeliverySettings.globalGstPercent;
+    return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
+  }, 0);
+
   const finalTotal = subtotal - discountAmount + shippingCost + tax;
 
   const handleApplyCoupon = async () => {
@@ -303,17 +339,74 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     return Object.keys(errs).length === 0;
   };
 
+  const getQrCodeUrl = () => {
+    const subtotalVal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
+    const discountAmt = subtotalVal * (discountPercent / 100);
+    
+    const maxDeliveryVal = cart.length === 0 ? 0 : Math.max(...cart.map(item => {
+      const p = item.product as any;
+      return p.deliveryOverrideEnabled && p.customDelivery !== undefined && p.customDelivery !== null
+        ? p.customDelivery
+        : taxDeliverySettings.globalDeliveryCharge;
+    }));
+    const shippingVal = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold || subtotalVal === 0 ? 0 : maxDeliveryVal;
+
+    const taxVal = cart.reduce((totalTax, item) => {
+      const p = item.product as any;
+      const itemSubtotal = p.price * item.quantity;
+      const itemDiscountedSubtotal = itemSubtotal * (1 - discountPercent / 100);
+      const itemGstPercent = p.gstOverrideEnabled && p.customGst !== undefined && p.customGst !== null
+        ? p.customGst
+        : taxDeliverySettings.globalGstPercent;
+      return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
+    }, 0);
+
+    const calculatedTotal = subtotalVal - discountAmt + shippingVal + taxVal;
+
+    const upi = barcodeSettings?.upiId || '7974478098@paytm';
+    const upiUri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${calculatedTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}`;
+  };
+
+  const handleCopyUpi = () => {
+    const upi = barcodeSettings?.upiId || '7974478098@paytm';
+    try {
+      navigator.clipboard.writeText(upi);
+      setCopiedUpi(true);
+      setTimeout(() => setCopiedUpi(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy UPI ID:', err);
+    }
+  };
+
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingScreenshot(true);
+    setPaymentErrors(prev => {
+      const copy = { ...prev };
+      delete copy.screenshot;
+      return copy;
+    });
+
+    try {
+      const url = await uploadToR2(file, 'orders/proofs');
+      setPaymentScreenshotUrl(url);
+    } catch (err) {
+      console.error('Failed to upload proof of payment:', err);
+      alert('Failed to upload screenshot. Please verify connection and try again.');
+    } finally {
+      setIsUploadingScreenshot(false);
+    }
+  };
+
   const validatePayment = () => {
     const errs: Record<string, string> = {};
     if (paymentMethod === 'upi') {
-      if (!upiId.trim() || !upiId.includes('@')) errs.upiId = 'Valid UPI ID required (e.g. name@upi)';
-    } else if (paymentMethod === 'card') {
-      if (cardNumber.replace(/\s/g, '').length < 16) errs.cardNumber = '16-digit card number required';
-      if (!cardName.trim()) errs.cardName = 'Card holder name required';
-      if (!cardExpiry.trim() || !/^\d{2}\/\d{2}$/.test(cardExpiry)) errs.cardExpiry = 'Expiry as MM/YY required';
-      if (cardCvv.length < 3) errs.cardCvv = 'CVV required';
-    } else if (paymentMethod === 'netbanking') {
-      if (!bankSelected) errs.bankSelected = 'Please select a bank';
+      if (!paymentScreenshotUrl) {
+        errs.screenshot = 'Please scan the QR code and upload your payment confirmation screenshot';
+      }
     }
     setPaymentErrors(errs);
     return Object.keys(errs).length === 0;
@@ -326,8 +419,28 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const completeOrder = (paymentLabel: string, razorpayPaymentId?: string) => {
     const subtotalVal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
     const discountAmt = subtotalVal * (discountPercent / 100);
-    const shippingVal = subtotalVal > 500 || subtotalVal === 0 ? 0 : 49;
-    const taxVal = (subtotalVal - discountAmt) * 0.08;
+    
+    // Dynamic shipping charge
+    const maxDeliveryVal = cart.length === 0 ? 0 : Math.max(...cart.map(item => {
+      const p = item.product as any;
+      return p.deliveryOverrideEnabled && p.customDelivery !== undefined && p.customDelivery !== null
+        ? p.customDelivery
+        : taxDeliverySettings.globalDeliveryCharge;
+    }));
+    const shippingVal = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold || subtotalVal === 0 ? 0 : maxDeliveryVal;
+
+    // Dynamic tax calculation
+    const taxVal = cart.reduce((totalTax, item) => {
+      const p = item.product as any;
+      const itemSubtotal = p.price * item.quantity;
+      const itemDiscountedSubtotal = itemSubtotal * (1 - discountPercent / 100);
+      const itemGstPercent = p.gstOverrideEnabled && p.customGst !== undefined && p.customGst !== null
+        ? p.customGst
+        : taxDeliverySettings.globalGstPercent;
+      return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
+    }, 0);
+
+    const isFreeEligible = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold;
 
     onOrderSuccess({
       orderId,
@@ -349,79 +462,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       pincode,
       placedAt: new Date(),
       razorpayPaymentId,
+      paymentScreenshot: paymentScreenshotUrl || undefined,
       appliedCouponCode: appliedCouponCode || undefined,
+      paymentStatus: paymentLabel === 'Scan & Pay (UPI)' ? 'Pending' : 'Confirmed',
+      status: 'Being Packed',
+      gstPercentSnapshot: taxDeliverySettings.globalGstPercent,
+      gstAmountSnapshot: taxVal,
+      deliveryAmountSnapshot: shippingVal,
+      freeDeliveryEligibleSnapshot: isFreeEligible
     });
 
     setStep('confirmation');
     onOrderComplete();
+
+    // Reset screenshot states on order complete
+    setPaymentScreenshotUrl('');
+    setIsUploadingScreenshot(false);
+    setCopiedUpi(false);
   };
 
   const handlePaymentNext = async () => {
     if (!validatePayment()) return;
-
-    const needsRazorpay = paymentMethod !== 'cod' && razorpayConfig && razorpayConfig.keyId;
-
-    if (needsRazorpay) {
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        alert('Failed to load Razorpay payment gateway. Please try again or choose another payment method.');
-        return;
-      }
-
-      const options = {
-        key: razorpayConfig.keyId,
-        amount: Math.round(finalTotal * 100), // in paise
-        currency: 'INR',
-        name: 'Mantra Puja Store',
-        description: 'Order #' + orderId,
-        prefill: {
-          name: fullName,
-          email: email,
-          contact: phone,
-        },
-        theme: {
-          color: '#d97706',
-        },
-        handler: function (response: any) {
-          const paymentId = response.razorpay_payment_id;
-          const paymentLabel =
-            paymentMethod === 'upi' ? `Razorpay UPI (${paymentId})` :
-            paymentMethod === 'card' ? `Razorpay Card (${paymentId})` :
-            `Razorpay Net Banking (${paymentId})`;
-
-          completeOrder(paymentLabel, paymentId);
-        },
-        modal: {
-          ondismiss: function () {
-            alert('Payment cancelled. Please try again to complete your booking.');
-          }
-        }
-      };
-
-      const rzpay = new (window as any).Razorpay(options);
-      rzpay.open();
-    } else {
-      const paymentLabel =
-        paymentMethod === 'upi' ? `UPI (${upiId})` :
-        paymentMethod === 'card' ? 'Credit/Debit Card' :
-        paymentMethod === 'cod' ? 'Cash on Delivery' :
-        `Net Banking — ${bankSelected}`;
-      completeOrder(paymentLabel);
-    }
-  };
-
-  const formatCard = (val: string) =>
-    val.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
-
-  const formatExpiry = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 4);
-    if (digits.length >= 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return digits;
+    completeOrder('Scan & Pay (UPI)');
   };
 
   const stepIndex = step === 'address' ? 0 : step === 'payment' ? 1 : 2;
-
-  const BANKS = ['State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra', 'Punjab National Bank'];
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
@@ -457,7 +522,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       {/* ── Back nav ── */}
       <div className="container" style={{ paddingTop: '24px', paddingBottom: '8px' }}>
         <button
-          onClick={step === 'address' ? onBackToCart : () => setStep(step === 'payment' ? 'address' : 'payment')}
+          onClick={step === 'address' ? handleBackToCart : () => setStep(step === 'payment' ? 'address' : 'payment')}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-lime)',
@@ -784,192 +849,190 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               }}>
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Lock size={18} style={{ color: 'var(--primary-lime)' }} />
-                  Select Payment Method
+                  Direct Payment Details (UPI)
                 </h2>
 
-                {/* Payment Method Tabs */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '28px' }}>
-                  {[
-                    { id: 'upi' as PaymentMethod, icon: <Smartphone size={20} />, label: 'UPI' },
-                    { id: 'card' as PaymentMethod, icon: <CreditCard size={20} />, label: 'Card' },
-                    { id: 'cod' as PaymentMethod, icon: <Banknote size={20} />, label: 'COD' },
-                    { id: 'netbanking' as PaymentMethod, icon: <Building2 size={20} />, label: 'Net Banking' },
-                  ].map(m => (
-                    <button
-                      key={m.id}
-                      id={`checkout-pay-${m.id}`}
-                      onClick={() => { setPaymentMethod(m.id); setPaymentErrors({}); }}
-                      style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                        padding: '14px 8px', borderRadius: 'var(--radius-md)',
-                        border: `2px solid ${paymentMethod === m.id ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                        backgroundColor: paymentMethod === m.id ? 'var(--primary-lime-light)' : '#fafafa',
-                        color: paymentMethod === m.id ? 'var(--primary-lime)' : 'var(--text-muted)',
-                        fontWeight: 700, fontSize: '0.75rem',
-                        transition: 'all 0.2s ease',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {m.icon}
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* UPI Form */}
+                {/* UPI QR Direct Scan & Pay Form */}
                 {paymentMethod === 'upi' && (
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Amount to be Paid Badge */}
                     <div style={{
-                      padding: '16px', borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '14px',
+                      borderRadius: '8px',
                       backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid #fed7aa',
-                      marginBottom: '20px',
-                      display: 'flex', alignItems: 'center', gap: '12px'
+                      border: '1px solid var(--primary-lime)',
+                      textAlign: 'center'
                     }}>
-                      <Smartphone size={24} style={{ color: 'var(--primary-lime)', flexShrink: 0 }} />
-                      <div>
-                        <p style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Instant UPI Payment</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Pay instantly via Google Pay, PhonePe, Paytm, or any UPI app</p>
-                      </div>
+                      <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                      <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                        ₹{finalTotal.toFixed(2)}
+                      </span>
                     </div>
-                    <label style={labelStyle}>Your UPI ID *</label>
-                    <input
-                      id="checkout-upi-id"
-                      style={{ ...inputStyle, borderColor: paymentErrors.upiId ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="name@upi or 9876543210@paytm"
-                      value={upiId}
-                      onChange={e => setUpiId(e.target.value)}
-                      onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
-                      onBlur={e => (e.target.style.borderColor = paymentErrors.upiId ? '#ef4444' : 'var(--border-light)')}
-                    />
-                    {paymentErrors.upiId && <p style={errorStyle}>{paymentErrors.upiId}</p>}
 
-                    {/* UPI App Icons */}
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
-                      {['🔷 GPay', '📱 PhonePe', '💙 Paytm', '🔴 BHIM'].map(app => (
-                        <span key={app} style={{
-                          padding: '6px 12px', borderRadius: 'var(--radius-full)',
-                          backgroundColor: '#f3f4f6', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)'
-                        }}>{app}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                    {/* QR Code Container with sleek card styling */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      backgroundColor: '#ffffff',
+                      padding: '24px 16px',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                      border: '1px solid #e5e7eb',
+                      position: 'relative'
+                    }}>
+                      <img 
+                        src={getQrCodeUrl()} 
+                        alt="UPI QR Code Barcode" 
+                        style={{
+                          width: '190px',
+                          height: '190px',
+                          objectFit: 'contain',
+                          borderRadius: '6px',
+                          border: '1px solid #f3f4f6',
+                          padding: '6px',
+                          marginBottom: '14px'
+                        }}
+                      />
 
-                {/* Card Form */}
-                {paymentMethod === 'card' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Card Number *</label>
-                      <input
-                        id="checkout-card-number"
-                        style={{ ...inputStyle, borderColor: paymentErrors.cardNumber ? '#ef4444' : 'var(--border-light)', letterSpacing: '2px' }}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                        value={cardNumber}
-                        onChange={e => setCardNumber(formatCard(e.target.value))}
-                        onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
-                        onBlur={e => (e.target.style.borderColor = paymentErrors.cardNumber ? '#ef4444' : 'var(--border-light)')}
-                      />
-                      {paymentErrors.cardNumber && <p style={errorStyle}>{paymentErrors.cardNumber}</p>}
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Name on Card *</label>
-                      <input
-                        id="checkout-card-name"
-                        style={{ ...inputStyle, borderColor: paymentErrors.cardName ? '#ef4444' : 'var(--border-light)' }}
-                        placeholder="e.g. RAHUL SHARMA"
-                        value={cardName}
-                        onChange={e => setCardName(e.target.value.toUpperCase())}
-                        onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
-                        onBlur={e => (e.target.style.borderColor = paymentErrors.cardName ? '#ef4444' : 'var(--border-light)')}
-                      />
-                      {paymentErrors.cardName && <p style={errorStyle}>{paymentErrors.cardName}</p>}
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Expiry Date *</label>
-                      <input
-                        id="checkout-card-expiry"
-                        style={{ ...inputStyle, borderColor: paymentErrors.cardExpiry ? '#ef4444' : 'var(--border-light)' }}
-                        placeholder="MM/YY"
-                        maxLength={5}
-                        value={cardExpiry}
-                        onChange={e => setCardExpiry(formatExpiry(e.target.value))}
-                        onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
-                        onBlur={e => (e.target.style.borderColor = paymentErrors.cardExpiry ? '#ef4444' : 'var(--border-light)')}
-                      />
-                      {paymentErrors.cardExpiry && <p style={errorStyle}>{paymentErrors.cardExpiry}</p>}
-                    </div>
-                    <div>
-                      <label style={labelStyle}>CVV *</label>
-                      <input
-                        id="checkout-card-cvv"
-                        type="password"
-                        style={{ ...inputStyle, borderColor: paymentErrors.cardCvv ? '#ef4444' : 'var(--border-light)' }}
-                        placeholder="•••"
-                        maxLength={4}
-                        value={cardCvv}
-                        onChange={e => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                        onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
-                        onBlur={e => (e.target.style.borderColor = paymentErrors.cardCvv ? '#ef4444' : 'var(--border-light)')}
-                      />
-                      {paymentErrors.cardCvv && <p style={errorStyle}>{paymentErrors.cardCvv}</p>}
-                    </div>
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                      <ShieldCheck size={16} style={{ color: '#10b981', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.75rem', color: '#065f46', fontWeight: 600 }}>Your card data is 256-bit SSL encrypted and never stored on our servers.</span>
-                    </div>
-                  </div>
-                )}
+                      <span style={{
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        color: 'var(--primary-lime)',
+                        backgroundColor: 'var(--primary-lime-light)',
+                        padding: '2px 10px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '12px'
+                      }}>
+                        Scan to Pay
+                      </span>
 
-                {/* COD */}
-                {paymentMethod === 'cod' && (
-                  <div style={{
-                    padding: '24px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '2px dashed var(--border-light)',
-                    textAlign: 'center',
-                    backgroundColor: '#fffbeb',
-                  }}>
-                    <span style={{ fontSize: '3rem' }}>💵</span>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '12px' }}>Pay on Delivery</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '6px', maxWidth: '320px', margin: '8px auto 0' }}>
-                      Keep exact cash ready at the time of delivery. Our delivery partner will hand-deliver your sacred items.
-                    </p>
-                    <div style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                      {['No extra charges', 'Trusted delivery partners', 'Inspect before paying'].map(f => (
-                        <span key={f} style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#166534', fontSize: '0.72rem', fontWeight: 700 }}>✓ {f}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Net Banking */}
-                {paymentMethod === 'netbanking' && (
-                  <div>
-                    <label style={labelStyle}>Select Your Bank *</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      {BANKS.map(bank => (
+                      {/* UPI ID display & copy button */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: '#f9fafb',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb',
+                        width: '100%',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                          <span style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA</span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', fontFamily: 'monospace' }}>
+                            {barcodeSettings?.upiId || '7974478098@paytm'}
+                          </span>
+                        </div>
                         <button
-                          key={bank}
-                          onClick={() => setBankSelected(bank)}
+                          onClick={handleCopyUpi}
                           style={{
-                            padding: '12px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            border: `2px solid ${bankSelected === bank ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                            backgroundColor: bankSelected === bank ? 'var(--primary-lime-light)' : '#fafafa',
-                            color: bankSelected === bank ? 'var(--primary-lime)' : 'var(--text-dark)',
-                            fontSize: '0.82rem', fontWeight: 700, textAlign: 'left',
-                            cursor: 'pointer', transition: 'all 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: copiedUpi ? '#10b981' : 'var(--primary-lime)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
                           }}
                         >
-                          🏦 {bank}
+                          {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
+                          {copiedUpi ? 'Copied' : 'Copy'}
                         </button>
-                      ))}
+                      </div>
                     </div>
-                    {paymentErrors.bankSelected && <p style={errorStyle}>{paymentErrors.bankSelected}</p>}
+
+                    {/* Screenshot Uploader Area */}
+                    <div>
+                      <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
+                        Upload Payment Screenshot *
+                      </label>
+                      
+                      <div style={{
+                        position: 'relative',
+                        border: `2px dashed ${paymentErrors.screenshot ? '#ef4444' : (paymentScreenshotUrl ? '#10b981' : '#d1d5db')}`,
+                        borderRadius: '8px',
+                        padding: '24px 14px',
+                        textAlign: 'center',
+                        backgroundColor: paymentScreenshotUrl ? '#f0fdf4' : '#fafafa',
+                        cursor: isUploadingScreenshot ? 'wait' : 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleScreenshotUpload}
+                          disabled={isUploadingScreenshot}
+                          style={{
+                            position: 'absolute',
+                            top: 0, left: 0, width: '100%', height: '100%',
+                            opacity: 0, cursor: 'pointer'
+                          }}
+                        />
+
+                        {isUploadingScreenshot ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <div className="spinner" style={{
+                              width: '24px', height: '24px',
+                              border: '3px solid #e5e7eb',
+                              borderTop: '3px solid var(--primary-lime)',
+                              borderRadius: '50%'
+                            }} />
+                            <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 700 }}>
+                              Uploading proof...
+                            </span>
+                          </div>
+                        ) : paymentScreenshotUrl ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '34px', height: '34px',
+                              borderRadius: '50%',
+                              backgroundColor: '#dcfce7',
+                              color: '#15803d'
+                            }}>
+                              <Check size={18} />
+                            </div>
+                            <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 800 }}>
+                              Screenshot Uploaded Successfully!
+                            </span>
+                            <span style={{ fontSize: '0.68rem', color: '#6b7280', textDecoration: 'underline' }}>
+                              Click to change image
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <Upload size={26} style={{ color: '#9ca3af', marginBottom: '2px' }} />
+                            <span style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 800 }}>
+                              Click to select screenshot
+                            </span>
+                            <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>
+                              PNG, JPG, or WEBP confirmation image
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {paymentErrors.screenshot && (
+                        <p style={{ ...errorStyle, marginTop: '6px' }}>{paymentErrors.screenshot}</p>
+                      )}
+                    </div>
                   </div>
                 )}
+
+
 
                 <button
                   id="checkout-payment-next"
@@ -1049,7 +1112,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       {[
                         { label: 'Order ID', value: orderId },
-                        { label: 'Payment', value: paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'cod' ? 'Cash on Delivery' : `Net Banking (${bankSelected})` },
+                        { label: 'Payment', value: paymentMethod === 'upi' ? 'UPI' : 'UPI' },
                         { label: 'Delivery To', value: `${city}, ${state}` },
                         { label: 'Estimated Delivery', value: '3–5 Business Days' },
                       ].map(item => (
@@ -1106,7 +1169,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Tax (8%)</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
                         <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '14px 0 0', borderTop: '2px solid var(--border-light)' }}>
@@ -1138,7 +1201,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                 <button
                   id="checkout-continue-shopping"
-                  onClick={onBackToShop}
+                  onClick={handleBackToShop}
                   className="btn-lime"
                   style={{ padding: '15px 48px', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
@@ -1250,7 +1313,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Tax (8%)</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
                     <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
                   </div>
 

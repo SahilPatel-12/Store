@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { CartItem } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { supabase } from '../lib/supabase';
 
 export interface OrderDetails {
   orderId: string;
@@ -39,7 +40,14 @@ export interface OrderDetails {
   pincode: string;
   placedAt: Date;
   razorpayPaymentId?: string;
+  paymentScreenshot?: string;
   appliedCouponCode?: string;
+  gstPercentSnapshot?: number;
+  gstAmountSnapshot?: number;
+  deliveryAmountSnapshot?: number;
+  freeDeliveryEligibleSnapshot?: boolean;
+  paymentStatus?: string;
+  status?: string;
 }
 
 interface OrderSuccessPageProps {
@@ -61,12 +69,12 @@ const FloatingDot: React.FC<{ style: React.CSSProperties }> = ({ style }) => (
   }} />
 );
 
-const TRACK_STEPS = [
-  { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received', done: true, time: 'Just now' },
-  { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: false, time: 'Expected: Today' },
-  { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: false, time: 'Expected: 3–5 days' },
-  { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: false, time: 'Estimated' },
-];
+// const TRACK_STEPS = [
+//   { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received', done: true, time: 'Just now' },
+//   { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: false, time: 'Expected: Today' },
+//   { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: false, time: 'Expected: 3–5 days' },
+//   { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: false, time: 'Estimated' },
+// ];
 
 const SUGGESTED = [
   { emoji: '📿', name: 'Panchmukhi Rudraksha', price: 299, badge: 'Popular' },
@@ -81,9 +89,77 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   onGoHome,
   onViewOrders,
 }) => {
+  const [liveStatus, setLiveStatus] = React.useState<string>(order.status || 'Being Packed');
+  const [livePaymentStatus, setLivePaymentStatus] = React.useState<string>(order.paymentStatus || 'Pending');
   const [copied, setCopied] = React.useState(false);
   const [invoiceDownloaded, setInvoiceDownloaded] = React.useState(false);
   const [shareExpanded, setShareExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (order.status) setLiveStatus(order.status);
+    if (order.paymentStatus) setLivePaymentStatus(order.paymentStatus);
+  }, [order.status, order.paymentStatus]);
+
+  React.useEffect(() => {
+    const isUpi = order.paymentMethod === 'Scan & Pay (UPI)';
+    // Stop polling if UPI payment is confirmed and status is Delivered, or if not UPI.
+    if (!isUpi || (livePaymentStatus === 'Confirmed' && liveStatus === 'Delivered')) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('website_store_orders')
+          .select('status, payment_status')
+          .eq('order_id', order.orderId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          if (data.status) setLiveStatus(data.status);
+          if (data.payment_status) setLivePaymentStatus(data.payment_status);
+        }
+      } catch (err) {
+        console.error('Error polling order status on success page:', err);
+      }
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [order.orderId, order.paymentMethod, livePaymentStatus, liveStatus]);
+
+  const dynamicSteps = React.useMemo(() => {
+    const isUpi = order.paymentMethod === 'Scan & Pay (UPI)';
+    const isConfirmed = livePaymentStatus === 'Confirmed';
+
+    if (isUpi && !isConfirmed) {
+      return [
+        { icon: <Clock size={16} />, label: 'Payment Verification', desc: 'Verifying your screenshot proof', done: false, inProgress: true, time: 'Pending Admin Approval' },
+        { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Awaiting payment verification', done: false, inProgress: false, time: 'Pending' },
+        { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: false, inProgress: false, time: 'Awaiting' },
+        { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: false, inProgress: false, time: 'Awaiting' },
+        { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: false, inProgress: false, time: 'Awaiting' },
+      ];
+    }
+
+    if (isUpi && isConfirmed) {
+      return [
+        { icon: <Check size={16} />, label: 'Payment Confirmed', desc: 'Payment successfully verified', done: true, inProgress: false, time: 'Verified' },
+        { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received and confirmed', done: true, inProgress: false, time: 'Confirmed' },
+        { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? 'Expected: Today' : 'Completed' },
+        { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? 'Expected: 3–5 days' : liveStatus === 'Delivered' ? 'Completed' : 'Awaiting' },
+        { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? 'Delivered' : 'Estimated' },
+      ];
+    }
+
+    // Default flow (e.g. COD)
+    return [
+      { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received', done: true, inProgress: false, time: 'Confirmed' },
+      { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? 'Expected: Today' : 'Completed' },
+      { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? 'Expected: 3–5 days' : liveStatus === 'Delivered' ? 'Completed' : 'Awaiting' },
+      { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? 'Delivered' : 'Estimated' },
+    ];
+  }, [order.paymentMethod, liveStatus, livePaymentStatus]);
 
   const estimatedDelivery = React.useMemo(() => {
     const d = new Date(order.placedAt);
@@ -117,7 +193,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       `Subtotal  : ₹${order.subtotal.toFixed(2)}`,
       order.discount > 0 ? `Discount  : -₹${order.discount.toFixed(2)} (${order.discountPercent}%)` : '',
       `Shipping  : ${order.shipping === 0 ? 'FREE' : '₹' + order.shipping.toFixed(2)}`,
-      `Tax (8%)  : ₹${order.tax.toFixed(2)}`,
+      `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%)  : ₹${order.tax.toFixed(2)}`,
       `TOTAL     : ₹${order.total.toFixed(2)}`,
       '══════════════════════════════════',
       'Thank you for your sacred purchase!',
@@ -463,7 +539,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                   { label: 'Subtotal', value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
                   ...(order.discount > 0 ? [{ label: `Discount (${order.discountPercent}%)`, value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
                   { label: 'Shipping', value: order.shipping === 0 ? 'FREE' : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
-                  { label: 'Tax (8%)', value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' },
+                  { label: `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%)`, value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
@@ -497,21 +573,21 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                {TRACK_STEPS.map((ts, idx) => (
+                {dynamicSteps.map((ts, idx) => (
                   <div key={ts.label} style={{ display: 'flex', gap: '16px' }}>
                     {/* Line + dot */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div style={{
                         width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                        backgroundColor: ts.done ? 'var(--primary-lime)' : idx === 1 ? '#fff7ed' : '#f3f4f6',
-                        border: `2px solid ${ts.done ? 'var(--primary-lime)' : idx === 1 ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                        backgroundColor: ts.done ? 'var(--primary-lime)' : ts.inProgress ? '#fff7ed' : '#f3f4f6',
+                        border: `2px solid ${ts.done ? 'var(--primary-lime)' : ts.inProgress ? 'var(--primary-lime)' : 'var(--border-light)'}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: ts.done ? '#ffffff' : idx === 1 ? 'var(--primary-lime)' : 'var(--text-muted)',
+                        color: ts.done ? '#ffffff' : ts.inProgress ? 'var(--primary-lime)' : 'var(--text-muted)',
                         transition: 'all 0.3s ease',
                       }}>
                         {ts.icon}
                       </div>
-                      {idx < TRACK_STEPS.length - 1 && (
+                      {idx < dynamicSteps.length - 1 && (
                         <div style={{
                           width: '2px', flex: 1, minHeight: '32px',
                           backgroundColor: ts.done ? 'var(--primary-lime)' : 'var(--border-light)',
@@ -522,7 +598,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                     </div>
 
                     {/* Text */}
-                    <div style={{ paddingBottom: idx < TRACK_STEPS.length - 1 ? '24px' : '0', paddingTop: '6px' }}>
+                    <div style={{ paddingBottom: idx < dynamicSteps.length - 1 ? '24px' : '0', paddingTop: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <p style={{
                           fontSize: '0.88rem', fontWeight: 800,
@@ -536,7 +612,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                             borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#166534',
                           }}>✓ DONE</span>
                         )}
-                        {idx === 1 && !ts.done && (
+                        {ts.inProgress && !ts.done && (
                           <span style={{
                             fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px',
                             borderRadius: 'var(--radius-full)', backgroundColor: '#fff7ed', color: 'var(--primary-lime)',

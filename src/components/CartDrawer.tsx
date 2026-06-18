@@ -25,6 +25,11 @@ interface CartDrawerProps {
   products: Product[];
   exploreMoreProductIds?: string[];
   onAddToCart?: (product: Product, quantity?: number) => void;
+  taxDeliverySettings: {
+    globalGstPercent: number;
+    globalDeliveryCharge: number;
+    freeDeliveryThreshold: number;
+  };
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -41,6 +46,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   products = [],
   exploreMoreProductIds = [],
   onAddToCart,
+  taxDeliverySettings,
 }) => {
   const [couponCodeInput, setCouponCodeInput] = React.useState(appliedCouponCode);
   const [couponError, setCouponError] = React.useState('');
@@ -102,9 +108,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const hasGift = !!giftItem;
   const giftValue = 1400;
 
-  // Free shipping above ₹500 (calculated after coupon discount)
-  const shippingCost = (subtotal - couponDiscount) > 500 || subtotal === 0 ? 0 : 49;
-  const tax = Math.max(0, (subtotal - couponDiscount) * 0.08); // 8% sales tax
+  // Dynamic shipping charge
+  const maxDelivery = items.length === 0 ? 0 : Math.max(...items.map(item => {
+    const p = item.product as any;
+    return p.deliveryOverrideEnabled && p.customDelivery !== undefined && p.customDelivery !== null
+      ? p.customDelivery
+      : taxDeliverySettings.globalDeliveryCharge;
+  }));
+  const shippingCost = (subtotal - couponDiscount) >= taxDeliverySettings.freeDeliveryThreshold || subtotal === 0 ? 0 : maxDelivery;
+
+  // Dynamic tax calculation
+  const tax = items.reduce((totalTax, item) => {
+    const p = item.product as any;
+    const itemSubtotal = (p.price || 0) * (item.quantity || 1);
+    const itemDiscountedSubtotal = itemSubtotal * (1 - discountPercent / 100);
+    const itemGstPercent = p.gstOverrideEnabled && p.customGst !== undefined && p.customGst !== null
+      ? p.customGst
+      : taxDeliverySettings.globalGstPercent;
+    return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
+  }, 0);
+
   const estimatedTotal = Math.max(0, subtotal - couponDiscount + shippingCost + tax);
 
   // Calculate actual savings
@@ -856,8 +879,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span>Delivery Charges</span>
                   <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>GST (8%)</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Sales Tax / GST</span>
                   <span>₹{formatPrice(tax)}</span>
                 </div>
               </div>

@@ -15,6 +15,11 @@ interface CartPageProps {
   appliedCouponCode: string;
   onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
   discountPercent: number;
+  taxDeliverySettings: {
+    globalGstPercent: number;
+    globalDeliveryCharge: number;
+    freeDeliveryThreshold: number;
+  };
 }
 
 export const CartPage: React.FC<CartPageProps> = ({
@@ -28,6 +33,7 @@ export const CartPage: React.FC<CartPageProps> = ({
   appliedCouponCode,
   onApplyCoupon,
   discountPercent,
+  taxDeliverySettings,
 }) => {
   const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
   const [couponError, setCouponError] = React.useState('');
@@ -49,9 +55,26 @@ export const CartPage: React.FC<CartPageProps> = ({
   const subtotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
   const discountAmount = subtotal * (discountPercent / 100);
   
-  // Free shipping for orders over ₹500, else ₹49
-  const shippingCost = subtotal > 500 || subtotal === 0 ? 0 : 49;
-  const tax = (subtotal - discountAmount) * 0.08; // 8% sales tax
+  // Dynamic shipping charge
+  const maxDelivery = cart.length === 0 ? 0 : Math.max(...cart.map(item => {
+    const p = item.product as any;
+    return p.deliveryOverrideEnabled && p.customDelivery !== undefined && p.customDelivery !== null
+      ? p.customDelivery
+      : taxDeliverySettings.globalDeliveryCharge;
+  }));
+  const shippingCost = (subtotal - discountAmount) >= taxDeliverySettings.freeDeliveryThreshold || subtotal === 0 ? 0 : maxDelivery;
+
+  // Dynamic tax calculation
+  const tax = cart.reduce((totalTax, item) => {
+    const p = item.product as any;
+    const itemSubtotal = p.price * item.quantity;
+    const itemDiscountedSubtotal = itemSubtotal * (1 - discountPercent / 100);
+    const itemGstPercent = p.gstOverrideEnabled && p.customGst !== undefined && p.customGst !== null
+      ? p.customGst
+      : taxDeliverySettings.globalGstPercent;
+    return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
+  }, 0);
+
   const finalTotal = subtotal - discountAmount + shippingCost + tax;
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
@@ -408,7 +431,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Sales Tax (8%)</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
                   <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{tax.toFixed(2)}</span>
                 </div>
               </div>

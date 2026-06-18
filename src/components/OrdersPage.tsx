@@ -9,7 +9,6 @@ import {
   Download,
   RotateCcw,
   Info,
-  AlertTriangle,
   ArrowLeft,
 } from 'lucide-react';
 import type { Product, LocalOrder } from '../types';
@@ -37,10 +36,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   // Filter Tabs State
   const [filterTab, setFilterTab] = React.useState<'All' | 'Active' | 'Completed' | 'Cancelled'>('All');
 
-  // Cancel order modal state
-  const [selectedCancelOrder, setSelectedCancelOrder] = React.useState<LocalOrder | null>(null);
-  const [cancelReason, setCancelReason] = React.useState('');
-  const [cancelSuccessAlert, setCancelSuccessAlert] = React.useState('');
 
   // Track milestones card expansion state
   const [expandedTrackingOrderId, setExpandedTrackingOrderId] = React.useState<string | null>(null);
@@ -50,13 +45,67 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // Success Feedback
   const [feedbackToast, setFeedbackToast] = React.useState('');
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const refreshOrders = async (showToast = false) => {
+    try {
+      if (showToast) setIsRefreshing(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('website_store_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (data) {
+          const mappedOrders: LocalOrder[] = data.map((o: any) => ({
+            orderId: o.order_id,
+            userId: o.user_id,
+            placedAt: new Date(o.created_at),
+            total: typeof o.total === 'string' ? parseFloat(o.total) : o.total,
+            subtotal: typeof o.subtotal === 'string' ? parseFloat(o.subtotal) : o.subtotal,
+            discount: typeof o.discount === 'string' ? parseFloat(o.discount) : o.discount,
+            discountPercent: o.discount_percent,
+            shipping: typeof o.shipping === 'string' ? parseFloat(o.shipping) : o.shipping,
+            tax: typeof o.tax === 'string' ? parseFloat(o.tax) : o.tax,
+            paymentMethod: o.payment_method,
+            deliveryCity: o.delivery_city,
+            deliveryState: o.delivery_state,
+            fullName: o.full_name,
+            email: o.email,
+            phoneNumber: o.phone_number,
+            addressLine1: o.address_line1,
+            addressLine2: o.address_line2 || undefined,
+            pincode: o.pincode,
+            status: o.status,
+            items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+            razorpayPaymentId: o.razorpay_payment_id || undefined,
+            paymentScreenshot: o.payment_screenshot || undefined,
+            paymentStatus: o.payment_status || 'Pending'
+          }));
+          setOrders(mappedOrders);
+          if (showToast) setFeedbackToast('Order statuses successfully synced!');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to sync orders:', err);
+    } finally {
+      if (showToast) setIsRefreshing(false);
+    }
+  };
 
   React.useEffect(() => {
-    if (cancelSuccessAlert) {
-      const t = setTimeout(() => setCancelSuccessAlert(''), 5000);
-      return () => clearTimeout(t);
-    }
-  }, [cancelSuccessAlert]);
+    const hasPendingUpi = orders.some(o => o.paymentMethod === 'Scan & Pay (UPI)' && o.paymentStatus !== 'Confirmed');
+    if (!hasPendingUpi) return;
+
+    const interval = setInterval(() => {
+      refreshOrders(false);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [orders]);
+
 
   React.useEffect(() => {
     if (feedbackToast) {
@@ -75,32 +124,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     });
   }, [orders, filterTab]);
 
-  // Cancel Order Submission
-  const handleCancelOrderSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCancelOrder) return;
-    
-    try {
-      const { error } = await supabase
-        .from('website_store_orders')
-        .update({ status: 'Cancelled' })
-        .eq('order_id', selectedCancelOrder.orderId);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Failed to cancel order in Supabase:', err);
-    }
-    
-    setOrders(
-      orders.map((o) =>
-        o.orderId === selectedCancelOrder.orderId
-          ? { ...o, status: 'Cancelled' }
-          : o
-      )
-    );
-    setCancelSuccessAlert(`Order #${selectedCancelOrder.orderId} cancelled. Refund of ₹${selectedCancelOrder.total.toFixed(2)} processed to ${selectedCancelOrder.paymentMethod}.`);
-    setSelectedCancelOrder(null);
-    setCancelReason('');
-  };
 
   // Reorder Products: adds all products to cart and navigates to cart
   const handleReorder = (order: LocalOrder) => {
@@ -134,7 +157,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
       `Subtotal  : ₹${order.subtotal.toFixed(2)}`,
       order.discount > 0 ? `Discount  : -₹${order.discount.toFixed(2)} (${order.discountPercent}%)` : '',
       `Shipping  : ${order.shipping === 0 ? 'FREE' : '₹' + order.shipping.toFixed(2)}`,
-      `Tax       : ₹${order.tax.toFixed(2)}`,
+      `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%)       : ₹${order.tax.toFixed(2)}`,
       `TOTAL     : ₹${order.total.toFixed(2)}`,
       '══════════════════════════════════',
       'Thank you for your sacred purchase!',
@@ -152,16 +175,20 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     setFeedbackToast(`Downloaded invoice for #${order.orderId}!`);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (order: LocalOrder) => {
+    if (order.status === 'Cancelled') {
+      return { bg: '#fee2e2', text: '#dc2626', icon: <XCircle size={14} />, label: 'Cancelled' };
+    }
+    if (order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed') {
+      return { bg: '#fff7ed', text: '#c2410c', icon: <Clock size={14} />, label: 'Payment Pending' };
+    }
+    switch (order.status) {
       case 'Delivered':
-        return { bg: '#dcfce7', text: '#15803d', icon: <CheckCircle size={14} /> };
-      case 'Cancelled':
-        return { bg: '#fee2e2', text: '#dc2626', icon: <XCircle size={14} /> };
+        return { bg: '#dcfce7', text: '#15803d', icon: <CheckCircle size={14} />, label: 'Delivered' };
       case 'Shipped':
-        return { bg: '#dbeafe', text: '#1d4ed8', icon: <Truck size={14} /> };
+        return { bg: '#dbeafe', text: '#1d4ed8', icon: <Truck size={14} />, label: 'Shipped' };
       default:
-        return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)', icon: <Clock size={14} /> };
+        return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)', icon: <Clock size={14} />, label: 'Preparing Package' };
     }
   };
 
@@ -210,25 +237,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
       )}
 
-      {/* Success Alert Banner for cancellation */}
-      {cancelSuccessAlert && (
-        <div style={{
-          backgroundColor: '#fef2f2',
-          borderBottom: '2px solid #fecaca',
-          color: '#dc2626',
-          padding: '16px 20px',
-          fontSize: '0.9rem',
-          fontWeight: 700,
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px'
-        }}>
-          <AlertTriangle size={18} />
-          <span>{cancelSuccessAlert}</span>
-        </div>
-      )}
 
       {/* 1. Spiritual Dashboard Header */}
       <section style={{
@@ -262,26 +270,50 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
               </p>
             </div>
 
-            {/* Quick stats grid */}
-            <div style={{
-              display: 'flex',
-              gap: '16px',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              padding: '16px 24px',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(8px)'
-            }}>
-              <div style={{ textAlign: 'center', paddingRight: '16px', borderRight: '1px solid rgba(255,255,255,0.15)' }}>
-                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-lime)' }}>{orders.length}</span>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders</span>
+            {/* Quick stats grid + Sync */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                display: 'flex',
+                gap: '16px',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                padding: '16px 24px',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(8px)'
+              }}>
+                <div style={{ textAlign: 'center', paddingRight: '16px', borderRight: '1px solid rgba(255,255,255,0.15)' }}>
+                  <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-lime)' }}>{orders.length}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders</span>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: '#6ee7b7' }}>
+                    {orders.filter((o) => o.status === 'Being Packed' || o.status === 'Shipped').length}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Active</span>
+                </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: '#6ee7b7' }}>
-                  {orders.filter((o) => o.status === 'Being Packed' || o.status === 'Shipped').length}
-                </span>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Active</span>
-              </div>
+
+              <button
+                onClick={() => refreshOrders(true)}
+                disabled={isRefreshing}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-lg)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  backdropFilter: 'blur(8px)'
+                }}
+                className="card-hover"
+                title="Sync Statuses from Temple Server"
+              >
+                <RotateCcw size={18} className={isRefreshing ? 'spin-anim' : ''} />
+              </button>
             </div>
           </div>
         </div>
@@ -351,8 +383,25 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             
             {filteredOrders.map((order) => {
-              const theme = getStatusColor(order.status);
+              const theme = getStatusColor(order);
               const isTrackingExpanded = expandedTrackingOrderId === order.orderId;
+
+              // Compute milestones dynamically
+              const isUpi = order.paymentMethod === 'Scan & Pay (UPI)';
+              const isConfirmed = order.paymentStatus === 'Confirmed';
+              const milestones = isUpi && !isConfirmed ? [
+                { label: 'Payment', sublabel: 'Verifying', done: false, inProgress: true },
+                { label: 'Confirmed', sublabel: 'Awaiting', done: false, inProgress: false },
+                { label: 'Prepared', sublabel: 'Awaiting', done: false, inProgress: false },
+                { label: 'Dispatched', sublabel: 'Awaiting', done: false, inProgress: false },
+                { label: 'Delivered', sublabel: 'Awaiting', done: false, inProgress: false },
+              ] : [
+                { label: 'Confirmed', sublabel: 'Verified', done: true, inProgress: false },
+                { label: 'Prepared', sublabel: 'Blessed', done: order.status !== 'Being Packed' && order.status !== 'Cancelled', inProgress: order.status === 'Being Packed' },
+                { label: 'Dispatched', sublabel: 'Varanasi Hub', done: order.status === 'Shipped' || order.status === 'Delivered', inProgress: order.status === 'Shipped' },
+                { label: 'In Transit', sublabel: 'Near City', done: order.status === 'Delivered', inProgress: false },
+                { label: 'Delivered', sublabel: 'Handed over', done: order.status === 'Delivered', inProgress: false },
+              ];
 
               return (
                 <div
@@ -415,7 +464,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         gap: '6px'
                       }}>
                         {theme.icon}
-                        {order.status === 'Being Packed' ? 'Preparing Package' : order.status}
+                        {theme.label}
                       </span>
 
                       <button
@@ -519,77 +568,22 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                             zIndex: 1
                           }} />
 
-                          {/* 1. Confirmed */}
-                          <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              backgroundColor: 'var(--primary-lime)',
-                              border: '3px solid #ffffff',
-                              boxShadow: '0 0 0 1px var(--primary-lime)',
-                              margin: '0 auto 6px auto'
-                            }} />
-                            <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-dark)' }}>Ordered</span>
-                            <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Verified</span>
-                          </div>
-
-                          {/* 2. Packing */}
-                          <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              backgroundColor: order.status !== 'Cancelled' ? 'var(--primary-lime)' : 'var(--border-light)',
-                              border: '3px solid #ffffff',
-                              boxShadow: order.status !== 'Cancelled' ? '0 0 0 1px var(--primary-lime)' : 'none',
-                              margin: '0 auto 6px auto'
-                            }} />
-                            <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: order.status !== 'Cancelled' ? 'var(--text-dark)' : 'var(--text-muted)' }}>Prepared</span>
-                            <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Blessed</span>
-                          </div>
-
-                          {/* 3. Dispatched */}
-                          <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              backgroundColor: order.status === 'Shipped' || order.status === 'Delivered' ? 'var(--primary-lime)' : 'var(--border-light)',
-                              border: '3px solid #ffffff',
-                              margin: '0 auto 6px auto'
-                            }} />
-                            <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: order.status === 'Shipped' || order.status === 'Delivered' ? 'var(--text-dark)' : 'var(--text-muted)' }}>Dispatched</span>
-                            <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Varanasi Hub</span>
-                          </div>
-
-                          {/* 4. Near Hub */}
-                          <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              backgroundColor: order.status === 'Delivered' ? 'var(--primary-lime)' : 'var(--border-light)',
-                              border: '3px solid #ffffff',
-                              margin: '0 auto 6px auto'
-                            }} />
-                            <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: order.status === 'Delivered' ? 'var(--text-dark)' : 'var(--text-muted)' }}>In Transit</span>
-                            <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Near City</span>
-                          </div>
-
-                          {/* 5. Delivered */}
-                          <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              backgroundColor: order.status === 'Delivered' ? 'var(--primary-lime)' : 'var(--border-light)',
-                              border: '3px solid #ffffff',
-                              margin: '0 auto 6px auto'
-                            }} />
-                            <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: order.status === 'Delivered' ? 'var(--text-dark)' : 'var(--text-muted)' }}>Delivered</span>
-                            <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Handed over</span>
-                          </div>
+                          {milestones.map((m, mIdx) => (
+                             <div key={mIdx} style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
+                               <div style={{
+                                 width: '16px',
+                                 height: '16px',
+                                 borderRadius: '50%',
+                                 backgroundColor: m.done ? 'var(--primary-lime)' : m.inProgress ? '#fbbf24' : 'var(--border-light)',
+                                 border: '3px solid #ffffff',
+                                 boxShadow: m.done ? '0 0 0 1px var(--primary-lime)' : m.inProgress ? '0 0 0 1px #fbbf24' : 'none',
+                                 margin: '0 auto 6px auto',
+                                 animation: m.inProgress ? 'spin-anim 2s linear infinite' : 'none'
+                               }} />
+                               <span style={{ display: 'block', fontSize: '0.68rem', fontWeight: 700, color: m.done || m.inProgress ? 'var(--text-dark)' : 'var(--text-muted)' }}>{m.label}</span>
+                               <span style={{ display: 'block', fontSize: '0.6rem', color: 'var(--text-muted)' }}>{m.sublabel}</span>
+                             </div>
+                           ))}
 
                         </div>
                       </div>
@@ -636,26 +630,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         </span>
                       )}
 
-                      {/* Cancel order only if packing/processing */}
-                      {order.status === 'Being Packed' && (
-                        <button
-                          onClick={() => setSelectedCancelOrder(order)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 16px',
-                            backgroundColor: '#fff5f5',
-                            color: '#e53e3e',
-                            border: '1px solid #fed7d7',
-                            borderRadius: 'var(--radius-md)',
-                            fontSize: '0.8rem',
-                            fontWeight: 700
-                          }}
-                        >
-                          Cancel Order
-                        </button>
-                      )}
                     </div>
 
                     {/* Right Actions: Reorder, invoice */}
@@ -712,98 +686,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
       </div>
 
-      {/* ==============================================
-          MODAL: CANCEL ORDER FLOW
-          ============================================== */}
-      {selectedCancelOrder && (
-        <div style={{
-          position: 'fixed',
-          top: 0, right: 0, bottom: 0, left: 0,
-          backgroundColor: 'rgba(45, 20, 14, 0.8)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-lg)',
-            width: '90%',
-            maxWidth: '460px',
-            padding: '30px',
-            textAlign: 'left'
-          }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={22} style={{ color: '#ef4444' }} /> Cancel Order #{selectedCancelOrder.orderId}?
-            </h3>
-            
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.5 }}>
-              Are you sure you want to cancel your spiritual order? These items are currently being prepared and energized with sacred chanting. Cancellations are permanent and refunds take 2-3 business days.
-            </p>
-
-            <form onSubmit={handleCancelOrderSubmit} style={{ marginTop: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '6px' }}>Reason for cancellation</label>
-                  <select
-                    value={cancelReason}
-                    required
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-light)',
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="">Select a reason...</option>
-                    <option value="Ordered wrong item">Ordered wrong spiritual item</option>
-                    <option value="Found better alternative">Found alternative ritual kit</option>
-                    <option value="Incorrect shipping address">Incorrect delivery details</option>
-                    <option value="Changed mind">Changed mind / Delay in pooja</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      backgroundColor: '#dc2626',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      padding: '10px 20px',
-                      borderRadius: 'var(--radius-md)',
-                      flexGrow: 1
-                    }}
-                  >
-                    Confirm Cancellation
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCancelOrder(null)}
-                    className="btn-outline"
-                    style={{
-                      padding: '10px 20px',
-                      fontSize: '0.85rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-light)'
-                    }}
-                  >
-                    Keep Order
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ==============================================
           MODAL: VIEW DETAILS DRAWER
@@ -908,8 +790,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         {selectedDetailsOrder.shipping === 0 ? 'FREE' : `₹${selectedDetailsOrder.shipping.toFixed(2)}`}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Vedic Services Tax</span>
+                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Vedic Services Tax ({selectedDetailsOrder.gstPercentSnapshot !== undefined && selectedDetailsOrder.gstPercentSnapshot !== null ? selectedDetailsOrder.gstPercentSnapshot : 8}%)</span>
                       <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
                     </div>
                     <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '6px 0' }} />
@@ -937,11 +819,18 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         </div>
       )}
 
-      {/* Embedded SlideUp keyframes */}
+      {/* Embedded SlideUp & spin keyframes */}
       <style>{`
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(16px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
+        }
+        .spin-anim {
+          animation: spin 1s linear infinite;
         }
       `}</style>
 
