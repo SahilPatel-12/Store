@@ -38,7 +38,7 @@ interface CheckoutPageProps {
   onBackToCart: () => void;
   onBackToShop: () => void;
   onOrderComplete: () => void;
-  onOrderSuccess: (details: OrderDetails) => void;
+  onOrderSuccess: (details: OrderDetails) => Promise<void> | void;
   loggedInUser?: { id: string; fullName: string; email: string; phoneNumber: string } | null;
   appliedCouponCode: string;
   onApplyCoupon: (code: string, percent: number, productId: string | null) => void;
@@ -91,6 +91,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   // Payment fields
   const [paymentErrors, setPaymentErrors] = React.useState<Record<string, string>>({});
+  const [isPlacingOrder, setIsPlacingOrder] = React.useState(false);
 
   // Coupon
   const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
@@ -428,7 +429,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     if (validateAddress()) setStep('payment');
   };
 
-  const completeOrder = (paymentLabel: string, razorpayPaymentId?: string) => {
+  const completeOrder = async (paymentLabel: string, razorpayPaymentId?: string) => {
     const subtotalVal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
     const discountAmt = subtotalVal * (discountPercent / 100);
     
@@ -454,7 +455,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     const isFreeEligible = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold;
 
-    onOrderSuccess({
+    await onOrderSuccess({
       orderId,
       items: cart,
       subtotal: subtotalVal,
@@ -494,8 +495,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   const handlePaymentNext = async () => {
+    if (isPlacingOrder) return;
     if (!validatePayment()) return;
-    completeOrder('Scan & Pay (UPI)');
+    setIsPlacingOrder(true);
+    try {
+      await completeOrder('Scan & Pay (UPI)');
+    } catch (err) {
+      console.error(err);
+      setIsPlacingOrder(false);
+    }
   };
 
   const stepIndex = step === 'address' ? 0 : step === 'payment' ? 1 : 2;
@@ -1114,10 +1122,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <button
                   id="checkout-payment-next"
                   onClick={handlePaymentNext}
+                  disabled={isPlacingOrder}
                   className="btn-lime"
                   style={{ width: '100%', padding: '15px', marginTop: '28px', justifyContent: 'center', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800 }}
                 >
-                  <Lock size={16} /> Place Order — ₹{finalTotal.toFixed(2)}
+                  <Lock size={16} /> {isPlacingOrder ? 'Processing...' : `Place Order — ₹${finalTotal.toFixed(2)}`}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>

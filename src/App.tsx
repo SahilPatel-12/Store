@@ -3516,7 +3516,12 @@ function App() {
               console.error('Failed to save order to Supabase:', err);
             }
 
-            setOrdersState(prev => [newOrder, ...prev]);
+            setOrdersState(prev => {
+              if (prev.some(o => o.orderId === newOrder.orderId)) {
+                return prev;
+              }
+              return [newOrder, ...prev];
+            });
             setOrderDetails(details);
             setCurrentPage('success');
           }}
@@ -4070,7 +4075,12 @@ function App() {
             console.error('Failed to save order to Supabase:', err);
           }
 
-          setOrdersState(prev => [newOrder, ...prev]);
+          setOrdersState(prev => {
+            if (prev.some(o => o.orderId === newOrder.orderId)) {
+              return prev;
+            }
+            return [newOrder, ...prev];
+          });
           setOrderDetails(details);
           setCurrentPage('success');
         }}

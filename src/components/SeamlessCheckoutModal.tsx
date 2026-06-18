@@ -766,6 +766,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   };
 
   const handlePlaceOrder = async () => {
+    if (isPlacingOrder) return;
     if (!validatePaymentFields()) return;
 
     setIsPlacingOrder(true);
