@@ -3365,271 +3365,273 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                     </div>
 
                     {/* Share Info Box */}
-                    <div style={{
-                      backgroundColor: 'rgba(254, 243, 199, 0.4)',
-                      border: '1.5px solid #ffedd5',
-                      borderRadius: 'var(--radius-lg)',
-                      padding: '24px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '16px',
-                      marginBottom: '30px'
-                    }}>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Wallet size={18} style={{ color: 'var(--primary-lime)' }} />
-                        Your Devotional Share Info
-                      </h3>
-
-                      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ flex: '1 1 300px' }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
-                            Referral Sharing Link
-                          </label>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            backgroundColor: '#ffffff',
-                            border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '10px 14px',
-                            fontSize: '0.85rem'
-                          }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px', fontWeight: 600 }}>
-                              {window.location.origin + '?ref=' + affiliateProfile.affiliate_code}
-                            </span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(window.location.origin + '?ref=' + affiliateProfile.affiliate_code);
-                                triggerToast('Referral link copied to clipboard!');
-                              }}
-                              style={{ background: 'none', border: 'none', color: 'var(--primary-lime)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                              title="Copy Link"
-                            >
-                              <Copy size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Referral Barcode / QR Code */}
-                        <div style={{ flex: '0 0 160px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', textAlign: 'center' }}>Referral QR Code</span>
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`}
-                            alt="Referral QR Code"
-                            style={{ width: '120px', height: '120px', display: 'block' }}
-                          />
-                          <button
-                            onClick={async () => {
-                              try {
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`;
-                                const response = await fetch(qrUrl);
-                                const blob = await response.blob();
-                                const blobUrl = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = blobUrl;
-                                a.download = `MantraPuja-Referral-QR-${affiliateProfile.affiliate_code}.png`;
-                                a.click();
-                                URL.revokeObjectURL(blobUrl);
-                              } catch {
-                                window.open(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`, '_blank');
-                              }
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--primary-lime)',
-                              cursor: 'pointer',
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            Download QR
-                          </button>
-                        </div>
-                      </div>
-
-                      <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '4px 0' }} />
-
-                      {/* SOCIAL SHARE CONSOLE */}
-                      <div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Sparkles size={16} style={{ color: 'var(--primary-lime)' }} />
-                          🌸 Divine Blessings Share Console
+                    {affiliateProfile.affiliate_status !== 'suspended' && (
+                      <div style={{
+                        backgroundColor: 'rgba(254, 243, 199, 0.4)',
+                        border: '1.5px solid #ffedd5',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        marginBottom: '30px'
+                      }}>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Wallet size={18} style={{ color: 'var(--primary-lime)' }} />
+                          Your Devotional Share Info
                         </h3>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          
-                          {/* Device native share */}
-                          <button
-                            onClick={handleNativeShare}
-                            style={{
-                              width: '100%',
-                              padding: '14px',
-                              backgroundColor: 'var(--primary-lime)',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '12px',
-                              fontSize: '0.92rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
+                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ flex: '1 1 300px' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                              Referral Sharing Link
+                            </label>
+                            <div style={{
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '8px',
-                              boxShadow: '0 4px 10px rgba(22, 163, 74, 0.25)',
-                              transition: 'transform 0.2s, background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                              e.currentTarget.style.backgroundColor = 'var(--primary-forest)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'none';
-                              e.currentTarget.style.backgroundColor = 'var(--primary-lime)';
-                            }}
-                          >
-                            <Share2 size={18} />
-                            Share This
-                          </button>
-
-                          {/* Channel items */}
-                          <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-                            gap: '8px',
-                            marginTop: '4px'
-                          }}>
-                            
-                            <button
-                              onClick={handleWhatsappShare}
-                              style={{
-                                padding: '10px 8px',
-                                backgroundColor: '#16a34a',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                transition: 'transform 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                            >
-                              <MessageCircle size={14} />
-                              WhatsApp
-                            </button>
-
-                            <button
-                              onClick={handleFacebookShare}
-                              style={{
-                                padding: '10px 8px',
-                                backgroundColor: '#1877f2',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                transition: 'transform 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                            >
-                              <FacebookIcon size={14} />
-                              Facebook
-                            </button>
-
-                            <button
-                              onClick={handleTwitterShare}
-                              style={{
-                                padding: '10px 8px',
-                                backgroundColor: '#000000',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                transition: 'transform 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                            >
-                              <TwitterIcon size={14} />
-                              Twitter
-                            </button>
-
-                            <button
-                              onClick={handleLinkedinShare}
-                              style={{
-                                padding: '10px 8px',
-                                backgroundColor: '#0077b5',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                transition: 'transform 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                            >
-                              <LinkedinIcon size={14} />
-                              LinkedIn
-                            </button>
-
-                            <button
-                              onClick={handleInstagramShare}
-                              style={{
-                                padding: '10px 8px',
-                                backgroundColor: '#e1306c',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                transition: 'transform 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
-                            >
-                              <InstagramIcon size={14} />
-                              Instagram
-                            </button>
-
+                              justifyContent: 'space-between',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '10px 14px',
+                              fontSize: '0.85rem'
+                            }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '12px', fontWeight: 600 }}>
+                                {window.location.origin + '?ref=' + affiliateProfile.affiliate_code}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(window.location.origin + '?ref=' + affiliateProfile.affiliate_code);
+                                  triggerToast('Referral link copied to clipboard!');
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--primary-lime)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                title="Copy Link"
+                              >
+                                <Copy size={14} />
+                              </button>
+                            </div>
                           </div>
 
+                          {/* Referral Barcode / QR Code */}
+                          <div style={{ flex: '0 0 160px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', textAlign: 'center' }}>Referral QR Code</span>
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`}
+                              alt="Referral QR Code"
+                              style={{ width: '120px', height: '120px', display: 'block' }}
+                            />
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`;
+                                  const response = await fetch(qrUrl);
+                                  const blob = await response.blob();
+                                  const blobUrl = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = blobUrl;
+                                  a.download = `MantraPuja-Referral-QR-${affiliateProfile.affiliate_code}.png`;
+                                  a.click();
+                                  URL.revokeObjectURL(blobUrl);
+                                } catch {
+                                  window.open(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateProfile.affiliate_code)}`, '_blank');
+                                }
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--primary-lime)',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              Download QR
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                    </div>
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '4px 0' }} />
+
+                        {/* SOCIAL SHARE CONSOLE */}
+                        <div>
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Sparkles size={16} style={{ color: 'var(--primary-lime)' }} />
+                            🌸 Divine Blessings Share Console
+                          </h3>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            
+                            {/* Device native share */}
+                            <button
+                              onClick={handleNativeShare}
+                              style={{
+                                width: '100%',
+                                padding: '14px',
+                                backgroundColor: 'var(--primary-lime)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '0.92rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 10px rgba(22, 163, 74, 0.25)',
+                                transition: 'transform 0.2s, background-color 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.backgroundColor = 'var(--primary-forest)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.backgroundColor = 'var(--primary-lime)';
+                              }}
+                            >
+                              <Share2 size={18} />
+                              Share This
+                            </button>
+
+                            {/* Channel items */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                              gap: '8px',
+                              marginTop: '4px'
+                            }}>
+                              
+                              <button
+                                onClick={handleWhatsappShare}
+                                style={{
+                                  padding: '10px 8px',
+                                  backgroundColor: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                              >
+                                <MessageCircle size={14} />
+                                WhatsApp
+                              </button>
+
+                              <button
+                                onClick={handleFacebookShare}
+                                style={{
+                                  padding: '10px 8px',
+                                  backgroundColor: '#1877f2',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                              >
+                                <FacebookIcon size={14} />
+                                Facebook
+                              </button>
+
+                              <button
+                                onClick={handleTwitterShare}
+                                style={{
+                                  padding: '10px 8px',
+                                  backgroundColor: '#000000',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                              >
+                                <TwitterIcon size={14} />
+                                Twitter
+                              </button>
+
+                              <button
+                                onClick={handleLinkedinShare}
+                                style={{
+                                  padding: '10px 8px',
+                                  backgroundColor: '#0077b5',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                              >
+                                <LinkedinIcon size={14} />
+                                LinkedIn
+                              </button>
+
+                              <button
+                                onClick={handleInstagramShare}
+                                style={{
+                                  padding: '10px 8px',
+                                  backgroundColor: '#e1306c',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                              >
+                                <InstagramIcon size={14} />
+                                Instagram
+                              </button>
+
+                            </div>
+
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
 
                     {/* Dashboard Sub-tabs */}
                     <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
