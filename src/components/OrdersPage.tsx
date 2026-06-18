@@ -398,7 +398,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           marginBottom: '28px'
         }}>
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="scrollable-tabs-container" style={{ display: 'flex', gap: '8px' }}>
             {(['All', 'Active', 'Completed', 'Cancelled'] as const).map((tab) => (
               <button
                 key={tab}

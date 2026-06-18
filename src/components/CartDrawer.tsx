@@ -480,7 +480,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               borderRadius: '8px',
               border: '1px solid #e5e7eb',
               boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              flexShrink: 0
             }}>
               {/* Compact Toggle Button Header */}
               <button

@@ -625,7 +625,7 @@ function App() {
 
       if (path === '/' || path === '') {
         setCurrentPageState('home');
-      } else if (path === '/product' || path === '/product/') {
+      } else if (path === '/product' || path === '/product/' || path === '/shop' || path === '/shop/') {
         setCurrentPageState('shop');
       } else if (path.startsWith('/category/')) {
         const catSlug = path.substring(10).replace(/\/$/, '');
@@ -2321,7 +2321,7 @@ function App() {
 
           {/* CTA Pill button */}
           <button 
-            onClick={() => handleUrlRouting('/shop', '')}
+            onClick={() => setCurrentPage('shop')}
             style={{
               backgroundColor: '#000000',
               color: '#ffffff',
@@ -2661,7 +2661,7 @@ function App() {
 
           {/* View All Button */}
           <button 
-            onClick={() => handleUrlRouting('/shop', '')}
+            onClick={() => setCurrentPage('shop')}
             className="btn-outline" 
             style={{ marginTop: '24px', cursor: 'pointer' }}
           >
@@ -2685,7 +2685,7 @@ function App() {
               {homepageConfig?.newArrivalsTitle || "Discover Our New Arrivals"}
             </h2>
             <button 
-              onClick={() => handleUrlRouting('/shop', '')}
+              onClick={() => setCurrentPage('shop')}
               className="btn-outline"
               style={{ cursor: 'pointer' }}
             >
@@ -3226,6 +3226,8 @@ function App() {
       ) : currentPage === 'success' && orderDetails ? (
         <OrderSuccessPage
           order={orderDetails}
+          products={productsState}
+          onViewProductDetails={handleViewDetails}
           onContinueShopping={() => setCurrentPage('shop')}
           onGoHome={() => setCurrentPage('home')}
           onViewOrders={() => setCurrentPage('orders')}

@@ -520,30 +520,32 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', paddingBottom: '80px' }}>
 
       {/* ── Back nav ── */}
-      <div className="container" style={{ paddingTop: '24px', paddingBottom: '8px' }}>
-        <button
-          onClick={() => {
-            if (step === 'address') {
-              handleBackToCart();
-            } else if (step === 'payment') {
-              if (window.confirm('Are you sure you want to go back? Your payment will be cancelled by this action.')) {
-                setStep('address');
+      {step !== 'confirmation' && (
+        <div className="container" style={{ paddingTop: '24px', paddingBottom: '8px' }}>
+          <button
+            onClick={() => {
+              if (step === 'address') {
+                handleBackToCart();
+              } else if (step === 'payment') {
+                if (window.confirm('Are you sure you want to go back? Your payment will be cancelled.')) {
+                  setStep('address');
+                }
+              } else {
+                setStep('payment');
               }
-            } else {
-              setStep('payment');
-            }
-          }}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-lime)',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          <ArrowLeft size={16} />
-          {step === 'address' ? 'Back to Cart' : step === 'payment' ? 'Back to Address' : 'Back to Payment'}
-        </button>
-      </div>
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-lime)',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            <ArrowLeft size={16} />
+            {step === 'address' ? 'Back to Cart' : 'Back to Address'}
+          </button>
+        </div>
+      )}
 
       <div className="container">
 

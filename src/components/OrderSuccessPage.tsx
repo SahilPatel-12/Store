@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Home,
 } from 'lucide-react';
-import type { CartItem } from '../types';
+import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 
@@ -55,6 +55,8 @@ interface OrderSuccessPageProps {
   onContinueShopping: () => void;
   onGoHome: () => void;
   onViewOrders: () => void;
+  products?: Product[];
+  onViewProductDetails?: (product: Product) => void;
 }
 
 /* ─── Floating particle component ─── */
@@ -69,31 +71,47 @@ const FloatingDot: React.FC<{ style: React.CSSProperties }> = ({ style }) => (
   }} />
 );
 
-// const TRACK_STEPS = [
-//   { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received', done: true, time: 'Just now' },
-//   { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: false, time: 'Expected: Today' },
-//   { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: false, time: 'Expected: 3–5 days' },
-//   { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: false, time: 'Estimated' },
-// ];
-
-const SUGGESTED = [
-  { emoji: '📿', name: 'Panchmukhi Rudraksha', price: 299, badge: 'Popular' },
-  { emoji: '🪔', name: 'Brass Diya Set', price: 149, badge: 'New' },
-  { emoji: '🌸', name: 'Rose Incense Sticks', price: 89, badge: 'Bestseller' },
-  { emoji: '🔱', name: 'Shiva Kavach Yantra', price: 499, badge: 'Divine' },
-];
-
 export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   order,
   onContinueShopping,
   onGoHome,
   onViewOrders,
+  products = [],
+  onViewProductDetails,
 }) => {
   const [liveStatus, setLiveStatus] = React.useState<string>(order.status || 'Being Packed');
   const [livePaymentStatus, setLivePaymentStatus] = React.useState<string>(order.paymentStatus || 'Pending');
   const [copied, setCopied] = React.useState(false);
   const [invoiceDownloaded, setInvoiceDownloaded] = React.useState(false);
   const [shareExpanded, setShareExpanded] = React.useState(false);
+
+  const suggestedProducts = React.useMemo(() => {
+    if (!products || products.length === 0) {
+      return [
+        { id: '1', name: 'Panchmukhi Rudraksha', price: 299, image: '📿', badge: 'Popular', product: null as any },
+        { id: '2', name: 'Brass Diya Set', price: 149, image: '🪔', badge: 'New', product: null as any },
+        { id: '3', name: 'Rose Incense Sticks', price: 89, image: '🌸', badge: 'Bestseller', product: null as any },
+        { id: '4', name: 'Shiva Kavach Yantra', price: 499, image: '🔱', badge: 'Divine', product: null as any },
+      ];
+    }
+
+    const orderedProductIds = new Set(order.items.map(item => item.product.id));
+    const eligible = products.filter(p => !orderedProductIds.has(p.id) && p.inStock);
+
+    const sorted = [...eligible].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    const list = sorted.length >= 4 
+      ? sorted.slice(0, 4) 
+      : [...sorted, ...products.filter(p => orderedProductIds.has(p.id) && p.inStock)].slice(0, 4);
+
+    return list.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      image: p.image,
+      badge: (p as any).badges?.[0] || (p.popularity > 80 ? 'Popular' : p.rating >= 4.8 ? 'Bestseller' : ''),
+      product: p
+    }));
+  }, [products, order.items]);
 
   React.useEffect(() => {
     if (order.status) setLiveStatus(order.status);
@@ -778,9 +796,9 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            {SUGGESTED.map(item => (
+            {suggestedProducts.map(item => (
               <div
-                key={item.name}
+                key={item.id}
                 className="card-hover"
                 style={{
                   backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)',
@@ -788,7 +806,13 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                   boxShadow: 'var(--shadow-sm)', transition: 'all 0.2s ease',
                   cursor: 'pointer',
                 }}
-                onClick={onContinueShopping}
+                onClick={() => {
+                  if (item.product && onViewProductDetails) {
+                    onViewProductDetails(item.product);
+                  } else {
+                    onContinueShopping();
+                  }
+                }}
               >
                 {/* Image area */}
                 <div style={{
@@ -796,17 +820,24 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                   background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '3.5rem', position: 'relative',
+                  overflow: 'hidden',
                 }}>
-                  {item.emoji}
-                  <span style={{
-                    position: 'absolute', top: '10px', right: '10px',
-                    padding: '3px 10px', borderRadius: 'var(--radius-full)',
-                    backgroundColor: 'var(--primary-lime)', color: '#ffffff',
-                    fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}>
-                    {item.badge}
-                  </span>
+                  {item.image && isImageUrl(item.image) ? (
+                    <img src={getDisplayImageUrl(item.image)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    item.image || '📿'
+                  )}
+                  {item.badge && (
+                    <span style={{
+                      position: 'absolute', top: '10px', right: '10px',
+                      padding: '3px 10px', borderRadius: 'var(--radius-full)',
+                      backgroundColor: 'var(--primary-lime)', color: '#ffffff',
+                      fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}>
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
                 {/* Info */}
                 <div style={{ padding: '14px' }}>

@@ -369,6 +369,32 @@ button {
     display: none !important;
   }
 
+  /* Responsive scrollable tab bar */
+  .scrollable-tabs-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 6px !important;
+    gap: 8px !important;
+  }
+  .scrollable-tabs-container::-webkit-scrollbar {
+    display: none !important;
+  }
+  .scrollable-tabs-container {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .scrollable-tabs-container button {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
   .profile-content-panel {
     padding: 20px !important;
   }
@@ -379,6 +405,20 @@ button {
   .form-grid-4col {
     grid-template-columns: 1fr !important;
     gap: 16px !important;
+  }
+
+  /* Tighten spacing between homepage sections on mobile devices */
+  #hero {
+    padding: 12px 0 16px 0 !important;
+  }
+  #featured {
+    padding: 20px 0 !important;
+  }
+  #sale {
+    padding: 24px 0 !important;
+  }
+  #new-arrivals {
+    padding: 24px 0 !important;
   }
 
   /* Product details layout */

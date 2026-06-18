@@ -700,7 +700,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
   const handleCloseModal = () => {
     if (step === 'payment') {
-      if (!window.confirm('Are you sure you want to cancel checkout? Your payment will be cancelled by this action.')) {
+      if (!window.confirm('Are you sure you want to cancel checkout? Your payment will be cancelled.')) {
         return;
       }
     }
@@ -745,7 +745,14 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     });
 
     onOrderComplete();
-    handleCloseModal();
+    
+    // Close modal directly without triggering the cancel-checkout confirmation dialog
+    setPaymentScreenshotUrl('');
+    setIsUploadingScreenshot(false);
+    setCopiedUpi(false);
+    setPaymentErrors({});
+    setAddressErrors({});
+    onClose();
   };
 
   const handlePlaceOrder = async () => {
@@ -792,7 +799,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       return (
         <button 
           onClick={() => {
-            if (window.confirm('Are you sure you want to go back? Your payment will be cancelled by this action.')) {
+            if (window.confirm('Are you sure you want to go back? Your payment will be cancelled.')) {
               setStep('address');
             }
           }} 
