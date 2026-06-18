@@ -12,9 +12,10 @@ interface CategoryPageProps {
   onBackToShop: () => void;
   products?: Product[];
   /** Images uploaded by admin for this specific category */
-  categoryBannerImages?: string[];
+  categoryBannerImages?: (string | { imageUrl: string; redirectUrl?: string })[];
   cart: { product: Product; quantity: number }[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
+  onBannerClick?: (url: string) => void;
 }
 
 // Category Descriptions database matching prompt
@@ -52,6 +53,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   categoryBannerImages,
   cart,
   onUpdateQuantity,
+  onBannerClick,
 }) => {
   const activeProducts = productsProp || [];
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -169,33 +171,43 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               backgroundColor: '#1c1917'
             }}>
               {/* Slides */}
-              {bannerImages.map((src, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    opacity: idx === bannerSlide ? 1 : 0,
-                    transition: 'opacity 0.8s ease-in-out',
-                    zIndex: idx === bannerSlide ? 1 : 0,
-                    pointerEvents: idx === bannerSlide ? 'auto' : 'none',
-                  }}
-                >
-                  <img
-                    src={src}
-                    alt={`${categoryName} banner ${idx + 1}`}
+              {bannerImages.map((slide, idx) => {
+                const imageUrl = typeof slide === 'string' ? slide : (slide as any).imageUrl;
+                const redirectUrl = typeof slide === 'string' ? undefined : (slide as any).redirectUrl;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (redirectUrl && onBannerClick) {
+                        onBannerClick(redirectUrl);
+                      }
+                    }}
                     style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
-                      display: 'block'
+                      opacity: idx === bannerSlide ? 1 : 0,
+                      transition: 'opacity 0.8s ease-in-out',
+                      zIndex: idx === bannerSlide ? 1 : 0,
+                      pointerEvents: idx === bannerSlide ? 'auto' : 'none',
+                      cursor: redirectUrl ? 'pointer' : 'default'
                     }}
-                  />
-                </div>
-              ))}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${categoryName} banner ${idx + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                );
+              })}
 
               {/* Circular dots/indicators */}
               {bannerImages.length > 1 && (

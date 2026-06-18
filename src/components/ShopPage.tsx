@@ -9,13 +9,14 @@ interface ShopPageProps {
   onToggleWishlist: (productId: string) => void;
   products?: Product[];
   shopBanners?: {
-    mainBanners?: string[];
-    categoryBanners?: Record<string, string[]>;
+    mainBanners?: (string | { imageUrl: string; redirectUrl?: string })[];
+    categoryBanners?: Record<string, (string | { imageUrl: string; redirectUrl?: string })[]>;
   };
   cart: { product: Product; quantity: number }[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   categoriesOrder?: string[];
   productsOrder?: Record<string, string[]>;
+  onBannerClick?: (url: string) => void;
 }
 
 export const ShopPage: React.FC<ShopPageProps> = ({
@@ -29,6 +30,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   onUpdateQuantity,
   categoriesOrder,
   productsOrder,
+  onBannerClick,
 }) => {
   const activeProducts = productsProp || [];
   // Filter and Sort states
@@ -229,33 +231,43 @@ export const ShopPage: React.FC<ShopPageProps> = ({
               backgroundColor: '#1c1917'
             }}>
               {/* Slides */}
-              {mainBannerImages.map((src, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    opacity: idx === mainBannerSlide ? 1 : 0,
-                    transition: 'opacity 0.8s ease-in-out',
-                    zIndex: idx === mainBannerSlide ? 1 : 0,
-                    pointerEvents: idx === mainBannerSlide ? 'auto' : 'none',
-                  }}
-                >
-                  <img
-                    src={src}
-                    alt={`Shop banner ${idx + 1}`}
+              {mainBannerImages.map((slide, idx) => {
+                const imageUrl = typeof slide === 'string' ? slide : (slide as any).imageUrl;
+                const redirectUrl = typeof slide === 'string' ? undefined : (slide as any).redirectUrl;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (redirectUrl && onBannerClick) {
+                        onBannerClick(redirectUrl);
+                      }
+                    }}
                     style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
-                      display: 'block'
+                      opacity: idx === mainBannerSlide ? 1 : 0,
+                      transition: 'opacity 0.8s ease-in-out',
+                      zIndex: idx === mainBannerSlide ? 1 : 0,
+                      pointerEvents: idx === mainBannerSlide ? 'auto' : 'none',
+                      cursor: redirectUrl ? 'pointer' : 'default'
                     }}
-                  />
-                </div>
-              ))}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`Shop banner ${idx + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                );
+              })}
 
               {/* Circular dots/indicators */}
               {mainBannerImages.length > 1 && (

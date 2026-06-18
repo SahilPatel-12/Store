@@ -704,6 +704,24 @@ function App() {
     handleUrlRouting(window.location.pathname, window.location.search);
   }, [productsState, handleUrlRouting]);
 
+  const handleBannerRedirect = React.useCallback((url?: string) => {
+    if (!url) return;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      window.open(url, '_blank');
+      return;
+    }
+    
+    try {
+      const parts = url.split('?');
+      const pathname = parts[0];
+      const search = parts[1] ? '?' + parts[1] : '';
+      window.history.pushState({}, '', url);
+      handleUrlRouting(pathname, search);
+    } catch (e) {
+      console.error('Failed banner redirect routing:', e);
+    }
+  }, [handleUrlRouting]);
+
 
 
   // Load published pooja products from Supabase and merge with static mock products
@@ -1739,31 +1757,41 @@ function App() {
                 backgroundColor: '#1c1917'
               }} className="hero-slider-container">
                 {/* Slides */}
-                {bannerSlides.map((slide, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      opacity: idx === currentSlideIndex ? 1 : 0,
-                      transition: 'opacity 0.8s ease-in-out',
-                      zIndex: idx === currentSlideIndex ? 1 : 0,
-                    }}
-                  >
-                    <img
-                      src={slide}
-                      alt={`Banner slide ${idx + 1}`}
+                {bannerSlides.map((slide, idx) => {
+                  const imageUrl = typeof slide === 'string' ? slide : (slide as any).imageUrl;
+                  const redirectUrl = typeof slide === 'string' ? undefined : (slide as any).redirectUrl;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        if (redirectUrl) {
+                          handleBannerRedirect(redirectUrl);
+                        }
+                      }}
                       style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover'
+                        opacity: idx === currentSlideIndex ? 1 : 0,
+                        transition: 'opacity 0.8s ease-in-out',
+                        zIndex: idx === currentSlideIndex ? 1 : 0,
+                        cursor: redirectUrl ? 'pointer' : 'default'
                       }}
-                    />
-                  </div>
-                ))}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`Banner slide ${idx + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </div>
+                  );
+                })}
 
                 {/* Circular dots/indicators */}
                 {bannerSlides.length > 1 && (
@@ -3025,6 +3053,7 @@ function App() {
           onUpdateQuantity={handleUpdateQuantity}
           categoriesOrder={categoriesOrder}
           productsOrder={productsOrder}
+          onBannerClick={handleBannerRedirect}
         />
       ) : currentPage === 'category' ? (
         <CategoryPage
@@ -3038,6 +3067,7 @@ function App() {
           categoryBannerImages={shopBannersConfig?.categoryBanners?.[selectedCategoryName] || []}
           cart={cart}
           onUpdateQuantity={handleUpdateQuantity}
+          onBannerClick={handleBannerRedirect}
         />
       ) : currentPage === 'search' ? (
         <SearchPage

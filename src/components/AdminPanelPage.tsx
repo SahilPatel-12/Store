@@ -519,7 +519,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   ];
   const [shopMainBanners, setShopMainBanners] = React.useState<string[]>([]);
   const [shopCategoryBanners, setShopCategoryBanners] = React.useState<Record<string, string[]>>({});
+  const [bannerRedirects, setBannerRedirects] = React.useState<Record<string, string>>({});
+  const [shopMainBannerRedirects, setShopMainBannerRedirects] = React.useState<Record<string, string>>({});
+  const [shopCategoryBannerRedirects, setShopCategoryBannerRedirects] = React.useState<Record<string, string>>({});
   const [isSavingShopBanners, setIsSavingShopBanners] = React.useState(false);
+
   const [isLoadingShopBanners, setIsLoadingShopBanners] = React.useState(false);
   const [shopBannerPreviewSlide, setShopBannerPreviewSlide] = React.useState(0);
 
@@ -549,7 +553,20 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           setNewArrivalsSubtitle(val.newArrivalsSubtitle || 'Discover More');
           setNewArrivalsProductIds(val.newArrivalsProductIds || []);
 
-          setBannerImages(val.bannerImages || []);
+          const rawBanners = val.bannerImages || [];
+          const normalizedBanners = rawBanners.map((b: any) => typeof b === 'string' ? b : b.imageUrl);
+          setBannerImages(normalizedBanners);
+
+          const redirectsMap: Record<string, string> = {};
+          rawBanners.forEach((b: any) => {
+            const url = typeof b === 'string' ? b : b.imageUrl;
+            const redirect = typeof b === 'string' ? '' : (b.redirectUrl || '');
+            if (url) {
+              redirectsMap[url] = redirect;
+            }
+          });
+          setBannerRedirects(redirectsMap);
+
           setShowcaseImage(val.showcaseImage || '');
         } else {
           if (products && products.length > 0) {
@@ -600,7 +617,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             newArrivalsSubtitle,
             newArrivalsProductIds: activeNewArrivalsIds,
             cartExploreMoreProductIds: activeCartExploreMoreIds,
-            bannerImages: finalBanners,
+            bannerImages: finalBanners.map((url: string) => ({
+              imageUrl: url,
+              redirectUrl: bannerRedirects[url] || ''
+            })),
             showcaseImage: finalShowcase
           }
         });
@@ -704,8 +724,38 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         .eq('key', 'shop_banners_settings')
         .single();
       if (data && data.value) {
-        setShopMainBanners(data.value.mainBanners || []);
-        setShopCategoryBanners(data.value.categoryBanners || {});
+        const rawMain = data.value.mainBanners || [];
+        const normalizedMain = rawMain.map((b: any) => typeof b === 'string' ? b : b.imageUrl);
+        setShopMainBanners(normalizedMain);
+
+        const mainRedirectsMap: Record<string, string> = {};
+        rawMain.forEach((b: any) => {
+          const url = typeof b === 'string' ? b : b.imageUrl;
+          const redirect = typeof b === 'string' ? '' : (b.redirectUrl || '');
+          if (url) {
+            mainRedirectsMap[url] = redirect;
+          }
+        });
+        setShopMainBannerRedirects(mainRedirectsMap);
+
+        const rawCat = data.value.categoryBanners || {};
+        const normalizedCat: Record<string, string[]> = {};
+        const catRedirectsMap: Record<string, string> = {};
+
+        for (const [cat, list] of Object.entries(rawCat)) {
+          if (Array.isArray(list)) {
+            normalizedCat[cat] = list.map((b: any) => typeof b === 'string' ? b : b.imageUrl);
+            list.forEach((b: any) => {
+              const url = typeof b === 'string' ? b : b.imageUrl;
+              const redirect = typeof b === 'string' ? '' : (b.redirectUrl || '');
+              if (url) {
+                catRedirectsMap[url] = redirect;
+              }
+            });
+          }
+        }
+        setShopCategoryBanners(normalizedCat);
+        setShopCategoryBannerRedirects(catRedirectsMap);
       }
     } catch (err) {
       console.error('Error loading shop banners:', err);
@@ -723,13 +773,28 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       setShopMainBanners(finalMain);
       setShopCategoryBanners(finalCat);
 
+      const mainBannersWithRedirects = finalMain.map((url: string) => ({
+        imageUrl: url,
+        redirectUrl: shopMainBannerRedirects[url] || ''
+      }));
+
+      const categoryBannersWithRedirects: Record<string, { imageUrl: string; redirectUrl: string }[]> = {};
+      for (const [cat, list] of Object.entries(finalCat)) {
+        if (Array.isArray(list)) {
+          categoryBannersWithRedirects[cat] = list.map((url: string) => ({
+            imageUrl: url,
+            redirectUrl: shopCategoryBannerRedirects[url] || ''
+          }));
+        }
+      }
+
       const { error } = await supabase
         .from('website_settings')
         .upsert({
           key: 'shop_banners_settings',
           value: {
-            mainBanners: finalMain,
-            categoryBanners: finalCat,
+            mainBanners: mainBannersWithRedirects,
+            categoryBanners: categoryBannersWithRedirects,
           }
         });
       if (error) throw error;
@@ -3975,87 +4040,103 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       {bannerImages.length > 0 && (
                         <div>
                           <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Carousel Slides</label>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
                             {bannerImages.map((banner, index) => (
-                              <div
-                                key={index}
-                                onClick={() => setActivePreviewSlide(index)}
-                                style={{
-                                  position: 'relative',
-                                  borderRadius: '6px',
-                                  overflow: 'hidden',
-                                  border: `2px solid ${index === activePreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                                  aspectRatio: '16/9',
-                                  backgroundColor: '#e2e8f0',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s',
-                                  boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
-                                }}
-                              >
-                                <img src={resolveMediaUrl(banner)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
+                              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div
+                                  onClick={() => setActivePreviewSlide(index)}
                                   style={{
-                                    position: 'absolute',
-                                    top: '4px',
-                                    right: '4px',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.9)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '50%',
-                                    width: '20px',
-                                    height: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    borderRadius: '6px',
+                                    overflow: 'hidden',
+                                    border: `2px solid ${index === activePreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                    aspectRatio: '16/9',
+                                    backgroundColor: '#e2e8f0',
                                     cursor: 'pointer',
-                                    boxShadow: 'var(--shadow-sm)',
-                                    padding: 0,
-                                    zIndex: 6
+                                    transition: 'all 0.2s',
+                                    boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
                                   }}
-                                  title="Remove Slide"
                                 >
-                                  <X size={12} />
-                                </button>
-                                
-                                {/* Reorder Controls */}
-                                <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
-                                  {index > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'left'); }}
-                                      style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                      title="Move Slide Left"
-                                    >
-                                      ◀
-                                    </button>
-                                  )}
-                                  {index < bannerImages.length - 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'right'); }}
-                                      style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                      title="Move Slide Right"
-                                    >
-                                      ▶
-                                    </button>
-                                  )}
-                                </div>
+                                  <img src={resolveMediaUrl(banner)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '4px',
+                                      right: '4px',
+                                      backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '50%',
+                                      width: '20px',
+                                      height: '20px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      boxShadow: 'var(--shadow-sm)',
+                                      padding: 0,
+                                      zIndex: 6
+                                    }}
+                                    title="Remove Slide"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                  
+                                  {/* Reorder Controls */}
+                                  <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                                    {index > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'left'); }}
+                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                        title="Move Slide Left"
+                                      >
+                                        ◀
+                                      </button>
+                                    )}
+                                    {index < bannerImages.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'right'); }}
+                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                        title="Move Slide Right"
+                                      >
+                                        ▶
+                                      </button>
+                                    )}
+                                  </div>
 
-                                <div style={{
-                                  position: 'absolute',
-                                  bottom: '4px',
-                                  left: '4px',
-                                  backgroundColor: 'rgba(0,0,0,0.6)',
-                                  color: '#ffffff',
-                                  fontSize: '0.55rem',
-                                  padding: '1px 4px',
-                                  borderRadius: '2px',
-                                  fontWeight: 700
-                                }}>
-                                  #{index + 1}
+                                  <div style={{
+                                    position: 'absolute',
+                                    bottom: '4px',
+                                    left: '4px',
+                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                    color: '#ffffff',
+                                    fontSize: '0.55rem',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px',
+                                    fontWeight: 700
+                                  }}>
+                                    #{index + 1}
+                                  </div>
                                 </div>
+                                <input
+                                  type="text"
+                                  placeholder="Redirect URL (e.g. /product)"
+                                  value={bannerRedirects[banner] || ''}
+                                  onChange={(e) => setBannerRedirects(prev => ({ ...prev, [banner]: e.target.value }))}
+                                  style={{
+                                    padding: '5px 8px',
+                                    fontSize: '0.72rem',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--border-light)',
+                                    outline: 'none',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
                               </div>
                             ))}
                           </div>
@@ -4762,60 +4843,76 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
                   {/* Thumbnail grid */}
                   {shopMainBanners.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                       {shopMainBanners.map((url, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => setShopBannerPreviewSlide(idx)}
-                          style={{
-                            position: 'relative',
-                            aspectRatio: '16/5',
-                            borderRadius: 'var(--radius-sm)',
-                            overflow: 'hidden',
-                            border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                            backgroundColor: '#e2e8f0',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
-                          }}
-                        >
-                          <img src={resolveMediaUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
-                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
-                            title="Remove slide"
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div
+                            onClick={() => setShopBannerPreviewSlide(idx)}
+                            style={{
+                              position: 'relative',
+                              aspectRatio: '16/5',
+                              borderRadius: 'var(--radius-sm)',
+                              overflow: 'hidden',
+                              border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                              backgroundColor: '#e2e8f0',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                            }}
                           >
-                            <X size={11} />
-                          </button>
-                          
-                          {/* Reorder Controls */}
-                          <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
-                            {idx > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
-                                style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                title="Move Slide Left"
-                              >
-                                ◀
-                              </button>
-                            )}
-                            {idx < shopMainBanners.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
-                                style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                title="Move Slide Right"
-                              >
-                                ▶
-                              </button>
-                            )}
-                          </div>
+                            <img src={resolveMediaUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
+                              style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
+                              title="Remove slide"
+                            >
+                              <X size={11} />
+                            </button>
+                            
+                            {/* Reorder Controls */}
+                            <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
+                                  style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                  title="Move Slide Left"
+                                >
+                                  ◀
+                                </button>
+                              )}
+                              {idx < shopMainBanners.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
+                                  style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                  title="Move Slide Right"
+                                >
+                                  ▶
+                                </button>
+                              )}
+                            </div>
 
-                          <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.55rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
-                            Slide {idx + 1}
+                            <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.55rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
+                              Slide {idx + 1}
+                            </div>
                           </div>
+                          <input
+                            type="text"
+                            placeholder="Redirect URL (e.g. /product)"
+                            value={shopMainBannerRedirects[url] || ''}
+                            onChange={(e) => setShopMainBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
+                            style={{
+                              padding: '5px 8px',
+                              fontSize: '0.72rem',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-light)',
+                              outline: 'none',
+                              width: '100%',
+                              boxSizing: 'border-box'
+                            }}
+                          />
                         </div>
                       ))}
                     </div>
@@ -4893,17 +4990,34 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
                           {/* Previews */}
                           {catBanners.length > 0 && (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
                               {catBanners.map((url, idx) => (
-                                <div key={idx} style={{ position: 'relative', width: '68px', height: '44px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
-                                  <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                                  <div style={{ position: 'relative', width: '50px', height: '32px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
+                                    <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    placeholder="Redirect URL (e.g. /product)"
+                                    value={shopCategoryBannerRedirects[url] || ''}
+                                    onChange={(e) => setShopCategoryBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
+                                    style={{
+                                      flexGrow: 1,
+                                      padding: '4px 8px',
+                                      fontSize: '0.72rem',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--border-light)',
+                                      outline: 'none',
+                                      minWidth: 0
+                                    }}
+                                  />
                                   <button
                                     type="button"
                                     onClick={() => handleCategoryBannerRemove(cat, idx)}
-                                    style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                     title="Remove"
                                   >
-                                    <X size={9} />
+                                    <X size={12} />
                                   </button>
                                 </div>
                               ))}
