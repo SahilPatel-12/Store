@@ -19,6 +19,7 @@ import {
 import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { jsPDF } from 'jspdf';
 
 export interface OrderDetails {
   orderId: string;
@@ -192,39 +193,186 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   };
 
   const handleDownloadInvoice = () => {
-    // Build a simple text invoice
-    const lines = [
-      '══════════════════════════════════',
-      '       MANTRA PUJA — INVOICE      ',
-      '══════════════════════════════════',
-      `Order ID  : ${order.orderId}`,
-      `Date      : ${order.placedAt.toLocaleDateString('en-IN')}`,
-      `Name      : ${order.fullName}`,
-      `Email     : ${order.email}`,
-      `Address   : ${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}`,
-      `            ${order.deliveryCity}, ${order.deliveryState} — ${order.pincode}`,
-      `Payment   : ${order.paymentMethod}`,
-      '──────────────────────────────────',
-      'ITEMS:',
-      ...order.items.map(i => `  ${i.product.name} × ${i.quantity}  —  ₹${(i.product.price * i.quantity).toFixed(2)}`),
-      '──────────────────────────────────',
-      `Subtotal  : ₹${order.subtotal.toFixed(2)}`,
-      order.discount > 0 ? `Discount  : -₹${order.discount.toFixed(2)} (${order.discountPercent}%)` : '',
-      `Shipping  : ${order.shipping === 0 ? 'FREE' : '₹' + order.shipping.toFixed(2)}`,
-      `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%)  : ₹${order.tax.toFixed(2)}`,
-      `TOTAL     : ₹${order.total.toFixed(2)}`,
-      '══════════════════════════════════',
-      'Thank you for your sacred purchase!',
-      'May these items bring you peace & blessings.',
-    ].filter(Boolean).join('\n');
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    const blob = new Blob([lines], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice-${order.orderId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Color Palette
+    const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
+    const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
+    const textColor = [55, 65, 81]; // #374151 (Dark Gray)
+    const lightGray = [229, 231, 235]; // #e5e7eb
+
+    // Header - Brand Left Side
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 14, 25);
+    doc.text('Email: support@mantrapuja.com', 14, 29);
+    doc.text('Web: www.mantrapuja.com', 14, 33);
+
+    // Header - Invoice Info (Right side)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.text('INVOICE', 196, 20, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
+    doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+    doc.text(`Est. Delivery: ${estimatedDelivery}`, 196, 36, { align: 'right' });
+
+    // Divider Line
+    doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+    doc.setLineWidth(0.5);
+    doc.line(14, 42, 196, 42);
+
+    // Billing Address Section (Left)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('BILL TO:', 14, 50);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(order.fullName, 14, 55);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(75, 85, 99); // gray-600
+    doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
+    doc.text(`Email: ${order.email}`, 14, 64);
+    
+    // Format long address nicely
+    const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    const splitAddress = doc.splitTextToSize(addressText, 80);
+    doc.text(splitAddress, 14, 68);
+
+    // Payment details (Right side)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('PAYMENT DETAILS:', 120, 50);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Method: ${order.paymentMethod}`, 120, 55);
+    doc.text(`Status: ${order.paymentStatus || 'Pending'}`, 120, 59);
+
+    // Table header background block
+    let y = 85;
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(14, y, 182, 8, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Sacred Item Details', 18, y + 5.5);
+    doc.text('Qty', 115, y + 5.5, { align: 'center' });
+    doc.text('Price', 150, y + 5.5, { align: 'right' });
+    doc.text('Amount', 190, y + 5.5, { align: 'right' });
+
+    y += 8; // move past header row
+
+    // Table Rows
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    
+    order.items.forEach((item, index) => {
+      // Alternating row backgrounds
+      if (index % 2 === 1) {
+        doc.setFillColor(249, 250, 251); // gray-50
+        doc.rect(14, y, 182, 8, 'F');
+      }
+      
+      doc.text(item.product.name, 18, y + 5.5);
+      doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
+      doc.text(`₹${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
+      doc.text(`₹${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
+      
+      y += 8;
+    });
+
+    // Table border line below rows
+    doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+    doc.line(14, y, 196, y);
+    y += 8;
+
+    // Pricing calculations block
+    const labelX = 140;
+    const valueX = 190;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    doc.text('Subtotal:', labelX, y);
+    doc.text(`₹${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
+    y += 6;
+
+    if (order.discount > 0) {
+      doc.setTextColor(16, 185, 129); // green
+      doc.text(`Discount (${order.discountPercent}%):`, labelX, y);
+      doc.text(`−₹${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      y += 6;
+    }
+
+    doc.text('Shipping:', labelX, y);
+    doc.text(order.shipping === 0 ? 'FREE' : `₹${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
+    y += 6;
+
+    const taxLabel = `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%):`;
+    doc.text(taxLabel, labelX, y);
+    doc.text(`₹${order.tax.toFixed(2)}`, valueX, y, { align: 'right' });
+    y += 6;
+
+    // Draw line for total
+    doc.setLineWidth(0.5);
+    doc.line(130, y, 196, y);
+    y += 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('Total Charged:', labelX, y);
+    doc.text(`₹${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+    y += 15;
+
+    // Footer Blessings Box
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let footerY = pageHeight - 35; // Position near the bottom of A4 page
+    if (y > footerY) {
+      footerY = y + 10;
+    }
+
+    // Draw decorative line
+    doc.setDrawColor(251, 191, 36); // Gold border
+    doc.setLineWidth(0.7);
+    doc.line(40, footerY, 170, footerY);
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9.5);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home. 🙏', 105, footerY + 7, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray
+    doc.text('Thank you for shopping with Mantra Puja!', 105, footerY + 13, { align: 'center' });
+
+    // Save the PDF
+    doc.save(`Invoice-${order.orderId}.pdf`);
+    
     setInvoiceDownloaded(true);
     setTimeout(() => setInvoiceDownloaded(false), 3000);
   };
