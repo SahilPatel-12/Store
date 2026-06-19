@@ -915,7 +915,7 @@ function App() {
 
   const visibleCategories = React.useMemo(() => {
     const activeList = categoriesList.length > 0 ? categoriesList : DEFAULT_CATEGORIES.map(c => ({ name: c, hidden: false }));
-    const active = activeList.filter(c => !c.hidden).map(c => c.name);
+    const active = activeList.filter(c => !c.hidden && c.name.toLowerCase() !== 'all').map(c => c.name);
     if (categoriesOrder && categoriesOrder.length > 0) {
       return [...active].sort((a, b) => {
         const idxA = categoriesOrder.indexOf(a);
@@ -1669,7 +1669,7 @@ function App() {
                 {categoriesDropdownOpen && (
                   <div style={{
                     position: 'absolute',
-                    top: '100%',
+                    top: 'calc(100% - 2px)',
                     left: '50%',
                     transform: 'translateX(-50%)',
                     backgroundColor: '#ffffff',
@@ -1681,7 +1681,7 @@ function App() {
                     gridTemplateColumns: 'repeat(3, 160px)',
                     gap: '8px',
                     zIndex: 200,
-                    marginTop: '4px'
+                    marginTop: '0'
                   }}>
                     {visibleCategories.map(cat => (
                       <button
