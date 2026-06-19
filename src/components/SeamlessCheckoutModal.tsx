@@ -21,7 +21,6 @@ import type { CartItem } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
-import { decryptText } from '../lib/crypto';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 
 interface Address {

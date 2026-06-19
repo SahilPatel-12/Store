@@ -15,7 +15,6 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { decryptText } from '../lib/crypto';
 import { createReferralShareCard, uploadReferralShareCard } from '../lib/shareHelper';
 
 const FacebookIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (

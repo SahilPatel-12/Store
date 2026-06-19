@@ -7,7 +7,6 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { decryptText } from '../lib/crypto';
 
 interface UserAuthPageProps {
   onNavigateToHome: () => void;
