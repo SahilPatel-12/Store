@@ -1292,7 +1292,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               </p>
 
               <button
-                onClick={onNavigateToProfile}
+                onClick={() => onNavigateToProfile()}
                 style={{
                   padding: '12px 24px',
                   fontSize: '0.9rem',
@@ -1323,7 +1323,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 Your partner partnership account has been suspended by the store administrator. Please contact support.
               </p>
               <button
-                onClick={onNavigateToProfile}
+                onClick={() => onNavigateToProfile()}
                 style={{
                   padding: '12px 24px',
                   fontSize: '0.9rem',
