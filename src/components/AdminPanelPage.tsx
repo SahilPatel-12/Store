@@ -2169,7 +2169,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const hashedPw = await hashPassword(resetPunditPassword);
       const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
 
-      const { data, error } = await supabase.rpc('admin_update_pundit_password', {
+      const { error } = await supabase.rpc('admin_update_pundit_password', {
         p_admin_token: adminToken,
         p_target_user_id: resetPunditId,
         p_new_password_hash: hashedPw
@@ -9722,6 +9722,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         </div>
                         <button
                           type="submit"
+                          disabled={isResettingPassword}
                           style={{
                             backgroundColor: 'var(--primary-lime)',
                             color: '#ffffff',
@@ -9730,11 +9731,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             borderRadius: 'var(--radius-sm)',
                             fontWeight: 700,
                             fontSize: '0.8rem',
-                            cursor: 'pointer',
+                            cursor: isResettingPassword ? 'not-allowed' : 'pointer',
+                            opacity: isResettingPassword ? 0.7 : 1,
                             height: '35px'
                           }}
                         >
-                          Update Password
+                          {isResettingPassword ? 'Updating...' : 'Update Password'}
                         </button>
                       </form>
                     </div>

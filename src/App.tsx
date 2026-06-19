@@ -289,7 +289,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [mobileCategoriesExpanded, setMobileCategoriesExpanded] = React.useState(false);
   
-  const [loggedInUser, setLoggedInUser] = React.useState<{ id: string; fullName: string; email: string; phoneNumber: string } | null>(() => {
+  const [loggedInUser, setLoggedInUser] = React.useState<{ id: string; fullName: string; email: string; phoneNumber: string; isPundit?: boolean } | null>(() => {
     try {
       const storedToken = localStorage.getItem('session_token');
       if (!storedToken || storedToken === '260529') {

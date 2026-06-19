@@ -7,10 +7,7 @@ import {
   Wallet, 
   Calendar, 
   Clock, 
-  AlertTriangle, 
   LogOut, 
-  ExternalLink,
-  ChevronRight,
   TrendingUp,
   Award,
   Video,
@@ -172,7 +169,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
 
     setIsRequestingPayout(true);
     try {
-      const { data, error } = await supabase.rpc('request_withdrawal_by_session', {
+      const { error } = await supabase.rpc('request_withdrawal_by_session', {
         p_session_token: token,
         p_amount: amount,
         p_payment_method: paymentMethod,
