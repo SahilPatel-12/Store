@@ -309,57 +309,27 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     return cleaned;
   };
 
-  // WhatsApp Gateway Sender
+  // WhatsApp Gateway Sender via backend endpoint
   const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
-    const res = await supabase
-      .from('website_settings')
-      .select('value')
-      .eq('key', 'whatsapp_settings')
-      .single();
-    
-    if (res.error) throw new Error('WhatsApp configuration missing: ' + res.error.message);
-    const data = res.data;
-    if (!data?.value) throw new Error('WhatsApp is not configured by the store owner.');
-
-    const val = data.value as { endpoint?: string; token?: string };
-    if (!val.endpoint || !val.token) throw new Error('WhatsApp gateway credentials incomplete.');
-
-    const decryptedToken = await decryptText(val.token, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-    
-    if (val.endpoint.includes('bhashsms.com')) {
-      const urlObj = new URL(val.endpoint);
-      urlObj.searchParams.set('pass', decryptedToken);
-      
-      const isWa = urlObj.searchParams.get('priority') === 'wa';
-      let cleanPhone = targetPhone.replace(/[^\d]/g, '');
-      if (cleanPhone.length > 10 && (cleanPhone.startsWith('91') || cleanPhone.startsWith('0'))) {
-        cleanPhone = cleanPhone.slice(-10);
-      }
-      if (isWa && cleanPhone.length === 10) {
-        cleanPhone = '91' + cleanPhone;
-      }
-      urlObj.searchParams.set('phone', cleanPhone);
-      urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
-
-      await fetch(urlObj.toString(), {
-        method: 'GET',
-        mode: 'no-cors'
-      });
-    } else {
-      await fetch(val.endpoint, {
+    try {
+      const response = await fetch('/api/send-otp', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${decryptedToken}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          to: targetPhone,
-          recipient: targetPhone,
           phone: targetPhone,
-          message: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`,
-          body: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`
+          otp: otp
         })
       });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
+      }
+    } catch (err) {
+      console.error('[WhatsApp Service] OTP send failed:', err);
+      throw err;
     }
   };
 

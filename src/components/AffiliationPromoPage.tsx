@@ -159,71 +159,25 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
   // WhatsApp OTP Gateway
   const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
-    let data;
     try {
-      const res = await supabase
-        .from('website_settings')
-        .select('value')
-        .eq('key', 'whatsapp_settings')
-        .single();
-      
-      if (res.error) {
-        throw new Error('WhatsApp configurations could not be loaded: ' + res.error.message);
+      const response = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone: targetPhone,
+          otp: otp
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
-      data = res.data;
-    } catch (dbErr) {
-      console.error('Database connection error while retrieving settings:', dbErr);
-      throw new Error('Database connection failed. Please verify your network.', { cause: dbErr });
-    }
-
-    if (!data?.value) {
-      throw new Error('WhatsApp gateway is not configured by store administrator yet.');
-    }
-
-    const val = data.value as { endpoint?: string; token?: string };
-    if (!val.endpoint || !val.token) {
-      throw new Error('WhatsApp Gateway configurations are incomplete.');
-    }
-
-    const decryptedToken = await decryptText(val.token, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-    
-    try {
-      if (val.endpoint.includes('bhashsms.com')) {
-        const urlObj = new URL(val.endpoint);
-        urlObj.searchParams.set('pass', decryptedToken);
-        
-        let cleanPhone = targetPhone.replace(/[^\d]/g, '');
-        if (cleanPhone.length > 10 && (cleanPhone.startsWith('91') || cleanPhone.startsWith('0'))) {
-          cleanPhone = cleanPhone.slice(-10);
-        }
-        if (urlObj.searchParams.get('priority') === 'wa' && cleanPhone.length === 10) {
-          cleanPhone = '91' + cleanPhone;
-        }
-        urlObj.searchParams.set('phone', cleanPhone);
-        urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
-
-        await fetch(urlObj.toString(), {
-          method: 'GET',
-          mode: 'no-cors'
-        });
-      } else {
-        await fetch(val.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${decryptedToken}`
-          },
-          body: JSON.stringify({
-            to: targetPhone,
-            recipient: targetPhone,
-            phone: targetPhone,
-            message: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`,
-            body: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`
-          })
-        });
-      }
-    } catch (fetchErr) {
-      console.warn('WhatsApp gateway call encountered a CORS or connection issue (OTP may still have sent):', fetchErr);
+    } catch (err) {
+      console.error('[WhatsApp Service] OTP send failed:', err);
+      throw err;
     }
   };
 
@@ -644,6 +598,81 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   return (
     <div style={{ backgroundColor: '#fcf8f5', minHeight: '100vh', display: 'flex', flexDirection: 'column', color: '#2d140e', fontFamily: 'system-ui, sans-serif' }}>
       
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        /* Mobile overrides for Affiliate Promo Page */
+        @media (max-width: 768px) {
+          .affiliate-hero-section {
+            padding: 40px 16px !important;
+          }
+          .affiliate-hero-title {
+            font-size: 1.7rem !important;
+          }
+          .affiliate-hero-desc {
+            font-size: 0.95rem !important;
+          }
+          .affiliate-body-container {
+            padding: 24px 16px !important;
+            gap: 24px !important;
+          }
+          .affiliate-card-wrapper {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 20px !important;
+            gap: 12px !important;
+          }
+          .affiliate-card-icon-container {
+            width: 44px !important;
+            height: 44px !important;
+          }
+          .affiliate-interactive-box {
+            padding: 20px 16px !important;
+            border-radius: 16px !important;
+          }
+          .affiliate-info-display-grid {
+            grid-template-columns: 1fr !important;
+            gap: 4px !important;
+          }
+          .affiliate-info-display-grid span {
+            font-size: 0.78rem !important;
+            font-weight: 700 !important;
+            color: #8c7670 !important;
+            margin-top: 4px !important;
+          }
+          .affiliate-info-display-grid strong {
+            font-size: 0.88rem !important;
+            margin-bottom: 8px !important;
+            word-break: break-all !important;
+          }
+          .affiliate-referral-box {
+            padding: 16px !important;
+            border-radius: 12px !important;
+          }
+          .affiliate-referral-sharing-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 16px !important;
+          }
+          .affiliate-referral-sharing-link-container {
+            flex: none !important;
+            width: 100% !important;
+          }
+          .affiliate-referral-qr-container {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            align-self: center !important;
+          }
+        }
+      `}</style>
+
       {/* Toast popup */}
       {toastMsg && (
         <div style={{
@@ -670,15 +699,18 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       )}
 
       {/* Hero Header Banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, #2d140e 0%, #4c1d11 100%)',
-        color: '#ffffff',
-        padding: '60px 20px',
-        textAlign: 'center',
-        borderBottom: '4px solid #ea580c',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
+      <div 
+        className="affiliate-hero-section"
+        style={{
+          background: 'linear-gradient(135deg, #2d140e 0%, #4c1d11 100%)',
+          color: '#ffffff',
+          padding: '60px 20px',
+          textAlign: 'center',
+          borderBottom: '4px solid #ea580c',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
         {/* Holy background patterns decoration */}
         <div style={{
           position: 'absolute',
@@ -692,24 +724,39 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
             <Sparkles size={14} />
             <span>MANTRA PUJA PARTNERSHIP PROGRAM</span>
           </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.025em', margin: '0 0 12px 0', color: '#fff9f5', lineHeight: 1.2 }}>
+          <h1 
+            className="affiliate-hero-title"
+            style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.025em', margin: '0 0 12px 0', color: '#fff9f5', lineHeight: 1.2 }}
+          >
             Become a Partner, Share the Divine & Earn
           </h1>
-          <p style={{ fontSize: '1.1rem', color: '#ffedd5', maxWidth: '600px', margin: '0 auto', lineHeight: 1.5 }}>
+          <p 
+            className="affiliate-hero-desc"
+            style={{ fontSize: '1.1rem', color: '#ffedd5', maxWidth: '600px', margin: '0 auto', lineHeight: 1.5 }}
+          >
             Help others connect with authenticated spiritual offerings and earn rewards for every devotee you introduce to Mantra Puja.
           </p>
         </div>
       </div>
 
       {/* Main Body Grid */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '40px 20px', display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+      <div 
+        className="affiliate-body-container"
+        style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '40px 20px', display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}
+      >
         
         {/* Promotional Showcase Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '24px' }}>
           
           {/* Card 1: 10% Commission */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+          <div 
+            className="affiliate-card-wrapper"
+            style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}
+          >
+            <div 
+              className="affiliate-card-icon-container"
+              style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}
+            >
               <Gift size={24} />
             </div>
             <div>
@@ -721,8 +768,14 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           </div>
 
           {/* Card 2: Unlimited Sharing */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', flexShrink: 0 }}>
+          <div 
+            className="affiliate-card-wrapper"
+            style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}
+          >
+            <div 
+              className="affiliate-card-icon-container"
+              style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', flexShrink: 0 }}
+            >
               <Users size={24} />
             </div>
             <div>
@@ -734,8 +787,14 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           </div>
 
           {/* Card 3: Lifetime Rewards */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0 }}>
+          <div 
+            className="affiliate-card-wrapper"
+            style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', gap: '16px' }}
+          >
+            <div 
+              className="affiliate-card-icon-container"
+              style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0 }}
+            >
               <Award size={24} />
             </div>
             <div>
@@ -752,14 +811,20 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
         <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
           
           {loadingStatus ? (
-            <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}
+            >
               <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid #ffedd5', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
               <p style={{ margin: 0, color: '#6b5a55', fontWeight: 600 }}>Retrieving profile settings...</p>
             </div>
           ) : !loggedInUser ? (
             
             /* STEP 1: LOGIN/AUTHENTICATION PORTAL */
-            <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}
+            >
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fff7ed', color: '#ea580c', marginBottom: '12px' }}>
                   <ShieldCheck size={28} />
@@ -903,7 +968,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           ) : affiliateStatus === 'active' ? (
             
             /* DYNAMIC STATE: ACTIVE PARTNER ALREADY */
-            <div style={{ backgroundColor: '#ffffff', border: '2px solid #16a34a', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '2px solid #16a34a', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}
+            >
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#dcfce7', color: '#16a34a', marginBottom: '16px' }}>
                 <CheckCircle size={32} />
               </div>
@@ -913,10 +981,19 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               </p>
 
               {/* Referral Info Box with Link and Barcode */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: '#fcf8f5', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', marginBottom: '24px', textAlign: 'left' }}>
+              <div 
+                className="affiliate-referral-box"
+                style={{ display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: '#fcf8f5', borderRadius: '16px', padding: '24px', border: '1.5px solid #ffedd5', marginBottom: '24px', textAlign: 'left' }}
+              >
                 
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ flex: '1 1 280px' }}>
+                <div 
+                  className="affiliate-referral-sharing-row"
+                  style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <div 
+                    className="affiliate-referral-sharing-link-container"
+                    style={{ flex: '1 1 280px' }}
+                  >
                     <span style={{ fontSize: '0.8rem', color: '#8c7670', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Your Referral Sharing Link</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '12px 14px', borderRadius: '12px', border: '1px solid #ffedd5' }}>
                       <input
@@ -938,7 +1015,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', border: '1px solid #ffedd5', borderRadius: '16px', padding: '12px', minWidth: '140px' }}>
+                  <div 
+                    className="affiliate-referral-qr-container"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', border: '1px solid #ffedd5', borderRadius: '16px', padding: '12px', minWidth: '140px' }}
+                  >
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(window.location.origin + '?ref=' + affiliateCode)}`}
                       alt="Referral Barcode / QR Code"
@@ -1183,7 +1263,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           ) : affiliateStatus === 'pending' ? (
             
             /* DYNAMIC STATE: APPLICATION PENDING APPROVAL */
-            <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #d97706', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '1.5px solid #d97706', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}
+            >
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', marginBottom: '16px' }}>
                 <Clock size={32} />
               </div>
@@ -1194,7 +1277,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
               <div style={{ textAlign: 'left', backgroundColor: '#fcf8f5', border: '1px solid #ffedd5', borderRadius: '16px', padding: '16px 20px', marginBottom: '24px', fontSize: '0.9rem' }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#4c1d11', fontWeight: 800 }}>Submitted Information:</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '8px 12px', color: '#6b5a55' }}>
+                <div 
+                  className="affiliate-info-display-grid"
+                  style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '8px 12px', color: '#6b5a55' }}
+                >
                   <span>Name:</span><strong style={{ color: '#2d140e' }}>{fullName || loggedInUser.fullName || '—'}</strong>
                   <span>Email:</span><strong style={{ color: '#2d140e' }}>{email || loggedInUser.email || '—'}</strong>
                   <span>Phone:</span><strong style={{ color: '#2d140e' }}>{loggedInUser.phoneNumber || '—'}</strong>
@@ -1226,7 +1312,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           ) : affiliateStatus === 'suspended' ? (
             
             /* DYNAMIC STATE: SUSPENDED */
-            <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #dc2626', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '1.5px solid #dc2626', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', textAlign: 'center' }}
+            >
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626', marginBottom: '16px' }}>
                 <span>🚫</span>
               </div>
@@ -1253,7 +1342,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           ) : (
             
             /* STEP 2: PROFILE INFORMATION APPLICATION FORM */
-            <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}
+            >
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fff7ed', color: '#ea580c', marginBottom: '12px' }}>
                   <Users size={28} />
@@ -1355,17 +1447,20 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
             justifyContent: 'center',
             padding: '20px'
           }}>
-            <div style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '24px',
-              border: '2px solid #ffedd5',
-              padding: '32px',
-              maxWidth: '480px',
-              width: '100%',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-              position: 'relative',
-              textAlign: 'center'
-            }}>
+            <div 
+              className="affiliate-interactive-box"
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '24px',
+                border: '2px solid #ffedd5',
+                padding: '32px',
+                maxWidth: '480px',
+                width: '100%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                textAlign: 'center'
+              }}
+            >
               <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: '0 0 16px 0', color: '#2d140e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <InstagramIcon size={24} color="#e1306c" />
                 Share on Instagram Stories

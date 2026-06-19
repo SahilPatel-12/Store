@@ -5,6 +5,10 @@
       "destination": "/api/share"
     },
     {
+      "source": "/api/send-otp",
+      "destination": "/api/send-otp"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

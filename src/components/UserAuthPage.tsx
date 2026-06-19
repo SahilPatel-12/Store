@@ -75,88 +75,27 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     return cleaned;
   };
 
-  // Triggers secure client-side decryption and sends OTP message via WhatsApp API
+  // Triggers secure server-side OTP sending via backend endpoint
   const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
-    // 1. Fetch settings with robust exception catch
-    let data;
     try {
-      const res = await supabase
-        .from('website_settings')
-        .select('value')
-        .eq('key', 'whatsapp_settings')
-        .single();
-      
-      if (res.error) {
-        throw new Error('WhatsApp configurations could not be loaded: ' + res.error.message);
+      const response = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone: targetPhone,
+          otp: otp
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
-      data = res.data;
-    } catch (dbErr) {
-      console.error('Database connection error while retrieving settings:', dbErr);
-      throw new Error('Database connection failed while loading WhatsApp settings. Please verify your network connection and try again.');
-    }
-
-    if (!data?.value) {
-      throw new Error('WhatsApp gateway is not configured by store administrator yet. Please use password login or contact support.');
-    }
-
-    const val = data.value as { endpoint?: string; token?: string };
-    if (!val.endpoint || !val.token) {
-      throw new Error('WhatsApp Gateway configurations are incomplete.');
-    }
-
-    // 2. Decrypt token using strict client-side encryption key
-    const decryptedToken = await decryptText(val.token, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-    
-    // 3. Fire custom endpoint request (GET for BhashSMS, POST JSON for others)
-    try {
-      if (val.endpoint.includes('bhashsms.com')) {
-        const urlObj = new URL(val.endpoint);
-        urlObj.searchParams.set('pass', decryptedToken);
-        
-        // Clean phone number to 10 digits for Indian gateway routing
-        const isWa = urlObj.searchParams.get('priority') === 'wa';
-        let cleanPhone = targetPhone.replace(/[^\d]/g, '');
-        if (cleanPhone.length > 10 && (cleanPhone.startsWith('91') || cleanPhone.startsWith('0'))) {
-          cleanPhone = cleanPhone.slice(-10);
-        }
-        if (isWa && cleanPhone.length === 10) {
-          cleanPhone = '91' + cleanPhone;
-        }
-        urlObj.searchParams.set('phone', cleanPhone);
-        urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
-
-        const maskedUrl = urlObj.toString().replace(encodeURIComponent(decryptedToken), '********').replace(decryptedToken, '********');
-        console.log('[WhatsApp Service] Calling gateway:', maskedUrl);
-
-        // Use 'no-cors' mode to prevent browser blocking BhashSMS calls with CORS errors
-        await fetch(urlObj.toString(), {
-          method: 'GET',
-          mode: 'no-cors'
-        });
-      } else {
-        const response = await fetch(val.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${decryptedToken}`
-          },
-          body: JSON.stringify({
-            to: targetPhone,
-            recipient: targetPhone,
-            phone: targetPhone,
-            message: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`,
-            body: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`
-          })
-        });
-
-        if (!response.ok) {
-          const txt = await response.text();
-          console.error('WhatsApp gateway error status:', response.status, txt);
-        }
-      }
-    } catch (fetchErr) {
-      // Log CORS / connection warning, but don't block user as the gateway triggers the OTP send anyway
-      console.warn('WhatsApp gateway call encountered a connection/CORS issue (OTP message may still have sent):', fetchErr);
+    } catch (err) {
+      console.error('[WhatsApp Service] OTP send failed:', err);
+      throw err;
     }
   };
 
