@@ -3303,7 +3303,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           {[
             { id: 'analytics' as Tab, label: 'Analytics Dashboard', icon: <BarChart3 size={18} /> },
             { id: 'products' as Tab, label: 'Products Catalog', icon: <Package size={18} /> },
-            { id: 'pooja_products' as Tab, label: 'Pooja Products Manager', icon: <Sparkles size={18} /> },
+            { id: 'pooja_products' as Tab, label: 'Puja Products Manager', icon: <Sparkles size={18} /> },
             { id: 'homepage_editor' as Tab, label: 'Homepage Customizer', icon: <Layout size={18} /> },
             { id: 'shop_banners' as Tab, label: 'Shop Banners', icon: <Upload size={18} /> },
             { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={18} /> },
@@ -8689,7 +8689,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   transition: 'all 0.15s ease'
                 }}
               >
-                🕉️ Pundit Manager
+                🕉️ Pandit Manager
               </button>
             </div>
 
@@ -9446,7 +9446,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🕉️</span> Create New Pundit Account
+                    <span>🕉️</span> Create New Pandit Account
                   </h3>
                   
                   {punditError && (
@@ -9476,7 +9476,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       gap: '12px'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h4 style={{ margin: 0, color: 'var(--primary-forest)', fontWeight: 800 }}>🎉 Pundit Profile Created Successfully!</h4>
+                        <h4 style={{ margin: 0, color: 'var(--primary-forest)', fontWeight: 800 }}>🎉 Pandit Profile Created Successfully!</h4>
                         <button
                           onClick={() => setPunditCreationResult(null)}
                           style={{
@@ -9612,7 +9612,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           height: '42px'
                         }}
                       >
-                        {isCreatingPundit ? 'Creating...' : 'Create Pundit Profile'}
+                        {isCreatingPundit ? 'Creating...' : 'Create Pandit Profile'}
                       </button>
                     </form>
                   )}
@@ -9627,16 +9627,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🕉️</span> Pundit Directory & Controls
+                    <span>🕉️</span> Pandit Directory & Controls
                   </h3>
 
                   {isLoadingPundits ? (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                      Loading pundits database...
+                      Loading pandits database...
                     </div>
                   ) : pundits.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                      No pundits registered. Add a pundit above to get started.
+                      No pandits registered. Add a pandit above to get started.
                     </div>
                   ) : (
                     <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>

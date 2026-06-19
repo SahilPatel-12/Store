@@ -253,7 +253,7 @@ export const AboutUsPage: React.FC = () => {
                 Mantra Puja envisions a world where every household has a small, active, peaceful sanctuary for meditation, daily chanting, and Vedic rituals. We strive to be the most trusted global bridge for authentic Indian spirituality, combining strict ritual adherence with beautiful modern styling and user-focused simplicity.
               </p>
               <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                In the years to come, we aim to host online daily poojas, astrology consultation guides, and custom artisan craft programs to enrich the physical and metaphysical practice of devotees globally.
+                In the years to come, we aim to host online daily pujas, astrology consultation guides, and custom artisan craft programs to enrich the physical and metaphysical practice of devotees globally.
               </p>
             </div>
 

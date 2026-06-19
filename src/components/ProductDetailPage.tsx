@@ -3364,7 +3364,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 🕉️ Curate Recommended Related Items
               </h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-                Search, filter, and choose from your active catalog to display as recommended related products on this Pooja page.
+                Search, filter, and choose from your active catalog to display as recommended related products on this Puja page.
               </p>
 
               {/* Search & Category Filter Controls */}

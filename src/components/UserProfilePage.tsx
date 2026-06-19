@@ -2636,7 +2636,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
             <div className={`profile-carousel-slide ${activeTab === 'wishlist' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>My Sacred Wishlist</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Items saved for special poojas, auspicious days, or gifting. Synced in real-time.</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Items saved for special pujas, auspicious days, or gifting. Synced in real-time.</p>
 
                 {wishlistedProducts.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
@@ -2792,7 +2792,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
                       <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>WhatsApp Dispatch Alerts</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Receive real-time tracking links, invoice downloads, and pooja blessing photos directly on WhatsApp.
+                        Receive real-time tracking links, invoice downloads, and puja blessing photos directly on WhatsApp.
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -2835,7 +2835,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
                       <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Sacred Intention & Festival Newsletters</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Curated monthly suggestions from Vedic experts on upcoming astrological transits, festival poojas, and rituals.
+                        Curated monthly suggestions from Vedic experts on upcoming astrological transits, festival pujas, and rituals.
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -4208,7 +4208,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                   <div>
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>Confirm Secure Logout</h2>
                     <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '6px', maxWidth: '440px', margin: '6px auto 32px auto', lineHeight: 1.5 }}>
-                      Are you sure you want to log out of your spiritual dashboard? Your saved addresses, pooja orders, and synchronized wishlist will remain safely stored.
+                      Are you sure you want to log out of your spiritual dashboard? Your saved addresses, puja orders, and synchronized wishlist will remain safely stored.
                     </p>
 
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>

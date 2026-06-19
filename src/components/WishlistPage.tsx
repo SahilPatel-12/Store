@@ -100,7 +100,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
             </h1>
           </div>
           <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.88rem', maxWidth: '500px', margin: '0 auto' }}>
-            Your personal collection of energetic beads, hand-selected idols, and pure aromatics awaiting your pooja altars.
+            Your personal collection of energetic beads, hand-selected idols, and pure aromatics awaiting your puja altars.
           </p>
         </div>
       </section>

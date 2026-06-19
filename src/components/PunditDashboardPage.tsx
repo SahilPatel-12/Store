@@ -233,7 +233,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
             <span style={{ fontSize: '2rem' }}>🕉️</span>
             <div>
               <h1 style={{ fontSize: '1.25rem', fontWeight: 900, margin: 0, letterSpacing: '-0.3px', color: '#ffffff' }}>
-                Mantra Puja Pundit Portal
+                Mantra Puja Pandit Portal
               </h1>
               <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.7)', margin: '2px 0 0 0' }}>
                 Auspicious Dashboard for Shastri: <strong>{loggedInUser.fullName}</strong> ({loggedInUser.phoneNumber})
@@ -322,7 +322,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
               transition: 'all 0.2s'
             }}
           >
-            <Calendar size={16} /> Pundit Puja Bookings
+            <Calendar size={16} /> Pandit Puja Bookings
           </button>
         </div>
 
@@ -373,7 +373,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
                 }}>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                     <Award size={18} style={{ color: '#84cc16' }} />
-                    Default Pundit Referral sharing
+                    Default Pandit Referral sharing
                   </h3>
                   
                   <div style={{
@@ -970,7 +970,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
           </div>
         )}
 
-        {/* Tab Content: Pundit Bookings coming soon */}
+        {/* Tab Content: Pandit Bookings coming soon */}
         {activeTab === 'booking' && (
           <div style={{
             display: 'flex',

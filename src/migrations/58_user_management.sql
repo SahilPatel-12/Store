@@ -180,8 +180,8 @@ BEGIN
 
   -- 10. Nullify referrer links inside users table so we don't break referrers tree on deletion
   UPDATE public.website_store_users 
-  SET referred_by = NULL, referrer_id = NULL 
-  WHERE referred_by = p_target_user_id OR referrer_id = p_target_user_id;
+  SET referred_by = NULL 
+  WHERE referred_by = p_target_user_id;
 
   -- 11. Delete the user profile itself
   DELETE FROM public.website_store_users WHERE id = p_target_user_id;

@@ -88,7 +88,7 @@ export const ContactUsPage: React.FC = () => {
             Sacred Support & Contact
           </h1>
           <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.88rem', maxWidth: '500px', margin: '8px auto 0 auto', lineHeight: 1.5 }}>
-            Have questions about Rudraksha sizing, pooja timings, or bulk orders? Reach out and connect with our Vedic support sadhakas.
+            Have questions about Rudraksha sizing, puja timings, or bulk orders? Reach out and connect with our Vedic support sadhakas.
           </p>
         </div>
       </section>
@@ -200,7 +200,7 @@ export const ContactUsPage: React.FC = () => {
                       fontSize: '0.88rem',
                       outline: 'none'
                     }}
-                    placeholder="Pooja ritual questions, shipping, custom requests..."
+                    placeholder="Puja ritual questions, shipping, custom requests..."
                   />
                   {formErrors.subject && (
                     <span style={{ color: '#dc2626', fontSize: '0.72rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '4px' }}>

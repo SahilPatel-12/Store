@@ -194,7 +194,7 @@ export const PoliciesPage: React.FC = () => {
                     Devotees have a full **15 days from delivery** to initiate a return or exchange. Products must remain in their original craft boxes, complete with lab-certified holographic report documents.
                   </p>
 
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '10px' }}>2. Energized Pooja Items Notice</h3>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '10px' }}>2. Energized Puja Items Notice</h3>
                   <p>
                     Due to the sacred nature of energized Yantras, Kavachs, and Rudraksha Malas which undergo customized Prana-Pratishtha bathing rituals in Kashi trusts, returns are subject to a **₹800 spiritual de-energization and cleanup fee** prior to restocking.
                   </p>

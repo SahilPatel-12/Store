@@ -94,7 +94,7 @@ export const PunditLoginPage: React.FC<PunditLoginPageProps> = ({
       }
 
       if (!userData || !userData.is_pundit) {
-        setErrorMsg('Access Denied: This portal is reserved for registered pundits.');
+        setErrorMsg('Access Denied: This portal is reserved for registered pandits.');
         setIsSubmitting(false);
         return;
       }
@@ -109,7 +109,7 @@ export const PunditLoginPage: React.FC<PunditLoginPageProps> = ({
 
     } catch (err) {
       console.error(err);
-      setErrorMsg((err as Error).message || 'Database authentication error. Unable to establish pundit session.');
+      setErrorMsg((err as Error).message || 'Database authentication error. Unable to establish pandit session.');
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +180,7 @@ export const PunditLoginPage: React.FC<PunditLoginPageProps> = ({
             letterSpacing: '-0.5px',
             marginTop: '8px'
           }}>
-            Pundit Control Portal
+            Pandit Control Portal
           </h2>
           <p style={{
             fontSize: '0.88rem',
@@ -352,7 +352,7 @@ export const PunditLoginPage: React.FC<PunditLoginPageProps> = ({
                 animation: 'spin 0.6s linear infinite'
               }} />
             ) : (
-              'Enter Pundit Portal'
+              'Enter Pandit Portal'
             )}
           </button>
 

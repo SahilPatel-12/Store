@@ -427,7 +427,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               marginTop: '8px'
             }}
           >
-            Go to Pooja Store
+            Go to Puja Store
           </button>
         </div>
       ) : (
