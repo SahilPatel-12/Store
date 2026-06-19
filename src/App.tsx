@@ -30,6 +30,9 @@ const AdminPanelPage = React.lazy(() => import('./components/AdminPanelPage').th
 const AdminLoginPage = React.lazy(() => import('./components/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
 const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m => ({ default: m.UserAuthPage })));
 const AffiliationPromoPage = React.lazy(() => import('./components/AffiliationPromoPage').then(m => ({ default: m.AffiliationPromoPage })));
+const PunditLoginPage = React.lazy(() => import('./components/PunditLoginPage').then(m => ({ default: m.PunditLoginPage })));
+const PunditDashboardPage = React.lazy(() => import('./components/PunditDashboardPage').then(m => ({ default: m.PunditDashboardPage })));
+
 
 // Default shop categories list
 const DEFAULT_CATEGORIES = [
@@ -230,7 +233,7 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard'>('shop');
   
   const [readNotificationIds, setReadNotificationIds] = React.useState<string[]>(() => {
     try {
@@ -513,7 +516,7 @@ function App() {
 
 
   const setCurrentPage = (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard',
     options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean; profileTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate' }
   ) => {
     setMobileMenuOpen(false);
@@ -605,6 +608,12 @@ function App() {
         break;
       case 'affiliation':
         path = '/affiliation';
+        break;
+      case 'pundit-login':
+        path = '/pundit-login';
+        break;
+      case 'pundit-dashboard':
+        path = '/pundit-dashboard';
         break;
       default:
         path = '/';
@@ -730,6 +739,10 @@ function App() {
         setCurrentPageState('user-auth');
       } else if (path === '/affiliation' || path === '/affiliation/' || path === '/affiliation-program' || path === '/affiliation-program/') {
         setCurrentPageState('affiliation');
+      } else if (path === '/pundit-login' || path === '/pundit-login/') {
+        setCurrentPageState('pundit-login');
+      } else if (path === '/pundit-dashboard' || path === '/pundit-dashboard/') {
+        setCurrentPageState('pundit-dashboard');
       } else {
         setCurrentPageState('shop');
       }
@@ -749,6 +762,44 @@ function App() {
   React.useEffect(() => {
     handleUrlRouting(window.location.pathname, window.location.search);
   }, [productsState, handleUrlRouting]);
+
+  // Pundit session checker and redirect routing
+  React.useEffect(() => {
+    const checkPunditStatus = async () => {
+      if (loggedInUser && loggedInUser.id && loggedInUser.isPundit === undefined) {
+        try {
+          const { data, error } = await supabase
+            .from('website_store_users')
+            .select('is_pundit')
+            .eq('id', loggedInUser.id)
+            .maybeSingle();
+          if (!error && data) {
+            const isPundit = !!data.is_pundit;
+            const updatedUser = { ...loggedInUser, isPundit };
+            localStorage.setItem('mantra_user_session', JSON.stringify(updatedUser));
+            setLoggedInUser(updatedUser);
+          }
+        } catch (e) {
+          console.error('Error checking pundit status:', e);
+        }
+      }
+    };
+    checkPunditStatus();
+  }, [loggedInUser]);
+
+  React.useEffect(() => {
+    if (loggedInUser?.isPundit) {
+      if (currentPageState === 'profile' || currentPageState === 'user-auth' || currentPageState === 'pundit-login') {
+        setCurrentPage('pundit-dashboard');
+      }
+    } else if (currentPageState === 'pundit-dashboard') {
+      if (!loggedInUser) {
+        setCurrentPage('pundit-login');
+      } else if (loggedInUser.isPundit === false) {
+        setCurrentPage('shop');
+      }
+    }
+  }, [loggedInUser, currentPageState]);
 
   const handleBannerRedirect = React.useCallback((url?: string) => {
     if (!url) return;
@@ -1594,7 +1645,7 @@ function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* 1. Navbar Section */}
-      {currentPage !== 'admin' && currentPage !== 'admin-login' && (
+      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && (
         <nav style={{
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--border-light)',
@@ -3957,6 +4008,31 @@ function App() {
           taxDeliverySettings={taxDeliverySettings}
           onUpdateTaxDeliverySettings={setTaxDeliverySettings}
         />
+      ) : currentPage === 'pundit-login' ? (
+        <PunditLoginPage
+          onLoginSuccess={(userSession, token) => {
+            try {
+              localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
+              localStorage.setItem('session_token', token);
+            } catch (e) {}
+            setLoggedInUser(userSession);
+            setCurrentPage('pundit-dashboard');
+          }}
+          onNavigateToHome={() => setCurrentPage('home')}
+        />
+      ) : currentPage === 'pundit-dashboard' && loggedInUser ? (
+        <PunditDashboardPage
+          loggedInUser={loggedInUser}
+          onLogout={() => {
+            try {
+              localStorage.removeItem('mantra_user_session');
+              localStorage.removeItem('session_token');
+            } catch (e) {}
+            setLoggedInUser(null);
+            setCurrentPage('pundit-login');
+          }}
+          products={productsState}
+        />
       ) : (
         selectedProduct && (
           <ProductDetailPage
@@ -3976,7 +4052,8 @@ function App() {
       </React.Suspense>
 
       {/* upgraded Premium Devotional Footer */}
-      <footer style={{
+      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && (
+        <footer style={{
         backgroundColor: 'var(--primary-forest)',
         color: '#ffffff',
         padding: '60px 0 30px 0',
@@ -4112,6 +4189,7 @@ function App() {
 
         </div>
       </footer>
+      )}
 
       {currentPage !== 'detail' && (
         <ProductModal

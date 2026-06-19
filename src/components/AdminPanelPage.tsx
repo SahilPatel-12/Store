@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
-import { encryptText, decryptText } from '../lib/crypto';
+import { encryptText, decryptText, hashPassword } from '../lib/crypto';
 import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
@@ -369,7 +369,20 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isUpdatingAffiliateStatus, setIsUpdatingAffiliateStatus] = React.useState<string | null>(null);
 
   // New Affiliate management states
-  const [affiliateSubTab, setAffiliateSubTab] = React.useState<'directory' | 'tiers' | 'withdrawals'>('directory');
+  const [affiliateSubTab, setAffiliateSubTab] = React.useState<'directory' | 'tiers' | 'withdrawals' | 'pundits'>('directory');
+
+  // Pundit management states
+  const [pundits, setPundits] = React.useState<any[]>([]);
+  const [isLoadingPundits, setIsLoadingPundits] = React.useState(false);
+  const [newPunditName, setNewPunditName] = React.useState('');
+  const [newPunditPhone, setNewPunditPhone] = React.useState('');
+  const [newPunditPassword, setNewPunditPassword] = React.useState('');
+  const [isCreatingPundit, setIsCreatingPundit] = React.useState(false);
+  const [punditCreationResult, setPunditCreationResult] = React.useState<any | null>(null);
+  const [punditError, setPunditError] = React.useState('');
+  const [resetPunditId, setResetPunditId] = React.useState<string | null>(null);
+  const [resetPunditPassword, setResetPunditPassword] = React.useState('');
+  const [isResettingPassword, setIsResettingPassword] = React.useState(false);
   const [affiliateLevels, setAffiliateLevels] = React.useState<any[]>([]);
   const [isLoadingLevels, setIsLoadingLevels] = React.useState(false);
   const [affiliateSettings, setAffiliateSettings] = React.useState<Record<string, any>>({
@@ -2068,6 +2081,112 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
+  const loadPundits = async () => {
+    setIsLoadingPundits(true);
+    try {
+      const { data, error } = await supabase
+        .from('website_store_users')
+        .select('id, full_name, email, phone_number, affiliate_code, affiliate_status, affiliate_joined_at, is_pundit')
+        .eq('is_pundit', true)
+        .order('affiliate_joined_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) setPundits(data);
+    } catch (err) {
+      console.error('Error fetching pundits:', err);
+    } finally {
+      setIsLoadingPundits(false);
+    }
+  };
+
+  const handleCreatePundit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPunditError('');
+    setPunditCreationResult(null);
+
+    if (!newPunditName.trim() || !newPunditPhone.trim() || !newPunditPassword.trim()) {
+      setPunditError('Please fill out all Shastri details.');
+      return;
+    }
+
+    setIsCreatingPundit(true);
+    try {
+      let cleanedPhone = newPunditPhone.replace(/[^\d]/g, '');
+      if (cleanedPhone.startsWith('966')) {
+        cleanedPhone = cleanedPhone.substring(3);
+      }
+      if (cleanedPhone.startsWith('05') && cleanedPhone.length === 10) {
+        cleanedPhone = '+966' + cleanedPhone.substring(1);
+      } else if (cleanedPhone.startsWith('5') && cleanedPhone.length === 9) {
+        cleanedPhone = '+966' + cleanedPhone;
+      } else if (cleanedPhone.length >= 10) {
+        cleanedPhone = cleanedPhone.slice(-10);
+      }
+
+      if (cleanedPhone.length < 9) {
+        throw new Error('Please enter a valid phone number.');
+      }
+
+      const hashedPw = await hashPassword(newPunditPassword);
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      
+      const { data, error } = await supabase.rpc('admin_create_pundit', {
+        p_admin_token: adminToken,
+        p_full_name: newPunditName.trim(),
+        p_phone_number: cleanedPhone,
+        p_password_hash: hashedPw
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPunditCreationResult({
+          name: newPunditName.trim(),
+          phone: cleanedPhone,
+          password: newPunditPassword,
+          code: data[0].affiliate_code,
+          url: `${window.location.origin}/pundit-login`
+        });
+        setNewPunditName('');
+        setNewPunditPhone('');
+        setNewPunditPassword('');
+        loadPundits();
+      }
+    } catch (err) {
+      console.error(err);
+      setPunditError((err as Error).message);
+    } finally {
+      setIsCreatingPundit(false);
+    }
+  };
+
+  const handleResetPunditPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPunditId || !resetPunditPassword.trim()) return;
+
+    setIsResettingPassword(true);
+    try {
+      const hashedPw = await hashPassword(resetPunditPassword);
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+
+      const { data, error } = await supabase.rpc('admin_update_pundit_password', {
+        p_admin_token: adminToken,
+        p_target_user_id: resetPunditId,
+        p_new_password_hash: hashedPw
+      });
+
+      if (error) throw error;
+      alert('Shastri security password updated successfully!');
+      setResetPunditId(null);
+      setResetPunditPassword('');
+    } catch (err) {
+      console.error(err);
+      alert('Password reset failed: ' + (err as Error).message);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const handleUpdateAffiliateStatus = async (targetUserId: string, newStatus: string) => {
     const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529'; // session token fallback
     
@@ -2419,6 +2538,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       loadAffiliateLevels();
       loadAffiliateSettings();
       loadWithdrawals();
+      loadPundits();
     }
   }, [activeTab]);
 
@@ -8477,6 +8597,22 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               >
                 💸 Payouts Queue ({withdrawals.filter(w => w.status === 'pending').length} Pending)
               </button>
+              <button
+                onClick={() => setAffiliateSubTab('pundits')}
+                style={{
+                  background: affiliateSubTab === 'pundits' ? 'var(--primary-lime-light)' : 'transparent',
+                  border: affiliateSubTab === 'pundits' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                  color: affiliateSubTab === 'pundits' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                🕉️ Pundit Manager
+              </button>
             </div>
 
             {/* SUBTAB CONTENT: DIRECTORY */}
@@ -9217,6 +9353,393 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     </form>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* SUBTAB CONTENT: PUNDIT MANAGER */}
+            {affiliateSubTab === 'pundits' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                {/* 1. Create Pundit Form & Success Panel */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🕉️</span> Create New Pundit Account
+                  </h3>
+                  
+                  {punditError && (
+                    <div style={{
+                      backgroundColor: '#fee2e2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 16px',
+                      color: '#b91c1c',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      marginBottom: '16px'
+                    }}>
+                      {punditError}
+                    </div>
+                  )}
+
+                  {punditCreationResult ? (
+                    <div style={{
+                      backgroundColor: 'rgba(132, 204, 22, 0.1)',
+                      border: '1px solid var(--primary-lime)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '20px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4 style={{ margin: 0, color: 'var(--primary-forest)', fontWeight: 800 }}>🎉 Pundit Profile Created Successfully!</h4>
+                        <button
+                          onClick={() => setPunditCreationResult(null)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--primary-forest)',
+                            fontWeight: 'bold',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                        Provide these credentials to <strong>{punditCreationResult.name}</strong> to log in:
+                      </p>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '12px 16px',
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        fontFamily: 'monospace'
+                      }}>
+                        <div><strong>Phone Number:</strong> {punditCreationResult.phone}</div>
+                        <div><strong>Custom Password:</strong> {punditCreationResult.password}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          <strong>Login URL:</strong>
+                          <span style={{ color: 'var(--text-muted)' }}>{punditCreationResult.url}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(punditCreationResult.url);
+                              alert('Login link copied to clipboard!');
+                            }}
+                            style={{
+                              backgroundColor: 'var(--primary-lime-light)',
+                              color: 'var(--primary-lime)',
+                              border: '1px solid var(--primary-lime)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Copy URL
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleCreatePundit} style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '16px',
+                      alignItems: 'end'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>FULL NAME *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Shastri Shastri Ji"
+                          value={newPunditName}
+                          onChange={(e) => setNewPunditName(e.target.value)}
+                          style={{
+                            border: '1.5px solid var(--border-light)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '10px 12px',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>WHATSAPP NUMBER *</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="e.g. +91 98765 43210"
+                          value={newPunditPhone}
+                          onChange={(e) => setNewPunditPhone(e.target.value)}
+                          style={{
+                            border: '1.5px solid var(--border-light)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '10px 12px',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>SECURITY PASSWORD *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Set custom password"
+                          value={newPunditPassword}
+                          onChange={(e) => setNewPunditPassword(e.target.value)}
+                          style={{
+                            border: '1.5px solid var(--border-light)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '10px 12px',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isCreatingPundit}
+                        style={{
+                          backgroundColor: 'var(--primary-forest)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '12px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          cursor: isCreatingPundit ? 'not-allowed' : 'pointer',
+                          opacity: isCreatingPundit ? 0.8 : 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          height: '42px'
+                        }}
+                      >
+                        {isCreatingPundit ? 'Creating...' : 'Create Pundit Profile'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* 2. Pundits Directory Table */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🕉️</span> Pundit Directory & Controls
+                  </h3>
+
+                  {isLoadingPundits ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                      Loading pundits database...
+                    </div>
+                  ) : pundits.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                      No pundits registered. Add a pundit above to get started.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Shastri Details</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Phone</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Code</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Joined Date</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pundits.map((p) => (
+                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                                {p.full_name}
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {p.phone_number}
+                              </td>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>
+                                <code>{p.affiliate_code}</code>
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{
+                                  padding: '3px 10px',
+                                  borderRadius: 'var(--radius-full)',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  backgroundColor:
+                                    p.affiliate_status === 'active' ? '#dcfce7' :
+                                    p.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                  color:
+                                    p.affiliate_status === 'active' ? '#15803d' :
+                                    p.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
+                                  border: '1px solid ' + (
+                                    p.affiliate_status === 'active' ? '#bbf7d0' :
+                                    p.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
+                                  )
+                                }}>
+                                  {p.affiliate_status.toUpperCase()}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {new Date(p.affiliate_joined_at || p.created_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                                  <button
+                                    onClick={() => {
+                                      const loginUrl = `${window.location.origin}/pundit-login`;
+                                      navigator.clipboard.writeText(loginUrl);
+                                      alert('Shastri custom login URL copied!');
+                                    }}
+                                    style={{
+                                      backgroundColor: '#f1f5f9',
+                                      color: '#334155',
+                                      border: '1px solid #cbd5e1',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Copy Link
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const nextStatus = p.affiliate_status === 'active' ? 'suspended' : 'active';
+                                      handleUpdateAffiliateStatus(p.id, nextStatus).then(() => {
+                                        // Update pundit list local state too
+                                        setPundits(prev => prev.map(x => x.id === p.id ? { ...x, affiliate_status: nextStatus } : x));
+                                      });
+                                    }}
+                                    style={{
+                                      backgroundColor: p.affiliate_status === 'active' ? '#fee2e2' : '#dcfce7',
+                                      color: p.affiliate_status === 'active' ? '#dc2626' : '#16a34a',
+                                      border: 'none',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {p.affiliate_status === 'active' ? 'Suspend' : 'Activate'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setResetPunditId(p.id);
+                                      setResetPunditPassword('');
+                                    }}
+                                    style={{
+                                      backgroundColor: 'var(--primary-forest)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Reset Password
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Password Reset Section */}
+                  {resetPunditId && (
+                    <div style={{
+                      backgroundColor: 'rgba(45, 20, 14, 0.03)',
+                      border: '1.5px dashed var(--primary-forest)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '20px',
+                      marginTop: '20px',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-forest)', margin: 0 }}>
+                          Reset Shastri Password
+                        </h4>
+                        <button
+                          onClick={() => setResetPunditId(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 'bold' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <form onSubmit={handleResetPunditPassword} style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px', flex: 1 }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-dark)' }}>NEW CUSTOM SECURITY PASSWORD</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Enter new custom password"
+                            value={resetPunditPassword}
+                            onChange={(e) => setResetPunditPassword(e.target.value)}
+                            style={{
+                              border: '1.5px solid var(--border-light)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '8px 12px',
+                              fontSize: '0.8rem',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          style={{
+                            backgroundColor: 'var(--primary-lime)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '9px 16px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            height: '35px'
+                          }}
+                        >
+                          Update Password
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
