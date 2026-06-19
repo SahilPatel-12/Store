@@ -141,9 +141,16 @@ export const ShopPage: React.FC<ShopPageProps> = ({
 
   // Filtering & Sorting calculations
   const filteredProducts = activeProducts.filter(product => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query ? true : (
+      (product.name?.toLowerCase().includes(query)) ||
+      (product.description?.toLowerCase().includes(query)) ||
+      (product.category?.toLowerCase().includes(query)) ||
+      (product.spiritualType?.toLowerCase().includes(query)) ||
+      (product.subtitle?.toLowerCase().includes(query)) ||
+      (product.shortDescription?.toLowerCase().includes(query)) ||
+      (product.benefits && Array.isArray(product.benefits) && product.benefits.some(b => b.toLowerCase().includes(query)))
+    );
     
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
 

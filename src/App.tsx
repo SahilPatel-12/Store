@@ -4375,12 +4375,9 @@ function App() {
             padding: 0 16px !important;
           }
           
-          /* Force search wrapper to its own full-width row at the bottom */
+          /* Hide search wrapper on mobile views to prevent double search bars */
           .nav-links-wrapper {
-            order: 3 !important;
-            width: 100% !important;
-            flex: 0 0 100% !important;
-            gap: 0 !important;
+            display: none !important;
           }
 
           /* Hide desktop menus */
