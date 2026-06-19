@@ -30,7 +30,8 @@ const AdminLoginPage = React.lazy(() => import('./components/AdminLoginPage').th
 const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m => ({ default: m.UserAuthPage })));
 const AffiliationPromoPage = React.lazy(() => import('./components/AffiliationPromoPage').then(m => ({ default: m.AffiliationPromoPage })));
 
-const categories = [
+// Default shop categories list
+const DEFAULT_CATEGORIES = [
   'Rudraksha',
   'Bracelet',
   'Murti',
@@ -509,9 +510,6 @@ function App() {
       .replace(/[-\s]+/g, '-');
   };
 
-  const getCategoryFromSlug = (slug: string): string => {
-    return categories.find(cat => getCategorySlug(cat) === slug) || 'Rudraksha';
-  };
 
   const setCurrentPage = (
     page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications',
@@ -900,9 +898,31 @@ function App() {
 
   // Custom categories ordering configurations
   const [categoriesOrder, setCategoriesOrder] = React.useState<string[]>([]);
-
+  // Dynamic categories list with visibility statuses
+  const [categoriesList, setCategoriesList] = React.useState<{ name: string; hidden: boolean }[]>([]);
   // Custom products ordering configurations within categories
   const [productsOrder, setProductsOrder] = React.useState<Record<string, string[]>>({});
+
+  const getCategoryFromSlug = (slug: string): string => {
+    const list = categoriesList.length > 0 ? categoriesList.map(c => c.name) : DEFAULT_CATEGORIES;
+    return list.find(cat => getCategorySlug(cat) === slug) || 'Rudraksha';
+  };
+
+  const visibleCategories = React.useMemo(() => {
+    const activeList = categoriesList.length > 0 ? categoriesList : DEFAULT_CATEGORIES.map(c => ({ name: c, hidden: false }));
+    const active = activeList.filter(c => !c.hidden).map(c => c.name);
+    if (categoriesOrder && categoriesOrder.length > 0) {
+      return [...active].sort((a, b) => {
+        const idxA = categoriesOrder.indexOf(a);
+        const idxB = categoriesOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'en', { sensitivity: 'base' });
+      });
+    }
+    return active;
+  }, [categoriesList, categoriesOrder]);
 
   const loadShopBannersSettings = async () => {
     try {
@@ -928,9 +948,39 @@ function App() {
         .eq('key', 'shop_categories_settings')
         .single();
       if (error && error.code !== 'PGRST116') throw error;
-      if (data && data.value && Array.isArray(data.value.order)) {
-        setCategoriesOrder(data.value.order);
+
+      let finalCats: { name: string; hidden: boolean }[] = [];
+      let finalOrder: string[] = [];
+
+      if (data && data.value) {
+        if (Array.isArray(data.value.categories)) {
+          finalCats = data.value.categories;
+        } else if (Array.isArray(data.value.order)) {
+          finalCats = data.value.order.map((name: string) => ({ name, hidden: false }));
+        }
+
+        if (Array.isArray(data.value.order)) {
+          finalOrder = data.value.order;
+        }
       }
+
+      if (finalCats.length === 0) {
+        finalCats = DEFAULT_CATEGORIES.map(name => ({ name, hidden: false }));
+      }
+      if (finalOrder.length === 0) {
+        finalOrder = finalCats.map(c => c.name);
+      }
+
+      // Ensure all items in finalOrder are present in finalCats
+      finalCats = [
+        ...finalCats,
+        ...finalOrder
+          .filter(name => !finalCats.some(c => c.name === name))
+          .map(name => ({ name, hidden: false }))
+      ];
+
+      setCategoriesList(finalCats);
+      setCategoriesOrder(finalOrder);
     } catch (err) {
       console.error('Error loading shop categories order settings:', err);
     }
@@ -1623,7 +1673,7 @@ function App() {
                     zIndex: 200,
                     marginTop: '4px'
                   }}>
-                    {categories.map(cat => (
+                    {visibleCategories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => {
@@ -1902,7 +1952,7 @@ function App() {
                 overflow: 'hidden',
                 transition: 'max-height 0.3s ease-in-out'
               }}>
-                {(mobileCategoriesExpanded ? categories : categories.slice(0, 12)).map(cat => (
+                {(mobileCategoriesExpanded ? visibleCategories : visibleCategories.slice(0, 12)).map(cat => (
                   <button
                     key={cat}
                     onClick={() => setCurrentPage('category', { categoryName: cat })}
@@ -3295,6 +3345,7 @@ function App() {
           cart={cart}
           onUpdateQuantity={handleUpdateQuantity}
           categoriesOrder={categoriesOrder}
+          categoriesList={categoriesList}
           productsOrder={productsOrder}
           onBannerClick={handleBannerRedirect}
         />
@@ -3701,6 +3752,11 @@ function App() {
           onRefreshOrders={fetchOrdersFromSupabase}
           categoriesOrder={categoriesOrder}
           onUpdateCategoriesOrder={setCategoriesOrder}
+          categoriesList={categoriesList}
+          onUpdateCategoriesList={(newList, newOrder) => {
+            setCategoriesList(newList);
+            setCategoriesOrder(newOrder);
+          }}
           productsOrder={productsOrder}
           onUpdateProductsOrder={setProductsOrder}
           taxDeliverySettings={taxDeliverySettings}

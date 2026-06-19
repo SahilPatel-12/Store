@@ -15,6 +15,7 @@ interface ShopPageProps {
   cart: { product: Product; quantity: number }[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   categoriesOrder?: string[];
+  categoriesList?: { name: string; hidden: boolean }[];
   productsOrder?: Record<string, string[]>;
   onBannerClick?: (url: string) => void;
 }
@@ -29,6 +30,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   cart,
   onUpdateQuantity,
   categoriesOrder,
+  categoriesList,
   productsOrder,
   onBannerClick,
 }) => {
@@ -131,7 +133,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({
 
   // Dynamically extract categories that have active products and sort them
   const categories = React.useMemo(() => {
-    const uniqueCats = Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean)));
+    let uniqueCats = Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean)));
+    
+    if (categoriesList && categoriesList.length > 0) {
+      uniqueCats = uniqueCats.filter(cat => {
+        const catInfo = categoriesList.find(c => c.name === cat);
+        return !catInfo || !catInfo.hidden;
+      });
+    }
+
     const allCategories = [
       { id: 'all', label: 'All Items' },
       ...uniqueCats.map(cat => ({ id: cat, label: cat }))
@@ -155,7 +165,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     }
 
     return allCategories;
-  }, [activeProducts, categoriesOrder]);
+  }, [activeProducts, categoriesOrder, categoriesList]);
 
   const spiritualTypes = ['Rituals', 'Meditation', 'Vastu', 'Wisdom', 'Aromatherapy'];
 

@@ -29,6 +29,8 @@ import {
   Ticket,
   Copy,
   EyeOff,
+  Edit3,
+  Save,
   QrCode,
   Lock,
   AlertTriangle
@@ -61,7 +63,9 @@ interface AdminPanelPageProps {
   adminSession?: { username: string; loginTime: string; token: string | null } | null;
   onRefreshOrders?: () => Promise<void>;
   categoriesOrder?: string[];
+  categoriesList?: { name: string; hidden: boolean }[];
   onUpdateCategoriesOrder?: (newOrder: string[]) => void;
+  onUpdateCategoriesList?: (newList: { name: string; hidden: boolean }[], newOrder: string[]) => void;
   productsOrder?: Record<string, string[]>;
   onUpdateProductsOrder?: (newOrders: Record<string, string[]>) => void;
   taxDeliverySettings?: {
@@ -90,11 +94,14 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   onRefreshOrders,
   categoriesOrder,
   onUpdateCategoriesOrder,
+  categoriesList,
+  onUpdateCategoriesList,
   productsOrder,
   onUpdateProductsOrder,
   taxDeliverySettings,
   onUpdateTaxDeliverySettings,
 }) => {
+  const safeCategoriesList = categoriesList || [];
   const [activeTab, setActiveTab] = React.useState<Tab>(() => {
     const path = window.location.pathname;
     if (path.startsWith('/admin/analytics')) return 'analytics';
@@ -1129,28 +1136,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   React.useEffect(() => {
     // Generate unique category list from active products, static categories list, and default 'all'
     const uniqueCats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
-    const staticCats = [
-      'Rudraksha',
-      'Bracelet',
-      'Murti',
-      'Yantras',
-      'Anklet',
-      'Frames',
-      'Rashi',
-      'Karungali',
-      'Jadi',
-      'Pyrite',
-      'Kavach',
-      'Siddh Range',
-      'Gemstones',
-      'Pyramid',
-      'Necklaces/Mala',
-      'Tower & Tumbles',
-      'Crystal Dome Trees',
-      'Women Bracelets',
-      'Evil Eye',
-      'Gifting'
-    ];
+    const staticCats = safeCategoriesList.length > 0
+      ? safeCategoriesList.map(c => c.name)
+      : [
+          'Rudraksha',
+          'Bracelet',
+          'Murti',
+          'Yantras',
+          'Anklet',
+          'Frames',
+          'Rashi',
+          'Karungali',
+          'Jadi',
+          'Pyrite',
+          'Kavach',
+          'Siddh Range',
+          'Gemstones',
+          'Pyramid',
+          'Necklaces/Mala',
+          'Tower & Tumbles',
+          'Crystal Dome Trees',
+          'Women Bracelets',
+          'Evil Eye',
+          'Gifting'
+        ];
     // Merge all unique categories
     const allUniqueCats = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
 
@@ -1166,7 +1175,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
     }
     setSortedCategoriesList(allUniqueCats);
-  }, [products, categoriesOrder, activeTab]);
+  }, [products, categoriesOrder, safeCategoriesList, activeTab]);
 
   const moveCategoryUp = (index: number) => {
     if (index <= 0) return;
@@ -1209,6 +1218,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         .upsert({
           key: 'shop_categories_settings',
           value: {
+            categories: safeCategoriesList,
             order: sortedCategoriesList
           }
         });
@@ -1216,11 +1226,199 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       if (onUpdateCategoriesOrder) {
         onUpdateCategoriesOrder(sortedCategoriesList);
       }
+      if (onUpdateCategoriesList) {
+        onUpdateCategoriesList(safeCategoriesList, sortedCategoriesList);
+      }
       triggerToast('Category order saved successfully!');
     } catch (err) {
       console.error('Failed to save category order:', err);
-        } finally {
+      alert('Failed to save category order: ' + (err as Error).message);
+    } finally {
       setIsSavingCategoriesOrder(false);
+    }
+  };
+
+  // Category Actions State
+  const [newCategoryName, setNewCategoryName] = React.useState('');
+  const [editingCategoryName, setEditingCategoryName] = React.useState<string | null>(null);
+  const [editingCategoryValue, setEditingCategoryValue] = React.useState('');
+
+  const handleAddCategory = async () => {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) return;
+    if (trimmedName.toLowerCase() === 'all') {
+      alert('Invalid category name.');
+      return;
+    }
+    
+    // Check duplicate
+    const exists = safeCategoriesList.some(
+      c => c.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (exists) {
+      alert(`Category "${trimmedName}" already exists.`);
+      return;
+    }
+
+    try {
+      const updatedList = [...safeCategoriesList, { name: trimmedName, hidden: false }];
+      const updatedOrder = [...sortedCategoriesList.filter(n => n !== 'all'), trimmedName];
+
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'shop_categories_settings',
+          value: {
+            categories: updatedList,
+            order: ['all', ...updatedOrder]
+          }
+        });
+      if (error) throw error;
+
+      setNewCategoryName('');
+      setSortedCategoriesList(['all', ...updatedOrder]);
+      if (onUpdateCategoriesList) {
+        onUpdateCategoriesList(updatedList, ['all', ...updatedOrder]);
+      }
+      triggerToast(`Category "${trimmedName}" added successfully!`);
+    } catch (err) {
+      console.error('Error adding category:', err);
+      alert('Failed to add category: ' + (err as Error).message);
+    }
+  };
+
+  const handleRenameCategory = async (oldName: string, newName: string) => {
+    const trimmedNew = newName.trim();
+    if (!trimmedNew) return;
+    if (trimmedNew === oldName) {
+      setEditingCategoryName(null);
+      return;
+    }
+    if (trimmedNew.toLowerCase() === 'all') {
+      alert('Invalid category name.');
+      return;
+    }
+
+    // Check duplicate
+    const exists = safeCategoriesList.some(
+      c => c.name.toLowerCase() === trimmedNew.toLowerCase() && c.name !== oldName
+    );
+    if (exists) {
+      alert(`Category "${trimmedNew}" already exists.`);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to rename "${oldName}" to "${trimmedNew}"? All existing products in this category will be updated.`)) {
+      return;
+    }
+
+    try {
+      // 1. Update categories settings config
+      const updatedList = safeCategoriesList.map(c => c.name === oldName ? { ...c, name: trimmedNew } : c);
+      const updatedOrder = sortedCategoriesList.map(name => name === oldName ? trimmedNew : name);
+
+      const { error: settingsError } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'shop_categories_settings',
+          value: {
+            categories: updatedList,
+            order: updatedOrder
+          }
+        });
+      if (settingsError) throw settingsError;
+
+      // 2. Update products category values in Supabase website_pooja_products
+      const { error: productsError } = await supabase
+        .from('website_pooja_products')
+        .update({ category: trimmedNew })
+        .eq('category', oldName);
+      if (productsError) throw productsError;
+
+      // 3. Update local products list state
+      setProducts(prev => prev.map(p => p.category === oldName ? { ...p, category: trimmedNew } : p));
+      
+      // 4. Update local settings states
+      setSortedCategoriesList(updatedOrder);
+      setEditingCategoryName(null);
+      if (onUpdateCategoriesList) {
+        onUpdateCategoriesList(updatedList, updatedOrder);
+      }
+      triggerToast(`Category renamed to "${trimmedNew}" and associated products updated successfully!`);
+    } catch (err) {
+      console.error('Error renaming category:', err);
+      alert('Failed to rename category: ' + (err as Error).message);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryName: string) => {
+    if (categoryName === 'all') return;
+    if (!window.confirm(`Are you sure you want to delete category "${categoryName}"? All products in this category will be changed to "Uncategorized".`)) {
+      return;
+    }
+
+    try {
+      // 1. Update categories settings config
+      const updatedList = safeCategoriesList.filter(c => c.name !== categoryName);
+      const updatedOrder = sortedCategoriesList.filter(name => name !== categoryName);
+
+      const { error: settingsError } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'shop_categories_settings',
+          value: {
+            categories: updatedList,
+            order: updatedOrder
+          }
+        });
+      if (settingsError) throw settingsError;
+
+      // 2. Update products category values in Supabase website_pooja_products
+      const { error: productsError } = await supabase
+        .from('website_pooja_products')
+        .update({ category: 'Uncategorized' })
+        .eq('category', categoryName);
+      if (productsError) throw productsError;
+
+      // 3. Update local products list state
+      setProducts(prev => prev.map(p => p.category === categoryName ? { ...p, category: 'Uncategorized' } : p));
+
+      // 4. Update local settings states
+      setSortedCategoriesList(updatedOrder);
+      if (onUpdateCategoriesList) {
+        onUpdateCategoriesList(updatedList, updatedOrder);
+      }
+      triggerToast(`Category "${categoryName}" deleted, and associated products changed to "Uncategorized".`);
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      alert('Failed to delete category: ' + (err as Error).message);
+    }
+  };
+
+  const handleToggleHideCategory = async (categoryName: string) => {
+    if (categoryName === 'all') return;
+
+    try {
+      const updatedList = safeCategoriesList.map(c => c.name === categoryName ? { ...c, hidden: !c.hidden } : c);
+
+      const { error } = await supabase
+        .from('website_settings')
+        .upsert({
+          key: 'shop_categories_settings',
+          value: {
+            categories: updatedList,
+            order: sortedCategoriesList
+          }
+        });
+      if (error) throw error;
+
+      if (onUpdateCategoriesList) {
+        onUpdateCategoriesList(updatedList, sortedCategoriesList);
+      }
+      triggerToast(`Category "${categoryName}" is now ${updatedList.find(c => c.name === categoryName)?.hidden ? 'hidden' : 'visible'}.`);
+    } catch (err) {
+      console.error('Error toggling category visibility:', err);
+      alert('Failed to toggle visibility: ' + (err as Error).message);
     }
   };
 
@@ -1233,28 +1431,30 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   // Available categories list for dropdown selection
   const sorterCategories = React.useMemo(() => {
     const uniqueCats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
-    const staticCats = [
-      'Rudraksha',
-      'Bracelet',
-      'Murti',
-      'Yantras',
-      'Anklet',
-      'Frames',
-      'Rashi',
-      'Karungali',
-      'Jadi',
-      'Pyrite',
-      'Kavach',
-      'Siddh Range',
-      'Gemstones',
-      'Pyramid',
-      'Necklaces/Mala',
-      'Tower & Tumbles',
-      'Crystal Dome Trees',
-      'Women Bracelets',
-      'Evil Eye',
-      'Gifting'
-    ];
+    const staticCats = safeCategoriesList.length > 0
+      ? safeCategoriesList.map(c => c.name)
+      : [
+          'Rudraksha',
+          'Bracelet',
+          'Murti',
+          'Yantras',
+          'Anklet',
+          'Frames',
+          'Rashi',
+          'Karungali',
+          'Jadi',
+          'Pyrite',
+          'Kavach',
+          'Siddh Range',
+          'Gemstones',
+          'Pyramid',
+          'Necklaces/Mala',
+          'Tower & Tumbles',
+          'Crystal Dome Trees',
+          'Women Bracelets',
+          'Evil Eye',
+          'Gifting'
+        ];
     const merged = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
     if (categoriesOrder && categoriesOrder.length > 0) {
       merged.sort((a, b) => {
@@ -1267,7 +1467,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
     }
     return merged;
-  }, [products, categoriesOrder]);
+  }, [products, categoriesOrder, safeCategoriesList]);
 
   // Sync/load products for selected category and sort them by productsOrder prop
   React.useEffect(() => {
@@ -2547,28 +2747,33 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     purchaseLimit: '',
   });
 
-  const categories = [
-    'Rudraksha',
-    'Bracelet',
-    'Murti',
-    'Yantras',
-    'Anklet',
-    'Frames',
-    'Rashi',
-    'Karungali',
-    'Jadi',
-    'Pyrite',
-    'Kavach',
-    'Siddh Range',
-    'Gemstones',
-    'Pyramid',
-    'Necklaces/Mala',
-    'Tower & Tumbles',
-    'Crystal Dome Trees',
-    'Women Bracelets',
-    'Evil Eye',
-    'Gifting'
-  ];
+  const categories = React.useMemo(() => {
+    if (safeCategoriesList.length === 0) {
+      return [
+        'Rudraksha',
+        'Bracelet',
+        'Murti',
+        'Yantras',
+        'Anklet',
+        'Frames',
+        'Rashi',
+        'Karungali',
+        'Jadi',
+        'Pyrite',
+        'Kavach',
+        'Siddh Range',
+        'Gemstones',
+        'Pyramid',
+        'Necklaces/Mala',
+        'Tower & Tumbles',
+        'Crystal Dome Trees',
+        'Women Bracelets',
+        'Evil Eye',
+        'Gifting'
+      ];
+    }
+    return safeCategoriesList.map(c => c.name);
+  }, [safeCategoriesList]);
 
   // 1. CALCULATE ANALYTICS METRICS
   const metrics = React.useMemo(() => {
@@ -2906,7 +3111,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'orders' as Tab, label: 'Fulfillment Orders', icon: <ShoppingBag size={18} /> },
             { id: 'settings' as Tab, label: 'Gateway & Store Settings', icon: <Settings size={18} /> },
             { id: 'upi_settings' as Tab, label: 'UPI QR Settings', icon: <QrCode size={18} /> },
-            { id: 'categories_editor' as Tab, label: 'Categories Sorter', icon: <Layers size={18} /> },
+            { id: 'categories_editor' as Tab, label: 'Category Manager', icon: <Layers size={18} /> },
             { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> },
             { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
             { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> }
@@ -6254,7 +6459,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         )}
 
         {/* =======================================================
-            TAB: CATEGORIES CUSTOM SEQUENCER
+            TAB: CATEGORIES CUSTOM SEQUENCER (Category Manager)
             ======================================================= */}
         {activeTab === 'categories_editor' && (
           <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -6278,9 +6483,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   🗂️
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Shop Categories Order Sorter</h3>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Category Manager</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Reorder categories or enter target positions to custom-arrange the navigation tags on the Shop page.
+                    Add, edit, delete, hide/unhide, and rearrange the display sequence of product categories.
                   </p>
                 </div>
               </div>
@@ -6295,6 +6500,56 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               </button>
             </div>
 
+            {/* Add Category Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px 32px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>➕ Add New Category</h4>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. Incense Sticks, Copper Pots..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-light)',
+                    outline: 'none',
+                    fontSize: '0.88rem'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddCategory();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  className="btn-lime"
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '0.88rem',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Plus size={16} /> Add Category
+                </button>
+              </div>
+            </div>
+
             {/* Sorter List Card */}
             <div style={{
               backgroundColor: '#ffffff',
@@ -6307,9 +6562,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               gap: '24px'
             }}>
               <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Arrange Categories Sequence</h4>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Manage Category List & Sequence</h4>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  The categories sequence controls the tab bar on the main shop layout. Custom-ordered categories will be prioritized, and any unlisted categories will automatically appear at the end alphabetically.
+                  Toggle category visibility (hidden categories won't show in the devotee shop), rename, delete, or change order.
                 </p>
               </div>
 
@@ -6318,7 +6573,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 {sortedCategoriesList.map((category, index) => {
                   const isFirst = index === 0;
                   const isLast = index === sortedCategoriesList.length - 1;
-                  const displayName = category === 'all' ? '✨ All Items' : category;
+                  const categoryInfo = safeCategoriesList.find(c => c.name === category);
+                  const isHidden = categoryInfo ? categoryInfo.hidden : false;
+                  const isAll = category === 'all';
+                  const displayName = isAll ? '✨ All Items' : category;
 
                   return (
                     <div
@@ -6328,14 +6586,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '14px 20px',
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: isHidden ? '#f3f4f6' : '#f9fafb',
                         border: '1.5px solid var(--border-light)',
                         borderRadius: 'var(--radius-md)',
+                        opacity: isHidden ? 0.75 : 1,
                         transition: 'all 0.2s ease',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
                         <span style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -6343,19 +6602,177 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           width: '28px',
                           height: '28px',
                           borderRadius: '50%',
-                          backgroundColor: 'var(--primary-forest)',
+                          backgroundColor: isHidden ? 'var(--text-muted)' : 'var(--primary-forest)',
                           color: '#ffffff',
                           fontSize: '0.8rem',
                           fontWeight: 700
                         }}>
                           {index + 1}
                         </span>
-                        <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                          {displayName}
-                        </span>
+
+                        {editingCategoryName === category ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '300px' }}>
+                            <input
+                              type="text"
+                              value={editingCategoryValue}
+                              onChange={(e) => setEditingCategoryValue(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                fontSize: '0.88rem',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1.5px solid var(--primary-lime)',
+                                outline: 'none'
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleRenameCategory(category, editingCategoryValue);
+                                } else if (e.key === 'Escape') {
+                                  setEditingCategoryName(null);
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRenameCategory(category, editingCategoryValue)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: 'none',
+                                backgroundColor: 'var(--primary-lime)',
+                                color: '#ffffff',
+                                cursor: 'pointer'
+                              }}
+                              title="Save Name"
+                            >
+                              <Save size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCategoryName(null)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: '#ffffff',
+                                color: 'var(--text-dark)',
+                                cursor: 'pointer'
+                              }}
+                              title="Cancel"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 700,
+                              color: isHidden ? 'var(--text-muted)' : 'var(--text-dark)',
+                              textDecoration: isHidden ? 'line-through' : 'none'
+                            }}>
+                              {displayName}
+                            </span>
+                            {isHidden && (
+                              <span style={{
+                                fontSize: '0.7rem',
+                                padding: '2px 8px',
+                                borderRadius: 'var(--radius-full)',
+                                backgroundColor: '#e5e7eb',
+                                color: '#4b5563',
+                                fontWeight: 700
+                              }}>
+                                Hidden
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {/* Edit, Delete, Hide Actions */}
+                        {!isAll && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {/* Hide/Unhide Toggle */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleHideCategory(category)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: isHidden ? '#e5e7eb' : '#ffffff',
+                                color: isHidden ? '#4b5563' : 'var(--primary-forest)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isHidden ? 'Unhide (Show in Store)' : 'Hide (Hide from Store)'}
+                            >
+                              {isHidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+
+                            {/* Rename Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCategoryName(category);
+                                setEditingCategoryValue(category);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: '#ffffff',
+                                color: 'var(--text-dark)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Rename Category"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(category)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: '#fef2f2',
+                                color: '#dc2626',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Delete Category"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
+
                         {/* Position input selector */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pos:</span>
