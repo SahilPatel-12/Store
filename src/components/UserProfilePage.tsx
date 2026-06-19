@@ -73,6 +73,7 @@ interface UserProfilePageProps {
   onLogout?: () => void;
   initialTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate';
   onProfileUpdate?: (updatedUser: { id: string; fullName: string; email: string; phoneNumber: string }) => void;
+  onNavigateToAffiliation?: () => void;
 }
 
 interface Address {
@@ -101,6 +102,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   onLogout,
   initialTab,
   onProfileUpdate,
+  onNavigateToAffiliation,
 }) => {
   const [activeTab, setActiveTab] = React.useState<
     'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'
@@ -113,6 +115,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     if (initialTab) {
       setActiveTab(initialTab);
       setMobileShowMenu(false);
+    } else {
+      setActiveTab('info');
+      setMobileShowMenu(true);
     }
   }, [initialTab]);
 
@@ -1221,6 +1226,14 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
               <button
                 key={item.tab}
                 onClick={() => {
+                  if (item.tab === 'affiliate') {
+                    if (!affiliateProfile || affiliateProfile.affiliate_status !== 'active') {
+                      if (onNavigateToAffiliation) {
+                        onNavigateToAffiliation();
+                        return;
+                      }
+                    }
+                  }
                   setActiveTab(item.tab as any);
                   setMobileShowMenu(false);
                 }}
@@ -1478,7 +1491,15 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setActiveTab('affiliate')}
+                    onClick={() => {
+                      if (!affiliateProfile || affiliateProfile.affiliate_status !== 'active') {
+                        if (onNavigateToAffiliation) {
+                          onNavigateToAffiliation();
+                          return;
+                        }
+                      }
+                      setActiveTab('affiliate');
+                    }}
                     className={`profile-nav-btn ${activeTab === 'affiliate' ? 'active' : ''}`}
                     style={{
                       display: 'flex',

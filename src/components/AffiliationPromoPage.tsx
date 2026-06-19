@@ -51,7 +51,7 @@ interface AffiliationPromoPageProps {
     userSession: { id: string; fullName: string; email: string; phoneNumber: string },
     token: string
   ) => void;
-  onNavigateToProfile: () => void;
+  onNavigateToProfile: (tab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate') => void;
 }
 
 export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
@@ -1235,7 +1235,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               {/* Navigation button */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button
-                  onClick={onNavigateToProfile}
+                  onClick={() => onNavigateToProfile('affiliate')}
                   className="btn-lime"
                   style={{
                     padding: '12px 24px',

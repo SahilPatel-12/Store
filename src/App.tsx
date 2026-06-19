@@ -301,7 +301,7 @@ function App() {
     }
   });
 
-  const [profileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'>('info');
+  const [profileInitialTab, setProfileInitialTab] = React.useState<'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate' | undefined>(undefined);
 
   const [isSeamlessCheckoutOpen, setIsSeamlessCheckoutOpen] = React.useState(false);
   const [authRedirectPage, setAuthRedirectPage] = React.useState<'checkout' | 'wishlist' | 'orders' | 'profile' | 'cart' | 'notifications' | null>(null);
@@ -514,10 +514,14 @@ function App() {
 
   const setCurrentPage = (
     page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications',
-    options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean }
+    options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean; profileTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate' }
   ) => {
     setMobileMenuOpen(false);
     setMobileCategoriesExpanded(false);
+
+    if (page === 'profile') {
+      setProfileInitialTab(options?.profileTab);
+    }
 
     if (page === 'checkout') {
       setIsSeamlessCheckoutOpen(true);
@@ -3798,6 +3802,7 @@ function App() {
           onNavigateToOrders={() => setCurrentPage('orders')}
           loggedInUser={loggedInUser}
           initialTab={profileInitialTab}
+          onNavigateToAffiliation={() => setCurrentPage('affiliation')}
           onLogout={() => {
             try {
               localStorage.removeItem('mantra_user_session');
@@ -3898,7 +3903,7 @@ function App() {
             } catch (e) {}
             setLoggedInUser(userSession);
           }}
-          onNavigateToProfile={() => setCurrentPage('profile')}
+          onNavigateToProfile={(tab) => setCurrentPage('profile', { profileTab: tab })}
         />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
