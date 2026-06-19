@@ -81,7 +81,7 @@ interface AdminPanelPageProps {
   }) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings' | 'users';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -383,6 +383,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [resetPunditId, setResetPunditId] = React.useState<string | null>(null);
   const [resetPunditPassword, setResetPunditPassword] = React.useState('');
   const [isResettingPassword, setIsResettingPassword] = React.useState(false);
+  
+  // User directory states
+  const [usersState, setUsersState] = React.useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = React.useState(false);
+  const [searchUserQuery, setSearchUserQuery] = React.useState('');
+  const [isDeletingUser, setIsDeletingUser] = React.useState<string | null>(null);
+  const [isSuspendingUser, setIsSuspendingUser] = React.useState<string | null>(null);
   const [affiliateLevels, setAffiliateLevels] = React.useState<any[]>([]);
   const [isLoadingLevels, setIsLoadingLevels] = React.useState(false);
   const [affiliateSettings, setAffiliateSettings] = React.useState<Record<string, any>>({
@@ -2218,6 +2225,70 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
+  const loadUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('website_store_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setUsersState(data);
+    } catch (err) {
+      console.error('Error loading users:', err);
+      alert('Failed to load devotee directory: ' + (err as Error).message);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleToggleSuspendUser = async (userId: string, currentSuspended: boolean) => {
+    setIsSuspendingUser(userId);
+    try {
+      const newSuspended = !currentSuspended;
+      const { error } = await supabase
+        .from('website_store_users')
+        .update({ is_suspended: newSuspended })
+        .eq('id', userId);
+      if (error) throw error;
+      
+      // Update local state
+      setUsersState(prev => prev.map(user => user.id === userId ? { ...user, is_suspended: newSuspended } : user));
+      triggerToast(`Devotee account ${newSuspended ? 'suspended' : 'activated'} successfully!`);
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      alert('Failed to update suspension status: ' + (err as Error).message);
+    } finally {
+      setIsSuspendingUser(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, name: string) => {
+    const confirm = window.confirm(`Are you absolutely sure you want to delete devotee "${name}"? This action will permanently remove their profile, all their orders, session tokens, address books, and affiliate data. This cannot be undone.`);
+    if (!confirm) return;
+
+    setIsDeletingUser(userId);
+    try {
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const { data, error } = await supabase.rpc('admin_delete_user_cascade', {
+        p_admin_token: adminToken,
+        p_target_user_id: userId
+      });
+      
+      if (error) throw error;
+
+      if (data) {
+        setUsersState(prev => prev.filter(user => user.id !== userId));
+        triggerToast(`Devotee account "${name}" and all associated data deleted successfully!`);
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      alert('Failed to delete devotee account: ' + (err as Error).message);
+    } finally {
+      setIsDeletingUser(null);
+    }
+  };
+
   const loadAffiliateLevels = async () => {
     setIsLoadingLevels(true);
     const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
@@ -2539,6 +2610,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       loadAffiliateSettings();
       loadWithdrawals();
       loadPundits();
+    }
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers();
     }
   }, [activeTab]);
 
@@ -3235,7 +3312,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'categories_editor' as Tab, label: 'Category Manager', icon: <Layers size={18} /> },
             { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> },
             { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
-            { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> }
+            { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> },
+            { id: 'users' as Tab, label: 'Devotee Directory', icon: <User size={18} /> }
           ].map(tab => {
             const isActive = activeTab === tab.id;
             return (
@@ -9745,6 +9823,203 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: DEVOTEE DIRECTORY
+            ======================================================= */}
+        {activeTab === 'users' && (
+          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            
+            {/* Header section */}
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                Devotee Directory
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                View all registered devotee profiles, verify their accounts, monitor status, temporarily suspend, or permanently cascade delete devotee information.
+              </p>
+            </div>
+
+            {/* Directory controls */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search devotees by name, phone, or email..."
+                    value={searchUserQuery}
+                    onChange={(e) => setSearchUserQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 36px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                    <Search size={16} />
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Total Devotees: {usersState.length}
+                </div>
+              </div>
+
+              {isLoadingUsers ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                  <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                  <span>Loading devotee registry database...</span>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Number</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email Address</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Registration Date</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Status</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usersState.filter(user => {
+                        const q = searchUserQuery.toLowerCase();
+                        return (user.full_name || '').toLowerCase().includes(q) ||
+                               (user.phone_number || '').toLowerCase().includes(q) ||
+                               (user.email || '').toLowerCase().includes(q);
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No devotee profiles match your search criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        usersState
+                          .filter(user => {
+                            const q = searchUserQuery.toLowerCase();
+                            return (user.full_name || '').toLowerCase().includes(q) ||
+                                   (user.phone_number || '').toLowerCase().includes(q) ||
+                                   (user.email || '').toLowerCase().includes(q);
+                          })
+                          .map((user) => (
+                            <tr key={user.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '1.25rem' }}>{user.is_pundit ? '🕉️' : '👤'}</span>
+                                  <div>
+                                    <span>{user.full_name}</span>
+                                    {user.is_pundit && (
+                                      <span style={{
+                                        marginLeft: '6px',
+                                        fontSize: '0.62rem',
+                                        backgroundColor: 'var(--primary-lime-light)',
+                                        color: 'var(--primary-lime)',
+                                        padding: '1.5px 5px',
+                                        borderRadius: '4px',
+                                        fontWeight: 800
+                                      }}>
+                                        PUNDIT
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {user.phone_number}
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {user.email || 'N/A'}
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {new Date(user.created_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{
+                                  padding: '3px 10px',
+                                  borderRadius: 'var(--radius-full)',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  backgroundColor: user.is_suspended ? '#fee2e2' : '#dcfce7',
+                                  color: user.is_suspended ? '#991b1b' : '#15803d',
+                                  border: '1px solid ' + (user.is_suspended ? '#fecaca' : '#bbf7d0')
+                                }}>
+                                  {user.is_suspended ? 'SUSPENDED' : 'ACTIVE'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                  <button
+                                    onClick={() => handleToggleSuspendUser(user.id, !!user.is_suspended)}
+                                    disabled={isSuspendingUser === user.id}
+                                    style={{
+                                      backgroundColor: user.is_suspended ? '#dcfce7' : '#fee2e2',
+                                      color: user.is_suspended ? '#15803d' : '#dc2626',
+                                      border: 'none',
+                                      padding: '6px 12px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      cursor: isSuspendingUser === user.id ? 'not-allowed' : 'pointer',
+                                      opacity: isSuspendingUser === user.id ? 0.7 : 1,
+                                      width: '80px',
+                                      textAlign: 'center'
+                                    }}
+                                  >
+                                    {isSuspendingUser === user.id ? '...' : (user.is_suspended ? 'Activate' : 'Suspend')}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(user.id, user.full_name)}
+                                    disabled={isDeletingUser === user.id}
+                                    style={{
+                                      backgroundColor: '#dc2626',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '6px 12px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      cursor: isDeletingUser === user.id ? 'not-allowed' : 'pointer',
+                                      opacity: isDeletingUser === user.id ? 0.7 : 1
+                                    }}
+                                  >
+                                    {isDeletingUser === user.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

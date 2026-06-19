@@ -801,6 +801,39 @@ function App() {
     }
   }, [loggedInUser, currentPageState]);
 
+  // Check user suspension status on load and periodically
+  React.useEffect(() => {
+    let active = true;
+    const checkUserSuspension = async () => {
+      if (loggedInUser && loggedInUser.id) {
+        try {
+          const { data, error } = await supabase
+            .from('website_store_users')
+            .select('is_suspended')
+            .eq('id', loggedInUser.id)
+            .maybeSingle();
+          if (active && !error && data && data.is_suspended) {
+            alert('Your account has been suspended by the administrator.');
+            try {
+              localStorage.removeItem('mantra_user_session');
+              localStorage.removeItem('session_token');
+            } catch (e) {}
+            setLoggedInUser(null);
+            setCurrentPage('shop');
+          }
+        } catch (e) {
+          console.error('Error checking suspension status:', e);
+        }
+      }
+    };
+    checkUserSuspension();
+    const interval = setInterval(checkUserSuspension, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [loggedInUser]);
+
   const handleBannerRedirect = React.useCallback((url?: string) => {
     if (!url) return;
     if (url.startsWith('http://') || url.startsWith('https://')) {
