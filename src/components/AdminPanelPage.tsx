@@ -43,6 +43,7 @@ import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
 import { compressImage, compressVideo, CompressionStatusWidget } from '../lib/mediaCompressor';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { getSpiritualTypeForProduct } from '../lib/spiritualTypeHelper';
 
 const getLevelName = (levelNum: number | string) => {
   const num = typeof levelNum === 'string' ? parseInt(levelNum, 10) : levelNum;
@@ -1941,7 +1942,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           inStock: item.in_stock,
           benefits: item.benefits || [],
           popularity: item.popularity || 80,
-          spiritualType: item.spiritual_type || 'Rituals',
+          spiritualType: getSpiritualTypeForProduct(item.name, item.category, item.tags, item.spiritual_type),
           sanskritName: item.sanskrit_name,
           shortName: item.short_name,
           slug: item.slug,

@@ -768,11 +768,13 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   React.useEffect(() => {
     if (loggedInUser) {
       const isPlaceholder = loggedInUser.email && loggedInUser.email.startsWith('devotee_') && loggedInUser.email.endsWith('@spiritual.com');
+      const savedGoal = localStorage.getItem(`spiritual_goal_${loggedInUser.id}`);
       setUserProfile(prev => ({
         ...prev,
         name: loggedInUser.fullName || '',
         email: isPlaceholder ? '' : (loggedInUser.email || ''),
-        phone: loggedInUser.phoneNumber
+        phone: loggedInUser.phoneNumber,
+        spiritualGoal: savedGoal || prev.spiritualGoal
       }));
       setNewAddress(prev => ({
         ...prev,
@@ -783,7 +785,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       setAddresses([]);
     }
   }, [loggedInUser]);
-  const [isEditingProfile, setIsEditingProfile] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
 
   // Saved Addresses State
@@ -903,28 +904,45 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         .from('website_store_users')
         .update({
           full_name: userProfile.name,
-          email: emailToSave
+          email: emailToSave,
+          phone_number: userProfile.phone
         })
         .eq('id', loggedInUser.id);
 
       if (error) throw error;
+
+      // Save spiritual goal to localStorage
+      localStorage.setItem(`spiritual_goal_${loggedInUser.id}`, userProfile.spiritualGoal);
 
       if (onProfileUpdate) {
         onProfileUpdate({
           id: loggedInUser.id,
           fullName: userProfile.name,
           email: emailToSave || '',
-          phoneNumber: loggedInUser.phoneNumber
+          phoneNumber: userProfile.phone
         });
       }
 
-      setIsEditingProfile(false);
       setProfileSuccessMessage('Spiritual Profile updated successfully!');
     } catch (err) {
       console.error('Failed to update profile:', err);
       alert('Error updating profile: ' + (err as Error).message);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleResetProfile = () => {
+    if (loggedInUser) {
+      const isPlaceholder = loggedInUser.email && loggedInUser.email.startsWith('devotee_') && loggedInUser.email.endsWith('@spiritual.com');
+      const savedGoal = localStorage.getItem(`spiritual_goal_${loggedInUser.id}`);
+      setUserProfile({
+        name: loggedInUser.fullName || '',
+        email: isPlaceholder ? '' : (loggedInUser.email || ''),
+        phone: loggedInUser.phoneNumber,
+        spiritualGoal: savedGoal || 'Peace & Daily Rituals',
+        avatarAura: 'Golden Radiance'
+      });
     }
   };
 
@@ -1595,16 +1613,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>Spiritual Account Profile</h2>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>Update your contact information and spiritual puja intentions.</p>
                   </div>
-                  {!isEditingProfile && (
-                    <button
-                      onClick={() => setIsEditingProfile(true)}
-                      className="btn-outline"
-                      style={{ padding: '8px 18px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', borderRadius: 'var(--radius-md)' }}
-                    >
-                      <Edit2 size={14} />
-                      <span>Edit Info</span>
-                    </button>
-                  )}
                 </div>
 
                 {profileSuccessMessage && (
@@ -1637,7 +1645,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         <input
                           type="text"
                           value={userProfile.name}
-                          disabled={!isEditingProfile}
                           onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
                           style={{
                             width: '100%',
@@ -1647,7 +1654,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             outline: 'none',
                             fontSize: '0.9rem',
                             fontWeight: 600,
-                            backgroundColor: isEditingProfile ? '#ffffff' : '#f9fafb',
+                            backgroundColor: '#ffffff',
                             color: 'var(--text-dark)'
                           }}
                         />
@@ -1659,7 +1666,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         <input
                           type="email"
                           value={userProfile.email}
-                          disabled={!isEditingProfile}
                           onChange={(e) => setUserProfile({ ...userProfile, email: e.target.value })}
                           style={{
                             width: '100%',
@@ -1669,7 +1675,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             outline: 'none',
                             fontSize: '0.9rem',
                             fontWeight: 600,
-                            backgroundColor: isEditingProfile ? '#ffffff' : '#f9fafb',
+                            backgroundColor: '#ffffff',
                             color: 'var(--text-dark)'
                           }}
                         />
@@ -1685,7 +1691,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         <input
                           type="text"
                           value={userProfile.phone}
-                          disabled={!isEditingProfile}
                           onChange={(e) => setUserProfile({ ...userProfile, phone: e.target.value })}
                           style={{
                             width: '100%',
@@ -1695,7 +1700,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             outline: 'none',
                             fontSize: '0.9rem',
                             fontWeight: 600,
-                            backgroundColor: isEditingProfile ? '#ffffff' : '#f9fafb',
+                            backgroundColor: '#ffffff',
                             color: 'var(--text-dark)'
                           }}
                         />
@@ -1706,7 +1711,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                         <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: '6px' }}>Puja Intention / Spiritual Goal</label>
                         <select
                           value={userProfile.spiritualGoal}
-                          disabled={!isEditingProfile}
                           onChange={(e) => setUserProfile({ ...userProfile, spiritualGoal: e.target.value })}
                           style={{
                             width: '100%',
@@ -1716,9 +1720,9 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                             outline: 'none',
                             fontSize: '0.9rem',
                             fontWeight: 600,
-                            backgroundColor: isEditingProfile ? '#ffffff' : '#f9fafb',
+                            backgroundColor: '#ffffff',
                             color: 'var(--text-dark)',
-                            cursor: isEditingProfile ? 'pointer' : 'default'
+                            cursor: 'pointer'
                           }}
                         >
                           <option value="Peace & Daily Rituals">Peace & Daily Rituals</option>
@@ -1731,64 +1735,60 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
 
                     </div>
 
-                    {isEditingProfile && (
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                        <button
-                          type="submit"
-                          disabled={isSavingProfile}
-                          className="btn-lime"
-                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', display: 'inline-flex', alignItems: 'center', gap: '8px', opacity: isSavingProfile ? 0.7 : 1, cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
-                        >
-                          <Save size={16} />
-                          <span>{isSavingProfile ? 'Saving...' : 'Save Changes'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isSavingProfile}
-                          onClick={() => setIsEditingProfile(false)}
-                          className="btn-outline"
-                          style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                      <button
+                        type="submit"
+                        disabled={isSavingProfile}
+                        className="btn-lime"
+                        style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', display: 'inline-flex', alignItems: 'center', gap: '8px', opacity: isSavingProfile ? 0.7 : 1, cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
+                      >
+                        <Save size={16} />
+                        <span>{isSavingProfile ? 'Saving...' : 'Save Changes'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingProfile}
+                        onClick={handleResetProfile}
+                        className="btn-outline"
+                        style={{ padding: '12px 24px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', cursor: isSavingProfile ? 'not-allowed' : 'pointer' }}
+                      >
+                        Reset
+                      </button>
+                    </div>
 
                   </div>
                 </form>
 
                 {/* Account Details Box */}
-                {!isEditingProfile && (
-                  <div className="profile-membership-box" style={{
-                    marginTop: '32px',
-                    padding: '20px',
-                    backgroundColor: 'var(--primary-lime-light)',
-                    border: '1px solid #ffedd5',
-                    borderRadius: 'var(--radius-lg)',
+                <div className="profile-membership-box" style={{
+                  marginTop: '32px',
+                  padding: '20px',
+                  backgroundColor: 'var(--primary-lime-light)',
+                  border: '1px solid #ffedd5',
+                  borderRadius: 'var(--radius-lg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px'
+                }}>
+                  <div style={{
+                    backgroundColor: 'var(--primary-lime)',
+                    borderRadius: '50%',
+                    width: '44px',
+                    height: '44px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '16px'
+                    justifyContent: 'center',
+                    color: 'var(--text-dark)'
                   }}>
-                    <div style={{
-                      backgroundColor: 'var(--primary-lime)',
-                      borderRadius: '50%',
-                      width: '44px',
-                      height: '44px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--text-dark)'
-                    }}>
-                      <Sparkles size={20} />
-                    </div>
-                    <div>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Sadhaka Elite Membership</h4>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        You have unlocked complimentary Gangajal blessing and temple priority dispatch with every checkout!
-                      </p>
-                    </div>
+                    <Sparkles size={20} />
                   </div>
-                )}
+                  <div>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Sadhaka Elite Membership</h4>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      You have unlocked complimentary Gangajal blessing and temple priority dispatch with every checkout!
+                    </p>
+                  </div>
+                </div>
 
               </div>
             </div>

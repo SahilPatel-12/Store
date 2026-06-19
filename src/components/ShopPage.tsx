@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Heart, Star, SlidersHorizontal, ArrowUpDown, Clock, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
+import { Search, Heart, Star, ArrowUpDown, Clock, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 interface ShopPageProps {
@@ -38,28 +38,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   // Filter and Sort states
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState('all');
-  const [selectedSpiritualTypes, setSelectedSpiritualTypes] = React.useState<string[]>([]);
-  const [maxPrice, setMaxPrice] = React.useState(1000);
   const [sortBy, setSortBy] = React.useState('popularity');
-  const [showFilters, setShowFilters] = React.useState(false);
   const [recentlyViewed, setRecentlyViewed] = React.useState<Product[]>([]);
-
-  // Dynamically set default max price based on loaded products
-  const defaultMaxPrice = React.useMemo(() => {
-    if (activeProducts.length === 0) return 1000;
-    const prices = activeProducts.map(p => p.price).filter(p => !isNaN(p));
-    if (prices.length === 0) return 1000;
-    return Math.ceil(Math.max(...prices, 1000));
-  }, [activeProducts]);
-
-  const hasInitializedPrice = React.useRef(false);
-
-  React.useEffect(() => {
-    if (activeProducts.length > 0 && !hasInitializedPrice.current) {
-      setMaxPrice(defaultMaxPrice);
-      hasInitializedPrice.current = true;
-    }
-  }, [activeProducts, defaultMaxPrice]);
 
   // Load recently viewed on mount
   React.useEffect(() => {
@@ -98,17 +78,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     onViewDetails(product);
   };
 
-  const handleSpiritualTypeToggle = (type: string) => {
-    setSelectedSpiritualTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  };
-
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
-    setSelectedSpiritualTypes([]);
-    setMaxPrice(defaultMaxPrice);
     setSortBy('popularity');
   };
 
@@ -167,8 +139,6 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     return allCategories;
   }, [activeProducts, categoriesOrder, categoriesList]);
 
-  const spiritualTypes = ['Rituals', 'Meditation', 'Vastu', 'Wisdom', 'Aromatherapy'];
-
   // Filtering & Sorting calculations
   const filteredProducts = activeProducts.filter(product => {
     const matchesSearch =
@@ -176,13 +146,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({
       product.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    
-    const matchesSpiritualType =
-      selectedSpiritualTypes.length === 0 || selectedSpiritualTypes.includes(product.spiritualType);
-    
-    const matchesPrice = product.price <= maxPrice;
 
-    return matchesSearch && matchesCategory && matchesSpiritualType && matchesPrice;
+    return matchesSearch && matchesCategory;
   });
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
@@ -442,7 +407,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
           flexDirection: 'column',
           gap: '12px'
         }}>
-          {/* Top row: Search, Filter toggle, Sort selection */}
+          {/* Top row: Search, Sort selection */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -480,168 +445,39 @@ export const ShopPage: React.FC<ShopPageProps> = ({
               }} />
             </div>
 
-            {/* Filter and Sort toggles */}
+            {/* Sort selection */}
             <div style={{
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px 12px',
+              backgroundColor: '#ffffff',
+              boxShadow: 'var(--shadow-sm)'
             }}>
-              
-              <button
-                onClick={() => setShowFilters(!showFilters)}
+              <ArrowUpDown size={16} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-light)',
-                  backgroundColor: showFilters ? 'var(--primary-lime)' : '#ffffff',
-                  color: 'var(--text-dark)',
-                  fontWeight: 600,
+                  border: 'none',
+                  outline: 'none',
                   fontSize: '0.88rem',
-                  transition: 'all 0.15s ease'
+                  fontWeight: 700,
+                  padding: '6px 0',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  color: 'var(--text-dark)'
                 }}
               >
-                <SlidersHorizontal size={16} />
-                Filters
-                {selectedSpiritualTypes.length > 0 || maxPrice < 100 ? (
-                  <span style={{
-                    backgroundColor: '#000000',
-                    color: '#ffffff',
-                    fontSize: '0.68rem',
-                    padding: '2px 6px',
-                    borderRadius: '50%',
-                    marginLeft: '4px'
-                  }}>
-                    {(selectedSpiritualTypes.length + (maxPrice < 100 ? 1 : 0))}
-                  </span>
-                ) : null}
-              </button>
-
-              <div style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-md)',
-                padding: '4px 12px',
-                backgroundColor: '#ffffff'
-              }}>
-                <ArrowUpDown size={16} style={{ color: 'var(--text-muted)', marginRight: '6px' }} />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  style={{
-                    border: 'none',
-                    outline: 'none',
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    padding: '6px 0',
-                    backgroundColor: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--text-dark)'
-                  }}
-                >
-                  <option value="popularity">Popularity</option>
-                  <option value="rating">Top Rated</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                </select>
-              </div>
-
+                <option value="popularity">Popularity</option>
+                <option value="rating">Top Rated</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
             </div>
-          </div>
 
-          {/* Expandable/Slidable filter panel drawer */}
-          <div style={{
-            maxHeight: showFilters ? '200px' : '0px',
-            overflow: 'hidden',
-            transition: 'max-height 0.3s ease-in-out',
-            borderTop: showFilters ? '1px solid var(--border-light)' : 'none',
-            paddingTop: showFilters ? '16px' : '0px'
-          }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '24px',
-              textAlign: 'left'
-            }}>
-              
-              {/* Spiritual Type filters */}
-              <div>
-                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Spiritual Type
-                </h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {spiritualTypes.map(type => {
-                    const isChecked = selectedSpiritualTypes.includes(type);
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => handleSpiritualTypeToggle(type)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 'var(--radius-full)',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          border: `1px solid ${isChecked ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                          backgroundColor: isChecked ? 'var(--primary-lime-light)' : '#ffffff',
-                          color: isChecked ? 'var(--primary-forest)' : 'var(--text-muted)',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {type}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Price filter range */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Max Price
-                  </h4>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-lime)' }}>
-                    ₹{maxPrice}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max={defaultMaxPrice}
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
-                  style={{
-                    width: '100%',
-                    accentColor: 'var(--primary-lime)',
-                    cursor: 'pointer'
-                  }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  <span>₹10</span>
-                  <span>₹{defaultMaxPrice}</span>
-                </div>
-              </div>
-
-              {/* Reset actions */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={resetFilters}
-                  style={{
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    color: 'var(--primary-lime)',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  Reset All Filters
-                </button>
-              </div>
-
-            </div>
           </div>
 
           {/* Category Tabs Scroll Bar */}
@@ -697,14 +533,14 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                 No divine items found
               </p>
               <p style={{ fontSize: '0.9rem', marginTop: '6px' }}>
-                No items match your selected filters. Try broadening your criteria.
+                No items match your selected criteria. Try broadening your search or choosing another category.
               </p>
               <button
                 onClick={resetFilters}
                 className="btn-lime"
                 style={{ marginTop: '20px' }}
               >
-                Clear All Filters
+                Reset Search & Categories
               </button>
             </div>
           ) : (

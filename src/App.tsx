@@ -8,6 +8,7 @@ import type { Product, CartItem, LocalOrder } from './types';
 import { supabase } from './lib/supabase';
 import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
 import logo from './assets/My_logo/Frame 16.png';
+import { getSpiritualTypeForProduct } from './lib/spiritualTypeHelper';
 
 
 // Dynamically imported page components for optimal compilation and load performance
@@ -789,7 +790,7 @@ function App() {
           inStock: item.in_stock ?? true,
           benefits: item.benefits || [],
           popularity: item.popularity || 80,
-          spiritualType: item.spiritual_type || 'Rituals',
+          spiritualType: getSpiritualTypeForProduct(item.name, item.category, item.tags, item.spiritual_type),
           // custom fields to keep compatibility with PoojaProduct:
           sanskritName: item.sanskrit_name,
           shortName: item.short_name,
@@ -1439,28 +1440,33 @@ function App() {
     }
   }, [cart, appliedCouponProductId]);
   
-  // Countdown Timer state
+  // Countdown Timer state (24-hour clock that resets daily at midnight)
   const [timeLeft, setTimeLeft] = React.useState({
-    days: 34,
-    hours: 5,
-    minutes: 21,
-    seconds: 10
+    hours: 23,
+    minutes: 59,
+    seconds: 59
   });
 
   React.useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0); // Next midnight
+      const diffMs = midnight.getTime() - now.getTime();
+      const totalSecs = Math.max(0, Math.floor(diffMs / 1000));
+      
+      const hours = Math.floor(totalSecs / 3600);
+      const minutes = Math.floor((totalSecs % 3600) / 60);
+      const seconds = totalSecs % 60;
+      
+      return { hours, minutes, seconds };
+    };
+
+    // Set initial time
+    setTimeLeft(calculateTimeLeft());
+
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: 59, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        } else if (prev.days > 0) {
-          return { ...prev, days: prev.days - 1, hours: 23, minutes: 59, seconds: 59 };
-        }
-        return prev;
-      });
+      setTimeLeft(calculateTimeLeft());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -2580,28 +2586,45 @@ function App() {
         </div>
       </section>
 
-      {/* 4. Section 2: Flash Sale (Orange background Section) */}
+      {/* 4. Section 2: Flash Sale (Vibrant Orange Section) */}
       <section id="sale" style={{
-        backgroundColor: 'var(--primary-lime)', /* Orange Theme Primary */
-        padding: '60px 0',
+        background: 'radial-gradient(circle at top, #ff7e29 0%, #ea580c 60%, #b43c08 100%)',
+        padding: '48px 0',
         borderTop: '1px solid var(--border-light)',
-        borderBottom: '1px solid var(--border-light)'
+        borderBottom: '1px solid var(--border-light)',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
+        {/* Faint Sacred Mandala/Geometry pattern vector overlay */}
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23ffffff' fill-opacity='0.035'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm1-61c3.148 0 5.7-2.552 5.7-5.7s-2.552-5.7-5.7-5.7-5.7 2.552-5.7 5.7 2.552 5.7 5.7 5.7zm44 9c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-60 21c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM25 5c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm47 87c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm-47-37c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm7 30c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM91 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm-28-15c-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2-.895-2-2-2zm-25-17c-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2-.895-2-2-2zm-14 50c-1.105 0-2 .895-2 2s.895 2 2 2 2-.895 2-2-.895-2-2-2z'%3E%3C/path%3E%3C/g%3E%3C/svg%3E")`,
+          opacity: 0.5,
+          pointerEvents: 'none',
+          zIndex: 0
+        }} />
         <div className="container" style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '24px'
+          gap: '20px',
+          position: 'relative',
+          zIndex: 1
         }}>
           {/* Header Tag */}
-          <span style={{
-            backgroundColor: '#ef4444',
-            color: '#ffffff',
-            fontSize: '0.78rem',
-            fontWeight: 800,
-            padding: '4px 16px',
-            borderRadius: 'var(--radius-full)'
-          }}>
+          <span 
+            className="flash-sale-badge"
+            style={{
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              padding: '4px 14px',
+              borderRadius: 'var(--radius-full)',
+              boxShadow: '0 2px 10px rgba(239, 68, 68, 0.3)'
+            }}
+          >
             {homepageConfig?.saleSubtitle || "EXCLUSIVE OFFERS WEEK"}
           </span>
 
@@ -2609,53 +2632,199 @@ function App() {
           <h2 style={{
             fontSize: '2rem',
             fontWeight: 950,
-            color: 'var(--text-dark)',
-            textAlign: 'center'
+            color: '#ffffff',
+            textAlign: 'center',
+            margin: 0,
+            letterSpacing: '-0.01em'
           }} className="sale-heading">
             {homepageConfig?.saleTitle || "Exceptional Discounts up to 30%"}
           </h2>
 
-          {/* Timer Countdown Grid */}
-          <div style={{
-            margin: '8px 0'
-          }} className="sale-countdown-container">
-            <div className="flex-center" style={{ flexDirection: 'column' }}>
-              <div className="countdown-box">{timeLeft.days}</div>
-              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Days</span>
-            </div>
-            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
-            <div className="flex-center" style={{ flexDirection: 'column' }}>
-              <div className="countdown-box">{timeLeft.hours}</div>
-              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Hours</span>
-            </div>
-            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
-            <div className="flex-center" style={{ flexDirection: 'column' }}>
-              <div className="countdown-box">{timeLeft.minutes}</div>
-              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Mins</span>
-            </div>
-            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>:</span>
-            <div className="flex-center" style={{ flexDirection: 'column' }}>
-              <div className="countdown-box">{timeLeft.seconds}</div>
-              <span className="countdown-label" style={{ backgroundColor: '#000000', color: '#ffffff' }}>Secs</span>
-            </div>
-          </div>
+          {(() => {
+            const totalSecs = (timeLeft.hours * 3600) + (timeLeft.minutes * 60) + timeLeft.seconds;
+            const progressPercent = (totalSecs / 86400) * 100;
+            
+            return (
+              <>
+                <style>{`
+                  @keyframes shimmer {
+                    0% { transform: translateX(-150%) skewX(-20deg); }
+                    50% { transform: translateX(150%) skewX(-20deg); }
+                    100% { transform: translateX(150%) skewX(-20deg); }
+                  }
+                  @keyframes smoothBlink {
+                    0% { opacity: 0.25; }
+                    50% { opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.6); }
+                    100% { opacity: 0.25; }
+                  }
+                  .countdown-box-interactive {
+                    width: 52px;
+                    height: 52px;
+                    background-color: #ffffff;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.45rem;
+                    font-weight: 900;
+                    color: var(--primary-forest);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                    transition: all 0.2s ease;
+                  }
+                  .countdown-box-interactive:hover {
+                    transform: translateY(-2px) scale(1.05);
+                    box-shadow: 0 6px 16px rgba(249, 115, 22, 0.2);
+                    color: var(--primary-accent);
+                  }
+                  .countdown-colon {
+                    font-size: 1.8rem;
+                    font-weight: 900;
+                    color: var(--text-dark);
+                    align-self: flex-start;
+                    line-height: 52px;
+                    height: 52px;
+                    animation: smoothBlink 1.5s infinite ease-in-out;
+                  }
+                  .flash-sale-badge {
+                    animation: pulseBadge 2s infinite;
+                  }
+                  @keyframes pulseBadge {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.04); }
+                    100% { transform: scale(1); }
+                  }
+                  @media (max-width: 480px) {
+                    .countdown-box-interactive {
+                      width: 44px !important;
+                      height: 44px !important;
+                      font-size: 1.15rem !important;
+                      border-radius: 8px !important;
+                    }
+                    .countdown-colon {
+                      font-size: 1.4rem !important;
+                      line-height: 44px !important;
+                      height: 44px !important;
+                    }
+                  }
+                `}</style>
 
-          {/* CTA Pill button */}
-          <button 
-            onClick={() => setCurrentPage('shop')}
-            style={{
-              backgroundColor: '#000000',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '0.92rem',
-              padding: '12px 36px',
-              borderRadius: 'var(--radius-full)',
-              boxShadow: 'var(--shadow-md)',
-              cursor: 'pointer'
-            }}
-          >
-            Shop Now
-          </button>
+                {/* Highlight Capsule wrapping Timer and Progress Bar */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.22)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.45)',
+                  borderRadius: '20px',
+                  padding: '20px 28px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '14px',
+                  width: '100%',
+                  maxWidth: '360px',
+                  boxShadow: '0 8px 32px rgba(45, 20, 14, 0.08), inset 0 1px 0 rgba(255,255,255,0.4)',
+                  boxSizing: 'border-box'
+                }}>
+                  {/* Timer Countdown Grid */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }} className="sale-countdown-container">
+                    <div className="flex-center" style={{ flexDirection: 'column' }}>
+                      <div className="countdown-box-interactive">{String(timeLeft.hours).padStart(2, '0')}</div>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: 'var(--text-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginTop: '6px',
+                        opacity: 0.85
+                      }}>Hours</span>
+                    </div>
+                    <span className="countdown-colon">:</span>
+                    <div className="flex-center" style={{ flexDirection: 'column' }}>
+                      <div className="countdown-box-interactive">{String(timeLeft.minutes).padStart(2, '0')}</div>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: 'var(--text-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginTop: '6px',
+                        opacity: 0.85
+                      }}>Mins</span>
+                    </div>
+                    <span className="countdown-colon">:</span>
+                    <div className="flex-center" style={{ flexDirection: 'column' }}>
+                      <div className="countdown-box-interactive">{String(timeLeft.seconds).padStart(2, '0')}</div>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: 'var(--text-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginTop: '6px',
+                        opacity: 0.85
+                      }}>Secs</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar showing remaining time */}
+                  <div style={{
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <div style={{
+                      width: '100%',
+                      height: '6px',
+                      backgroundColor: 'rgba(45, 20, 14, 0.15)',
+                      borderRadius: '999px',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        width: `${progressPercent}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #ef4444 0%, #facc15 100%)',
+                        borderRadius: '999px',
+                        transition: 'width 1s linear',
+                        boxShadow: '0 0 6px rgba(239, 68, 68, 0.4)',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                          animation: 'shimmer 2.5s infinite',
+                          transform: 'skewX(-20deg)'
+                        }} />
+                      </div>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      color: 'var(--text-dark)',
+                      opacity: 0.85
+                    }}>
+                      <span>🔥 DEAL OF THE DAY</span>
+                      <span>⏳ REFRESHES DAILY</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Cards Row (3 Cards) */}
           <div style={{
@@ -2678,12 +2847,13 @@ function App() {
                   onClick={() => handleViewDetails(product)}
                   style={{
                     borderRadius: '16px',
-                    border: '1px solid var(--border-light)',
+                    border: 'none',
+                    borderTop: '3px solid transparent',
                     display: 'flex',
                     flexDirection: 'column',
                     position: 'relative',
                     backgroundColor: '#ffffff',
-                    boxShadow: 'var(--shadow-sm)',
+                    boxShadow: '0 8px 30px rgba(45, 20, 14, 0.12)',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     padding: '12px',
                     cursor: 'pointer',
@@ -2692,13 +2862,15 @@ function App() {
                   className="sale-product-card"
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-6px)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                    e.currentTarget.style.boxShadow = '0 16px 40px rgba(45, 20, 14, 0.22)';
+                    e.currentTarget.style.borderTopColor = 'var(--primary-lime)';
                     const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
                     if (img) img.style.transform = 'scale(1.05)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                    e.currentTarget.style.boxShadow = '0 8px 30px rgba(45, 20, 14, 0.12)';
+                    e.currentTarget.style.borderTopColor = 'transparent';
                     const img = e.currentTarget.querySelector('.card-image') as HTMLElement;
                     if (img) img.style.transform = 'scale(1)';
                   }}
@@ -2980,11 +3152,29 @@ function App() {
 
           </div>
 
-          {/* View All Button */}
           <button 
             onClick={() => setCurrentPage('shop')}
-            className="btn-outline" 
-            style={{ marginTop: '24px', cursor: 'pointer' }}
+            style={{
+              marginTop: '28px',
+              cursor: 'pointer',
+              backgroundColor: 'var(--primary-deep)',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              padding: '12px 36px',
+              borderRadius: 'var(--radius-full)',
+              boxShadow: '0 4px 12px rgba(45, 20, 14, 0.15)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(45, 20, 14, 0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(45, 20, 14, 0.15)';
+            }}
           >
             View All Products
           </button>
