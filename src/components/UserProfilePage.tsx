@@ -6,7 +6,6 @@ import {
   Heart,
   Bell,
   LogOut,
-  Edit2,
   Plus,
   Trash2,
   Check,
