@@ -11,10 +11,20 @@ import {
   TrendingUp,
   Award,
   Video,
-  DollarSign
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  ExternalLink,
+  Phone,
+  Shield,
+  Edit,
+  MapPin,
+  AlertCircle,
+  BookOpen
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
+import { PunditOnboarding } from './PunditOnboarding';
 
 interface PunditDashboardPageProps {
   loggedInUser: { id: string; fullName: string; email: string; phoneNumber: string };
@@ -31,6 +41,13 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
   const [affiliateProfile, setAffiliateProfile] = React.useState<any>(null);
   const [loadingProfile, setLoadingProfile] = React.useState(true);
   
+  // Onboarding & Booking States
+  const [punditProfile, setPunditProfile] = React.useState<any>(null);
+  const [loadingPunditProfile, setLoadingPunditProfile] = React.useState(true);
+  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [selectedBooking, setSelectedBooking] = React.useState<any>(null);
+  const [bookingFilter, setBookingFilter] = React.useState<'All' | 'Pending' | 'Confirmed' | 'Completed'>('All');
+
   // Lists
   const [referrals, setReferrals] = React.useState<any[]>([]);
   const [commissions, setCommissions] = React.useState<any[]>([]);
@@ -114,10 +131,118 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
     }
   }, [token]);
 
+  const fetchPunditProfile = React.useCallback(async () => {
+    setLoadingPunditProfile(true);
+    try {
+      const { data: settingsData, error: err } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', `pundit_profile_${loggedInUser.id}`)
+        .maybeSingle();
+
+      if (!err && settingsData && settingsData.value) {
+        setPunditProfile(settingsData.value);
+        setLoadingPunditProfile(false);
+        return;
+      }
+
+      const { data: userData } = await supabase
+        .from('website_store_users')
+        .select('pundit_profile')
+        .eq('id', loggedInUser.id)
+        .maybeSingle();
+
+      if (userData && (userData as any).pundit_profile) {
+        setPunditProfile((userData as any).pundit_profile);
+        setLoadingPunditProfile(false);
+        return;
+      }
+    } catch (e) {
+      console.error('Error fetching pundit profile:', e);
+    }
+
+    const localProfile = localStorage.getItem(`pundit_profile_${loggedInUser.id}`);
+    if (localProfile) {
+      setPunditProfile(JSON.parse(localProfile));
+    }
+    setLoadingPunditProfile(false);
+  }, [loggedInUser.id]);
+
   React.useEffect(() => {
     fetchAffiliateProfile();
     fetchDashboardLists();
-  }, [fetchAffiliateProfile, fetchDashboardLists]);
+    fetchPunditProfile();
+
+    const mockBookings = [
+      {
+        id: 'BK-1001',
+        devoteeName: 'Sunil Mishra',
+        gotra: 'Kashyap',
+        familyNames: 'Sunil, wife Renu, son Ayush',
+        ritualName: '🏡 Griha Pravesh (House Warming)',
+        dateTime: 'June 28, 2026 at 09:30 AM',
+        serviceMode: 'Home Visit',
+        details: 'Flat 902, A-Wing, Orchid Heights, Sector-15, Thane, Maharashtra',
+        phone: '+91 98192 83746',
+        dakshina: 8500,
+        sankalpa: 'Peace, family prosperity, and protection from negative energy.',
+        status: 'Pending Confirmation'
+      },
+      {
+        id: 'BK-1002',
+        devoteeName: 'Amit Sen',
+        gotra: 'Vashishtha',
+        familyNames: 'Amit, wife Suchitra',
+        ritualName: '🕉 Rudrabhishek Puja',
+        dateTime: 'June 30, 2026 at 07:00 AM',
+        serviceMode: 'Online',
+        details: 'https://zoom.us/j/9876543210?pwd=MantraPujaRudrabhishek',
+        phone: '+91 90048 57122',
+        dakshina: 5100,
+        sankalpa: 'Good health, removal of health obstacles, and spiritual growth.',
+        status: 'Confirmed'
+      },
+      {
+        id: 'BK-1003',
+        devoteeName: 'Rajesh Iyer',
+        gotra: 'Bharadwaj',
+        familyNames: 'Rajesh, wife Meenakshi, daughter Anjali',
+        ritualName: '💰 Lakshmi Puja (Office Blessing)',
+        dateTime: 'June 22, 2026 at 11:30 AM',
+        serviceMode: 'Temple Visit',
+        details: 'Kashi Vishwanath Mandir Hall A, Varanasi, UP',
+        phone: '+91 98203 94857',
+        dakshina: 11000,
+        sankalpa: 'Business expansion, financial growth, and obstacle removal.',
+        status: 'Completed'
+      },
+      {
+        id: 'BK-1004',
+        devoteeName: 'Karan Johar',
+        gotra: 'Gautam',
+        familyNames: 'Karan, mother Hiroo',
+        ritualName: '🌞 Navgraha Shanti Havan',
+        dateTime: 'July 05, 2026 at 08:00 AM',
+        serviceMode: 'Home Visit',
+        details: 'Bungalow No 4, Carter Road, Bandra West, Mumbai, Maharashtra',
+        phone: '+91 98210 29384',
+        dakshina: 15000,
+        sankalpa: 'Calming Saturn (Shani) and Rahu planetary alignments for peace of mind.',
+        status: 'Pending Confirmation'
+      }
+    ];
+
+    const savedBookings = localStorage.getItem(`pundit_bookings_${loggedInUser.id}`);
+    if (savedBookings) {
+      const parsed = JSON.parse(savedBookings);
+      setBookings(parsed);
+      setSelectedBooking(parsed[0] || null);
+    } else {
+      localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(mockBookings));
+      setBookings(mockBookings);
+      setSelectedBooking(mockBookings[0]);
+    }
+  }, [fetchAffiliateProfile, fetchDashboardLists, fetchPunditProfile, loggedInUser.id]);
 
   const handleCopyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -201,6 +326,43 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.category.toLowerCase().includes(productSearch.toLowerCase())
   );
+
+  const handleOnboardingComplete = async (profileData: any) => {
+    setPunditProfile(profileData);
+    localStorage.setItem(`pundit_profile_${loggedInUser.id}`, JSON.stringify(profileData));
+
+    try {
+      await supabase.from('website_settings').upsert({
+        key: `pundit_profile_${loggedInUser.id}`,
+        value: profileData
+      });
+    } catch (e) {
+      console.error('Error saving to website_settings fallback:', e);
+    }
+
+    try {
+      await supabase.from('website_store_users').update({
+        pundit_profile: profileData,
+        full_name: profileData.fullName
+      }).eq('id', loggedInUser.id);
+    } catch (e) {
+      console.warn('Could not update users table directly (fallback is active):', e);
+    }
+  };
+
+  const handleUpdateBookingStatus = (id: string, newStatus: string) => {
+    const updated = bookings.map(b => {
+      if (b.id === id) {
+        return { ...b, status: newStatus };
+      }
+      return b;
+    });
+    setBookings(updated);
+    localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(updated));
+    if (selectedBooking && selectedBooking.id === id) {
+      setSelectedBooking({ ...selectedBooking, status: newStatus });
+    }
+  };
 
   return (
     <div style={{
@@ -970,7 +1132,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
           </div>
         )}
 
-        {/* Tab Content: Pandit Bookings coming soon */}
+        {/* Tab Content: Pandit Bookings */}
         {activeTab === 'booking' && (
           <div style={{
             display: 'flex',
@@ -978,203 +1140,497 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
             gap: '24px',
             animation: 'fadeIn 0.4s ease-out'
           }}>
-            
-            {/* Header Coming Soon Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
-              padding: '48px 32px',
-              textAlign: 'center',
-              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '5px',
-                background: 'linear-gradient(90deg, #d97706 0%, #ea580c 100%)'
-              }} />
-              
-              <span style={{ fontSize: '4rem', display: 'block', marginBottom: '16px' }}>🕉️</span>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1e293b', margin: 0 }}>
-                Puja Booking System
-              </h2>
-              <span style={{
-                display: 'inline-block',
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fde68a',
-                color: '#d97706',
-                fontSize: '0.75rem',
-                fontWeight: 800,
-                padding: '4px 12px',
-                borderRadius: '9999px',
-                marginTop: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
-              }}>
-                Coming Soon
-              </span>
-              
-              <p style={{
-                fontSize: '0.95rem',
-                color: '#64748b',
-                marginTop: '16px',
-                maxWidth: '600px',
-                margin: '16px auto 0 auto',
-                lineHeight: 1.6
-              }}>
-                We are actively building a premium digital booking portal for our Shastri partners. 
-                Devotees will soon be able to book you for certified Vedic Pujas, personalized Homa offerings, 
-                and spiritual consultations. Direct payments (Dakshina) will be credited to your available balance.
-              </p>
-            </div>
-
-            {/* Locked feature previews grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '20px'
-            }}>
-              
-              {/* Feature 1: Schedule builder */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '12px',
-                padding: '24px',
-                opacity: 0.8,
-                position: 'relative'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  fontSize: '0.65rem',
-                  fontWeight: 800,
-                  backgroundColor: '#f1f5f9',
-                  color: '#475569',
-                  padding: '3px 8px',
-                  borderRadius: '9999px'
-                }}>
-                  🔒 LOCKED
-                </span>
-                
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '8px',
-                  backgroundColor: '#fff7ed',
-                  color: '#ea580c',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '16px'
-                }}>
-                  <Clock size={20} />
-                </div>
-                
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', margin: '0 0 8px 0' }}>
-                  Interactive Calendar & Slots
-                </h4>
-                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                  Configure your weekly availability slots, block festival dates, and set customized timings for morning and evening Aarati prayers.
-                </p>
+            {loadingPunditProfile ? (
+              <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>Loading Shastri Profile...</p>
               </div>
-
-              {/* Feature 2: Booking requests */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '12px',
-                padding: '24px',
-                opacity: 0.8,
-                position: 'relative'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  fontSize: '0.65rem',
-                  fontWeight: 800,
-                  backgroundColor: '#f1f5f9',
-                  color: '#475569',
-                  padding: '3px 8px',
-                  borderRadius: '9999px'
-                }}>
-                  🔒 LOCKED
-                </span>
-                
+            ) : !punditProfile ? (
+              <PunditOnboarding
+                loggedInUser={loggedInUser}
+                onComplete={handleOnboardingComplete}
+                onLogout={onLogout}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Header card with profile overview & Edit profile action */}
                 <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '8px',
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '20px 24px',
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '16px'
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                 }}>
-                  <Calendar size={20} />
-                </div>
-                
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', margin: '0 0 8px 0' }}>
-                  Incoming Devotee Bookings
-                </h4>
-                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                  Receive real-time email alerts and dashboard notifications containing devotee Gotra details, family names, and custom Sankalpa intentions.
-                </p>
-              </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden', border: '2.5px solid #f97316', backgroundColor: '#f3f4f6' }}>
+                      <img src={punditProfile.profilePhoto} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2d140e', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{punditProfile.spiritualTitle} {punditProfile.fullName}</span>
+                        {punditProfile.verificationUploaded && (
+                          <span style={{ fontSize: '0.65rem', fontWeight: 900, backgroundColor: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '9999px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            ✓ Verified Partner
+                          </span>
+                        )}
+                      </h2>
+                      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '2px 0 0 0' }}>
+                        {punditProfile.experience} years practice &bull; Gotra: {punditProfile.gotra} &bull; {punditProfile.location?.city}, {punditProfile.location?.state}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* Feature 3: Live Video streaming integrations */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '12px',
-                padding: '24px',
-                opacity: 0.8,
-                position: 'relative'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  fontSize: '0.65rem',
-                  fontWeight: 800,
-                  backgroundColor: '#f1f5f9',
-                  color: '#475569',
-                  padding: '3px 8px',
-                  borderRadius: '9999px'
-                }}>
-                  🔒 LOCKED
-                </span>
-                
+                  <button
+                    onClick={() => {
+                      if (confirm("Would you like to edit your profile? This will let you re-run the 14-screen onboarding flow.")) {
+                        setPunditProfile(null);
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '0.8rem',
+                      fontWeight: 750,
+                      color: '#475569',
+                      backgroundColor: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#f97316'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
+                  >
+                    <Edit size={14} />
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
+
+                {/* Booking stats grid */}
                 <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '8px',
-                  backgroundColor: '#ecfdf5',
-                  color: '#059669',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '16px'
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '16px'
                 }}>
-                  <Video size={20} />
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.5px' }}>Total Puja Bookings</span>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#1f2937', marginTop: '4px' }}>{bookings.length} Bookings</div>
+                  </div>
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.5px' }}>Confirmed Pujas</span>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#2563eb', marginTop: '4px' }}>{bookings.filter(b => b.status === 'Confirmed').length} Active</div>
+                  </div>
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.5px' }}>Pending Confirmation</span>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#d97706', marginTop: '4px' }}>{bookings.filter(b => b.status === 'Pending Confirmation').length} Requests</div>
+                  </div>
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.5px' }}>Total Dakshina Earned</span>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#16a34a', marginTop: '4px' }}>
+                      ₹{bookings.filter(b => b.status === 'Completed').reduce((sum, b) => sum + b.dakshina, 0).toLocaleString('en-IN')}
+                    </div>
+                  </div>
                 </div>
-                
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', margin: '0 0 8px 0' }}>
-                  Live Streams & Dakshina Ledger
-                </h4>
-                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                  Integrate live Zoom or YouTube stream broadcasts directly into the booking page, and log and track dakshina payouts inside a certified bank register.
-                </p>
+
+                {/* Booking list & Detail section */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.2fr 1.8fr',
+                  gap: '24px',
+                  alignItems: 'start'
+                }} className="hero-grid-split">
+                  
+                  {/* Left Column: Filter and Scrollable List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Filters tabs */}
+                    <div style={{
+                      display: 'flex',
+                      backgroundColor: '#f1f5f9',
+                      padding: '4px',
+                      borderRadius: '8px',
+                      gap: '4px'
+                    }}>
+                      {['All', 'Pending', 'Confirmed', 'Completed'].map((filterVal) => {
+                        const count = filterVal === 'All' ? bookings.length :
+                                      filterVal === 'Pending' ? bookings.filter(b => b.status === 'Pending Confirmation').length :
+                                      filterVal === 'Confirmed' ? bookings.filter(b => b.status === 'Confirmed').length :
+                                      bookings.filter(b => b.status === 'Completed').length;
+                        const isSelected = bookingFilter === filterVal;
+                        return (
+                          <button
+                            key={filterVal}
+                            onClick={() => setBookingFilter(filterVal as any)}
+                            style={{
+                              flex: 1,
+                              padding: '8px 4px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: isSelected ? 800 : 600,
+                              backgroundColor: isSelected ? '#ffffff' : 'transparent',
+                              color: isSelected ? '#f97316' : '#64748b',
+                              boxShadow: isSelected ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                              textAlign: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {filterVal} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bookings scroll container */}
+                    <div style={{
+                      maxHeight: '450px',
+                      overflowY: 'auto',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: '#ffffff'
+                    }}>
+                      {bookings
+                        .filter(b => {
+                          if (bookingFilter === 'All') return true;
+                          if (bookingFilter === 'Pending') return b.status === 'Pending Confirmation';
+                          if (bookingFilter === 'Confirmed') return b.status === 'Confirmed';
+                          return b.status === 'Completed';
+                        }).length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                            <Calendar size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                            <p style={{ fontSize: '0.8rem', margin: 0 }}>No bookings match this filter.</p>
+                          </div>
+                        ) : (
+                          bookings
+                            .filter(b => {
+                              if (bookingFilter === 'All') return true;
+                              if (bookingFilter === 'Pending') return b.status === 'Pending Confirmation';
+                              if (bookingFilter === 'Confirmed') return b.status === 'Confirmed';
+                              return b.status === 'Completed';
+                            })
+                            .map((b) => {
+                              const isSelected = selectedBooking && selectedBooking.id === b.id;
+                              const statusColor = b.status === 'Completed' ? '#16a34a' :
+                                                  b.status === 'Confirmed' ? '#2563eb' :
+                                                  b.status === 'Pending Confirmation' ? '#d97706' : '#dc2626';
+                              const statusBg = b.status === 'Completed' ? '#dcfce7' :
+                                                b.status === 'Confirmed' ? '#eff6ff' :
+                                                b.status === 'Pending Confirmation' ? '#fef3c7' : '#fee2e2';
+                              return (
+                                <div
+                                  key={b.id}
+                                  onClick={() => setSelectedBooking(b)}
+                                  style={{
+                                    padding: '16px',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    backgroundColor: isSelected ? '#fff7ed' : '#ffffff',
+                                    borderLeft: isSelected ? '4px solid #f97316' : '4px solid transparent',
+                                    transition: 'all 0.15s',
+                                    textAlign: 'left'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                                    <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1f2937', margin: 0 }}>
+                                      {b.ritualName}
+                                    </h4>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      fontWeight: 800,
+                                      padding: '2px 8px',
+                                      borderRadius: '9999px',
+                                      color: statusColor,
+                                      backgroundColor: statusBg
+                                    }}>
+                                      {b.status === 'Pending Confirmation' ? 'Pending' : b.status}
+                                    </span>
+                                  </div>
+                                  <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4b5563', margin: '0 0 4px 0' }}>
+                                    Devotee: {b.devoteeName} ({b.gotra} Gotra)
+                                  </p>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                                    <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>
+                                      📅 {b.dateTime}
+                                    </span>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 850, color: '#16a34a' }}>
+                                      ₹{b.dakshina.toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                        )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Selected Booking Details */}
+                  <div>
+                    {selectedBooking ? (
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        border: '1.5px solid #ffedd5',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        boxShadow: '0 4px 6px -1px rgba(249, 115, 22, 0.05)',
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '16px' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', display: 'block' }}>
+                            Booking Reference: {selectedBooking.id}
+                          </span>
+                          <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2d140e', margin: '4px 0 6px 0' }}>
+                            {selectedBooking.ritualName}
+                          </h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 750 }}>
+                              Dakshina: <strong style={{ color: '#16a34a', fontSize: '0.9rem' }}>₹{selectedBooking.dakshina.toLocaleString('en-IN')}</strong>
+                            </span>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              color: selectedBooking.status === 'Completed' ? '#16a34a' : selectedBooking.status === 'Confirmed' ? '#2563eb' : '#d97706',
+                              backgroundColor: selectedBooking.status === 'Completed' ? '#dcfce7' : selectedBooking.status === 'Confirmed' ? '#eff6ff' : '#fef3c7',
+                              padding: '2px 8px',
+                              borderRadius: '9999px'
+                            }}>
+                              {selectedBooking.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Booking properties list */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.82rem' }}>
+                          <div>
+                            <span style={{ fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '2px' }}>Devotee Details:</span>
+                            <p style={{ margin: 0, fontWeight: 700, color: '#1f2937' }}>
+                              {selectedBooking.devoteeName} ({selectedBooking.gotra} Gotra)
+                            </p>
+                            <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Family Names: {selectedBooking.familyNames}</span>
+                          </div>
+
+                          <div>
+                            <span style={{ fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '2px' }}>Date & Puja Time:</span>
+                            <span style={{ fontWeight: 700, color: '#1f2937' }}>📅 {selectedBooking.dateTime}</span>
+                          </div>
+
+                          <div>
+                            <span style={{ fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '2px' }}>Service Mode & Location:</span>
+                            <span style={{ fontWeight: 700, color: '#1f2937' }}>
+                              {selectedBooking.serviceMode === 'Home Visit' ? '🏠 Home Visit' : selectedBooking.serviceMode === 'Online' ? '💻 Online Video Call' : '🏛 Temple Puja'}
+                            </span>
+                            
+                            {selectedBooking.serviceMode === 'Online' ? (
+                              <a
+                                href={selectedBooking.details}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  color: '#2563eb',
+                                  fontWeight: 800,
+                                  marginTop: '4px',
+                                  textDecoration: 'underline'
+                                }}
+                              >
+                                <span>Join Zoom Meeting</span>
+                                <ExternalLink size={12} />
+                              </a>
+                            ) : (
+                              <p style={{ margin: '4px 0 0 0', color: '#4b5563', lineHeight: 1.4 }}>
+                                {selectedBooking.details}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <span style={{ fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '2px' }}>Devotee Contact:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                              <a
+                                href={`tel:${selectedBooking.phone}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  backgroundColor: '#f1f5f9',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontWeight: 750,
+                                  color: '#334155'
+                                }}
+                              >
+                                <Phone size={12} /> Call
+                              </a>
+                              <a
+                                href={`https://wa.me/${selectedBooking.phone.replace(/[^\d]/g, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  backgroundColor: '#dcfce7',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontWeight: 750,
+                                  color: '#166534'
+                                }}
+                              >
+                                WhatsApp
+                              </a>
+                            </div>
+                          </div>
+
+                          <div style={{
+                            backgroundColor: '#fffbeb',
+                            border: '1px solid #fde68a',
+                            borderRadius: '8px',
+                            padding: '12px 16px'
+                          }}>
+                            <span style={{ fontWeight: 800, color: '#b45309', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.5px' }}>Sankalpa / Intention:</span>
+                            <p style={{ margin: 0, fontStyle: 'italic', color: '#78350f', lineHeight: 1.4 }}>
+                              "{selectedBooking.sankalpa}"
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Interactive Status Actions */}
+                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '20px', marginTop: '20px' }}>
+                          {selectedBooking.status === 'Pending Confirmation' && (
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                              <button
+                                onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'Confirmed')}
+                                style={{
+                                  flex: 1,
+                                  backgroundColor: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '12px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px'
+                                }}
+                              >
+                                <CheckCircle size={16} /> Accept Request
+                              </button>
+                              <button
+                                onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'Declined')}
+                                style={{
+                                  backgroundColor: '#fef2f2',
+                                  border: '1.5px solid #fecaca',
+                                  color: '#dc2626',
+                                  borderRadius: '8px',
+                                  padding: '12px 16px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+
+                          {selectedBooking.status === 'Confirmed' && (
+                            <button
+                              onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'Completed')}
+                              style={{
+                                width: '100%',
+                                backgroundColor: '#f97316',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                fontSize: '0.9rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContext: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                boxShadow: '0 4px 12px rgba(249, 115, 22, 0.2)'
+                              }}
+                            >
+                              <CheckCircle size={18} /> Mark Puja as Completed
+                            </button>
+                          )}
+
+                          {selectedBooking.status === 'Completed' && (
+                            <div style={{
+                              padding: '12px',
+                              borderRadius: '8px',
+                              backgroundColor: '#dcfce7',
+                              border: '1px solid #bbf7d0',
+                              color: '#15803d',
+                              textAlign: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}>
+                              <CheckCircle size={16} />
+                              <span>Puja Completed & Dakshina Credited!</span>
+                            </div>
+                          )}
+
+                          {selectedBooking.status === 'Declined' && (
+                            <div style={{
+                              padding: '12px',
+                              borderRadius: '8px',
+                              backgroundColor: '#fee2e2',
+                              border: '1px solid #fecaca',
+                              color: '#b91c1c',
+                              textAlign: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}>
+                              <XCircle size={16} />
+                              <span>Puja Request Declined</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '12px',
+                        padding: '48px 24px',
+                        textAlign: 'center',
+                        color: '#64748b'
+                      }}>
+                        <AlertCircle size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0 }}>No Booking Selected</h4>
+                        <p style={{ fontSize: '0.78rem', margin: '4px 0 0 0' }}>Select a puja booking from the left list to view details.</p>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
               </div>
-
-            </div>
-
+            )}
           </div>
         )}
 
