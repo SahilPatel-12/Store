@@ -9,6 +9,7 @@ import { supabase } from './lib/supabase';
 import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
 import logo from './assets/My_logo/Frame 16.png';
 import { getSpiritualTypeForProduct } from './lib/spiritualTypeHelper';
+import { uploadToR2 } from './lib/cloudflare/r2';
 
 
 // Dynamically imported page components for optimal compilation and load performance
@@ -234,6 +235,660 @@ const initialOrders: LocalOrder[] = [
 
 function App() {
   const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard'>('shop');
+  
+  // Dynamic client-side pundit migration runner
+  const [migrationStatus, setMigrationStatus] = React.useState<string | null>(null);
+  const [migrationProgress, setMigrationProgress] = React.useState(0);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('run_pundit_migration') === 'true') {
+      const runMigration = async () => {
+        setMigrationStatus('Initializing Pundit Migration & Cloudflare R2 image upload...');
+        try {
+          const pundits = [
+            {
+              name: 'Acharya Raghav Sharma',
+              phone: '+919000000001',
+              title: 'Acharya',
+              gotra: 'Bharadwaj',
+              experience: 18,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🕉 Shanti Path'],
+              bio: 'Acharya Raghav Sharma has performed thousands of authentic Vedic Rudraksha energization rituals following traditional Shiva Agama and Rudra Vidhi procedures.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3176,
+              lng: 82.9739,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Kashi Vishwanath Temple'
+            },
+            {
+              name: 'Acharya Devendra Shastri',
+              phone: '+919000000002',
+              title: 'Shastri',
+              gotra: 'Vashishtha',
+              experience: 15,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['🪔 Satyanarayan Katha', '🏡 Griha Pravesh', '🔥 Havan'],
+              bio: 'Acharya Devendra Shastri specializes in Vedic mantra siddhi, Saraswati worship rituals, and traditional Rudraksha energization ceremonies.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3180,
+              lng: 82.9745,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Subramanya Iyer',
+              phone: '+919000000003',
+              title: 'Acharya',
+              gotra: 'Kashyap',
+              experience: 20,
+              languages: ['Tamil', 'Sanskrit', 'English'],
+              specialties: ['🕉 Rudrabhishek', '💍 Vivah Sanskar', '💰 Lakshmi Puja'],
+              bio: 'Acharya Subramanya Iyer specializes in Murugan worship rituals, sacred mantra recitations, and spiritual energization ceremonies.',
+              city: 'Chennai',
+              state: 'Tamil Nadu',
+              lat: 13.0827,
+              lng: 80.2707,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Kapaleeshwarar Temple'
+            },
+            {
+              name: 'Acharya Bhavesh Shukla',
+              phone: '+919000000004',
+              title: 'Acharya',
+              gotra: 'Gautam',
+              experience: 12,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🌞 Navgraha Puja', '🏡 Griha Pravesh', '🏠 Vastu Shanti'],
+              bio: 'Acharya Bhavesh Shukla specializes in family harmony rituals, Ganesh Sadhana, and authentic Vedic Rudraksha energization ceremonies.',
+              city: 'Ujjain',
+              state: 'Madhya Pradesh',
+              lat: 23.1760,
+              lng: 75.7885,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Mahakaleshwar Jyotirlinga Temple'
+            },
+            {
+              name: 'Acharya Gaurang Bhatt',
+              phone: '+919000000005',
+              title: 'Acharya',
+              gotra: 'Atri',
+              experience: 16,
+              languages: ['Gujarati', 'Hindi', 'Sanskrit'],
+              specialties: ['💰 Lakshmi Puja', '🔥 Havan', '🌞 Navgraha Puja'],
+              bio: 'Acharya Gaurang Bhatt has extensive expertise in Mahalakshmi worship, prosperity rituals, and authentic Vedic Rudraksha energization ceremonies.',
+              city: 'Ahmedabad',
+              state: 'Gujarat',
+              lat: 23.0225,
+              lng: 72.5714,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Kuberanand Mishra',
+              phone: '+919000000006',
+              title: 'Acharya',
+              gotra: 'Agastya',
+              experience: 14,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['💰 Lakshmi Puja', '🔥 Havan', '🏠 Vastu Shanti'],
+              bio: 'Acharya Kuberanand Mishra specializes in crystal energization, prosperity rituals, and sacred wealth-attraction ceremonies.',
+              city: 'Haridwar',
+              state: 'Uttarakhand',
+              lat: 29.9457,
+              lng: 78.1642,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Har Ki Pauri Temple'
+            },
+            {
+              name: 'Acharya Lakshmikant Dwivedi',
+              phone: '+919000000007',
+              title: 'Acharya',
+              gotra: 'Vatsa',
+              experience: 17,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['💰 Lakshmi Puja', '🌞 Navgraha Puja', '🪔 Satyanarayan Katha'],
+              bio: 'Acharya Lakshmikant Dwivedi specializes in Lakshmi-Kuber rituals and spiritual energization ceremonies focused on prosperity and abundance.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3210,
+              lng: 82.9780,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Sankat Mochan Hanuman Temple'
+            },
+            {
+              name: 'Acharya Narayan Shukla',
+              phone: '+919000000008',
+              title: 'Acharya',
+              gotra: 'Angirasa',
+              experience: 22,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🕉 Shanti Path'],
+              bio: 'Acharya Narayan Shukla is renowned for performing Vishnu Sadhana, Vedic protection rituals, and authentic Rudraksha energization ceremonies according to ancient scriptures.',
+              city: 'Prayagraj',
+              state: 'Uttar Pradesh',
+              lat: 25.4358,
+              lng: 81.8463,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Venkatesh Trivedi',
+              phone: '+919000000009',
+              title: 'Acharya',
+              gotra: 'Vishwamitra',
+              experience: 15,
+              languages: ['Hindi', 'Sanskrit', 'Gujarati'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🏠 Vastu Shanti'],
+              bio: 'Acharya Venkatesh Trivedi specializes in traditional Rudraksha energization and sacred Shiva-Parvati worship rituals performed according to authentic Vedic scriptures.',
+              city: 'Somnath',
+              state: 'Gujarat',
+              lat: 20.8880,
+              lng: 70.4012,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Somnath Jyotirlinga Temple'
+            },
+            {
+              name: 'Acharya Adwait Raman',
+              phone: '+919000000010',
+              title: 'Acharya',
+              gotra: 'Bharadwaj',
+              experience: 19,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🕉 Shanti Path'],
+              bio: 'Acharya Adwait Raman specializes in advanced Vedic rituals, Rudraksha energization, and sacred spiritual ceremonies rooted in traditional practices.',
+              city: 'Rishikesh',
+              state: 'Uttarakhand',
+              lat: 30.0869,
+              lng: 78.2676,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Parmarth Niketan Temple'
+            },
+            {
+              name: 'Acharya Arvind Pathak',
+              phone: '+919000000011',
+              title: 'Acharya',
+              gotra: 'Kashyap',
+              experience: 13,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🔥 Havan', '💰 Lakshmi Puja', '🏠 Vastu Shanti'],
+              bio: 'Acharya Arvind Pathak specializes in crystal activation rituals and prosperity-focused Vedic energization ceremonies.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3195,
+              lng: 82.9710,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Rudransh Pathak',
+              phone: '+919000000012',
+              title: 'Acharya',
+              gotra: 'Vashishtha',
+              experience: 11,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🔥 Havan', '🕉 Shanti Path', '🌞 Navgraha Puja'],
+              bio: 'Acharya Rudransh Pathak is highly experienced in Durga worship, Navarna mantra rituals, and authentic Vedic Rudraksha energization ceremonies.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3205,
+              lng: 82.9725,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Durga Kund Mandir'
+            },
+            {
+              name: 'Acharya Veerendra Joshi',
+              phone: '+919000000013',
+              title: 'Acharya',
+              gotra: 'Gautam',
+              experience: 21,
+              languages: ['Hindi', 'Sanskrit', 'Marathi'],
+              specialties: ['🔥 Havan', '🕉 Shanti Path', '🕉 Rudrabhishek'],
+              bio: 'Acharya Veerendra Joshi specializes in Hanuman worship, Rudra rituals, and powerful Vedic energization ceremonies performed according to sacred traditions.',
+              city: 'Nashik',
+              state: 'Maharashtra',
+              lat: 19.9975,
+              lng: 73.7898,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Trimbakeshwar Shiva Temple'
+            },
+            {
+              name: 'Acharya Suryakant Vyas',
+              phone: '+919000000014',
+              title: 'Acharya',
+              gotra: 'Atri',
+              experience: 25,
+              languages: ['Hindi', 'Sanskrit', 'Gujarati'],
+              specialties: ['🔥 Havan', '🌞 Navgraha Puja', '🪔 Satyanarayan Katha'],
+              bio: 'Acharya Suryakant Vyas specializes in Surya worship, Aditya Hridayam recitations, and authentic Vedic Rudraksha energization ceremonies.',
+              city: 'Dwarka',
+              state: 'Gujarat',
+              lat: 22.2442,
+              lng: 68.9685,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Dwarkadhish Temple'
+            },
+            {
+              name: 'Acharya Shubhendra Sharma',
+              phone: '+919000000015',
+              title: 'Acharya',
+              gotra: 'Agastya',
+              experience: 14,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['🏠 Vastu Shanti', '🏡 Griha Pravesh', '🔥 Havan'],
+              bio: 'Acharya Shubhendra Sharma specializes in prosperity rituals, Vastu remedies, and sacred energy activation ceremonies for homes and businesses.',
+              city: 'Delhi',
+              state: 'Delhi',
+              lat: 28.6139,
+              lng: 77.2090,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Vishwajeet Dwivedi',
+              phone: '+919000000016',
+              title: 'Acharya',
+              gotra: 'Vatsa',
+              experience: 15,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🔥 Havan', '🌞 Navgraha Puja', '🕉 Rudrabhishek'],
+              bio: 'Acharya Vishwajeet Dwivedi specializes in Ganapati rituals, Vedic mantra siddhi, and authentic Rudraksha energization ceremonies performed according to traditional scriptures.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3225,
+              lng: 82.9799,
+              modes: ['Temple', 'Home Visits'],
+              temple: 'Vishalakshi Temple'
+            },
+            {
+              name: 'Acharya Somnath Shastri',
+              phone: '+919000000017',
+              title: 'Acharya',
+              gotra: 'Angirasa',
+              experience: 20,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🕉 Shanti Path'],
+              bio: 'Highly revered scholar from Varanasi conducting sacred Mahamrityunjaya and planetary homas.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3170,
+              lng: 82.9730,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Kashi Vishwanath Temple'
+            },
+            {
+              name: 'Acharya Vidyadhar Dwivedi',
+              phone: '+919000000018',
+              title: 'Acharya',
+              gotra: 'Vishwamitra',
+              experience: 14,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['💰 Lakshmi Puja', '🔥 Havan', '🪔 Satyanarayan Katha'],
+              bio: 'Expert scholar from Shri Jagannath Sanskrit Vishvavidyalaya specializing in Lakshmi rituals.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3185,
+              lng: 82.9750,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Pandit Ramakant Joshi',
+              phone: '+919000000019',
+              title: 'Pandit Ji',
+              gotra: 'Bharadwaj',
+              experience: 12,
+              languages: ['Hindi', 'Sanskrit'],
+              specialties: ['🪔 Satyanarayan Katha', '🏡 Griha Pravesh', '🔥 Havan'],
+              bio: 'A traditional Uttarakhand Pandit specializing in Vishnu Stotras and monthly household vrat ceremonies.',
+              city: 'Rishikesh',
+              state: 'Uttarakhand',
+              lat: 30.0880,
+              lng: 78.2690,
+              modes: ['Home Visits', 'Online'],
+              temple: ''
+            },
+            {
+              name: 'Acharya Rajesh Shastri',
+              phone: '+919000000020',
+              title: 'Acharya',
+              gotra: 'Kashyap',
+              experience: 15,
+              languages: ['Hindi', 'Sanskrit', 'English'],
+              specialties: ['🕉 Rudrabhishek', '🔥 Havan', '🏡 Griha Pravesh'],
+              bio: 'Highly trained scholar from Banaras Hindu University specializing in Rigveda rituals.',
+              city: 'Varanasi',
+              state: 'Uttar Pradesh',
+              lat: 25.3190,
+              lng: 82.9760,
+              modes: ['Temple', 'Home Visits', 'Online'],
+              temple: 'Kashi Vishwanath Temple'
+            }
+          ];
+
+          const runSql = async (sql: string) => {
+            const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+            if (error) throw error;
+            return data;
+          };
+
+          // 1. Create table structure if not exists
+          setMigrationStatus('Step 1/3: Setting up database table website_store_pundits and bookings...');
+          await runSql(`
+            CREATE TABLE IF NOT EXISTS public.website_store_pundits (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              user_id UUID REFERENCES public.website_store_users(id) ON DELETE CASCADE,
+              full_name TEXT NOT NULL,
+              spiritual_title TEXT NOT NULL,
+              languages TEXT[] NOT NULL,
+              gotra TEXT NOT NULL,
+              experience_years INT NOT NULL,
+              city TEXT NOT NULL,
+              state TEXT NOT NULL,
+              latitude NUMERIC(10, 6),
+              longitude NUMERIC(10, 6),
+              service_modes TEXT[] NOT NULL,
+              temple_name TEXT,
+              service_area TEXT,
+              specialties TEXT[] NOT NULL,
+              profile_photo TEXT,
+              bio TEXT,
+              verified_badge TEXT DEFAULT 'Registered Partner',
+              verification_uploaded BOOLEAN DEFAULT false,
+              aadhaar_url TEXT,
+              certificate_url TEXT,
+              temple_auth_url TEXT,
+              status TEXT NOT NULL DEFAULT 'pending',
+              onboarded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+              CONSTRAINT website_store_pundits_user_id_key UNIQUE (user_id)
+            );
+
+            -- Alter table if columns don't exist yet (for existing installs)
+            ALTER TABLE public.website_store_pundits ADD COLUMN IF NOT EXISTS aadhaar_url TEXT;
+            ALTER TABLE public.website_store_pundits ADD COLUMN IF NOT EXISTS certificate_url TEXT;
+            ALTER TABLE public.website_store_pundits ADD COLUMN IF NOT EXISTS temple_auth_url TEXT;
+            ALTER TABLE public.website_store_pundits ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
+
+            -- Enable RLS
+            ALTER TABLE public.website_store_pundits ENABLE ROW LEVEL SECURITY;
+
+            -- Drop policies if exist
+            DROP POLICY IF EXISTS "Allow public read access to website_store_pundits" ON public.website_store_pundits;
+            DROP POLICY IF EXISTS "Allow public insert access to website_store_pundits" ON public.website_store_pundits;
+            DROP POLICY IF EXISTS "Allow public update access to website_store_pundits" ON public.website_store_pundits;
+
+            -- Create policies
+            CREATE POLICY "Allow public read access to website_store_pundits"
+            ON public.website_store_pundits
+            FOR SELECT
+            TO anon, authenticated
+            USING (true);
+
+            CREATE POLICY "Allow public insert access to website_store_pundits"
+            ON public.website_store_pundits
+            FOR INSERT
+            TO anon, authenticated
+            WITH CHECK (true);
+
+            CREATE POLICY "Allow public update access to website_store_pundits"
+            ON public.website_store_pundits
+            FOR UPDATE
+            TO anon, authenticated
+            USING (true)
+            WITH CHECK (true);
+
+            -- Create bookings table
+            CREATE TABLE IF NOT EXISTS public.website_store_pundit_bookings (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              pundit_id UUID REFERENCES public.website_store_users(id) ON DELETE CASCADE,
+              user_id UUID,
+              puja_name TEXT NOT NULL DEFAULT 'Sacred Ritual',
+              devotee_name TEXT NOT NULL,
+              gotra TEXT,
+              devotee_phone TEXT NOT NULL,
+              booking_date DATE NOT NULL,
+              booking_time TEXT NOT NULL,
+              venue_type TEXT NOT NULL,
+              venue_address TEXT,
+              special_request TEXT,
+              dakshina NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+              status TEXT NOT NULL DEFAULT 'Pending Confirmation',
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+            );
+
+            -- Alter table if columns don't exist yet (for existing installs)
+            ALTER TABLE public.website_store_pundit_bookings ADD COLUMN IF NOT EXISTS user_id UUID;
+            ALTER TABLE public.website_store_pundit_bookings ADD COLUMN IF NOT EXISTS puja_name TEXT NOT NULL DEFAULT 'Sacred Ritual';
+
+            -- Alter push_notifications table to add user_id for targeted notifications
+            ALTER TABLE public.push_notifications ADD COLUMN IF NOT EXISTS user_id UUID;
+
+            -- Enable RLS for bookings
+            ALTER TABLE public.website_store_pundit_bookings ENABLE ROW LEVEL SECURITY;
+
+            -- Drop bookings policies if exist
+            DROP POLICY IF EXISTS "Allow public read access to website_store_pundit_bookings" ON public.website_store_pundit_bookings;
+            DROP POLICY IF EXISTS "Allow public insert access to website_store_pundit_bookings" ON public.website_store_pundit_bookings;
+            DROP POLICY IF EXISTS "Allow public update access to website_store_pundit_bookings" ON public.website_store_pundit_bookings;
+            DROP POLICY IF EXISTS "Allow public delete access to website_store_pundit_bookings" ON public.website_store_pundit_bookings;
+
+            -- Create bookings policies
+            CREATE POLICY "Allow public read access to website_store_pundit_bookings"
+            ON public.website_store_pundit_bookings
+            FOR SELECT
+            TO anon, authenticated
+            USING (true);
+
+            CREATE POLICY "Allow public insert access to website_store_pundit_bookings"
+            ON public.website_store_pundit_bookings
+            FOR INSERT
+            TO anon, authenticated
+            WITH CHECK (true);
+
+            CREATE POLICY "Allow public update access to website_store_pundit_bookings"
+            ON public.website_store_pundit_bookings
+            FOR UPDATE
+            TO anon, authenticated
+            USING (true)
+            WITH CHECK (true);
+
+            CREATE POLICY "Allow public delete access to website_store_pundit_bookings"
+            ON public.website_store_pundit_bookings
+            FOR DELETE
+            TO anon, authenticated
+            USING (true);
+          `);
+
+          // 2. Upload images to R2 and seed
+          setMigrationStatus('Step 2/3: Fetching avatars and uploading to Cloudflare R2...');
+          
+          const passwordHash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // SHA256 for 'pundit123'
+          
+          for (let i = 0; i < pundits.length; i++) {
+            const p = pundits[i];
+            setMigrationProgress(Math.round((i / pundits.length) * 100));
+            setMigrationStatus(`Uploading and seeding [${i + 1}/20]: ${p.name}...`);
+
+            let r2Url = '';
+            try {
+              const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(p.name)}`;
+              const response = await fetch(dicebearUrl);
+              const blob = await response.blob();
+              const nameSlug = p.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const file = new File([blob], `${nameSlug}_${Math.random().toString(36).substring(2, 6)}.png`, { type: 'image/png' });
+              
+              // Upload to R2 using app's uploadToR2 helper
+              r2Url = await uploadToR2(file, 'products/pundits', true);
+            } catch (err) {
+              console.error('R2 upload failed for', p.name, err);
+              r2Url = `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(p.name)}`;
+            }
+
+            const code = 'MP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            const email = `${p.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@mantrapuja.com`;
+            
+            // Build onboarding profile payload
+            const profilePayload = {
+              fullName: p.name,
+              spiritualTitle: p.title,
+              languages: p.languages,
+              gotra: p.gotra,
+              experience: p.experience,
+              location: {
+                city: p.city,
+                state: p.state,
+                latitude: p.lat,
+                longitude: p.lng
+              },
+              serviceModes: p.modes,
+              templeName: p.temple,
+              serviceArea: p.city,
+              ritualExpertise: p.specialties,
+              profilePhoto: r2Url,
+              bio: p.bio,
+              verificationUploaded: true,
+              verifiedBadge: 'Verified Pundit',
+              onboardedAt: new Date().toISOString()
+            };
+
+            const payloadStr = JSON.stringify(profilePayload).replace(/'/g, "''");
+            const nameEscaped = p.name.replace(/'/g, "''");
+            const bioEscaped = p.bio.replace(/'/g, "''");
+            const titleEscaped = p.title.replace(/'/g, "''");
+            const gotraEscaped = p.gotra.replace(/'/g, "''");
+            const cityEscaped = p.city.replace(/'/g, "''");
+            const stateEscaped = p.state.replace(/'/g, "''");
+            const templeEscaped = p.temple ? p.temple.replace(/'/g, "''") : '';
+
+            // Execute SQL to register user and pundit record
+            await runSql(`
+              DO $$
+              DECLARE
+                v_user_id UUID;
+                v_phone_exists BOOLEAN;
+              BEGIN
+                SELECT EXISTS(SELECT 1 FROM public.website_store_users WHERE phone_number = '${p.phone}') INTO v_phone_exists;
+                
+                IF NOT v_phone_exists THEN
+                  INSERT INTO public.website_store_users (
+                    id,
+                    full_name,
+                    email,
+                    phone_number,
+                    password_hash,
+                    is_pundit,
+                    affiliate_code,
+                    affiliate_status,
+                    affiliate_joined_at,
+                    pundit_profile
+                  ) VALUES (
+                    gen_random_uuid(),
+                    '${nameEscaped}',
+                    '${email}',
+                    '${p.phone}',
+                    '${passwordHash}',
+                    true,
+                    '${code}',
+                    'active',
+                    now(),
+                    '${payloadStr}'::JSONB
+                  ) RETURNING id INTO v_user_id;
+
+                  -- Add wallet
+                  INSERT INTO public.affiliate_wallets (user_id, total_earned, pending_earnings, approved_earnings, withdrawn_amount)
+                  VALUES (v_user_id, 0.00, 0.00, 0.00, 0.00)
+                  ON CONFLICT (user_id) DO NOTHING;
+                ELSE
+                  SELECT id INTO v_user_id FROM public.website_store_users WHERE phone_number = '${p.phone}';
+                  UPDATE public.website_store_users
+                  SET 
+                    is_pundit = true,
+                    pundit_profile = '${payloadStr}'::JSONB,
+                    full_name = '${nameEscaped}'
+                  WHERE id = v_user_id;
+                END IF;
+
+                -- Insert into pundits table
+                INSERT INTO public.website_store_pundits (
+                  user_id,
+                  full_name,
+                  spiritual_title,
+                  languages,
+                  gotra,
+                  experience_years,
+                  city,
+                  state,
+                  latitude,
+                  longitude,
+                  service_modes,
+                  temple_name,
+                  service_area,
+                  specialties,
+                  profile_photo,
+                  bio,
+                  verified_badge,
+                  verification_uploaded,
+                  onboarded_at
+                ) VALUES (
+                  v_user_id,
+                  '${nameEscaped}',
+                  '${titleEscaped}',
+                  ARRAY[${p.languages.map(x => `'${x}'`).join(', ')}],
+                  '${gotraEscaped}',
+                  ${p.experience},
+                  '${cityEscaped}',
+                  '${stateEscaped}',
+                  ${p.lat},
+                  ${p.lng},
+                  ARRAY[${p.modes.map(x => `'${x}'`).join(', ')}],
+                  ${templeEscaped ? `'${templeEscaped}'` : 'NULL'},
+                  '${cityEscaped}',
+                  ARRAY[${p.specialties.map(x => `'${x}'`).join(', ')}],
+                  '${r2Url}',
+                  '${bioEscaped}',
+                  'Verified Pandit',
+                  true,
+                  now()
+                ) ON CONFLICT (user_id) DO UPDATE SET
+                  full_name = EXCLUDED.full_name,
+                  spiritual_title = EXCLUDED.spiritual_title,
+                  languages = EXCLUDED.languages,
+                  gotra = EXCLUDED.gotra,
+                  experience_years = EXCLUDED.experience_years,
+                  city = EXCLUDED.city,
+                  state = EXCLUDED.state,
+                  latitude = EXCLUDED.latitude,
+                  longitude = EXCLUDED.longitude,
+                  service_modes = EXCLUDED.service_modes,
+                  temple_name = EXCLUDED.temple_name,
+                  service_area = EXCLUDED.service_area,
+                  specialties = EXCLUDED.specialties,
+                  profile_photo = EXCLUDED.profile_photo,
+                  bio = EXCLUDED.bio,
+                  verified_badge = EXCLUDED.verified_badge,
+                  verification_uploaded = EXCLUDED.verification_uploaded,
+                  updated_at = now();
+              END;
+              $$;
+            `);
+          }
+
+          setMigrationProgress(100);
+          setMigrationStatus('Migration successfully completed! 20 Vedic Acharyas seeded.');
+        } catch (error) {
+          console.error('Migration failed:', error);
+          setMigrationStatus('Migration failed: ' + (error as Error).message);
+        }
+      };
+      runMigration();
+    }
+  }, []);
   
   const [readNotificationIds, setReadNotificationIds] = React.useState<string[]>(() => {
     try {
@@ -1676,6 +2331,58 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {migrationStatus && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          fontFamily: 'system-ui, sans-serif',
+          color: '#374151'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            padding: '32px',
+            borderRadius: '16px',
+            maxWidth: '500px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }}>
+            <span style={{ fontSize: '3rem', display: 'block', marginBottom: '16px' }}>🕉️</span>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1f2937', marginBottom: '8px' }}>
+              Vedic Acharya Seeding & Cloudflare Sync
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '24px', minHeight: '40px' }}>
+              {migrationStatus}
+            </p>
+            <div style={{
+              height: '8px',
+              backgroundColor: '#e5e7eb',
+              borderRadius: '9999px',
+              overflow: 'hidden',
+              marginBottom: '16px'
+            }}>
+              <div style={{
+                height: '100%',
+                backgroundColor: '#10b981',
+                width: `${migrationProgress}%`,
+                borderRadius: '9999px',
+                transition: 'width 0.3s ease-out'
+              }} />
+            </div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+              {migrationProgress}% Complete
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 1. Navbar Section */}
       {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && (

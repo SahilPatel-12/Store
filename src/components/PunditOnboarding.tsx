@@ -5,6 +5,7 @@ import {
   X, ChevronDown, Calendar, Search, Map, RefreshCw, Star, Info
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { uploadToR2 } from '../lib/cloudflare/r2';
 
 interface PunditOnboardingProps {
   loggedInUser: { id: string; fullName: string; email: string; phoneNumber: string };
@@ -128,45 +129,45 @@ export const PunditOnboarding: React.FC<PunditOnboardingProps> = ({
     );
   };
 
-  // Profile image simulator
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Profile image uploader to Cloudflare R2
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingPhoto(true);
-    setPhotoProgress(0);
-
-    // Read local file as base64 for preview
-    const reader = new FileReader();
-    reader.onload = () => {
-      const interval = setInterval(() => {
-        setPhotoProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setUploadingPhoto(false);
-            setProfilePhoto(reader.result as string);
-            return 100;
-          }
-          return prev + 20;
-        });
-      }, 150);
-    };
-    reader.readAsDataURL(file);
+    setPhotoProgress(10);
+    try {
+      setPhotoProgress(30);
+      const url = await uploadToR2(file, 'pundits/photos', true);
+      setPhotoProgress(80);
+      setProfilePhoto(url);
+      setPhotoProgress(100);
+    } catch (err) {
+      console.error('Error uploading profile photo to R2:', err);
+      alert('Photo upload failed. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
-  // Mock document uploader
-  const handleDocUpload = (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Document uploader to Cloudflare R2
+  const handleDocUpload = async (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingDoc(key);
-    setTimeout(() => {
+    try {
+      const url = await uploadToR2(file, 'pundits/documents', true);
       setDocs(prev => ({
         ...prev,
-        [key]: { name: file.name, url: '#' }
+        [key]: { name: file.name, url }
       }));
+    } catch (err) {
+      console.error(`Error uploading document ${key} to R2:`, err);
+      alert('Document upload failed. Please try again.');
+    } finally {
       setUploadingDoc(null);
-    }, 1500);
+    }
   };
 
   // Toggle multi-selects
@@ -249,7 +250,11 @@ export const PunditOnboarding: React.FC<PunditOnboardingProps> = ({
       bio: bio || `Vedic priest with ${experienceYears} years of experience in conducting sacred rituals.`,
       verificationUploaded: Object.keys(docs).length > 0,
       verifiedBadge: Object.keys(docs).length > 0 ? 'Verified Pandit' : 'Registered Partner',
-      onboardedAt: new Date().toISOString()
+      onboardedAt: new Date().toISOString(),
+      aadhaarUrl: docs['aadhaar']?.url || '',
+      certificateUrl: docs['certificate']?.url || '',
+      templeAuthUrl: docs['templeAuth']?.url || '',
+      status: 'pending'
     };
 
     onComplete(profilePayload);

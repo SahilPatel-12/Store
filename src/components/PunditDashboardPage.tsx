@@ -168,81 +168,121 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
     setLoadingPunditProfile(false);
   }, [loggedInUser.id]);
 
+  const fetchDbBookings = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_store_pundit_bookings')
+        .select('*')
+        .eq('pundit_id', loggedInUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const formatted = data.map((b: any) => ({
+          id: b.id,
+          userId: b.user_id,
+          devoteeName: b.devotee_name,
+          gotra: b.gotra,
+          familyNames: b.gotra ? `Gotra: ${b.gotra}` : '',
+          ritualName: b.puja_name || 'Sacred Ritual',
+          dateTime: `${b.booking_date} at ${b.booking_time}`,
+          serviceMode: b.venue_type === 'home' ? 'Home Visit' : b.venue_type === 'online' ? 'Online' : 'Temple Visit',
+          details: b.venue_address || 'Virtual Call',
+          phone: b.devotee_phone,
+          dakshina: parseFloat(b.dakshina) || 0,
+          sankalpa: b.special_request || 'Family peace, health & prosperity.',
+          status: b.status
+        }));
+        setBookings(formatted);
+        setSelectedBooking((prev: any) => {
+          if (!prev) return formatted[0] || null;
+          const found = formatted.find((x: any) => x.id === prev.id);
+          return found || formatted[0] || null;
+        });
+      } else {
+        // Fallback to mock data if table is empty
+        const mockBookings = [
+          {
+            id: 'BK-1001',
+            devoteeName: 'Sunil Mishra',
+            gotra: 'Kashyap',
+            familyNames: 'Sunil, wife Renu, son Ayush',
+            ritualName: '🏡 Griha Pravesh (House Warming)',
+            dateTime: 'June 28, 2026 at 09:30 AM',
+            serviceMode: 'Home Visit',
+            details: 'Flat 902, A-Wing, Orchid Heights, Sector-15, Thane, Maharashtra',
+            phone: '+91 98192 83746',
+            dakshina: 8500,
+            sankalpa: 'Peace, family prosperity, and protection from negative energy.',
+            status: 'Pending Confirmation'
+          },
+          {
+            id: 'BK-1002',
+            devoteeName: 'Amit Sen',
+            gotra: 'Vashishtha',
+            familyNames: 'Amit, wife Suchitra',
+            ritualName: '🕉 Rudrabhishek Puja',
+            dateTime: 'June 30, 2026 at 07:00 AM',
+            serviceMode: 'Online',
+            details: 'https://zoom.us/j/9876543210?pwd=MantraPujaRudrabhishek',
+            phone: '+91 90048 57122',
+            dakshina: 5100,
+            sankalpa: 'Good health, removal of health obstacles, and spiritual growth.',
+            status: 'Confirmed'
+          },
+          {
+            id: 'BK-1003',
+            devoteeName: 'Rajesh Iyer',
+            gotra: 'Bharadwaj',
+            familyNames: 'Rajesh, wife Meenakshi, daughter Anjali',
+            ritualName: '💰 Lakshmi Puja (Office Blessing)',
+            dateTime: 'June 22, 2026 at 11:30 AM',
+            serviceMode: 'Temple Visit',
+            details: 'Kashi Vishwanath Mandir Hall A, Varanasi, UP',
+            phone: '+91 98203 94857',
+            dakshina: 11000,
+            sankalpa: 'Business expansion, financial growth, and obstacle removal.',
+            status: 'Completed'
+          },
+          {
+            id: 'BK-1004',
+            devoteeName: 'Karan Johar',
+            gotra: 'Gautam',
+            familyNames: 'Karan, mother Hiroo',
+            ritualName: '🌞 Navgraha Shanti Havan',
+            dateTime: 'July 05, 2026 at 08:00 AM',
+            serviceMode: 'Home Visit',
+            details: 'Bungalow No 4, Carter Road, Bandra West, Mumbai, Maharashtra',
+            phone: '+91 98210 29384',
+            dakshina: 15000,
+            sankalpa: 'Calming Saturn (Shani) and Rahu planetary alignments for peace of mind.',
+            status: 'Pending Confirmation'
+          }
+        ];
+        
+        const savedBookings = localStorage.getItem(`pundit_bookings_${loggedInUser.id}`);
+        if (savedBookings) {
+          const parsed = JSON.parse(savedBookings);
+          setBookings(parsed);
+          setSelectedBooking(parsed[0] || null);
+        } else {
+          localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(mockBookings));
+          setBookings(mockBookings);
+          setSelectedBooking(mockBookings[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching bookings from DB:', err);
+    }
+  }, [loggedInUser.id]);
+
   React.useEffect(() => {
     fetchAffiliateProfile();
     fetchDashboardLists();
     fetchPunditProfile();
-
-    const mockBookings = [
-      {
-        id: 'BK-1001',
-        devoteeName: 'Sunil Mishra',
-        gotra: 'Kashyap',
-        familyNames: 'Sunil, wife Renu, son Ayush',
-        ritualName: '🏡 Griha Pravesh (House Warming)',
-        dateTime: 'June 28, 2026 at 09:30 AM',
-        serviceMode: 'Home Visit',
-        details: 'Flat 902, A-Wing, Orchid Heights, Sector-15, Thane, Maharashtra',
-        phone: '+91 98192 83746',
-        dakshina: 8500,
-        sankalpa: 'Peace, family prosperity, and protection from negative energy.',
-        status: 'Pending Confirmation'
-      },
-      {
-        id: 'BK-1002',
-        devoteeName: 'Amit Sen',
-        gotra: 'Vashishtha',
-        familyNames: 'Amit, wife Suchitra',
-        ritualName: '🕉 Rudrabhishek Puja',
-        dateTime: 'June 30, 2026 at 07:00 AM',
-        serviceMode: 'Online',
-        details: 'https://zoom.us/j/9876543210?pwd=MantraPujaRudrabhishek',
-        phone: '+91 90048 57122',
-        dakshina: 5100,
-        sankalpa: 'Good health, removal of health obstacles, and spiritual growth.',
-        status: 'Confirmed'
-      },
-      {
-        id: 'BK-1003',
-        devoteeName: 'Rajesh Iyer',
-        gotra: 'Bharadwaj',
-        familyNames: 'Rajesh, wife Meenakshi, daughter Anjali',
-        ritualName: '💰 Lakshmi Puja (Office Blessing)',
-        dateTime: 'June 22, 2026 at 11:30 AM',
-        serviceMode: 'Temple Visit',
-        details: 'Kashi Vishwanath Mandir Hall A, Varanasi, UP',
-        phone: '+91 98203 94857',
-        dakshina: 11000,
-        sankalpa: 'Business expansion, financial growth, and obstacle removal.',
-        status: 'Completed'
-      },
-      {
-        id: 'BK-1004',
-        devoteeName: 'Karan Johar',
-        gotra: 'Gautam',
-        familyNames: 'Karan, mother Hiroo',
-        ritualName: '🌞 Navgraha Shanti Havan',
-        dateTime: 'July 05, 2026 at 08:00 AM',
-        serviceMode: 'Home Visit',
-        details: 'Bungalow No 4, Carter Road, Bandra West, Mumbai, Maharashtra',
-        phone: '+91 98210 29384',
-        dakshina: 15000,
-        sankalpa: 'Calming Saturn (Shani) and Rahu planetary alignments for peace of mind.',
-        status: 'Pending Confirmation'
-      }
-    ];
-
-    const savedBookings = localStorage.getItem(`pundit_bookings_${loggedInUser.id}`);
-    if (savedBookings) {
-      const parsed = JSON.parse(savedBookings);
-      setBookings(parsed);
-      setSelectedBooking(parsed[0] || null);
-    } else {
-      localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(mockBookings));
-      setBookings(mockBookings);
-      setSelectedBooking(mockBookings[0]);
-    }
-  }, [fetchAffiliateProfile, fetchDashboardLists, fetchPunditProfile, loggedInUser.id]);
+    fetchDbBookings();
+  }, [fetchAffiliateProfile, fetchDashboardLists, fetchPunditProfile, fetchDbBookings]);
 
   const handleCopyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -348,19 +388,101 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
     } catch (e) {
       console.warn('Could not update users table directly (fallback is active):', e);
     }
+
+    try {
+      const { error: dbError } = await supabase.from('website_store_pundits').upsert({
+        user_id: loggedInUser.id,
+        full_name: profileData.fullName,
+        spiritual_title: profileData.spiritualTitle,
+        languages: profileData.languages,
+        gotra: profileData.gotra,
+        experience_years: profileData.experience,
+        city: profileData.location.city,
+        state: profileData.location.state,
+        latitude: profileData.location.latitude,
+        longitude: profileData.location.longitude,
+        service_modes: profileData.serviceModes,
+        temple_name: profileData.templeName || null,
+        service_area: profileData.serviceArea || null,
+        specialties: profileData.ritualExpertise,
+        profile_photo: profileData.profilePhoto,
+        bio: profileData.bio,
+        verified_badge: profileData.verifiedBadge,
+        verification_uploaded: profileData.verificationUploaded,
+        aadhaar_url: profileData.aadhaarUrl || null,
+        certificate_url: profileData.certificateUrl || null,
+        temple_auth_url: profileData.templeAuthUrl || null,
+        status: profileData.status || 'pending',
+        onboarded_at: profileData.onboardedAt
+      }, { onConflict: 'user_id' });
+      if (dbError) throw dbError;
+    } catch (e) {
+      console.error('Error upserting to website_store_pundits:', e);
+    }
   };
 
-  const handleUpdateBookingStatus = (id: string, newStatus: string) => {
-    const updated = bookings.map(b => {
-      if (b.id === id) {
-        return { ...b, status: newStatus };
+  const handleUpdateBookingStatus = async (id: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('website_store_pundit_bookings')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Send push notification if it's a real DB booking and has user_id
+      const booking = bookings.find(b => b.id === id);
+      if (booking && booking.userId) {
+        let notifTitle = "Booking Update";
+        let notifBody = `Your booking status for ${booking.ritualName} has been updated to "${newStatus}".`;
+
+        if (newStatus === 'Confirmed') {
+          notifTitle = "🕉️ Booking Confirmed!";
+          notifBody = `Your booking for ${booking.ritualName} has been confirmed. Timings: ${booking.dateTime}.`;
+        } else if (newStatus === 'Completed') {
+          notifTitle = "🙏 Seva Completed";
+          notifBody = `Your puja booking for ${booking.ritualName} has been completed successfully.`;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const timeStr = new Date().toTimeString().split(' ')[0];
+
+        await supabase.from('push_notifications').insert({
+          title: notifTitle,
+          body: notifBody,
+          notification_type: 'generic',
+          scheduled_date: todayStr,
+          scheduled_time: timeStr,
+          status: 'sent',
+          user_id: booking.userId,
+          sent_at: new Date().toISOString()
+        });
       }
-      return b;
-    });
-    setBookings(updated);
-    localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(updated));
-    if (selectedBooking && selectedBooking.id === id) {
-      setSelectedBooking({ ...selectedBooking, status: newStatus });
+
+      // Update local state
+      const updated = bookings.map(b => {
+        if (b.id === id) {
+          return { ...b, status: newStatus };
+        }
+        return b;
+      });
+      setBookings(updated);
+      if (selectedBooking && selectedBooking.id === id) {
+        setSelectedBooking({ ...selectedBooking, status: newStatus });
+      }
+    } catch (err) {
+      console.warn("Could not update booking in database (using local fallback):", err);
+      const updated = bookings.map(b => {
+        if (b.id === id) {
+          return { ...b, status: newStatus };
+        }
+        return b;
+      });
+      setBookings(updated);
+      localStorage.setItem(`pundit_bookings_${loggedInUser.id}`, JSON.stringify(updated));
+      if (selectedBooking && selectedBooking.id === id) {
+        setSelectedBooking({ ...selectedBooking, status: newStatus });
+      }
     }
   };
 
