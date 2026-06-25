@@ -33,6 +33,8 @@ const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m
 const AffiliationPromoPage = React.lazy(() => import('./components/AffiliationPromoPage').then(m => ({ default: m.AffiliationPromoPage })));
 const PunditLoginPage = React.lazy(() => import('./components/PunditLoginPage').then(m => ({ default: m.PunditLoginPage })));
 const PunditDashboardPage = React.lazy(() => import('./components/PunditDashboardPage').then(m => ({ default: m.PunditDashboardPage })));
+const AstrologerLoginPage = React.lazy(() => import('./components/AstrologerLoginPage').then(m => ({ default: m.AstrologerLoginPage })));
+const AstrologerDashboardPage = React.lazy(() => import('./components/AstrologerDashboardPage').then(m => ({ default: m.AstrologerDashboardPage })));
 
 
 // Default shop categories list
@@ -234,7 +236,7 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard'>('shop');
   
   // Dynamic client-side pundit migration runner
   const [migrationStatus, setMigrationStatus] = React.useState<string | null>(null);
@@ -1171,7 +1173,7 @@ function App() {
 
 
   const setCurrentPage = (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard',
     options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean; profileTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate' }
   ) => {
     setMobileMenuOpen(false);
@@ -1269,6 +1271,12 @@ function App() {
         break;
       case 'pundit-dashboard':
         path = '/pundit-dashboard';
+        break;
+      case 'astrologer-login':
+        path = '/astrologer-login';
+        break;
+      case 'astrologer-dashboard':
+        path = '/astrologer-dashboard';
         break;
       default:
         path = '/';
@@ -1398,6 +1406,10 @@ function App() {
         setCurrentPageState('pundit-login');
       } else if (path === '/pundit-dashboard' || path === '/pundit-dashboard/') {
         setCurrentPageState('pundit-dashboard');
+      } else if (path === '/astrologer-login' || path === '/astrologer-login/') {
+        setCurrentPageState('astrologer-login');
+      } else if (path === '/astrologer-dashboard' || path === '/astrologer-dashboard/') {
+        setCurrentPageState('astrologer-dashboard');
       } else {
         setCurrentPageState('shop');
       }
@@ -1442,6 +1454,30 @@ function App() {
     checkPunditStatus();
   }, [loggedInUser]);
 
+  // Astrologer session checker and redirect routing
+  React.useEffect(() => {
+    const checkAstrologerStatus = async () => {
+      if (loggedInUser && loggedInUser.id && (loggedInUser as any).isAstrologer === undefined) {
+        try {
+          const { data, error } = await supabase
+            .from('website_store_users')
+            .select('is_astrologer')
+            .eq('id', loggedInUser.id)
+            .maybeSingle();
+          if (!error && data) {
+            const isAstrologer = !!data.is_astrologer;
+            const updatedUser = { ...loggedInUser, isAstrologer };
+            localStorage.setItem('mantra_user_session', JSON.stringify(updatedUser));
+            setLoggedInUser(updatedUser);
+          }
+        } catch (e) {
+          console.error('Error checking astrologer status:', e);
+        }
+      }
+    };
+    checkAstrologerStatus();
+  }, [loggedInUser]);
+
   React.useEffect(() => {
     if (loggedInUser?.isPundit) {
       if (currentPageState === 'profile' || currentPageState === 'user-auth' || currentPageState === 'pundit-login') {
@@ -1451,6 +1487,20 @@ function App() {
       if (!loggedInUser) {
         setCurrentPage('pundit-login');
       } else if (loggedInUser.isPundit === false) {
+        setCurrentPage('shop');
+      }
+    }
+  }, [loggedInUser, currentPageState]);
+
+  React.useEffect(() => {
+    if ((loggedInUser as any)?.isAstrologer) {
+      if (currentPageState === 'profile' || currentPageState === 'user-auth' || currentPageState === 'astrologer-login') {
+        setCurrentPage('astrologer-dashboard');
+      }
+    } else if (currentPageState === 'astrologer-dashboard') {
+      if (!loggedInUser) {
+        setCurrentPage('astrologer-login');
+      } else if ((loggedInUser as any).isAstrologer === false) {
         setCurrentPage('shop');
       }
     }
@@ -2385,7 +2435,7 @@ function App() {
       )}
       
       {/* 1. Navbar Section */}
-      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && (
+      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && currentPage !== 'astrologer-login' && currentPage !== 'astrologer-dashboard' && (
         <nav style={{
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--border-light)',
@@ -4773,6 +4823,31 @@ function App() {
           }}
           products={productsState}
         />
+      ) : currentPage === 'astrologer-login' ? (
+        <AstrologerLoginPage
+          onLoginSuccess={(userSession, token) => {
+            try {
+              const updatedSession = { ...userSession, isAstrologer: true };
+              localStorage.setItem('mantra_user_session', JSON.stringify(updatedSession));
+              localStorage.setItem('session_token', token);
+              setLoggedInUser(updatedSession);
+            } catch (e) {}
+            setCurrentPage('astrologer-dashboard');
+          }}
+          onNavigateToHome={() => setCurrentPage('home')}
+        />
+      ) : currentPage === 'astrologer-dashboard' && loggedInUser ? (
+        <AstrologerDashboardPage
+          loggedInUser={loggedInUser}
+          onLogout={() => {
+            try {
+              localStorage.removeItem('mantra_user_session');
+              localStorage.removeItem('session_token');
+            } catch (e) {}
+            setLoggedInUser(null);
+            setCurrentPage('astrologer-login');
+          }}
+        />
       ) : (
         selectedProduct && (
           <ProductDetailPage
@@ -4792,7 +4867,7 @@ function App() {
       </React.Suspense>
 
       {/* upgraded Premium Devotional Footer */}
-      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && (
+      {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && currentPage !== 'astrologer-login' && currentPage !== 'astrologer-dashboard' && (
         <footer style={{
         backgroundColor: 'var(--primary-forest)',
         color: '#ffffff',
@@ -4850,6 +4925,16 @@ function App() {
                 <li>
                   <button onClick={() => setIsCartDrawerOpen(true)} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
                     Shopping Cart
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('pundit-login')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Pandit Portal
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('astrologer-login')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Astrologer Portal
                   </button>
                 </li>
 

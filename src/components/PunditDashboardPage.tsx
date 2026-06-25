@@ -20,6 +20,7 @@ import {
 import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 import { PunditOnboarding } from './PunditOnboarding';
+import { AstrologerDashboardPage } from './AstrologerDashboardPage';
 
 interface PunditDashboardPageProps {
   loggedInUser: { id: string; fullName: string; email: string; phoneNumber: string };
@@ -32,7 +33,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
   onLogout,
   products
 }) => {
-  const [activeTab, setActiveTab] = React.useState<'affiliation' | 'booking'>('affiliation');
+  const [activeTab, setActiveTab] = React.useState<'affiliation' | 'booking' | 'astrologer'>('affiliation');
   const [affiliateProfile, setAffiliateProfile] = React.useState<any>(null);
   const [loadingProfile, setLoadingProfile] = React.useState(true);
   
@@ -602,6 +603,26 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
             }}
           >
             <Calendar size={16} /> Pandit Puja Bookings
+          </button>
+          <button
+            onClick={() => setActiveTab('astrologer')}
+            style={{
+              background: activeTab === 'astrologer' ? '#ffffff' : 'transparent',
+              border: activeTab === 'astrologer' ? '1.5px solid #fbbf24' : '1px solid transparent',
+              color: activeTab === 'astrologer' ? '#fbbf24' : '#6b7280',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'astrologer' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05)' : 'none',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>🪐</span> Astrologer Console
           </button>
         </div>
 
@@ -1746,6 +1767,19 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
 
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab Content: Astrologer Portal */}
+        {activeTab === 'astrologer' && (
+          <div style={{
+            animation: 'fadeIn 0.4s ease-out'
+          }}>
+            <AstrologerDashboardPage
+              loggedInUser={loggedInUser}
+              onLogout={onLogout}
+              isEmbedded={true}
+            />
           </div>
         )}
 
