@@ -183,7 +183,16 @@ BEGIN
   SET referred_by = NULL 
   WHERE referred_by = p_target_user_id;
 
-  -- 11. Delete the user profile itself
+  -- 11. Delete associated pundit profile (if any)
+  DELETE FROM public.website_store_pundits WHERE user_id = p_target_user_id;
+
+  -- 12. Delete associated astrologer profile (if any)
+  DELETE FROM public.website_store_astrologers WHERE user_id = p_target_user_id;
+
+  -- 13. Delete associated mobile app user (if any)
+  DELETE FROM public.app_users WHERE id = p_target_user_id;
+
+  -- 14. Delete the user profile itself
   DELETE FROM public.website_store_users WHERE id = p_target_user_id;
 
   -- 12. Log action in affiliate audit logs
