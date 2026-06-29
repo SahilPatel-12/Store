@@ -1002,3 +1002,146 @@ details.referral-details > summary {
   pointer-events: auto;
   transform: scale(1);
 }
+
+/* ==========================================
+   Pandit & Astrologer Portal Responsiveness
+   ========================================== */
+
+/* Login cards custom responsive padding */
+@media (max-width: 480px) {
+  .auth-login-card {
+    padding: 24px 16px !important;
+  }
+}
+
+/* Pandit affiliate sharing row layout wrap stack */
+@media (max-width: 768px) {
+  .affiliate-sharing-container > div {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Astrologer Dashboard Mobile Panel Switching */
+@media (max-width: 900px) {
+  /* Astrologer dashboard grid layout reset on mobile */
+  .astro-dashboard-main {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: calc(100vh - 80px) !important;
+    overflow-y: auto !important;
+    padding: 12px !important;
+  }
+
+  /* Default state: show only the queue list */
+  .astro-dashboard-queue {
+    display: flex !important;
+  }
+  .astro-dashboard-chat {
+    display: none !important;
+    height: calc(100vh - 120px) !important; /* full-height chat card */
+  }
+  .astro-dashboard-simulator {
+    display: none !important;
+  }
+
+  /* Active Chat selected state */
+  .astro-dashboard-main.has-selection .astro-dashboard-queue {
+    display: none !important;
+  }
+  .astro-dashboard-main.has-selection .astro-dashboard-chat {
+    display: flex !important;
+  }
+  .astro-dashboard-main.has-selection .astro-dashboard-simulator {
+    display: none !important;
+  }
+
+  /* Simulator toggle active state */
+  .astro-dashboard-main.show-simulator .astro-dashboard-queue {
+    display: none !important;
+  }
+  .astro-dashboard-main.show-simulator .astro-dashboard-chat {
+    display: none !important;
+  }
+  .astro-dashboard-main.show-simulator .astro-dashboard-simulator {
+    display: flex !important;
+  }
+
+  /* Reveal mobile-specific triggers */
+  .astro-mobile-back-btn {
+    display: inline-flex !important;
+  }
+  .astro-simulator-toggle-btn {
+    display: inline-flex !important;
+  }
+  .astro-mobile-close-simulator-btn {
+    display: block !important;
+  }
+
+  /* Astrologer Dashboard Header & Subheader Responsiveness on mobile */
+  .astro-header-container,
+  .astro-embedded-subheader {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+  
+  .astro-header-actions,
+  .astro-embedded-subheader-actions {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+    margin-top: 4px !important;
+  }
+
+  /* Devotee Info Banner Responsiveness */
+  .astro-chat-banner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 12px 16px !important;
+  }
+  .astro-chat-complete-btn {
+    width: 100% !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  /* Pandit Dashboard Tabs wrap stack */
+  .pundit-dashboard-tabs {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+  .pundit-dashboard-tabs button {
+    flex: 1 1 auto !important;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 12px 20px !important;
+    font-size: 0.85rem !important;
+    background-color: #f3f4f6 !important;
+    border: 1.5px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    color: #6b7280 !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  .pundit-dashboard-tabs button.active-affiliation,
+  .pundit-dashboard-tabs button.active-booking {
+    background-color: #ffffff !important;
+    border: 1.5px solid #84cc16 !important;
+    color: #84cc16 !important;
+    box-shadow: 0 4px 12px rgba(132, 204, 22, 0.15) !important;
+  }
+
+  .pundit-dashboard-tabs button.active-astrologer {
+    background-color: #ffffff !important;
+    border: 1.5px solid #fbbf24 !important;
+    color: #fbbf24 !important;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15) !important;
+  }
+}
+

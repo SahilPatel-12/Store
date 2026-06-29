@@ -152,7 +152,7 @@ export const PunditLoginPage: React.FC<PunditLoginPageProps> = ({
       }} />
 
       {/* Glassmorphic Login Container */}
-      <div style={{
+      <div className="auth-login-card" style={{
         width: '100%',
         maxWidth: '440px',
         backgroundColor: 'rgba(255, 255, 255, 0.85)',

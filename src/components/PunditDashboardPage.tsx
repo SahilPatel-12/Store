@@ -557,7 +557,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px' }}>
         
         {/* Navigation Tabs */}
-        <div style={{
+        <div className="pundit-dashboard-tabs" style={{
           display: 'flex',
           gap: '12px',
           borderBottom: '2px solid #e5e7eb',
@@ -566,6 +566,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
         }}>
           <button
             onClick={() => setActiveTab('affiliation')}
+            className={activeTab === 'affiliation' ? 'active-affiliation' : ''}
             style={{
               background: activeTab === 'affiliation' ? '#ffffff' : 'transparent',
               border: activeTab === 'affiliation' ? '1.5px solid var(--primary-lime, #84cc16)' : '1px solid transparent',
@@ -579,13 +580,16 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
               alignItems: 'center',
               gap: '8px',
               boxShadow: activeTab === 'affiliation' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05)' : 'none',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
             <Wallet size={16} /> Affiliation & Sharing Links
           </button>
           <button
             onClick={() => setActiveTab('booking')}
+            className={activeTab === 'booking' ? 'active-booking' : ''}
             style={{
               background: activeTab === 'booking' ? '#ffffff' : 'transparent',
               border: activeTab === 'booking' ? '1.5px solid var(--primary-lime, #84cc16)' : '1px solid transparent',
@@ -599,13 +603,16 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
               alignItems: 'center',
               gap: '8px',
               boxShadow: activeTab === 'booking' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05)' : 'none',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
             <Calendar size={16} /> Pandit Puja Bookings
           </button>
           <button
             onClick={() => setActiveTab('astrologer')}
+            className={activeTab === 'astrologer' ? 'active-astrologer' : ''}
             style={{
               background: activeTab === 'astrologer' ? '#ffffff' : 'transparent',
               border: activeTab === 'astrologer' ? '1.5px solid #fbbf24' : '1px solid transparent',
@@ -619,7 +626,9 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
               alignItems: 'center',
               gap: '8px',
               boxShadow: activeTab === 'astrologer' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05)' : 'none',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
             <span style={{ fontSize: '1.1rem' }}>🪐</span> Astrologer Console
@@ -676,7 +685,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
                     Default Pandit Referral sharing
                   </h3>
                   
-                  <div style={{
+                  <div className="affiliate-sharing-container" style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -847,7 +856,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
 
                   <div style={{
                     maxHeight: '400px',
-                    overflowY: 'auto',
+                    overflow: 'auto',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px'
                   }}>
@@ -916,7 +925,7 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
                 {/* Two-Column split for Payout & Referral tables */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))',
                   gap: '24px'
                 }}>
                   

@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Clock, LogOut, CheckCircle, MessageSquare, Send, Power, Sparkles, Compass
+  Clock, LogOut, CheckCircle, MessageSquare, Send, Power, Sparkles, Compass, ArrowLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AstrologerOnboarding } from './AstrologerOnboarding';
@@ -25,6 +25,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
   const [selectedBooking, setSelectedBooking] = React.useState<any>(null);
   const [messages, setMessages] = React.useState<any[]>([]);
   const [inputText, setInputText] = React.useState('');
+  const [mobileShowSimulator, setMobileShowSimulator] = React.useState(false);
   
   // Simulator States
   const showSimulator = true;
@@ -693,7 +694,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
           top: 0,
           zIndex: 50
         }}>
-          <div style={{
+          <div className="astro-header-container" style={{
             maxWidth: '1440px',
             margin: '0 auto',
             padding: '16px 24px',
@@ -715,7 +716,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
               </div>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="astro-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               {/* Online Toggle Switch */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8' }}>Realtime Status:</span>
@@ -741,6 +742,27 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
                   <span>{astrologerProfile.is_online ? 'ONLINE' : 'OFFLINE'}</span>
                 </button>
               </div>
+
+              <button
+                className="astro-simulator-toggle-btn"
+                onClick={() => setMobileShowSimulator(prev => !prev)}
+                style={{
+                  display: 'none',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: mobileShowSimulator ? 'rgba(217, 119, 6, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                  color: '#fbbf24',
+                  border: '1px solid rgba(217, 119, 6, 0.4)',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Sparkles size={14} /> Simulator
+              </button>
 
               <button
                 onClick={onLogout}
@@ -770,7 +792,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
 
       {/* Embedded Sub-header with Status Toggle */}
       {isEmbedded && (
-        <div style={{
+        <div className="astro-embedded-subheader" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -792,7 +814,27 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="astro-embedded-subheader-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="astro-simulator-toggle-btn"
+              onClick={() => setMobileShowSimulator(prev => !prev)}
+              style={{
+                display: 'none',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: mobileShowSimulator ? 'rgba(217, 119, 6, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                color: '#fbbf24',
+                border: '1px solid rgba(217, 119, 6, 0.4)',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Sparkles size={14} /> Simulator
+            </button>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8' }}>Realtime Chat Status:</span>
             <button
               onClick={handleToggleOnline}
@@ -820,7 +862,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
       )}
 
       {/* Main Core Dashboard Layout */}
-      <main style={{
+      <main className={`astro-dashboard-main ${selectedBooking ? 'has-selection' : ''} ${mobileShowSimulator ? 'show-simulator' : ''}`} style={{
         maxWidth: '1440px',
         margin: '0 auto',
         width: '100%',
@@ -834,7 +876,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
       }}>
         
         {/* Left Column: Session Queue */}
-        <section style={{
+        <section className="astro-dashboard-queue" style={{
           backgroundColor: '#0c0f1d',
           borderRadius: '12px',
           border: '1px solid rgba(139, 92, 246, 0.15)',
@@ -972,7 +1014,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
         </section>
 
         {/* Center Section: Main Active Chat Interface */}
-        <section style={{
+        <section className="astro-dashboard-chat" style={{
           backgroundColor: '#0a0f1d',
           borderRadius: '12px',
           border: '1px solid rgba(139, 92, 246, 0.15)',
@@ -984,7 +1026,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
           {selectedBooking ? (
             <>
               {/* Devotee Info Banner */}
-              <div style={{
+              <div className="astro-chat-banner" style={{
                 padding: '16px 24px',
                 backgroundColor: '#0c1122',
                 borderBottom: '1px solid rgba(139, 92, 246, 0.1)',
@@ -992,17 +1034,38 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-                    {selectedBooking.devotee_name}
-                  </h3>
-                  <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '2px 0 0 0' }}>
-                    Phone: {selectedBooking.devotee_phone} &bull; Type: <strong>Chat Reading</strong>
-                  </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    className="astro-mobile-back-btn"
+                    onClick={() => setSelectedBooking(null)}
+                    style={{
+                      display: 'none',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: '#fbbf24',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0
+                    }}
+                  >
+                    <ArrowLeft size={16} /> Back
+                  </button>
+                  <div>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                      {selectedBooking.devotee_name}
+                    </h3>
+                    <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '2px 0 0 0' }}>
+                      Phone: {selectedBooking.devotee_phone} &bull; Type: <strong>Chat Reading</strong>
+                    </p>
+                  </div>
                 </div>
                 
                 {selectedBooking.status === 'Active' && (
                   <button
+                    className="astro-chat-complete-btn"
                     onClick={() => handleUpdateStatus(selectedBooking.id, 'Completed')}
                     style={{
                       backgroundColor: 'rgba(217, 119, 6, 0.15)',
@@ -1236,7 +1299,7 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
 
         {/* Right Column: Cosmic Devotee Simulator Panel */}
         {showSimulator && (
-          <aside style={{
+          <aside className="astro-dashboard-simulator" style={{
             backgroundColor: '#090c15',
             borderRadius: '12px',
             border: '1px dashed rgba(217, 119, 6, 0.4)',
@@ -1246,11 +1309,29 @@ export const AstrologerDashboardPage: React.FC<AstrologerDashboardPageProps> = (
             gap: '16px',
             overflowY: 'auto'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid rgba(217, 119, 6, 0.15)', paddingBottom: '10px' }}>
-              <Sparkles size={16} style={{ color: '#fbbf24' }} />
-              <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Devotee Simulator
-              </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(217, 119, 6, 0.15)', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={16} style={{ color: '#fbbf24' }} />
+                <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Devotee Simulator
+                </h3>
+              </div>
+              <button
+                className="astro-mobile-close-simulator-btn"
+                onClick={() => setMobileShowSimulator(false)}
+                style={{
+                  display: 'none',
+                  color: '#fca5a5',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0
+                }}
+              >
+                Close
+              </button>
             </div>
 
             {/* Simulated request form */}

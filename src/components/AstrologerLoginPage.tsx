@@ -167,7 +167,7 @@ export const AstrologerLoginPage: React.FC<AstrologerLoginPageProps> = ({
       }} />
 
       {/* Cosmic Glassmorphic Login Card */}
-      <div style={{
+      <div className="auth-login-card" style={{
         width: '100%',
         maxWidth: '440px',
         backgroundColor: 'rgba(15, 23, 42, 0.65)',
