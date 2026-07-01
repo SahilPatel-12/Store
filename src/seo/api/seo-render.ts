@@ -4,8 +4,8 @@ export type VercelRequest = any;
 export type VercelResponse = any;
 import path from 'path';
 import fs from 'fs';
-import { BASE_URL } from '../src/seo/seo-registry';
-import { getProductSchema, getBreadcrumbSchema, getCollectionPageSchema } from '../src/seo/schema-generator';
+import { BASE_URL } from '../seo-registry';
+import { getProductSchema, getBreadcrumbSchema, getCollectionPageSchema } from '../schema-generator';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

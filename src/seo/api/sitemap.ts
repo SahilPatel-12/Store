@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 export type VercelRequest = any;
 export type VercelResponse = any;
 
-import { BASE_URL } from '../src/seo/seo-registry';
-import { buildXmlSitemap } from '../src/seo/sitemap-generator';
-import type { SitemapNode } from '../src/seo/types';
-import { staticRoutes } from '../src/seo/static-routes';
+import { BASE_URL } from '../seo-registry';
+import { buildXmlSitemap } from '../sitemap-generator';
+import type { SitemapNode } from '../types';
+import { staticRoutes } from '../static-routes';
 
 // Enforce HTTPS canonical constraints and cleanup URLs
 function cleanAndValidateUrl(loc: string, onInvalid: () => void): string | null {
