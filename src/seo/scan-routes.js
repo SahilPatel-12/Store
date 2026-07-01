@@ -1,18 +1,22 @@
 import fs from 'fs';
-import path from 'path';
+import path from 'url';
 import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
+
+import fsLib from 'fs';
+import pathLib from 'path';
 
 function scanRoutes() {
   const routes = new Set();
   routes.add('/'); // Always include home
 
   try {
-    const appPath = path.join(__dirname, '../App.tsx');
-    if (fs.existsSync(appPath)) {
-      const content = fs.readFileSync(appPath, 'utf8');
+    const appPath = pathLib.join(__dirname, '../App.tsx');
+    if (fsLib.existsSync(appPath)) {
+      const content = fsLib.readFileSync(appPath, 'utf8');
       const matchRegex = /(?:path\s*===\s*|path\.startsWith\()(['"])([^'"]+)\1/g;
       let match;
       while ((match = matchRegex.exec(content)) !== null) {
@@ -55,8 +59,9 @@ function scanRoutes() {
     }
   }
 
-  const outputPath = path.join(__dirname, 'static-routes.json');
-  fs.writeFileSync(outputPath, JSON.stringify(Array.from(routes), null, 2), 'utf8');
+  const outputPath = pathLib.join(__dirname, 'static-routes.ts');
+  const codeContent = `// Automatically generated during build step by scan-routes.js. Do not edit manually.\nexport const staticRoutes = ${JSON.stringify(Array.from(routes), null, 2)};\n`;
+  fsLib.writeFileSync(outputPath, codeContent, 'utf8');
   console.log('[seo-scan] Successfully compiled static routes to:', outputPath);
 }
 
