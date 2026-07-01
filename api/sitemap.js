@@ -22124,7 +22124,7 @@ async function handler(req, res) {
       }
       indexXml += "</sitemapindex>";
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=600");
+      res.setHeader("Cache-Control", "public, max-age=0, s-maxage=0, must-revalidate");
       return res.status(200).send(indexXml);
     }
     let rawNodes = [];
@@ -22368,7 +22368,7 @@ Sitemap Diagnostic Audit (sub=${sub}):
       xml += `-->`;
     }
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=0, must-revalidate");
     return res.status(200).send(xml);
   } catch (err) {
     console.error("[sitemap] Failed compilation of dynamic XML sitemap:", err);
