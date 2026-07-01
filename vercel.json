@@ -24,10 +24,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/sitemap.ts": {
-      "includeFiles": "src/App.tsx"
-    }
-  }
+  ]
 }

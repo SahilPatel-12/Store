@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
 
 export type VercelRequest = any;
 export type VercelResponse = any;
@@ -8,6 +6,7 @@ export type VercelResponse = any;
 import { BASE_URL } from '../src/seo/seo-registry';
 import { buildXmlSitemap } from '../src/seo/sitemap-generator';
 import type { SitemapNode } from '../src/seo/types';
+import staticRoutes from '../src/seo/static-routes.json';
 
 // Enforce HTTPS canonical constraints and cleanup URLs
 function cleanAndValidateUrl(loc: string, onInvalid: () => void): string | null {
@@ -43,55 +42,6 @@ function cleanAndValidateUrl(loc: string, onInvalid: () => void): string | null 
     onInvalid();
     return null;
   }
-}
-
-// Scans src/App.tsx for static public routes dynamically
-function scanStaticRoutes(): string[] {
-  const routes = new Set<string>();
-  routes.add('/');
-
-  try {
-    const appPath = path.join(process.cwd(), 'src/App.tsx');
-    if (fs.existsSync(appPath)) {
-      const content = fs.readFileSync(appPath, 'utf8');
-      const matchRegex = /(?:path\s*===\s*|path\.startsWith\()(['"])([^'"]+)\1/g;
-      let match;
-      while ((match = matchRegex.exec(content)) !== null) {
-        const rawPath = match[2];
-        let cleanPath = rawPath.replace(/\/$/, '');
-        if (!cleanPath) continue;
-
-        if (cleanPath.startsWith('/category') || cleanPath.startsWith('/product') || cleanPath.startsWith('/blog') || cleanPath.startsWith('/pundit') || cleanPath.startsWith('/temple')) {
-          continue;
-        }
-
-        const isPrivate = /dashboard|checkout|cart|success|orders|profile|wishlist|notifications|search|admin|callback|error|dev/i.test(cleanPath);
-        if (isPrivate) continue;
-
-        routes.add(cleanPath);
-      }
-    } else {
-      throw new Error(`File not found at: ${appPath}`);
-    }
-  } catch (err) {
-    console.warn('[sitemap] Static file system scan failed, activating default fallback:', err);
-    const fallbackList = [
-      '/shop',
-      '/about',
-      '/contact',
-      '/policies',
-      '/affiliation',
-      '/auth',
-      '/pundit-login',
-      '/astrologer-login',
-      '/sitemap'
-    ];
-    for (const r of fallbackList) {
-      routes.add(r);
-    }
-  }
-
-  return Array.from(routes);
 }
 
 // Helper to format slug to a valid clean URL path segment
@@ -167,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const incrementInvalid = () => { invalidCount++; };
 
     if (sub === 'static') {
-      const paths = scanStaticRoutes();
+      const paths = staticRoutes;
       staticCount = paths.length;
       for (const p of paths) {
         let priority = 0.5;
