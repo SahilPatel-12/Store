@@ -53,6 +53,64 @@ const getCategorySlug = (category: string): string => {
     .replace(/[-\s]+/g, '-');
 };
 
+// Dynamically check if a child sitemap has at least 1 URL to avoid serving empty sitemaps
+async function hasEntries(supabase: any, sub: string): Promise<boolean> {
+  try {
+    if (sub === 'static') {
+      return staticRoutes.length > 0;
+    }
+    if (sub === 'products') {
+      const { count, error } = await supabase
+        .from('website_pooja_products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_published', true);
+      return !error && count !== null && count > 0;
+    }
+    if (sub === 'categories') {
+      const { data, error } = await supabase
+        .from('website_pooja_products')
+        .select('category')
+        .eq('is_published', true)
+        .limit(1);
+      return !error && data && data.length > 0 && !!data[0].category;
+    }
+    if (sub === 'pundits') {
+      const { count, error } = await supabase
+        .from('website_store_pundits')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved');
+      return !error && count !== null && count > 0;
+    }
+    if (sub === 'images') {
+      const hasProd = await hasEntries(supabase, 'products');
+      const hasPundit = await hasEntries(supabase, 'pundits');
+      return hasProd || hasPundit;
+    }
+
+    const fallbacksMap: Record<string, string[]> = {
+      blogs: ['website_store_blogs', 'website_blogs', 'blogs', 'posts'],
+      collections: ['website_store_collections', 'website_collections', 'collections'],
+      brands: ['website_store_brands', 'website_brands', 'brands'],
+      articles: ['website_store_articles', 'website_articles', 'articles'],
+      festivals: ['website_store_festivals', 'website_festivals', 'festivals'],
+      pujas: ['website_store_pujas', 'website_pujas', 'pujas']
+    };
+
+    const candidateTables = fallbacksMap[sub] || [`website_store_${sub}`, sub];
+    for (const table of candidateTables) {
+      const { count, error } = await supabase
+        .from(table)
+        .select('*', { count: 'exact', head: true });
+      if (!error && count !== null && count > 0) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   
@@ -100,9 +158,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ];
 
       for (const name of childSitemaps) {
-        indexXml += '  <sitemap>\n';
-        indexXml += `    <loc>${BASE_URL}/sitemap-${name}.xml</loc>\n`;
-        indexXml += '  </sitemap>\n';
+        if (await hasEntries(supabase, name)) {
+          indexXml += '  <sitemap>\n';
+          indexXml += `    <loc>${BASE_URL}/sitemap-${name}.xml</loc>\n`;
+          indexXml += '  </sitemap>\n';
+        }
       }
 
       indexXml += '</sitemapindex>';
