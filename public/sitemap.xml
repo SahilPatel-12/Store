@@ -2,37 +2,37 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://www.mantrapuja.com/</loc>
+    <loc>https://shop.mantrapuja.com/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/shop</loc>
+    <loc>https://shop.mantrapuja.com/shop</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/about</loc>
+    <loc>https://shop.mantrapuja.com/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/contact</loc>
+    <loc>https://shop.mantrapuja.com/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/policies</loc>
+    <loc>https://shop.mantrapuja.com/policies</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/affiliation</loc>
+    <loc>https://shop.mantrapuja.com/affiliation</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.mantrapuja.com/sitemap</loc>
+    <loc>https://shop.mantrapuja.com/sitemap</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>

@@ -9,4 +9,4 @@ Disallow: /cart/
 Disallow: /auth/
 Disallow: /search
 
-Sitemap: https://www.mantrapuja.com/sitemap.xml
+Sitemap: https://shop.mantrapuja.com/sitemap.xml
