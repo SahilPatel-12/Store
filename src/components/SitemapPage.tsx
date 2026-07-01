@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Search, Compass, ShoppingBag, User, Heart, Settings, ShieldAlert, FileText, ChevronRight, HelpCircle } from 'lucide-react';
-import { BASE_URL } from '../seo/seo-registry';
 
 interface SitemapPageProps {
   products: any[];
