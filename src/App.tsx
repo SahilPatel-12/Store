@@ -9,6 +9,7 @@ import { supabase } from './lib/supabase';
 import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
 import logo from './assets/My_logo/Frame 16.png';
 import { getSpiritualTypeForProduct } from './lib/spiritualTypeHelper';
+import { useSEO } from './seo/seo-manager';
 
 
 // Dynamically imported page components for optimal compilation and load performance
@@ -32,6 +33,7 @@ const UserAuthPage = React.lazy(() => import('./components/UserAuthPage').then(m
 const AffiliationPromoPage = React.lazy(() => import('./components/AffiliationPromoPage').then(m => ({ default: m.AffiliationPromoPage })));
 const PunditLoginPage = React.lazy(() => import('./components/PunditLoginPage').then(m => ({ default: m.PunditLoginPage })));
 const PunditDashboardPage = React.lazy(() => import('./components/PunditDashboardPage').then(m => ({ default: m.PunditDashboardPage })));
+const SitemapPage = React.lazy(() => import('./components/SitemapPage').then(m => ({ default: m.SitemapPage })));
 
 
 // Default shop categories list
@@ -233,8 +235,14 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'sitemap'>('shop');
   
+  const [activeSEO, setActiveSEO] = React.useState<{ title: string; description: string; ogImage?: string; canonical?: string } | null>({
+    title: "Mantra Puja Store | Authentic Vedic Items & Deity Idols",
+    description: "Mantra Puja Store offers authentic, priest-energized Vedic puja kits, brass deity idols, organic incense, and sacred texts direct from Varanasi."
+  });
+  useSEO(activeSEO);
+
   const [readNotificationIds, setReadNotificationIds] = React.useState<string[]>(() => {
     try {
       const val = localStorage.getItem('read_notifications');
@@ -516,7 +524,7 @@ function App() {
 
 
   const setCurrentPage = (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'sitemap',
     options?: { categoryName?: string; product?: Product; searchQuery?: string; bypassAuthCheck?: boolean; profileTab?: 'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate' }
   ) => {
     setMobileMenuOpen(false);
@@ -614,6 +622,9 @@ function App() {
         break;
       case 'pundit-dashboard':
         path = '/pundit-dashboard';
+        break;
+      case 'sitemap':
+        path = '/sitemap';
         break;
       default:
         path = '/';
@@ -743,6 +754,8 @@ function App() {
         setCurrentPageState('pundit-login');
       } else if (path === '/pundit-dashboard' || path === '/pundit-dashboard/') {
         setCurrentPageState('pundit-dashboard');
+      } else if (path === '/sitemap' || path === '/sitemap/' || path === '/site-map' || path === '/site-map/') {
+        setCurrentPageState('sitemap');
       } else {
         setCurrentPageState('shop');
       }
@@ -757,6 +770,79 @@ function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [handleUrlRouting]);
+
+  // Synchronize SEO meta details dynamically on page route state shifts
+  React.useEffect(() => {
+    let title = "Mantra Puja Store | Authentic Vedic Items & Deity Idols";
+    let description = "Mantra Puja Store offers authentic, priest-energized Vedic puja kits, brass deity idols, organic incense, and sacred texts direct from Varanasi.";
+    let ogImage = "/logo.png";
+    let canonical = undefined;
+
+    switch (currentPageState) {
+      case 'home':
+        title = "Mantra Puja Store | Authentic Vedic Items & Deity Idols";
+        description = "Mantra Puja Store offers authentic, priest-energized Vedic puja kits, brass deity idols, organic incense, and sacred texts direct from Varanasi.";
+        break;
+      case 'shop':
+        title = "Spiritual Shop Catalog | Mantra Puja Store";
+        description = "Browse all collections of sacred Vedic idols, organic dhoop cups, certified Himalayan Rudrakshas, and pure camphor blessings.";
+        break;
+      case 'category':
+        title = `${selectedCategoryName} Collection | Mantra Puja Store`;
+        description = `Find high-quality, priest-energized ${selectedCategoryName} items to invite auspiciousness, luck, and positive energy home.`;
+        break;
+      case 'detail':
+        if (selectedProduct) {
+          title = (selectedProduct as any).seoTitle || `${selectedProduct.name} | Mantra Puja Store`;
+          description = (selectedProduct as any).seoDescription || selectedProduct.shortDescription || selectedProduct.description;
+          ogImage = selectedProduct.image;
+        }
+        break;
+      case 'search':
+        title = searchQueryTerm ? `Search results for "${searchQueryTerm}" | Mantra Puja Store` : "Search Sacred Catalog | Mantra Puja Store";
+        description = "Find custom Vedic pujas, brass deity idols, pure incense dhoop, and Himalayan malas in our catalog.";
+        break;
+      case 'about':
+        title = "Brand Story & Pillars | Mantra Puja";
+        description = "Our mission is to bridge generational artisans and spiritual seekers with certified, Ganga-energized deity idols and items.";
+        break;
+      case 'contact':
+        title = "Contact Sacred Support | Mantra Puja";
+        description = "Get in touch with our Varanasi temple dispatch managers for shipping status, custom deity orders, and certifications.";
+        break;
+      case 'policies':
+        title = "Divine Policies & Sacred Dispatches | Mantra Puja";
+        description = "Review our Privacy Guidelines, terms of devotion, refunds and exchanges, and sacred shipping info.";
+        break;
+      case 'affiliation':
+        title = "Affiliate Partner Program | Mantra Puja";
+        description = "Become a partner and share the blessings of Vedic pujas and deity idols, earning spiritual commissions.";
+        break;
+      case 'sitemap':
+        title = "Sitemap Directory | Mantra Puja Store";
+        description = "Browse our full dynamic index of products, category landing pages, help guides, and devotee accounts.";
+        break;
+      case 'profile':
+      case 'orders':
+      case 'wishlist':
+      case 'notifications':
+        title = "Devotee Dashboard | Mantra Puja Store";
+        description = "Manage your shipping addresses, track order packing statuses, and view items in your wishlist.";
+        break;
+      case 'pundit-login':
+      case 'pundit-dashboard':
+        title = "Pundit Portal | Mantra Puja Store";
+        description = "Priest authentication gateway and dashboard for booking scheduling and payouts.";
+        break;
+      case 'admin':
+      case 'admin-login':
+        title = "Administrator Gateway | Mantra Puja Store";
+        description = "Secured backend access for managing orders, catalog products, and configurations.";
+        break;
+    }
+
+    setActiveSEO({ title, description, ogImage, canonical });
+  }, [currentPageState, selectedCategoryName, selectedProduct?.id, searchQueryTerm]);
 
   // Direct load deep-linking on mount (also runs when dynamic database products are loaded)
   React.useEffect(() => {
@@ -3989,6 +4075,11 @@ function App() {
           }}
           onNavigateToProfile={(tab) => setCurrentPage('profile', { profileTab: tab })}
         />
+      ) : currentPage === 'sitemap' ? (
+        <SitemapPage
+          products={productsState}
+          onNavigate={(page, options) => setCurrentPage(page, options)}
+        />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
           onLoginSuccess={(username, token) => {
@@ -4143,6 +4234,11 @@ function App() {
                 <li>
                   <button onClick={() => setIsCartDrawerOpen(true)} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
                     Shopping Cart
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setCurrentPage('sitemap')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                    Altar Site Map
                   </button>
                 </li>
 

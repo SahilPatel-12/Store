@@ -6,21 +6,16 @@ import {
   Search, 
   Wallet, 
   Calendar, 
-  Clock, 
   LogOut, 
   TrendingUp,
   Award,
-  Video,
   DollarSign,
   CheckCircle,
   XCircle,
   ExternalLink,
   Phone,
-  Shield,
   Edit,
-  MapPin,
-  AlertCircle,
-  BookOpen
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
@@ -1560,7 +1555,6 @@ export const PunditDashboardPage: React.FC<PunditDashboardPageProps> = ({
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContext: 'center',
                                 justifyContent: 'center',
                                 gap: '6px',
                                 boxShadow: '0 4px 12px rgba(249, 115, 22, 0.2)'

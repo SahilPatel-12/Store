@@ -1,10 +1,8 @@
 import React from 'react';
 import { 
-  MapPin, Check, Plus, Trash2, Camera, Upload, ArrowLeft, ArrowRight, 
-  CheckCircle, Sparkles, Award, Globe, BookOpen, ShieldAlert, CheckSquare, 
-  X, ChevronDown, Calendar, Search, Map, RefreshCw, Star, Info
+  MapPin, Check, Camera, Upload, ArrowLeft, ArrowRight, 
+  CheckCircle, Search, RefreshCw, Star
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 interface PunditOnboardingProps {
   loggedInUser: { id: string; fullName: string; email: string; phoneNumber: string };
@@ -14,8 +12,7 @@ interface PunditOnboardingProps {
 
 export const PunditOnboarding: React.FC<PunditOnboardingProps> = ({
   loggedInUser,
-  onComplete,
-  onLogout
+  onComplete
 }) => {
   const [screen, setScreen] = React.useState(1);
   const [animating, setAnimating] = React.useState(false);
@@ -583,7 +580,7 @@ export const PunditOnboarding: React.FC<PunditOnboardingProps> = ({
                   borderRadius: '10px',
                   padding: '12px'
                 }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifycontent: 'center', fontSize: '1.5rem', justifyContent: 'center' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
                     🕉️
                   </div>
                   <div>
