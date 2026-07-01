@@ -1,5 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { buildRobotsTxt } from '../src/seo/robots-generator';
+
+export type VercelRequest = any;
+export type VercelResponse = any;
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   try {

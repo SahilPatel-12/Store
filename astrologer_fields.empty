@@ -1,0 +1,73 @@
+ASTROLOGER REGISTRATION PROFILE FIELDS:
+-------------------------------------
+1. full_name
+   - Type: String / Text
+   - Description: The displayed public name of the astrologer.
+   - Example: "Acharya Ramanand Shastri"
+   - Required: Yes
+
+2. spiritual_title
+   - Type: String / Text
+   - Description: A headline summarizing their expertise or lineage.
+   - Example: "Vedic Hora & Vastu Authority"
+   - Required: Yes
+
+3. bio
+   - Type: String / Text
+   - Description: Detailed description of their methodology, ancestry, remedies, and background.
+   - Example: "Over 16 years of experience reading charts under classical systems..."
+   - Required: No (Recommended)
+
+4. profile_photo
+   - Type: String / URL
+   - Description: A direct HTTPS URL link to the profile picture.
+   - Example: "https://example.com/photos/shastri.jpg"
+   - Required: No (Falls back to placeholder)
+
+5. experience_years
+   - Type: Integer
+   - Description: Number of years active in offering consultations.
+   - Example: 16
+   - Required: Yes (Default: 5)
+
+6. readings_count
+   - Type: Integer
+   - Description: Total consults or chart readings completed.
+   - Example: 3500
+   - Required: Yes (Default: 100)
+
+7. charge_per_min
+   - Type: Integer
+   - Description: Coin consultation rate per minute.
+   - Example: 60
+   - Required: Yes (Default: 30)
+
+8. languages
+   - Type: Array of Strings / Text[]
+   - Description: Languages spoken and understood during sessions.
+   - Example: ["Hindi", "English", "Sanskrit"]
+   - Required: Yes (At least 1)
+
+9. specialties
+   - Type: Array of Strings / Text[]
+   - Description: Specialized areas of astrology.
+   - Example: ["Kundli Milan", "Gemstone Advice", "Vastu Dosha", "KP Astrology"]
+   - Required: Yes (At least 1)
+
+10. city
+    - Type: String / Text
+    - Description: City of residence.
+    - Example: "Varanasi"
+    - Required: No
+
+11. state
+    - Type: String / Text
+    - Description: State of residence.
+    - Example: "Uttar Pradesh"
+    - Required: No
+
+12. is_online
+    - Type: Boolean
+    - Description: Real-time availability status indicator.
+    - Example: true
+    - Required: Yes (Default: true)

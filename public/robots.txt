@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /profile/
+Disallow: /wishlist/
+Disallow: /notifications/
+Disallow: /cart/
+Disallow: /auth/
+Disallow: /search
+
+Sitemap: https://www.mantrapuja.com/sitemap.xml

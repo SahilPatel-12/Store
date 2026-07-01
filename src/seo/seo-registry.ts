@@ -1,4 +1,4 @@
-import { SitemapModuleConfig } from './types';
+import type { SitemapModuleConfig } from './types';
 
 export const BASE_URL = 'https://www.mantrapuja.com'; // Canonical production root domain
 

@@ -1,5 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+
+export type VercelRequest = any;
+export type VercelResponse = any;
 import path from 'path';
 import fs from 'fs';
 import { BASE_URL } from '../src/seo/seo-registry';

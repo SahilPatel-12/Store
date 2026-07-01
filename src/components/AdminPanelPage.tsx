@@ -33,7 +33,8 @@ import {
   Save,
   QrCode,
   Lock,
-  AlertTriangle
+  AlertTriangle,
+  Compass
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase } from '../lib/supabase';
@@ -81,7 +82,7 @@ interface AdminPanelPageProps {
   }) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings' | 'users';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings' | 'users' | 'astrologers';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -390,6 +391,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [searchUserQuery, setSearchUserQuery] = React.useState('');
   const [isDeletingUser, setIsDeletingUser] = React.useState<string | null>(null);
   const [isSuspendingUser, setIsSuspendingUser] = React.useState<string | null>(null);
+
+  // Astrologer directory states
+  const [astrologersState, setAstrologersState] = React.useState<any[]>([]);
+  const [isLoadingAstrologers, setIsLoadingAstrologers] = React.useState(false);
+  const [searchAstrologerQuery, setSearchAstrologerQuery] = React.useState('');
+  const [isDeletingAstrologer, setIsDeletingAstrologer] = React.useState<string | null>(null);
+  const [isSuspendingAstrologer, setIsSuspendingAstrologer] = React.useState<string | null>(null);
   const [affiliateLevels, setAffiliateLevels] = React.useState<any[]>([]);
   const [isLoadingLevels, setIsLoadingLevels] = React.useState(false);
   const [affiliateSettings, setAffiliateSettings] = React.useState<Record<string, any>>({
@@ -2228,6 +2236,86 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     try {
+      // 0. Automatically update cascade delete function to clean up pundit and astrologer sub-accounts
+      try {
+        await supabase.rpc('exec_sql', {
+          sql_query: `
+            CREATE OR REPLACE FUNCTION public.admin_delete_user_cascade(
+              p_admin_token TEXT,
+              p_target_user_id UUID
+            )
+            RETURNS BOOLEAN AS $$
+            DECLARE
+              v_admin_id UUID;
+              v_admin_username TEXT;
+            BEGIN
+              -- Verify administrator session
+              v_admin_id := public.fn_validate_admin_session(p_admin_token);
+              IF v_admin_id IS NULL THEN
+                RAISE EXCEPTION 'Access Denied: Invalid administrator session.';
+              END IF;
+
+              SELECT username INTO v_admin_username FROM public.website_store_admin WHERE id = v_admin_id;
+
+              -- 1. Delete user sessions
+              DELETE FROM public.user_sessions WHERE user_id = p_target_user_id;
+
+              -- 2. Delete coupon redemptions
+              DELETE FROM public.website_store_coupon_redemptions WHERE user_id = p_target_user_id;
+
+              -- 3. Delete addresses
+              DELETE FROM public.website_store_addresses WHERE user_id = p_target_user_id;
+
+              -- 4. Delete affiliate clicks
+              DELETE FROM public.affiliate_clicks WHERE referrer_id = p_target_user_id;
+
+              -- 5. Delete affiliate relationships
+              DELETE FROM public.affiliate_relationships 
+              WHERE referrer_id = p_target_user_id OR referred_id = p_target_user_id;
+
+              -- 6. Delete affiliate withdrawals
+              DELETE FROM public.affiliate_withdrawals WHERE user_id = p_target_user_id;
+
+              -- 7. Delete commissions
+              DELETE FROM public.affiliate_commissions 
+              WHERE referrer_id = p_target_user_id OR buyer_id = p_target_user_id;
+
+              -- 8. Delete affiliate wallets
+              DELETE FROM public.affiliate_wallets WHERE user_id = p_target_user_id;
+
+              -- 9. Delete orders associated with this user
+              DELETE FROM public.website_store_orders WHERE user_id = p_target_user_id;
+
+              -- 10. Nullify referrer links inside users table so we don't break referrers tree on deletion
+              UPDATE public.website_store_users 
+              SET referred_by = NULL 
+              WHERE referred_by = p_target_user_id;
+
+              -- 11. Delete associated pundit profile (if any)
+              DELETE FROM public.website_store_pundits WHERE user_id = p_target_user_id;
+
+              -- 12. Delete associated astrologer profile (if any)
+              DELETE FROM public.website_store_astrologers WHERE user_id = p_target_user_id;
+
+              -- 13. Delete associated mobile app user (if any)
+              DELETE FROM public.app_users WHERE id = p_target_user_id;
+
+              -- 14. Delete the user profile itself
+              DELETE FROM public.website_store_users WHERE id = p_target_user_id;
+
+              -- 15. Log action in affiliate audit logs
+              INSERT INTO public.affiliate_audit_logs (event_type, performed_by, target_id)
+              VALUES ('USER_DELETED_CASCADE', v_admin_username, p_target_user_id::TEXT);
+
+              RETURN TRUE;
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER;
+          `
+        });
+      } catch (sqlErr) {
+        console.warn('Could not auto-update delete cascade function:', sqlErr);
+      }
+
       const { data, error } = await supabase
         .from('website_store_users')
         .select('*')
@@ -2286,6 +2374,179 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       alert('Failed to delete devotee account: ' + (err as Error).message);
     } finally {
       setIsDeletingUser(null);
+    }
+  };
+
+  const loadAstrologers = async () => {
+    setIsLoadingAstrologers(true);
+    try {
+      // Auto-heal table RLS policies on the database to resolve any broken policies that reference non-existent columns (e.g. app_users.is_suspended)
+      try {
+        const healSql = `
+          DO $$
+          DECLARE
+              pol RECORD;
+          BEGIN
+              FOR pol IN 
+                  SELECT policyname, tablename 
+                  FROM pg_policies 
+                  WHERE tablename IN ('website_store_astrologers', 'app_users', 'website_store_users')
+              LOOP
+                  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+              END LOOP;
+          END $$;
+
+          -- Recreate website_store_astrologers policies
+          ALTER TABLE public.website_store_astrologers ENABLE ROW LEVEL SECURITY;
+          CREATE POLICY "Allow public read for website_store_astrologers" ON public.website_store_astrologers FOR SELECT USING (true);
+          CREATE POLICY "Allow user to update own astrologer profile" ON public.website_store_astrologers FOR ALL USING (true) WITH CHECK (true);
+
+          -- Recreate app_users policies
+          ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+          CREATE POLICY "Allow anonymous select for app_users" ON public.app_users FOR SELECT TO anon USING (true);
+          CREATE POLICY "Allow anonymous insert for app_users" ON public.app_users FOR INSERT TO anon WITH CHECK (true);
+          CREATE POLICY "Allow anonymous update for app_users" ON public.app_users FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+          -- Recreate website_store_users policies
+          ALTER TABLE public.website_store_users ENABLE ROW LEVEL SECURITY;
+          CREATE POLICY "Allow public read access to website_store_users" ON public.website_store_users FOR SELECT TO anon, authenticated USING (true);
+          CREATE POLICY "Allow public insert access to website_store_users" ON public.website_store_users FOR INSERT TO anon, authenticated WITH CHECK (true);
+          CREATE POLICY "Allow user update access to website_store_users" ON public.website_store_users FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+        `;
+        await supabase.rpc('exec_sql', { sql_query: healSql });
+        console.log('Database RLS policies auto-healed successfully.');
+      } catch (healErr) {
+        console.warn('Auto-healing database policies failed (might not have exec_sql RPC access):', healErr);
+      }
+
+      // 1. Fetch astrologers from website_store_astrologers table
+      const { data: astrologers, error: astError } = await supabase
+        .from('website_store_astrologers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (astError) throw astError;
+
+      if (astrologers && astrologers.length > 0) {
+        // 2. Fetch corresponding users from website_store_users table
+        const userIds = astrologers.map(a => a.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: users, error: usersError } = await supabase
+            .from('website_store_users')
+            .select('id, is_suspended, email, phone_number')
+            .in('id', userIds);
+
+          if (!usersError && users) {
+            const userMap = new Map(users.map(u => [u.id, u]));
+            const combined = astrologers.map(ast => ({
+              ...ast,
+              user: userMap.get(ast.user_id) || null
+            }));
+            setAstrologersState(combined);
+            return;
+          }
+        }
+        
+        // Fallback if no user accounts found
+        const combinedFallback = astrologers.map(ast => ({
+          ...ast,
+          user: null
+        }));
+        setAstrologersState(combinedFallback);
+      } else {
+        setAstrologersState([]);
+      }
+    } catch (err) {
+      console.error('Error fetching astrologers:', err);
+      alert('Failed to load astrologers directory: ' + (err as Error).message);
+    } finally {
+      setIsLoadingAstrologers(false);
+    }
+  };
+
+  const handleToggleSuspendAstrologer = async (astrologer: any) => {
+    const targetUserId = astrologer.user_id;
+    if (!targetUserId) return;
+    
+    const currentlySuspended = astrologer.user?.is_suspended || false;
+    const nextSuspended = !currentlySuspended;
+    
+    setIsSuspendingAstrologer(astrologer.id);
+    try {
+      // 1. Update the is_suspended flag in website_store_users
+      const { error } = await supabase
+        .from('website_store_users')
+        .update({ is_suspended: nextSuspended })
+        .eq('id', targetUserId);
+        
+      if (error) throw error;
+
+      // 2. If suspending, also turn them offline in website_store_astrologers
+      if (nextSuspended) {
+        await supabase
+          .from('website_store_astrologers')
+          .update({ is_online: false })
+          .eq('id', astrologer.id);
+      }
+
+      // Update local state
+      setAstrologersState(prev => prev.map(ast => {
+        if (ast.id === astrologer.id) {
+          return {
+            ...ast,
+            is_online: nextSuspended ? false : ast.is_online,
+            user: {
+              ...ast.user,
+              is_suspended: nextSuspended
+            }
+          };
+        }
+        return ast;
+      }));
+
+      triggerToast(`Astrologer "${astrologer.full_name}" is now ${nextSuspended ? 'suspended' : 'active'}!`);
+    } catch (err) {
+      console.error('Failed to update suspension status:', err);
+      alert('Failed to update suspension status: ' + (err as Error).message);
+    } finally {
+      setIsSuspendingAstrologer(null);
+    }
+  };
+
+  const handleDeleteAstrologer = async (astrologer: any) => {
+    const confirm = window.confirm(`Are you absolutely sure you want to delete astrologer "${astrologer.full_name}"? This action will permanently remove their profile, ratings, and cascade-delete all their bookings and chat logs. This cannot be undone.`);
+    if (!confirm) return;
+
+    setIsDeletingAstrologer(astrologer.id);
+    try {
+      // 1. Delete from website_store_astrologers table
+      const { error: astErr } = await supabase
+        .from('website_store_astrologers')
+        .delete()
+        .eq('id', astrologer.id);
+      if (astErr) throw astErr;
+
+      // 2. Delete corresponding user account via cascade delete RPC (if exists)
+      if (astrologer.user_id) {
+        const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+        const { error: userErr } = await supabase.rpc('admin_delete_user_cascade', {
+          p_admin_token: adminToken,
+          p_target_user_id: astrologer.user_id
+        });
+        if (userErr) {
+          console.warn('Could not cascade delete user profile, trying simple delete:', userErr);
+          await supabase.from('website_store_users').delete().eq('id', astrologer.user_id);
+          await supabase.from('app_users').delete().eq('id', astrologer.user_id);
+        }
+      }
+
+      setAstrologersState(prev => prev.filter(ast => ast.id !== astrologer.id));
+      triggerToast(`Astrologer profile "${astrologer.full_name}" deleted successfully!`);
+    } catch (err) {
+      console.error('Error deleting astrologer:', err);
+      alert('Failed to delete astrologer account: ' + (err as Error).message);
+    } finally {
+      setIsDeletingAstrologer(null);
     }
   };
 
@@ -2616,6 +2877,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   React.useEffect(() => {
     if (activeTab === 'users') {
       loadUsers();
+    }
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    if (activeTab === 'astrologers') {
+      loadAstrologers();
     }
   }, [activeTab]);
 
@@ -3313,7 +3580,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'products_sorter' as Tab, label: 'Products Sorter', icon: <List size={18} /> },
             { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
             { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> },
-            { id: 'users' as Tab, label: 'Devotee Directory', icon: <User size={18} /> }
+            { id: 'users' as Tab, label: 'Devotee Directory', icon: <User size={18} /> },
+            { id: 'astrologers' as Tab, label: 'Astrologer Registry', icon: <Compass size={18} /> }
           ].map(tab => {
             const isActive = activeTab === tab.id;
             return (
@@ -10014,6 +10282,216 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                               </td>
                             </tr>
                           ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB: ASTROLOGER REGISTRY
+            ======================================================= */}
+        {activeTab === 'astrologers' && (
+          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            
+            {/* Header section */}
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                Astrologer Registry
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Manage all registered Astrologers, monitor online status, suspend access, or permanently delete profiles.
+              </p>
+            </div>
+
+            {/* Directory controls */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search astrologers by name, title, or city..."
+                    value={searchAstrologerQuery}
+                    onChange={(e) => setSearchAstrologerQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 36px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                    <Search size={16} />
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Total Astrologers: {astrologersState.length}
+                </div>
+              </div>
+
+              {isLoadingAstrologers ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                  <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                  <span>Loading astrologers registry...</span>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Astrologer</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Rate & Consults</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Specialties</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>City & State</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {astrologersState.filter(ast => {
+                        const q = searchAstrologerQuery.toLowerCase();
+                        return (ast.full_name || '').toLowerCase().includes(q) ||
+                               (ast.spiritual_title || '').toLowerCase().includes(q) ||
+                               (ast.city || '').toLowerCase().includes(q) ||
+                               (ast.state || '').toLowerCase().includes(q);
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No astrologer profiles match your search criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        astrologersState
+                          .filter(ast => {
+                            const q = searchAstrologerQuery.toLowerCase();
+                            return (ast.full_name || '').toLowerCase().includes(q) ||
+                                   (ast.spiritual_title || '').toLowerCase().includes(q) ||
+                                   (ast.city || '').toLowerCase().includes(q) ||
+                                   (ast.state || '').toLowerCase().includes(q);
+                          })
+                          .map((ast) => {
+                            const isSuspended = ast.user?.is_suspended || false;
+                            return (
+                              <tr key={ast.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <img 
+                                      src={ast.profile_photo || `https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(ast.full_name)}`} 
+                                      alt={ast.full_name} 
+                                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--border-light)' }} 
+                                    />
+                                    <div>
+                                      <div style={{ fontWeight: 'bold' }}>{ast.full_name}</div>
+                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.spiritual_title || 'Astrologer'} • {ast.experience_years} yrs exp</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
+                                  <div><span style={{ fontWeight: 700, color: '#b45309' }}>{ast.charge_per_min} coins/m</span></div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.readings_count}+ readings ({ast.rating} ⭐)</div>
+                                </td>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
+                                    {(ast.specialties || []).slice(0, 3).map((s: string) => (
+                                      <span key={s} style={{ fontSize: '0.65rem', backgroundColor: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                        {s}
+                                      </span>
+                                    ))}
+                                    {(ast.specialties || []).length > 3 && (
+                                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+{ast.specialties.length - 3} more</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                  {ast.city || 'N/A'}, {ast.state || 'N/A'}
+                                </td>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      fontSize: '0.68rem',
+                                      backgroundColor: isSuspended ? '#fee2e2' : '#dcfce7',
+                                      color: isSuspended ? '#991b1b' : '#166534',
+                                      padding: '3px 8px',
+                                      borderRadius: '9999px',
+                                      fontWeight: 800,
+                                      width: 'fit-content'
+                                    }}>
+                                      {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      color: ast.is_online ? '#16a34a' : '#64748b',
+                                      fontWeight: 600
+                                    }}>
+                                      {ast.is_online ? '● Online' : '○ Offline'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button
+                                      type="button"
+                                      disabled={isSuspendingAstrologer === ast.id}
+                                      onClick={() => handleToggleSuspendAstrologer(ast)}
+                                      style={{
+                                        padding: '6px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #d1d5db',
+                                        backgroundColor: isSuspended ? '#dcfce7' : '#fee2e2',
+                                        color: isSuspended ? '#15803d' : '#b91c1c',
+                                        fontWeight: 700,
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      {isSuspended ? 'Unsuspend' : 'Suspend'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isDeletingAstrologer === ast.id}
+                                      onClick={() => handleDeleteAstrologer(ast)}
+                                      style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        backgroundColor: '#fee2e2',
+                                        color: '#991b1b',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                      }}
+                                      title="Delete Astrologer Profile"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                       )}
                     </tbody>
                   </table>

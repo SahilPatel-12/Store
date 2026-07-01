@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BASE_URL } from './seo-registry';
-import { SEOProperties } from './types';
+import type { SEOProperties } from './types';
 
 export const useSEO = (seo: SEOProperties | null) => {
   useEffect(() => {

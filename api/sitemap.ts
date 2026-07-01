@@ -1,5 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+
+export type VercelRequest = any;
+export type VercelResponse = any;
 import { sitemapRegistry, BASE_URL } from '../src/seo/seo-registry';
 import { buildXmlSitemap } from '../src/seo/sitemap-generator';
 import type { SitemapNode } from '../src/seo/types';
@@ -41,8 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Query dynamic database records from Supabase
         const { data, error } = await supabase
-          .from(moduleConfig.supabaseTable)
-          .select(`${slugCol}, ${publishedCol}, ${lastmodCol}, image, category`)
+          .from(moduleConfig.supabaseTable as any)
+          .select(`${slugCol}, ${publishedCol}, ${lastmodCol}, image, category` as any)
           .eq(publishedCol, true);
 
         if (error) {
@@ -50,14 +52,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        if (data && data.length > 0) {
+        const queryData = data as any[] | null;
+        if (queryData && queryData.length > 0) {
           let prefix = '/';
           if (moduleConfig.id === 'products') prefix = '/product/';
           else if (moduleConfig.id === 'blogs') prefix = '/blog/';
           else if (moduleConfig.id === 'pundits') prefix = '/pundit/';
           else if (moduleConfig.id === 'temples') prefix = '/temple/';
 
-          for (const item of data) {
+          for (const item of queryData) {
             const slug = item[slugCol];
             if (!slug) continue;
 
@@ -81,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           // Special logic for dynamic products: generate category pages dynamically from categories active in database
           if (moduleConfig.id === 'products') {
-            const uniqueCategories = Array.from(new Set(data.map(item => item.category).filter(Boolean)));
+            const uniqueCategories = Array.from(new Set(queryData.map(item => item.category).filter(Boolean)));
             for (const cat of uniqueCategories) {
               nodes.push({
                 loc: `${BASE_URL}/category/${getCategorySlug(cat)}`,
