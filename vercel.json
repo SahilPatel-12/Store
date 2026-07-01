@@ -5,6 +5,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/sitemap-:sub.xml",
+      "destination": "/api/sitemap?sub=:sub"
+    },
+    {
       "source": "/robots.txt",
       "destination": "/api/robots"
     },
@@ -20,5 +24,10 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/sitemap.ts": {
+      "includeFiles": "src/App.tsx"
+    }
+  }
 }
