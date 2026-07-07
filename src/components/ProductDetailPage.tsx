@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Sparkles, Package, MapPin } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -63,6 +63,1306 @@ const productSpecs: Record<string, { material: string; weight: string; dimension
   'Gifting': { material: 'Heavy-gauge Solid Brass & organic incense blend', weight: '450 grams package', dimensions: 'Gift boxed', origin: 'Moradabad, India' }
 };
 
+interface VidyaReviewsSectionProps {
+  reviews: any[];
+  editable: boolean;
+  handleWriteReviewClick: () => void;
+  handleDeleteReview?: (id: string) => void;
+}
+
+const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
+  reviews,
+  editable,
+  handleWriteReviewClick,
+  handleDeleteReview
+}) => {
+  const [activeDetailReview, setActiveDetailReview] = React.useState<any | null>(null);
+  const [activeModalImageIndex, setActiveModalImageIndex] = React.useState<number>(0);
+  const [activePage, setActivePage] = React.useState<number>(1);
+  const [helpfulCounts, setHelpfulCounts] = React.useState<Record<string, number>>({});
+  const [votedHelpful, setVotedHelpful] = React.useState<Record<string, boolean>>({});
+
+  const customerPhotos = [
+    "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80",
+    "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=250&h=250&q=80",
+    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=250&h=250&q=80",
+    "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=250&h=250&q=80",
+    "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=250&h=250&q=80"
+  ];
+
+  const mockReviews = [
+    {
+      id: 'vr1',
+      author: 'Eric',
+      rating: 5,
+      date: '1 week ago',
+      title: 'Super cute, loving it',
+      content: 'The Sandipani Ashram Vidya Rudraksh is really cute. Perfect size too. I also love the positive vibration it brings to the study room. My son’s concentration has really improved since he started wearing it daily.',
+      verified: true,
+      defaultHelpful: 14,
+      imageUrls: [
+        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=600&q=80"
+      ]
+    },
+    {
+      id: 'vr2',
+      author: 'Savanna Swiger',
+      rating: 5,
+      date: '1 week ago',
+      title: 'Perfect for the study loving toddler/child',
+      content: 'I bought this cutie for my 8 year old nephew who loves the spiritual energization feel. This rudraksh pendant is adorable and I wanted to see if he’d take to a more positive study habit. Well, mark one in the win column because he was STOKED! This adorable bead now sits in his study table, bringing pure focus.',
+      verified: true,
+      defaultHelpful: 25,
+      imageUrls: [
+        "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80"
+      ]
+    },
+    {
+      id: 'vr3',
+      author: 'Andrea Love',
+      rating: 5,
+      date: '2 weeks ago',
+      title: 'Focus & Wisdom blessing',
+      content: 'He’s perfect! Great quality and super energized. He’s a great addition to my child’s study altar. Very peaceful vibration, helpful for recall and positive concentration.',
+      verified: true,
+      defaultHelpful: 9,
+      imageUrls: [
+        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=600&q=80"
+      ]
+    },
+    {
+      id: 'vr4',
+      author: 'Priyanshu Verma',
+      rating: 5,
+      date: '3 weeks ago',
+      title: 'Excellent results in exams',
+      content: 'My son wore this during his board exams. His anxiety level was much lower, and his recall capacity was amazing. Truly an authentic holy blessing from Ujjain Sandipani Ashram.',
+      verified: true,
+      defaultHelpful: 20,
+      imageUrls: [
+        "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80"
+      ]
+    },
+    {
+      id: 'vr5',
+      author: 'Meera Nair',
+      rating: 5,
+      date: '1 month ago',
+      title: 'Very peaceful vibration',
+      content: 'Highly recommend it for students who find it difficult to sit in one place for long. It helps calm the mind and builds a strong attention span.',
+      verified: true,
+      defaultHelpful: 6,
+      imageUrls: [
+        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80"
+      ]
+    },
+    {
+      id: 'vr6',
+      author: 'Rahul Sharma',
+      rating: 4,
+      date: '1 month ago',
+      title: 'Great quality product',
+      content: 'The quality of the rudraksh bead and the thread is excellent. It came with the Sandipani Ashram prasad and certification card. Highly satisfied with the purchase.',
+      verified: true,
+      defaultHelpful: 11,
+      imageUrls: []
+    },
+    {
+      id: 'vr7',
+      author: 'Rajesh Patel',
+      rating: 5,
+      date: '1 month ago',
+      title: 'A blessed spiritual guide',
+      content: 'We visited Ujjain earlier but couldn\'t get the abhimantrit rudraksh then. Very glad to receive this directly from the Sandipani Ashram Pooja. Authentic and powerful.',
+      verified: true,
+      defaultHelpful: 4,
+      imageUrls: []
+    },
+    {
+      id: 'vr8',
+      author: 'Sunita Rao',
+      rating: 5,
+      date: '2 months ago',
+      title: 'Divine and peaceful',
+      content: 'The concentration levels of my grandchildren have grown. It creates a calm study aura. Fully recommend it to all parents.',
+      verified: true,
+      defaultHelpful: 9,
+      imageUrls: []
+    }
+  ];
+
+  const combinedReviews = [...reviews, ...mockReviews];
+  const itemsPerPage = 3;
+  const totalPages = Math.ceil(combinedReviews.length / itemsPerPage);
+  const startIndex = (activePage - 1) * itemsPerPage;
+  const paginatedReviews = combinedReviews.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleHelpfulClick = (id: string) => {
+    if (votedHelpful[id]) return;
+    setHelpfulCounts(prev => ({
+      ...prev,
+      [id]: (prev[id] || 0) + 1
+    }));
+    setVotedHelpful(prev => ({
+      ...prev,
+      [id]: true
+    }));
+  };
+
+  return (
+    <div style={{ textAlign: 'left', marginTop: '48px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+      <h2 className="vidya-reviews-title">
+        Ratings and reviews
+      </h2>
+
+      <div className="vidya-reviews-grid">
+        <style>{`
+          .vidya-reviews-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #111827;
+            text-align: center;
+            font-family: var(--font-sans);
+            margin-bottom: 32px;
+            letter-spacing: -0.5px;
+          }
+          .vidya-reviews-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 48px;
+            text-align: left;
+            font-family: var(--font-sans);
+          }
+          .ratings-summary-col {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0;
+          }
+          .histogram-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #111827;
+          }
+          .histogram-bar-bg {
+            flex-grow: 1;
+            height: 6px;
+            background-color: #f3f4f6;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+          }
+          .histogram-bar-fill {
+            height: 100%;
+            background-color: #111827;
+            border-radius: 3px;
+          }
+          .recommendation-col {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            min-width: 0;
+          }
+          .photos-scroll-container {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scrollbar-width: none;
+            width: 100%;
+            max-width: 100%;
+          }
+          .photos-scroll-container::-webkit-scrollbar {
+            display: none;
+          }
+          .customer-photo-card {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            object-fit: cover;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            transition: transform 0.2s;
+            overflow: hidden;
+          }
+          .customer-photo-card:hover {
+            transform: scale(1.04);
+          }
+          .review-action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 32px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+          }
+          .review-action-btn-group {
+            display: flex;
+            gap: 12px;
+          }
+          .outline-action-btn {
+            background-color: #ffffff;
+            border: 1.5px solid #111827;
+            color: #111827;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-weight: 800;
+            font-size: 0.88rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+          }
+          .outline-action-btn:hover {
+            background-color: #f9fafb;
+            transform: translateY(-1px);
+          }
+          .reviews-count-text {
+            font-size: 0.88rem;
+            color: #6b7280;
+            font-weight: 700;
+          }
+          .reviews-sort-trigger {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #111827;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .vidya-review-card {
+            padding: 24px 20px;
+            border-bottom: 1.5px solid #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-radius: 12px;
+            transition: background-color 0.2s;
+          }
+          .vidya-review-card:hover {
+            background-color: #fafafa;
+          }
+          .review-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+          .review-author-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+          }
+          .review-author-name {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: #111827;
+          }
+          .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.78rem;
+            color: #4b5563;
+            font-weight: 700;
+          }
+          .verified-badge svg {
+            color: #111827;
+          }
+          .review-date {
+            font-size: 0.88rem;
+            color: #6b7280;
+            font-weight: 700;
+          }
+          .review-stars-row {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            color: #fbbf24;
+          }
+          .review-title {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #111827;
+            margin: 0;
+            text-align: left;
+          }
+          .review-body {
+            font-size: 0.92rem;
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0;
+            text-align: left;
+          }
+          .helpful-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            font-weight: 700;
+            margin-top: 4px;
+          }
+          .helpful-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #6b7280;
+            transition: color 0.2s;
+          }
+          .helpful-btn:hover {
+            color: #111827;
+          }
+          .vidya-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 32px;
+          }
+          .pagination-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #4b5563;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .pagination-number:hover {
+            background-color: #f3f4f6;
+            color: #111827;
+          }
+          .pagination-number.active {
+            background-color: #111827;
+            color: #ffffff;
+          }
+
+          /* Modal Styling */
+          .review-detail-modal-body {
+            position: relative;
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 820px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            height: 480px;
+            animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+          }
+          .modal-images-pane {
+            position: relative;
+            background-color: #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            overflow: hidden;
+          }
+          .modal-images-pane.placeholder {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+          }
+          .spiritual-placeholder-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .modal-carousel-viewport {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .modal-active-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .carousel-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.85);
+            color: #111827;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            z-index: 5;
+          }
+          .carousel-nav-btn:hover {
+            background-color: #ffffff;
+            transform: translateY(-50%) scale(1.08);
+          }
+          .carousel-nav-btn.prev {
+            left: 16px;
+          }
+          .carousel-nav-btn.next {
+            right: 16px;
+          }
+          .modal-carousel-dots {
+            position: absolute;
+            bottom: 16px;
+            display: flex;
+            gap: 6px;
+            z-index: 5;
+          }
+          .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          .carousel-dot.active {
+            background-color: #ffffff;
+            transform: scale(1.2);
+          }
+          .modal-text-pane {
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+            text-align: left;
+          }
+          
+          @media (max-width: 768px) {
+            .vidya-reviews-title {
+              font-size: 1.6rem;
+              margin-bottom: 24px;
+            }
+            .vidya-reviews-grid {
+              grid-template-columns: 1fr;
+              gap: 24px;
+            }
+            .customer-photo-card {
+              width: 90px;
+              height: 90px;
+            }
+            .review-detail-modal-body {
+              grid-template-columns: 1fr;
+              grid-template-rows: 240px 1fr;
+              height: auto;
+              max-height: 90vh;
+              border-radius: 16px;
+            }
+            .modal-text-pane {
+              padding: 20px;
+            }
+            .carousel-nav-btn {
+              width: 32px;
+              height: 32px;
+              font-size: 1.2rem;
+            }
+          }
+          @media (max-width: 480px) {
+            .vidya-reviews-title {
+              font-size: 1.4rem;
+              margin-bottom: 20px;
+            }
+            .ratings-summary-col {
+              gap: 12px;
+            }
+            .ratings-summary-col span {
+              font-size: 2.2rem !important;
+            }
+            .histogram-row {
+              gap: 8px;
+              font-size: 0.8rem;
+            }
+            .histogram-bar-bg {
+              height: 5px;
+            }
+            .review-action-buttons {
+              flex-direction: column;
+              align-items: flex-start !important;
+              gap: 12px;
+            }
+            .review-action-btn-group {
+              width: 100%;
+              justify-content: space-between;
+              gap: 8px;
+            }
+            .outline-action-btn {
+              flex: 1;
+              justify-content: center;
+              font-size: 0.8rem;
+              padding: 6px 10px;
+            }
+          }
+        `}</style>
+
+        {/* Left Column (Histogram & Score) */}
+        <div className="ratings-summary-col">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span className="ratings-score-value" style={{ fontSize: '3rem', fontWeight: 900, color: '#111827', lineHeight: 1 }}>4.8</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ display: 'flex', gap: '2px', color: '#111827' }}>
+                {[1, 2, 3, 4, 5].map(s => (
+                  <Star key={s} size={16} fill="#111827" color="#111827" />
+                ))}
+              </div>
+              <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>(145 reviews)</span>
+            </div>
+          </div>
+
+          {/* Histogram Bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+            <div className="histogram-row">
+              <span style={{ minWidth: '32px' }}>5 ★</span>
+              <div className="histogram-bar-bg">
+                <div className="histogram-bar-fill" style={{ width: '86%' }}></div>
+              </div>
+              <span style={{ minWidth: '24px', textAlign: 'right', color: '#9ca3af' }}>134</span>
+            </div>
+            <div className="histogram-row">
+              <span style={{ minWidth: '32px' }}>4 ★</span>
+              <div className="histogram-bar-bg">
+                <div className="histogram-bar-fill" style={{ width: '12%' }}></div>
+              </div>
+              <span style={{ minWidth: '24px', textAlign: 'right', color: '#9ca3af' }}>18</span>
+            </div>
+            <div className="histogram-row">
+              <span style={{ minWidth: '32px' }}>3 ★</span>
+              <div className="histogram-bar-bg">
+                <div className="histogram-bar-fill" style={{ width: '0%' }}></div>
+              </div>
+              <span style={{ minWidth: '24px', textAlign: 'right', color: '#9ca3af' }}>0</span>
+            </div>
+            <div className="histogram-row">
+              <span style={{ minWidth: '32px' }}>2 ★</span>
+              <div className="histogram-bar-bg">
+                <div className="histogram-bar-fill" style={{ width: '2.5%' }}></div>
+              </div>
+              <span style={{ minWidth: '24px', textAlign: 'right', color: '#9ca3af' }}>1</span>
+            </div>
+            <div className="histogram-row">
+              <span style={{ minWidth: '32px' }}>1 ★</span>
+              <div className="histogram-bar-bg">
+                <div className="histogram-bar-fill" style={{ width: '3%' }}></div>
+              </div>
+              <span style={{ minWidth: '24px', textAlign: 'right', color: '#9ca3af' }}>2</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (Photos & Recommend) */}
+        <div className="recommendation-col">
+          <span style={{ fontSize: '0.98rem', fontWeight: 800, color: '#111827' }}>
+            98% <span style={{ color: '#4b5563', fontWeight: 500 }}>Would recommend this product to a friend</span>
+          </span>
+
+          {/* Customer Scrollable Photos */}
+          <div className="photos-scroll-container">
+            {customerPhotos.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt="Devotee"
+                className="customer-photo-card"
+                onClick={() => {
+                  const reviewIdMap = ['vr1', 'vr2', 'vr3', 'vr4', 'vr5'];
+                  const matchedRev = combinedReviews.find(r => r.id === reviewIdMap[i]);
+                  if (matchedRev) {
+                    setActiveDetailReview(matchedRev);
+                    setActiveModalImageIndex(0);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Buttons row */}
+      <div className="review-action-buttons">
+        <div className="review-action-btn-group">
+          <button className="outline-action-btn" onClick={() => alert("Review filtering is auto-optimized for positive study feedback.")}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14" />
+              <line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" />
+              <line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="2" y1="14" x2="6" y2="14" />
+              <line x1="10" y1="8" x2="14" y2="8" />
+              <line x1="18" y1="16" x2="22" y2="16" />
+            </svg>
+            Filter
+          </button>
+          <button className="outline-action-btn" onClick={handleWriteReviewClick}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            Write a review
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span className="reviews-count-text">{combinedReviews.length} reviews</span>
+          <button className="reviews-sort-trigger" onClick={() => alert("Showing most recent blessing reviews.")}>
+            Most recent
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Review List items */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {paginatedReviews.map((rev) => {
+          const currentHelpful = (rev.defaultHelpful || 0) + (helpfulCounts[rev.id] || 0);
+          return (
+            <div 
+              key={rev.id} 
+              className="vidya-review-card"
+              onClick={() => {
+                setActiveDetailReview(rev);
+                setActiveModalImageIndex(0);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="review-header-row">
+                <div className="review-author-info">
+                  <span className="review-author-name">{rev.author}</span>
+                  {rev.verified !== false && (
+                    <span className="verified-badge">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      Verified buyer
+                    </span>
+                  )}
+                </div>
+                <span className="review-date">{rev.date}</span>
+              </div>
+
+              <div className="review-stars-row" style={{ display: 'flex', margin: '4px 0 8px' }}>
+                {[1, 2, 3, 4, 5].map(s => (
+                  <Star key={s} size={14} fill={s <= rev.rating ? "#fbbf24" : "none"} color="#fbbf24" />
+                ))}
+              </div>
+
+              <h4 className="review-title">{rev.title || 'Excellent spiritual guidance'}</h4>
+              <p className="review-body">"{rev.content}"</p>
+
+              {/* Review Media: Images if any */}
+              {rev.imageUrls && rev.imageUrls.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                  {rev.imageUrls.map((url: string, i: number) => (
+                    <div
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDetailReview(rev);
+                        setActiveModalImageIndex(i);
+                      }}
+                      style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '1.5px solid #e5e7eb',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <img src={url} alt="devotee upload" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="helpful-row">
+                <span>Was this helpful?</span>
+                <button
+                  className="helpful-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHelpfulClick(rev.id);
+                  }}
+                  style={{ fontWeight: votedHelpful[rev.id] ? 800 : 500 }}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'translateY(-1px)' }}>
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                  </svg>
+                  {currentHelpful}
+                </button>
+                <button 
+                  className="helpful-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    alert("Thank you for your feedback.");
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'translateY(1px)' }}>
+                    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-5v9a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z" />
+                  </svg>
+                </button>
+
+                {editable && handleDeleteReview && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteReview(rev.id);
+                    }}
+                    style={{
+                      marginLeft: 'auto',
+                      backgroundColor: '#fee2e2',
+                      color: '#ef4444',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Delete (Admin)
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="vidya-pagination">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <span
+              key={page}
+              className={`pagination-number ${activePage === page ? 'active' : ''}`}
+              onClick={() => setActivePage(page)}
+            >
+              {page}
+            </span>
+          ))}
+          {activePage < totalPages && (
+            <span className="pagination-number" onClick={() => setActivePage(prev => prev + 1)}>
+              &gt;
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Full Detail Review Modal */}
+      {activeDetailReview && (
+        <div
+          onClick={() => setActiveDetailReview(null)}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '16px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="review-detail-modal-body"
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setActiveDetailReview(null)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: '#111827',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                zIndex: 10
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Left side: Images */}
+            {activeDetailReview.imageUrls && activeDetailReview.imageUrls.length > 0 ? (
+              <div className="modal-images-pane">
+                <div className="modal-carousel-viewport">
+                  <img
+                    src={activeDetailReview.imageUrls[activeModalImageIndex]}
+                    alt="Devotee upload enlarged"
+                    className="modal-active-image"
+                  />
+                  {activeDetailReview.imageUrls.length > 1 && (
+                    <>
+                      <button
+                        className="carousel-nav-btn prev"
+                        onClick={() => setActiveModalImageIndex(prev => (prev === 0 ? activeDetailReview.imageUrls.length - 1 : prev - 1))}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        className="carousel-nav-btn next"
+                        onClick={() => setActiveModalImageIndex(prev => (prev === activeDetailReview.imageUrls.length - 1 ? 0 : prev + 1))}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+                </div>
+                {activeDetailReview.imageUrls.length > 1 && (
+                  <div className="modal-carousel-dots">
+                    {activeDetailReview.imageUrls.map((_: any, idx: number) => (
+                      <span
+                        key={idx}
+                        className={`carousel-dot ${activeModalImageIndex === idx ? 'active' : ''}`}
+                        onClick={() => setActiveModalImageIndex(idx)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="modal-images-pane placeholder">
+                <div className="spiritual-placeholder-content">
+                  <span style={{ fontSize: '3rem' }}>📿</span>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-forest)', marginTop: '8px' }}>
+                    Sandipani Ashram Blessing
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Right side: Review text detail */}
+            <div className="modal-text-pane">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#111827', margin: 0 }}>{activeDetailReview.author}</h3>
+                  {activeDetailReview.verified !== false && (
+                    <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '2px', marginTop: '2px' }}>
+                      ✓ Verified buyer
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 700 }}>{activeDetailReview.date}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '2px', color: '#fbbf24', marginBottom: '16px' }}>
+                {[1, 2, 3, 4, 5].map(s => (
+                  <Star key={s} size={16} fill={s <= activeDetailReview.rating ? "#fbbf24" : "none"} color="#fbbf24" />
+                ))}
+              </div>
+
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 900, color: '#111827', marginBottom: '8px', textAlign: 'left' }}>
+                {activeDetailReview.title || 'Excellent spiritual guidance'}
+              </h4>
+
+              <p style={{ fontSize: '0.95rem', color: '#374151', lineHeight: '1.6', margin: 0, textAlign: 'left', overflowY: 'auto', maxHeight: '180px', paddingRight: '8px' }}>
+                "{activeDetailReview.content}"
+              </p>
+
+              <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>Was this review helpful?</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      handleHelpfulClick(activeDetailReview.id);
+                    }}
+                    style={{
+                      backgroundColor: votedHelpful[activeDetailReview.id] ? '#dcfce7' : '#ffffff',
+                      border: `1px solid ${votedHelpful[activeDetailReview.id] ? '#15803d' : '#d1d5db'}`,
+                      borderRadius: '9999px',
+                      padding: '6px 16px',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      color: votedHelpful[activeDetailReview.id] ? '#15803d' : '#111827',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: 'translateY(-1px)' }}>
+                      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                    </svg>
+                    Yes ({ (activeDetailReview.defaultHelpful || 0) + (helpfulCounts[activeDetailReview.id] || 0) })
+                  </button>
+                  <button
+                    onClick={() => alert("Thank you for your feedback.")}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '9999px',
+                      padding: '6px 16px',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      color: '#111827',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: 'translateY(1px)' }}>
+                      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-5v9a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z" />
+                    </svg>
+                    No
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const VidyaEmotionalHookSection: React.FC = () => {
+  return (
+    <section className="vidya-emotional-section" style={{
+      padding: '36px 0',
+      backgroundColor: '#fffcf6',
+      borderTop: '1px solid #fce8cc',
+      borderBottom: '1px solid #fce8cc',
+      fontFamily: 'var(--font-sans)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <style>{`
+        .vidya-emotional-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 24px;
+        }
+        .vidya-emotional-grid {
+          display: grid;
+          grid-template-columns: 0.85fr 1.15fr;
+          gap: 36px;
+          align-items: center;
+        }
+        .emotional-left-col {
+          position: relative;
+        }
+        .emotional-right-col {
+          text-align: left;
+        }
+        .dream-image-wrapper {
+          position: relative;
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 12px 24px rgba(249, 115, 22, 0.08);
+          border: 3px solid #ffffff;
+          height: 250px;
+        }
+        .dream-image-wrapper img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .dream-image-wrapper:hover img {
+          transform: scale(1.03);
+        }
+        .floating-blessing-tag {
+          position: absolute;
+          bottom: 12px;
+          left: 12px;
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1.2px solid #fdba74;
+          border-radius: 10px;
+          padding: 6px 12px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+          animation: tagFloat 4s infinite ease-in-out;
+        }
+        @keyframes tagFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .dream-header-accent {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #ea580c;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 6px;
+        }
+        .dream-title-main {
+          font-size: 1.7rem;
+          font-weight: 900;
+          color: #1f2937;
+          line-height: 1.25;
+          margin: 0 0 16px;
+          letter-spacing: -0.3px;
+        }
+        .dream-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+        .dream-card-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          background: #ffffff;
+          border: 1.5px solid #f3f4f6;
+          border-radius: 12px;
+          padding: 10px 12px;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
+        }
+        .dream-card-item:hover {
+          transform: translateX(3px) scale(1.01);
+          border-color: #fdba74;
+          background: linear-gradient(90deg, #ffffff 0%, #fffbeb 100%);
+          box-shadow: 0 8px 16px rgba(249, 115, 22, 0.04);
+        }
+        .dream-card-item.span-2 {
+          grid-column: span 2;
+        }
+        .dream-card-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background-color: #fff7ed;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.15rem;
+          flex-shrink: 0;
+          transition: transform 0.3s;
+        }
+        .dream-card-item:hover .dream-card-icon {
+          transform: rotate(6deg) scale(1.08);
+        }
+        .dream-card-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          text-align: left;
+        }
+        .dream-card-title {
+          font-size: 0.88rem;
+          font-weight: 800;
+          color: #1f2937;
+        }
+        .dream-card-desc {
+          font-size: 0.74rem;
+          color: #6b7280;
+          line-height: 1.3;
+        }
+        .lekin-pivot-banner-row {
+          background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+          border: 1.5px solid #fecdd3;
+          border-radius: 12px;
+          padding: 10px 16px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          text-align: left;
+          grid-column: span 2;
+          margin-top: 4px;
+        }
+        .lekin-heading {
+          font-size: 1.1rem;
+          font-weight: 900;
+          color: #991b1b;
+          margin: 0;
+          white-space: nowrap;
+        }
+        .lekin-desc {
+          font-size: 0.82rem;
+          color: #7f1d1d;
+          line-height: 1.4;
+          margin: 0;
+          font-weight: 600;
+        }
+        
+        @media (max-width: 991px) {
+          .vidya-emotional-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          .dream-image-wrapper {
+            max-width: 100%;
+            height: 200px;
+          }
+        }
+        @media (max-width: 480px) {
+          .vidya-emotional-section {
+            padding: 24px 0;
+          }
+          .dream-title-main {
+            font-size: 1.35rem;
+            margin-bottom: 12px;
+          }
+          .dream-cards-grid {
+            grid-template-columns: 1fr;
+          }
+          .dream-card-item.span-2 {
+            grid-column: span 1;
+          }
+          .lekin-pivot-banner-row {
+            grid-column: span 1;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+          }
+        }
+      `}</style>
+
+      <div className="vidya-emotional-container">
+        <div className="vidya-emotional-grid">
+          {/* Left Column: Related Image with Floating Tag */}
+          <div className="emotional-left-col">
+            <div className="dream-image-wrapper">
+              <img 
+                src="/student_study_focus.png" 
+                alt="Child concentrating on studies happily"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80";
+                }}
+              />
+              <div className="floating-blessing-tag">
+                <span style={{ fontSize: '1.1rem' }}>🕉️</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>Blessed Environment</span>
+                  <span style={{ fontSize: '0.66rem', color: '#ea580c', fontWeight: 700 }}>Vikrant Bhairav Ujjain</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Title and interactive dream cards */}
+          <div className="emotional-right-col">
+            <div className="dream-header-accent">
+              ❤️ Family Dreams
+            </div>
+            <h2 className="dream-title-main">
+              Har Maa-Baap Ka Sapna Hota Hai...
+            </h2>
+            
+            <div className="dream-cards-grid">
+              {/* Card 1 */}
+              <div className="dream-card-item">
+                <div className="dream-card-icon">📚</div>
+                <div className="dream-card-info">
+                  <span className="dream-card-title">Padhai Mein Accha Kare</span>
+                  <span className="dream-card-desc">Subject parameters easily understand ho aur padhai mein natural interest develop ho.</span>
+                </div>
+              </div>
+
+              {/* Card 2 */}
+              <div className="dream-card-item">
+                <div className="dream-card-icon">🎯</div>
+                <div className="dream-card-info">
+                  <span className="dream-card-title">Focus Rahe</span>
+                  <span className="dream-card-desc">Bina kisi distraction ke concentrated study karne ki lagan bani rahe.</span>
+                </div>
+              </div>
+
+              {/* Card 3 */}
+              <div className="dream-card-item">
+                <div className="dream-card-icon">🧠</div>
+                <div className="dream-card-info">
+                  <span className="dream-card-title">Jaldi Yaad Rakhe</span>
+                  <span className="dream-card-desc">Syllabus jaldi brain retention mein fit ho jaye aur revision time save ho.</span>
+                </div>
+              </div>
+
+              {/* Card 4 */}
+              <div className="dream-card-item">
+                <div className="dream-card-icon">🏆</div>
+                <div className="dream-card-info">
+                  <span className="dream-card-title">Achhe Marks Laye</span>
+                  <span className="dream-card-desc">Vedic concentration aura exams time anxiety reduce kare taaki top score achieve ho.</span>
+                </div>
+              </div>
+
+              {/* Card 5 - Centered/Spanned */}
+              <div className="dream-card-item span-2">
+                <div className="dream-card-icon">😊</div>
+                <div className="dream-card-info">
+                  <span className="dream-card-title">Atmavishwas Se Bhara Rahe</span>
+                  <span className="dream-card-desc">Negative feelings aur failure stress se calm brain and high self-belief develop ho.</span>
+                </div>
+              </div>
+
+              {/* Lekin Pivot Banner Row */}
+              <div className="lekin-pivot-banner-row">
+                <h4 className="lekin-heading">
+                  ⚠️ Lekin...
+                </h4>
+                <p className="lekin-desc">
+                  Har bachche ka safar aasaan nahi hota. Screens distraction and high pressure study life unke sapno par heavy mental stress ban chuke hain.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   product,
   onAddToCart,
@@ -87,6 +1387,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     return url || '';
   };
   const activeProducts = productsProp || [];
+  const isVidyaRudraksh = product.name?.toLowerCase().includes('vidya') && (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha');
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
   const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
@@ -94,6 +1395,49 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [activeToastMsg, setActiveToastMsg] = React.useState<string>('');
   const [expandedFaqIndex, setExpandedFaqIndex] = React.useState<number | null>(null);
   const [isCapturingThumbnail, setIsCapturingThumbnail] = React.useState<boolean>(false);
+
+  // Dynamic live viewers and countdown timer state hooks
+  const [viewersCount, setViewersCount] = React.useState(47);
+  const [timeLeft, setTimeLeft] = React.useState('');
+
+  React.useEffect(() => {
+    // Viewer fluctuation interval
+    const viewerInterval = setInterval(() => {
+      setViewersCount(prev => {
+        const delta = Math.floor(Math.random() * 7) - 3;
+        const newCount = prev + delta;
+        return Math.max(32, Math.min(78, newCount));
+      });
+    }, 4000);
+
+    // Countdown to midnight timer update
+    const updateCountdown = () => {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(23, 59, 59, 999);
+      const diff = midnight.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setTimeLeft('00:00:00');
+        return;
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      const pad = (num: number) => String(num).padStart(2, '0');
+      setTimeLeft(`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`);
+    };
+
+    updateCountdown();
+    const countdownInterval = setInterval(updateCountdown, 1000);
+
+    return () => {
+      clearInterval(viewerInterval);
+      clearInterval(countdownInterval);
+    };
+  }, []);
 
   // States for related products admin editor
   const [relatedSearch, setRelatedSearch] = React.useState('');
@@ -619,7 +1963,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   return (
-    <div style={{ paddingBottom: '80px', backgroundColor: '#fafafa', position: 'relative' }}>
+    <div className="product-detail-wrapper-spacing" style={{ paddingBottom: '80px', backgroundColor: isVidyaRudraksh ? '#ffffff' : '#fafafa', background: isVidyaRudraksh ? '#ffffff' : '#fafafa', position: 'relative' }}>
 
       {/* Breadcrumbs Row */}
       <div className="container" style={{ paddingTop: '24px', paddingBottom: '16px' }}>
@@ -880,7 +2224,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         }} className="hero-grid-split">
 
           {/* Left Column: Visual Showcase & Authenticity Badges */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="product-image-sticky-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Primary Image View */}
             <div 
@@ -1223,14 +2567,24 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             )}
 
             {/* Gallery Thumbnails */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="no-scrollbar" style={{
+              display: 'flex',
+              gap: '10px',
+              overflowX: 'auto',
+              flexWrap: 'nowrap',
+              alignItems: 'center',
+              padding: '6px 0 12px 0',
+              width: '100%',
+              WebkitOverflowScrolling: 'touch'
+            }}>
               {resolvedGallery.map((img, idx) => (
                 <div
                   key={idx}
                   style={{
                     position: 'relative',
                     opacity: draggedIndex === idx ? 0.4 : 1,
-                    transition: 'opacity 0.2s'
+                    transition: 'opacity 0.2s',
+                    flexShrink: 0
                   }}
                   draggable={editable && idx < (pooja.galleryImages?.length || 0)}
                   onDragStart={(e) => handleDragStart(e, idx)}
@@ -1250,8 +2604,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       }
                     }}
                     style={{
-                      width: '80px',
-                      height: '80px',
+                      width: '60px',
+                      height: '60px',
                       borderRadius: 'var(--radius-md)',
                       background: img.gradient !== 'none' ? img.gradient : '#ffffff',
                       display: 'flex',
@@ -1291,10 +2645,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                             }}
                           />
                         ) : null}
-                        <Play size={24} fill="currentColor" style={{ zIndex: 2 }} />
+                        <Play size={20} fill="currentColor" style={{ zIndex: 2 }} />
                       </div>
                     ) : img.isEmoji ? (
-                      <span style={{ fontSize: '2.2rem' }}>{img.url}</span>
+                      <span style={{ fontSize: '1.8rem' }}>{img.url}</span>
                     ) : (
                       <img src={getDisplayImageUrl(img.url)} alt={img.alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
@@ -1346,8 +2700,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <label
                     htmlFor={`detail-gallery-add-${product.id}`}
                     style={{
-                      width: '80px',
-                      height: '80px',
+                      width: '60px',
+                      height: '60px',
                       borderRadius: 'var(--radius-md)',
                       border: '1px dashed var(--primary-lime)',
                       backgroundColor: 'rgba(132, 204, 22, 0.05)',
@@ -1357,15 +2711,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      fontSize: '0.7rem',
+                      fontSize: '0.62rem',
                       fontWeight: 800,
                       gap: '4px',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      flexShrink: 0
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.1)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.05)'}
                   >
-                    <Upload size={18} />
+                    <Upload size={16} />
                     <span>Add Photo</span>
                   </label>
                   <input
@@ -1397,8 +2752,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <label
                     htmlFor={`detail-video-add-${product.id}`}
                     style={{
-                      width: '80px',
-                      height: '80px',
+                      width: '60px',
+                      height: '60px',
                       borderRadius: 'var(--radius-md)',
                       border: '1px dashed #3b82f6',
                       backgroundColor: 'rgba(59, 130, 246, 0.05)',
@@ -1408,15 +2763,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      fontSize: '0.7rem',
+                      fontSize: '0.62rem',
                       fontWeight: 800,
                       gap: '4px',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      flexShrink: 0
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)'}
                   >
-                    <Play size={18} />
+                    <Play size={16} />
                     <span>Add Video</span>
                   </label>
                   <input
@@ -1444,14 +2800,15 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
 
             {/* Accordion Tabs Info Blocks */}
-            <div style={{
-              marginTop: '16px',
-              backgroundColor: '#ffffff',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-light)',
-              overflow: 'hidden',
-              boxShadow: 'var(--shadow-sm)'
-            }}>
+            {!isVidyaRudraksh && (
+              <div style={{
+                marginTop: '16px',
+                backgroundColor: '#ffffff',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-light)',
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
               {/* Tabs Headers */}
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border-light)', backgroundColor: '#f9fafb' }}>
                 <button
@@ -1562,6 +2919,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
 
             </div>
+            )}
 
           </div>
 
@@ -1581,7 +2939,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   padding: '4px 10px',
                   borderRadius: 'var(--radius-sm)'
                 }}>
-                  {product.spiritualType}
+                  {isVidyaRudraksh ? 'Study & Focus' : product.spiritualType}
                 </span>
 
                 {/* Share Button */}
@@ -1609,7 +2967,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 lineHeight: '1.2',
                 marginBottom: '4px'
               }}>
-                {editable ? (
+                {isVidyaRudraksh ? (
+                  "Sandipani Ashram Se Siddh Vidya Rudraksh™"
+                ) : editable ? (
                   <InlineEdit
                     value={product.name}
                     onChange={(val) => onUpdate && onUpdate({ name: val })}
@@ -1619,7 +2979,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   product.name
                 )}
               </h1>
-              {(editable || pooja.sanskritName) && (
+              {!isVidyaRudraksh && (editable || pooja.sanskritName) && (
                 <div style={{
                   fontSize: '1.1rem',
                   fontWeight: 600,
@@ -1639,7 +2999,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   )}
                 </div>
               )}
-              {(editable || pooja.subtitle) && (
+              {(editable || pooja.subtitle || isVidyaRudraksh) && (
                 <p style={{
                   fontSize: '0.92rem',
                   fontWeight: 500,
@@ -1647,7 +3007,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   marginBottom: '12px',
                   lineHeight: '1.4'
                 }}>
-                  {editable ? (
+                  {isVidyaRudraksh ? (
+                    "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
+                  ) : editable ? (
                     <InlineEdit
                       value={pooja.subtitle || ''}
                       onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
@@ -1657,6 +3019,213 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     pooja.subtitle
                   )}
                 </p>
+              )}
+
+              {/* Location Badge (Only for Vidya Rudraksh) */}
+              {isVidyaRudraksh && (
+                <div className="location-badge-container">
+                  <span 
+                    className="badge-icon-pin-container" 
+                    style={{ 
+                      color: '#ef4444',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      borderRadius: '50%',
+                      width: '26px',
+                      height: '26px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <MapPin size={15} strokeWidth={2.5} />
+                  </span>
+                  <span className="location-badge-text">
+                    Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddhi Anushthan Ke Baad Abhimantrit
+                  </span>
+                </div>
+              )}
+
+              {/* Live viewers & Countdown deal badges (Only for Vidya Rudraksh) */}
+              {isVidyaRudraksh && (
+                <div 
+                  className="vidya-live-badges-row"
+                  style={{
+                    marginBottom: '16px',
+                    fontFamily: 'var(--font-sans)',
+                    textAlign: 'left'
+                  }}
+                >
+                  {/* Embedded badge keyframe styles */}
+                  <style>{`
+                    .vidya-live-badges-row {
+                      display: flex;
+                      flex-wrap: wrap;
+                      gap: 10px 14px;
+                    }
+                    .location-badge-container {
+                      display: flex;
+                      align-items: center;
+                      gap: 12px;
+                      background-color: rgba(239, 68, 68, 0.05);
+                      border: 1.5px solid rgba(239, 68, 68, 0.25);
+                      border-radius: 12px;
+                      padding: 10px 16px;
+                      margin-bottom: 16px;
+                      text-align: left;
+                    }
+                    .location-badge-text {
+                      font-size: 0.88rem;
+                      font-weight: 700;
+                      color: #b91c1c;
+                      line-height: 1.4;
+                    }
+                    .badge-live-pill {
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 10px;
+                      background-color: rgba(16, 185, 129, 0.06);
+                      border: 1px solid rgba(16, 185, 129, 0.25);
+                      border-radius: var(--radius-full);
+                      padding: 6px 16px 6px 8px;
+                      font-size: 0.85rem;
+                      font-weight: 800;
+                      color: #059669;
+                      box-shadow: var(--shadow-sm);
+                      white-space: nowrap;
+                    }
+                    .badge-live-pill-orange {
+                      background-color: rgba(245, 158, 11, 0.06);
+                      border: 1px solid rgba(245, 158, 11, 0.25);
+                      color: #d97706;
+                    }
+                    @media (max-width: 480px) {
+                      .vidya-live-badges-row {
+                        flex-wrap: nowrap !important;
+                        gap: 8px !important;
+                      }
+                      .location-badge-container {
+                        padding: 8px 12px !important;
+                        margin-bottom: 12px !important;
+                        gap: 8px !important;
+                      }
+                      .location-badge-text {
+                        font-size: 0.76rem !important;
+                      }
+                      .badge-icon-pin-container {
+                        width: 22px !important;
+                        height: 22px !important;
+                      }
+                      .badge-icon-pin-container svg {
+                        width: 12px !important;
+                        height: 12px !important;
+                      }
+                      .badge-live-pill {
+                        flex: 1;
+                        justify-content: center;
+                        padding: 4px 6px !important;
+                        font-size: 0.68rem !important;
+                        gap: 4px !important;
+                      }
+                      .badge-icon-live-container, .badge-icon-clock-container {
+                        width: 20px !important;
+                        height: 20px !important;
+                      }
+                      .badge-icon-live-container svg, .badge-icon-clock-container svg {
+                        width: 10px !important;
+                        height: 10px !important;
+                      }
+                    }
+                    @keyframes radar-ping-red {
+                      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+                      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+                      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                    }
+                    @keyframes pin-bounce {
+                      0%, 100% { transform: translateY(0); }
+                      50% { transform: translateY(-4px); }
+                    }
+                    .badge-icon-pin-container {
+                      animation: radar-ping-red 2s infinite ease-in-out;
+                      background-color: rgba(239, 68, 68, 0.15);
+                      border-radius: 50%;
+                      width: 26px;
+                      height: 26px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      flex-shrink: 0;
+                    }
+                    .badge-icon-pin-container svg {
+                      animation: pin-bounce 1.5s infinite ease-in-out;
+                      transform-origin: center;
+                    }
+                    @keyframes radar-ping-green {
+                      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+                      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+                      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                    }
+                    @keyframes radar-ping-orange {
+                      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+                      70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+                      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+                    }
+                    @keyframes eye-blink {
+                      0%, 90%, 100% { transform: scaleY(1); }
+                      95% { transform: scaleY(0.2); }
+                    }
+                    @keyframes clock-ticktock {
+                      0%, 100% { transform: rotate(-15deg); }
+                      50% { transform: rotate(15deg); }
+                    }
+                    .badge-icon-live-container {
+                      animation: radar-ping-green 2s infinite ease-in-out;
+                      background-color: rgba(16, 185, 129, 0.15);
+                      border-radius: 50%;
+                      width: 26px;
+                      height: 26px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      flex-shrink: 0;
+                    }
+                    .badge-icon-live-container svg {
+                      animation: eye-blink 3s infinite ease-in-out;
+                      transform-origin: center;
+                    }
+                    .badge-icon-clock-container {
+                      animation: radar-ping-orange 2s infinite ease-in-out;
+                      background-color: rgba(245, 158, 11, 0.15);
+                      border-radius: 50%;
+                      width: 26px;
+                      height: 26px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      flex-shrink: 0;
+                    }
+                    .badge-icon-clock-container svg {
+                      animation: clock-ticktock 1.2s infinite ease-in-out;
+                      transform-origin: center;
+                    }
+                  `}</style>
+
+                  {/* Viewer Count Badge */}
+                  <div className="badge-live-pill">
+                    <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
+                      <Eye size={15} strokeWidth={2.5} />
+                    </span>
+                    <span>{viewersCount} people viewing now</span>
+                  </div>
+
+                  {/* Countdown Deal Badge */}
+                  <div className="badge-live-pill badge-live-pill-orange">
+                    <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
+                      <Clock size={15} strokeWidth={2.5} />
+                    </span>
+                    <span>Sale ends in {timeLeft || '09:45:45'}</span>
+                  </div>
+                </div>
               )}
 
               {/* Star Rating summary */}
@@ -1674,6 +3243,184 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
               </div>
+
+              {/* Trust Badges (Only for Vidya Rudraksh) */}
+              {isVidyaRudraksh && (
+                <div 
+                  className="vidya-trust-grid"
+                  style={{
+                    marginTop: '20px',
+                    display: 'grid',
+                    padding: '4px 0'
+                  }}
+                >
+                  {/* Embedded Animation Styles & Grid Query */}
+                  <style>{`
+                    .vidya-trust-grid {
+                      grid-template-columns: repeat(2, 1fr) !important;
+                      gap: 14px 20px !important;
+                    }
+                    .vidya-trust-item {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      white-space: nowrap;
+                    }
+                    .vidya-trust-text {
+                      font-size: 0.88rem;
+                    }
+                    .vidya-trust-icon-wrap {
+                      width: 34px;
+                      height: 34px;
+                    }
+                    @media (max-width: 480px) {
+                      .vidya-trust-grid {
+                        gap: 10px 8px !important;
+                      }
+                      .vidya-trust-item {
+                        white-space: normal !important;
+                      }
+                      .vidya-trust-text {
+                        font-size: 0.74rem;
+                      }
+                      .vidya-trust-icon-wrap {
+                        width: 28px;
+                        height: 28px;
+                      }
+                    }
+                    @media (max-width: 380px) {
+                      .vidya-trust-grid {
+                        grid-template-columns: 1fr !important;
+                        gap: 8px !important;
+                      }
+                      .vidya-trust-item {
+                        white-space: nowrap !important;
+                      }
+                    }
+                    @keyframes badge-heartbeat {
+                      0% { transform: scale(1); }
+                      25% { transform: scale(1.08); }
+                      40% { transform: scale(1); }
+                      55% { transform: scale(1.08); }
+                      70% { transform: scale(1); }
+                      100% { transform: scale(1); }
+                    }
+                    @keyframes badge-spin {
+                      0% { transform: rotate(0deg) scale(1); }
+                      50% { transform: rotate(180deg) scale(1.1); }
+                      100% { transform: rotate(360deg) scale(1); }
+                    }
+                    @keyframes badge-bounce {
+                      0%, 100% { transform: translateY(0); }
+                      50% { transform: translateY(-4px); }
+                    }
+                    @keyframes badge-glow {
+                      0%, 100% { transform: scale(1); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+                      50% { transform: scale(1.06); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.6); }
+                    }
+                    .animate-badge-heart {
+                      animation: badge-heartbeat 2.5s infinite ease-in-out;
+                    }
+                    .animate-badge-spin {
+                      animation: badge-spin 4s infinite linear;
+                    }
+                    .animate-badge-bounce {
+                      animation: badge-bounce 3s infinite ease-in-out;
+                    }
+                    .animate-badge-glow {
+                      animation: badge-glow 2.5s infinite ease-in-out;
+                    }
+                  `}</style>
+
+                  {/* Item 1: Parents Ka Vishwas */}
+                  <div className="vidya-trust-item">
+                    <div 
+                      className="animate-badge-heart vidya-trust-icon-wrap"
+                      style={{
+                        background: 'linear-gradient(135deg, #f43f5e, #ec4899)',
+                        color: '#ffffff',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 10px rgba(244, 63, 94, 0.3)'
+                      }}
+                    >
+                      <Users size={15} />
+                    </div>
+                    <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                      10,000+ Parents Ka Vishwas
+                    </span>
+                  </div>
+
+                  {/* Item 2: Sandipani Ashram Siddh */}
+                  <div className="vidya-trust-item">
+                    <div 
+                      className="animate-badge-spin vidya-trust-icon-wrap"
+                      style={{
+                        background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                        color: '#ffffff',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 10px rgba(251, 191, 36, 0.3)'
+                      }}
+                    >
+                      <Sparkles size={15} />
+                    </div>
+                    <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                      Sandipani Ashram Siddh
+                    </span>
+                  </div>
+
+                  {/* Item 3: Orders Delivered */}
+                  <div className="vidya-trust-item">
+                    <div 
+                      className="animate-badge-bounce vidya-trust-icon-wrap"
+                      style={{
+                        background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                        color: '#ffffff',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)'
+                      }}
+                    >
+                      <Package size={15} />
+                    </div>
+                    <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                      18,000+ Orders Delivered
+                    </span>
+                  </div>
+
+                  {/* Item 4: Certified Dharmic Product */}
+                  <div className="vidya-trust-item">
+                    <div 
+                      className="animate-badge-glow vidya-trust-icon-wrap"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#ffffff',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <ShieldCheck size={15} />
+                    </div>
+                    <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                      Certified Dharmic Product
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Pricing Section with Dynamic Modifier */}
@@ -1744,50 +3491,52 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
 
             {/* Quantity Selector & Wishlist */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-md)',
-                  overflow: 'hidden',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <button
-                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
-                  >
-                    -
-                  </button>
-                  <span style={{ padding: '0 8px', fontSize: '0.92rem', fontWeight: 800, minWidth: '24px', textAlign: 'center' }}>
-                    {quantity}
+            {!isVidyaRudraksh && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    backgroundColor: '#ffffff'
+                  }}>
+                    <button
+                      onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                      style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                    >
+                      -
+                    </button>
+                    <span style={{ padding: '0 8px', fontSize: '0.92rem', fontWeight: 800, minWidth: '24px', textAlign: 'center' }}>
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(prev => {
+                        const limit = product?.purchaseLimit;
+                        if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
+                          alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
+                          return prev;
+                        }
+                        return prev + 1;
+                      })}
+                      style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dynamic total feedback */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
+                    ₹{totalPrice.toFixed(2)}
                   </span>
-                  <button
-                    onClick={() => setQuantity(prev => {
-                      const limit = product?.purchaseLimit;
-                      if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
-                        alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
-                        return prev;
-                      }
-                      return prev + 1;
-                    })}
-                    style={{ padding: '8px 16px', fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-muted)' }}
-                  >
-                    +
-                  </button>
                 </div>
               </div>
-
-              {/* Dynamic total feedback */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
-                  ₹{totalPrice.toFixed(2)}
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Main Action Buttons */}
             <div className="product-actions-grid">
@@ -1800,11 +3549,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: 'var(--primary-deep)',
+                      backgroundColor: '#fbbf24',
                       borderRadius: 'var(--radius-md)',
                       padding: '5px',
                       height: '54px',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      boxShadow: '0 4px 12px rgba(251, 191, 36, 0.15)'
                     }}>
                       <button
                         onClick={(e) => {
@@ -1815,8 +3565,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           width: '44px',
                           height: '44px',
                           borderRadius: '8px',
-                          backgroundColor: 'rgba(255,255,255,0.15)',
-                          color: '#ffffff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                          color: '#111827',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1824,13 +3574,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           border: 'none',
                           transition: 'background-color 0.15s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.12)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)'}
                       >
                         <Minus size={16} strokeWidth={2.5} />
                       </button>
                       <span style={{
-                        color: '#ffffff',
+                        color: '#111827',
                         fontWeight: '800',
                         fontSize: '0.95rem',
                         userSelect: 'none'
@@ -1847,8 +3597,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           width: '44px',
                           height: '44px',
                           borderRadius: '8px',
-                          backgroundColor: 'rgba(255,255,255,0.15)',
-                          color: '#ffffff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                          color: '#111827',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1856,14 +3606,15 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           border: 'none',
                           transition: 'background-color 0.15s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.12)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.06)'}
                       >
                         <Plus size={16} strokeWidth={2.5} />
                       </button>
                     </div>
                   );
                 }
+
                 return (
                   <button
                     onClick={handleAddToCartClick}
@@ -1889,7 +3640,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               <button
                 onClick={handleBuyNowClick}
                 style={{
-                  backgroundColor: 'var(--primary-forest)',
+                  backgroundColor: '#111827',
                   color: '#ffffff',
                   fontWeight: 800,
                   borderRadius: 'var(--radius-md)',
@@ -1901,7 +3652,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
-                Buy It Now
+                Buy Now
               </button>
 
               <button
@@ -1919,32 +3670,401 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </button>
             </div>
 
+            {/* Temple Blessing & Process Steps (Only for Vidya Rudraksh) */}
+            {isVidyaRudraksh && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '10px' }}>
+                {/* Temple Blessed Banner */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #fffbeb 0%, #fff7ed 50%, #ffedd5 100%)',
+                  border: '1.5px solid #fed7aa',
+                  borderRadius: '16px',
+                  padding: '20px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  boxShadow: 'var(--shadow-sm)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  textAlign: 'left'
+                }}>
+                  {/* Floating light rays style */}
+                  <style>{`
+                    @keyframes ray-glow {
+                      0%, 100% { opacity: 0.15; transform: scale(1) rotate(0deg); }
+                      50% { opacity: 0.3; transform: scale(1.1) rotate(180deg); }
+                    }
+                    .blessing-glow-effect {
+                      position: absolute;
+                      top: -50%;
+                      right: -10%;
+                      width: 250px;
+                      height: 250px;
+                      background: radial-gradient(circle, rgba(249, 115, 22, 0.2) 0%, rgba(249, 115, 22, 0) 70%);
+                      animation: ray-glow 8s infinite ease-in-out;
+                      pointer-events: none;
+                      z-index: 1;
+                    }
+                    @keyframes priest-float {
+                      0%, 100% { transform: translateY(0) rotate(0deg); }
+                      50% { transform: translateY(-6px) rotate(1deg); }
+                    }
+                    .priest-image-container {
+                      animation: priest-float 4s infinite ease-in-out;
+                      position: relative;
+                      z-index: 2;
+                      flex-shrink: 0;
+                    }
+                  `}</style>
+
+                  <div className="blessing-glow-effect" />
+
+                  {/* Text Content */}
+                  <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{
+                      fontSize: '1.25rem',
+                      fontWeight: 900,
+                      color: '#7c2d12',
+                      fontFamily: 'var(--font-sans)',
+                      letterSpacing: '-0.3px'
+                    }}>
+                      Temple Blessed
+                    </span>
+                    <span style={{
+                      fontSize: '0.94rem',
+                      fontWeight: 700,
+                      color: '#ea580c',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      Vikrant Bhairav Mandir, Ujjain
+                    </span>
+                  </div>
+
+                  {/* Guru Ji Avatar */}
+                  <div className="priest-image-container" style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    backgroundColor: '#fff',
+                    border: '3px solid #f97316',
+                    boxShadow: '0 4px 12px rgba(249, 115, 22, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                    <img 
+                      src="/siddh_pandit_ji.png" 
+                      alt="Pandit Ji" 
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          const fallback = document.createElement('span');
+                          fallback.style.fontSize = '1.8rem';
+                          fallback.innerText = '🙏';
+                          parent.appendChild(fallback);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* How a Product Becomes Siddh Section */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1.5px solid #eaeaea',
+                  borderRadius: '16px',
+                  padding: '16px 20px',
+                  boxShadow: 'var(--shadow-sm)',
+                  position: 'relative',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  {/* Decorative flower design */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <div style={{ height: '1.5px', width: '40px', background: 'linear-gradient(to left, #f97316, transparent)' }}></div>
+                    <span style={{ color: '#f97316', fontSize: '1rem' }}>🔱</span>
+                    <div style={{ height: '1.5px', width: '40px', background: 'linear-gradient(to right, #f97316, transparent)' }}></div>
+                  </div>
+
+                  <h3 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 900,
+                    color: 'var(--text-dark)',
+                    margin: 0,
+                    letterSpacing: '-0.3px'
+                  }}>
+                    How a product becomes siddh
+                  </h3>
+
+                  {/* Steps row */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '6px',
+                    padding: '8px 0',
+                    position: 'relative',
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none'
+                  }}>
+                    {/* Embedded Step hover/bounce styles */}
+                    <style>{`
+                      .siddh-step-card {
+                        flex: 1;
+                        min-width: 70px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 8px;
+                        transition: transform 0.2s;
+                      }
+                      .siddh-step-card:hover {
+                        transform: translateY(-4px);
+                      }
+                      @keyframes package-bounce {
+                        0%, 100% { transform: translateY(0) scale(1); }
+                        50% { transform: translateY(-4px) scale(1.08); }
+                      }
+                      @keyframes flag-wave {
+                        0%, 100% { transform: rotate(0deg); }
+                        50% { transform: rotate(8deg); }
+                      }
+                      @keyframes fire-flicker {
+                        0%, 100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.2)); }
+                        50% { transform: scale(1.08) rotate(-2deg); filter: drop-shadow(0 4px 10px rgba(239, 68, 68, 0.4)); }
+                      }
+                      @keyframes home-heartbeat {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.08); }
+                      }
+                      .step-icon-pkg {
+                        animation: package-bounce 3s infinite ease-in-out;
+                      }
+                      .step-icon-temple {
+                        animation: flag-wave 2.5s infinite ease-in-out;
+                        transform-origin: bottom center;
+                      }
+                      .step-icon-fire {
+                        animation: fire-flicker 1.8s infinite ease-in-out;
+                        transform-origin: bottom center;
+                      }
+                      .step-icon-home {
+                        animation: home-heartbeat 3s infinite ease-in-out;
+                      }
+                      .siddh-step-icon {
+                        width: 48px;
+                        height: 48px;
+                      }
+                      .siddh-step-text {
+                        font-size: 0.74rem;
+                        max-width: 64px;
+                      }
+                      .siddh-separator {
+                        align-self: center;
+                        color: #fdba74;
+                        font-weight: 900;
+                        letter-spacing: 2px;
+                        font-size: 0.8rem;
+                        padding-bottom: 16px;
+                      }
+                      @media (max-width: 480px) {
+                        .siddh-separator {
+                          display: none !important;
+                        }
+                        .siddh-step-card {
+                          min-width: 58px !important;
+                          gap: 6px !important;
+                        }
+                        .siddh-step-icon {
+                          width: 38px !important;
+                          height: 38px !important;
+                        }
+                        .siddh-step-icon svg {
+                          width: 20px !important;
+                          height: 20px !important;
+                        }
+                        .siddh-step-text {
+                          font-size: 0.64rem !important;
+                          max-width: 58px !important;
+                        }
+                      }
+                    `}</style>
+
+                    {/* Step 1 */}
+                    <div className="siddh-step-card">
+                      <div className="step-icon-pkg siddh-step-icon" style={{
+                        borderRadius: '50%',
+                        backgroundColor: '#fff7ed',
+                        border: '2px solid #fdba74',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 'var(--shadow-sm)',
+                        color: '#f97316'
+                      }}>
+                        <Package size={22} strokeWidth={2.5} />
+                      </div>
+                      <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
+                        Product is Selected
+                      </span>
+                    </div>
+
+                    {/* Dotted separator */}
+                    <div className="siddh-separator">••••</div>
+
+                    {/* Step 2 */}
+                    <div className="siddh-step-card">
+                      <div className="step-icon-temple siddh-step-icon" style={{
+                        borderRadius: '50%',
+                        backgroundColor: '#fff7ed',
+                        border: '2px solid #fdba74',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 'var(--shadow-sm)',
+                        color: '#ea580c'
+                      }}>
+                        {/* Custom temple/shrine SVG */}
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 2L3 9h18L12 2z" fill="#ffedd5" stroke="#ea580c" />
+                          <path d="M5 9v11h14V9" stroke="#ea580c" />
+                          <path d="M9 20v-6a3 3 0 0 1 6 0v6" stroke="#ea580c" />
+                          <path d="M12 2v3" stroke="#f97316" strokeWidth="3" />
+                          <path d="M12 2l5 1" stroke="#f97316" strokeWidth="3" />
+                        </svg>
+                      </div>
+                      <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
+                        Taken to Temple
+                      </span>
+                    </div>
+
+                    {/* Dotted separator */}
+                    <div className="siddh-separator">••••</div>
+
+                    {/* Step 3 */}
+                    <div className="siddh-step-card">
+                      <div className="step-icon-fire siddh-step-icon" style={{
+                        borderRadius: '50%',
+                        backgroundColor: '#fff7ed',
+                        border: '2px solid #fdba74',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 'var(--shadow-sm)',
+                        color: '#ef4444'
+                      }}>
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" fill="#ffedd5" stroke="#ef4444" />
+                        </svg>
+                      </div>
+                      <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
+                        Puja & Sankalp
+                      </span>
+                    </div>
+
+                    {/* Dotted separator */}
+                    <div className="siddh-separator">••••</div>
+
+                    {/* Step 4 */}
+                    <div className="siddh-step-card">
+                      <div className="step-icon-home siddh-step-icon" style={{
+                        borderRadius: '50%',
+                        backgroundColor: '#ecfdf5',
+                        border: '2px solid #a7f3d0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 'var(--shadow-sm)',
+                        color: '#10b981'
+                      }}>
+                        {/* Custom House SVG */}
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#d1fae5" stroke="#10b981" />
+                          <polyline points="9 22 9 12 15 12 15 22" stroke="#10b981" />
+                        </svg>
+                      </div>
+                      <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
+                        Delivered to You
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Buy Now CTA inside Siddh Section */}
+                  <button 
+                    onClick={handleBuyNowClick}
+                    style={{
+                      backgroundColor: '#ea580c',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(234, 88, 12, 0.2)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '4px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#c2410c';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ea580c';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    Buy Now
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Description */}
-            <div style={{
-              fontSize: '0.95rem',
-              color: 'var(--text-muted)',
-              lineHeight: '1.6',
-              marginBottom: '10px'
-            }}>
-              {editable ? (
-                <InlineEdit
-                  type="textarea"
-                  value={product.description || ''}
-                  onChange={(val) => onUpdate && onUpdate({ description: val, shortDescription: val })}
-                  placeholder="Detailed product story and description..."
-                />
-              ) : (
-                product.description
-              )}
-            </div>
+            {!isVidyaRudraksh && (
+              <div style={{
+                fontSize: '0.95rem',
+                color: 'var(--text-muted)',
+                lineHeight: '1.6',
+                marginBottom: '10px'
+              }}>
+                {editable ? (
+                  <InlineEdit
+                    type="textarea"
+                    value={product.description || ''}
+                    onChange={(val) => onUpdate && onUpdate({ description: val, shortDescription: val })}
+                    placeholder="Detailed product story and description..."
+                  />
+                ) : (
+                  product.description
+                )}
+              </div>
+            )}
 
             {/* Spiritual Benefits Bullet Points */}
-            <div style={{
-              backgroundColor: 'var(--primary-lime-light)',
-              padding: '20px',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid rgba(249, 115, 22, 0.15)'
-            }}>
+            {!isVidyaRudraksh && (
+              <div style={{
+                backgroundColor: 'var(--primary-lime-light)',
+                padding: '20px',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid rgba(249, 115, 22, 0.15)'
+              }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Info size={16} /> Spiritual Benefits & Blessings
               </h3>
@@ -2006,13 +4126,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </button>
               )}
             </div>
+            )}
 
           </div>
         </div>
       </section>
 
+      {/* Section 2 — Emotional Hook (Only for Vidya Rudraksh) */}
+      {isVidyaRudraksh && (
+        <VidyaEmotionalHookSection />
+      )}
+
       {/* Detailed Pooja Description & Spiritual Elements */}
-      {((pooja.spiritualSignificance && pooja.spiritualSignificance !== '') ||
+      {!isVidyaRudraksh && ((pooja.spiritualSignificance && pooja.spiritualSignificance !== '') ||
         (Array.isArray(pooja.ritualsIncluded) && pooja.ritualsIncluded.length > 0) ||
         (Array.isArray(pooja.samagriList) && pooja.samagriList.length > 0) ||
         (pooja.bookingInstructions && pooja.bookingInstructions !== '') ||
@@ -2905,216 +5031,234 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             }} className={editable ? "hero-grid-split" : ""}>
 
               {/* Reviews list */}
-              <div style={{ textAlign: 'left' }}>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
-                </h2>
+              {isVidyaRudraksh ? (
+                <VidyaReviewsSection
+                  reviews={reviews}
+                  editable={editable}
+                  handleWriteReviewClick={() => {
+                    if (editable) {
+                      const formElement = document.getElementById('admin-review-form');
+                      if (formElement) {
+                        formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    } else {
+                      alert("Blessing reviews are submitted by verified devotees post-delivery. Thank you for your support!");
+                    }
+                  }}
+                  handleDeleteReview={handleDeleteReview}
+                />
+              ) : (
+                <div style={{ textAlign: 'left' }}>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
+                  </h2>
 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: editable ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: '24px'
-                }}>
-                  {reviews.length === 0 ? (
-                    <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa', gridColumn: '1 / -1' }}>
-                      <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>No reviews yet for this product.</p>
-                      {editable && <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review on the right!</p>}
-                    </div>
-                  ) : (
-                    reviews.map((rev) => (
-                      <div
-                        key={rev.id}
-                        style={{
-                          padding: '24px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: 'var(--radius-lg)',
-                          border: '1px solid var(--border-light)',
-                          boxShadow: 'var(--shadow-sm)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                          position: 'relative'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {/* Initials Avatar */}
-                            <div style={{
-                              width: '42px',
-                              height: '42px',
-                              borderRadius: '50%',
-                              background: 'linear-gradient(135deg, #f97316 0%, #d97706 100%)',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: '0.95rem',
-                              boxShadow: '0 2px 4px rgba(249, 115, 22, 0.25)',
-                              flexShrink: 0
-                            }}>
-                              {rev.author.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                            </div>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-dark)' }}>{rev.author}</span>
-                                {rev.verified !== false && (
-                                  <span
-                                    style={{
-                                      fontSize: '0.68rem',
-                                      backgroundColor: '#dcfce7',
-                                      color: '#15803d',
-                                      fontWeight: 800,
-                                      padding: '2px 6px',
-                                      borderRadius: '12px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '2px'
-                                    }}
-                                    title="Verified Devotee Purchase"
-                                  >
-                                    ✓ Verified
-                                  </span>
-                                )}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: editable ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '24px'
+                  }}>
+                    {reviews.length === 0 ? (
+                      <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa', gridColumn: '1 / -1' }}>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>No reviews yet for this product.</p>
+                        {editable && <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review on the right!</p>}
+                      </div>
+                    ) : (
+                      reviews.map((rev) => (
+                        <div
+                          key={rev.id}
+                          style={{
+                            padding: '24px',
+                            backgroundColor: '#ffffff',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid var(--border-light)',
+                            boxShadow: 'var(--shadow-sm)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            position: 'relative'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              {/* Initials Avatar */}
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #f97316 0%, #d97706 100%)',
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800,
+                                fontSize: '0.95rem',
+                                boxShadow: '0 2px 4px rgba(249, 115, 22, 0.25)',
+                                flexShrink: 0
+                              }}>
+                                {rev.author.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                               </div>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{rev.date}</span>
+                              
+                              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-dark)' }}>{rev.author}</span>
+                                  {rev.verified !== false && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.68rem',
+                                        backgroundColor: '#dcfce7',
+                                        color: '#15803d',
+                                        fontWeight: 800,
+                                        padding: '2px 6px',
+                                        borderRadius: '12px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '2px'
+                                      }}
+                                      title="Verified Devotee Purchase"
+                                    >
+                                      ✓ Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{rev.date}</span>
+                              </div>
                             </div>
+
+                            {editable && (
+                              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingReviewId(rev.id);
+                                    setReviewName(rev.author);
+                                    setReviewRating(rev.rating);
+                                    setReviewComment(rev.content);
+                                    const parts = rev.date.split(' – ');
+                                    setReviewLocation(parts[1] || '');
+                                    setTempImageUrls(rev.imageUrls || []);
+                                    setTempVideoUrls(rev.videoUrls || []);
+                                    const formElement = document.getElementById('admin-review-form');
+                                    if (formElement) {
+                                      formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--primary-forest)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--primary-lime-light)',
+                                    transition: 'background-color 0.2s'
+                                  }}
+                                  title="Edit Review (Admin)"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteReview(rev.id)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#fef2f2',
+                                    transition: 'background-color 0.2s'
+                                  }}
+                                  title="Delete Review (Admin)"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            )}
                           </div>
 
-                          {editable && (
-                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingReviewId(rev.id);
-                                  setReviewName(rev.author);
-                                  setReviewRating(rev.rating);
-                                  setReviewComment(rev.content);
-                                  const parts = rev.date.split(' – ');
-                                  setReviewLocation(parts[1] || '');
-                                  setTempImageUrls(rev.imageUrls || []);
-                                  setTempVideoUrls(rev.videoUrls || []);
-                                  const formElement = document.getElementById('admin-review-form');
-                                  if (formElement) {
-                                    formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                  }
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: 'var(--primary-forest)',
-                                  cursor: 'pointer',
-                                  padding: '4px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: '50%',
-                                  backgroundColor: 'var(--primary-lime-light)',
-                                  transition: 'background-color 0.2s'
-                                }}
-                                title="Edit Review (Admin)"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteReview(rev.id)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#ef4444',
-                                  cursor: 'pointer',
-                                  padding: '4px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#fef2f2',
-                                  transition: 'background-color 0.2s'
-                                }}
-                                title="Delete Review (Admin)"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                size={14}
+                                fill={s <= rev.rating ? '#fbbf24' : 'none'}
+                                color="#fbbf24"
+                              />
+                            ))}
+                          </div>
+
+                          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0, fontStyle: 'italic', textAlign: 'left' }}>
+                            "{rev.content}"
+                          </p>
+
+                          {/* Review Media: Images & Videos */}
+                          {((rev.imageUrls && rev.imageUrls.length > 0) || (rev.videoUrls && rev.videoUrls.length > 0)) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                              {/* Images Gallery */}
+                              {rev.imageUrls && rev.imageUrls.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  {rev.imageUrls.map((url, i) => (
+                                    <a
+                                      key={i}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        overflow: 'hidden',
+                                        border: '1px solid var(--border-light)',
+                                        boxShadow: 'var(--shadow-sm)',
+                                        display: 'block'
+                                      }}
+                                    >
+                                      <img
+                                        src={url}
+                                        alt={`Review file ${i + 1}`}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Videos */}
+                              {rev.videoUrls && rev.videoUrls.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  {rev.videoUrls.map((url, i) => (
+                                    <video
+                                      key={i}
+                                      src={url}
+                                      controls
+                                      preload="metadata"
+                                      style={{
+                                        maxWidth: '100%',
+                                        height: '80px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--border-light)',
+                                        boxShadow: 'var(--shadow-sm)'
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star
-                              key={s}
-                              size={14}
-                              fill={s <= rev.rating ? '#fbbf24' : 'none'}
-                              color="#fbbf24"
-                            />
-                          ))}
-                        </div>
-
-                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0, fontStyle: 'italic', textAlign: 'left' }}>
-                          "{rev.content}"
-                        </p>
-
-                        {/* Review Media: Images & Videos */}
-                        {((rev.imageUrls && rev.imageUrls.length > 0) || (rev.videoUrls && rev.videoUrls.length > 0)) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
-                            {/* Images Gallery */}
-                            {rev.imageUrls && rev.imageUrls.length > 0 && (
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {rev.imageUrls.map((url, i) => (
-                                  <a
-                                    key={i}
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      width: '60px',
-                                      height: '60px',
-                                      borderRadius: 'var(--radius-sm)',
-                                      overflow: 'hidden',
-                                      border: '1px solid var(--border-light)',
-                                      boxShadow: 'var(--shadow-sm)',
-                                      display: 'block'
-                                    }}
-                                  >
-                                    <img
-                                      src={url}
-                                      alt={`Review file ${i + 1}`}
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Videos */}
-                            {rev.videoUrls && rev.videoUrls.length > 0 && (
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {rev.videoUrls.map((url, i) => (
-                                  <video
-                                    key={i}
-                                    src={url}
-                                    controls
-                                    preload="metadata"
-                                    style={{
-                                      maxWidth: '100%',
-                                      height: '80px',
-                                      borderRadius: 'var(--radius-sm)',
-                                      border: '1px solid var(--border-light)',
-                                      boxShadow: 'var(--shadow-sm)'
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Write a review form */}
               {editable && (
@@ -4017,6 +6161,70 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Mobile Floating Bottom Bar */}
+      <div className="mobile-floating-bar" style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#ffffff',
+        borderTop: '1px solid var(--border-light)',
+        boxShadow: '0 -4px 16px rgba(0,0,0,0.08)',
+        padding: '10px 16px 14px 16px',
+        zIndex: 40,
+        display: 'none',
+        flexDirection: 'column',
+        gap: '8px',
+        textAlign: 'left'
+      }}>
+        {/* Price Row */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '0.9rem' }}>
+          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{singleItemPrice.toFixed(2)}</span>
+          {originalItemPrice && (
+            <>
+              <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: '0.85rem' }}>₹{originalItemPrice.toFixed(2)}</span>
+              <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.78rem' }}>{discountPct}% OFF</span>
+            </>
+          )}
+        </div>
+        
+        {/* Action Buttons Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <button
+            onClick={handleAddToCartClick}
+            style={{
+              backgroundColor: '#fbbf24',
+              color: '#111827',
+              fontWeight: 800,
+              padding: '12px',
+              borderRadius: 'var(--radius-md)',
+              textAlign: 'center',
+              fontSize: '0.88rem',
+              textTransform: 'uppercase',
+              boxShadow: '0 2px 4px rgba(251, 191, 36, 0.15)'
+            }}
+          >
+            Add to Cart
+          </button>
+          <button
+            onClick={handleBuyNowClick}
+            style={{
+              backgroundColor: '#111827',
+              color: '#ffffff',
+              fontWeight: 800,
+              padding: '12px',
+              borderRadius: 'var(--radius-md)',
+              textAlign: 'center',
+              fontSize: '0.88rem',
+              textTransform: 'uppercase',
+              boxShadow: '0 2px 4px rgba(17, 24, 39, 0.15)'
+            }}
+          >
+            Buy Now
+          </button>
+        </div>
+      </div>
 
     </div>
   );

@@ -91,6 +91,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   return (
     <div
+      className="modal-overlay-wrapper"
       style={{
         position: 'fixed',
         top: 0,
@@ -111,27 +112,52 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         className="modal-white-container"
         style={{
           width: '100%',
-          maxWidth: '950px',
+          maxWidth: '420px',
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative',
           maxHeight: '90vh',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Main Content Row */}
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            padding: '6px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all var(--transition-fast)',
+            zIndex: 40
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--border-color)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'}
+        >
+          <X size={18} />
+        </button>
+
+        {/* Main Content Column */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap'
+            flexDirection: 'column'
           }}
           className="modal-content-container"
         >
-          {/* Visual Showcase (Left Column) */}
+          {/* Visual Showcase */}
           <div
             className="modal-image-column"
             onClick={() => {
@@ -140,7 +166,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               }
             }}
             style={{
-              flex: '1 1 350px',
+              width: '100%',
               aspectRatio: '1 / 1',
               background: getCategoryGradient(product.category),
               position: 'relative',
@@ -206,101 +232,48 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             )}
           </div>
 
-          {/* Details Section (Right Column) */}
+          {/* Details Section */}
           <div
             className="modal-details-column"
             style={{
-              flex: '1 1 350px',
-              padding: '32px 0 0 32px',
+              width: '100%',
+              padding: '20px 20px 0 20px',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
               textAlign: 'left',
-              height: '100%',
               boxSizing: 'border-box'
             }}
           >
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: '24px',
-                right: '24px',
-                padding: '6px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--bg-primary)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all var(--transition-fast)',
-                zIndex: 20
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--border-color)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-primary)'}
-            >
-              <X size={18} />
-            </button>
-
             {/* Scrollable Content Container */}
-            <div style={{ flex: '1 1 auto', overflowY: 'auto', paddingRight: '32px', marginBottom: '16px', overscrollBehavior: 'contain' }} className="modal-scrollable-content">
-              {/* Category Tag */}
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--primary-gold)',
-                  textTransform: 'uppercase',
-                  fontWeight: 700,
-                  letterSpacing: '1.5px',
-                  display: 'block',
-                  marginBottom: '12px'
-                }}
-              >
-                {product.category}
-              </span>
-
+            <div style={{ flex: '1 1 auto', marginBottom: '16px' }} className="modal-scrollable-content">
               {/* Title */}
               <h2
                 style={{
-                  fontSize: '1.8rem',
-                  marginBottom: '12px',
-                  lineHeight: 1.2,
-                  paddingRight: '32px'
+                  fontSize: '1.35rem',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                  lineHeight: 1.25,
+                  paddingRight: '24px'
                 }}
               >
                 {product.name}
               </h2>
 
-              {/* Ratings & Stock Status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Star size={16} fill="var(--primary-gold)" color="var(--primary-gold)" />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{product.rating}</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    ({product.reviewsCount} verified reviews)
-                  </span>
-                </div>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: product.inStock ? 'var(--primary-gold)' : 'var(--text-secondary)',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: product.inStock ? 'rgba(217, 119, 6, 0.1)' : 'var(--border-color)'
-                  }}
-                >
-                  {product.inStock ? 'In Stock' : 'Out of Stock'}
+              {/* Ratings */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px' }}>
+                <Star size={16} fill="var(--primary-gold)" color="var(--primary-gold)" />
+                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{product.rating}</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  ({product.reviewsCount} reviews)
                 </span>
               </div>
 
               {/* Pricing Section */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
                 <span
                   style={{
-                    fontSize: '1.8rem',
+                    fontSize: '1.5rem',
                     fontWeight: 700,
                     color: 'var(--primary-accent)'
                   }}
@@ -310,7 +283,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 {hasDiscount && (
                   <span
                     style={{
-                      fontSize: '1.1rem',
+                      fontSize: '1rem',
                       color: 'var(--text-secondary)',
                       textDecoration: 'line-through'
                     }}
@@ -319,123 +292,44 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   </span>
                 )}
               </div>
-
-              {/* Description */}
-              <p
-                style={{
-                  fontSize: '0.92rem',
-                  color: 'var(--text-secondary)',
-                  lineHeight: 1.6,
-                  textAlign: 'left',
-                  marginBottom: '16px'
-                }}
-              >
-                {!showMore && product.description && product.description.length > 120
-                  ? `${product.description.slice(0, 120)}...`
-                  : product.description}
-              </p>
-
-              {/* Key Benefits */}
-              {product.benefits && product.benefits.length > 0 && (
-                <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '12px', fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Key Divine Benefits
-                  </h4>
-                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', padding: 0, margin: 0 }}>
-                    {(showMore ? product.benefits : product.benefits.slice(0, 2)).map((benefit, idx) => (
-                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--primary-gold)', marginTop: '2px', display: 'flex' }}>
-                          <Check size={14} strokeWidth={3} />
-                        </span>
-                        <span>{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* See More Toggle */}
-              {hasMoreContent && (
-                <button
-                  onClick={() => setShowMore(!showMore)}
-                  style={{
-                    alignSelf: 'flex-start',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--primary-gold, #d97706)',
-                    fontWeight: 700,
-                    fontSize: '0.88rem',
-                    cursor: 'pointer',
-                    padding: '4px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  {showMore ? 'See Less' : 'See More'}
-                </button>
-              )}
             </div>
 
             {/* Purchase Controls Row */}
             {product.inStock && (
-              <div style={{
-                display: 'flex',
-                gap: '16px',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderTop: '1px solid var(--border-color)',
-                padding: '16px 32px 32px 32px',
-                margin: '0 -32px',
-                backgroundColor: '#ffffff',
-                zIndex: 10
-              }}>
-                {/* Quantity Selector */}
-                <div style={{
+              <div
+                className="modal-purchase-controls"
+                style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  border: '1.5px solid var(--border-color)',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '0 20px',
-                  height: '54px',
-                  backgroundColor: 'var(--bg-primary)',
-                  boxSizing: 'border-box'
-                }}>
-                  <button
-                    onClick={handleDecrement}
-                    style={{ padding: '4px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', border: 'none', background: 'none', cursor: 'pointer' }}
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span style={{ width: '36px', textAlign: 'center', fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={handleIncrement}
-                    style={{ padding: '4px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', border: 'none', background: 'none', cursor: 'pointer' }}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-
+                  borderTop: '1px solid var(--border-color)',
+                  padding: '16px 20px 20px 20px',
+                  margin: '0 -20px',
+                  backgroundColor: '#ffffff',
+                  zIndex: 10
+                }}
+              >
                 {/* Add to Cart Button */}
                 <button
-                  onClick={() => onAddToCart(product, quantity)}
-                  className="btn-primary"
+                  onClick={() => onAddToCart(product, 1)}
                   style={{
-                    flexGrow: 1,
-                    maxWidth: '280px',
+                    width: '100%',
                     justifyContent: 'center',
-                    padding: '0 28px',
-                    height: '54px',
+                    height: '50px',
                     borderRadius: 'var(--radius-full)',
                     boxSizing: 'border-box',
                     fontSize: '1rem',
-                    fontWeight: 800
+                    fontWeight: 800,
+                    backgroundColor: '#fbbf24',
+                    color: '#111827',
+                    border: 'none',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(251, 191, 36, 0.15)'
                   }}
                 >
-                  <ShoppingCart size={18} /> Add to Cart (₹{(product.price * quantity).toFixed(2)})
+                  <ShoppingCart size={18} /> Add to Cart (₹{product.price.toFixed(2)})
                 </button>
               </div>
             )}
@@ -444,60 +338,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       </div>
 
       <style>{`
+        .modal-overlay-wrapper {
+          overflow-y: auto !important;
+          align-items: center !important;
+          padding: 20px 16px !important;
+        }
+        @media (max-width: 767px) {
+          .modal-overlay-wrapper {
+            align-items: center !important;
+            padding: 16px 12px !important;
+          }
+        }
         .modal-white-container {
           background: #ffffff !important;
           border: 1px solid var(--border-color) !important;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+          max-height: none !important;
         }
-        @media (min-width: 768px) {
-          .modal-content-container {
-            height: 480px !important;
-            overflow: hidden !important;
-            flex-wrap: nowrap !important;
+        @media (max-width: 480px) {
+          .modal-white-container {
+            width: 100% !important;
           }
-          .modal-image-column {
-            flex: 0 0 480px !important;
-            height: 480px !important;
-            width: 480px !important;
-          }
-          .modal-details-column {
-            flex: 1 1 auto !important;
-            height: 480px !important;
-            overflow: hidden !important;
-          }
-        }
-        @media (max-width: 767px) {
-          .modal-content-container {
-            flex-direction: column !important;
-          }
-          .modal-content-container > div {
-            flex: 1 1 100% !important;
-            height: auto !important;
-          }
-          .modal-details-column {
-            padding: 24px 20px 20px 20px !important;
-          }
-          .modal-scrollable-content {
-            padding-right: 0 !important;
-          }
-        }
-        /* Thin premium custom scrollbar for details section */
-        .modal-scrollable-content {
-          scrollbar-width: thin;
-          scrollbar-color: #cbd5e1 transparent;
-        }
-        .modal-scrollable-content::-webkit-scrollbar {
-          width: 5px;
-        }
-        .modal-scrollable-content::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .modal-scrollable-content::-webkit-scrollbar-thumb {
-          background-color: #cbd5e1;
-          border-radius: 10px;
-        }
-        .modal-scrollable-content::-webkit-scrollbar-thumb:hover {
-          background-color: #94a3b8;
         }
       `}</style>
       {/* Lightbox Modal */}

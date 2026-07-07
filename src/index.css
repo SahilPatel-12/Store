@@ -55,6 +55,8 @@
   padding: 0;
 }
 
+
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-page);
@@ -109,9 +111,9 @@ button {
 
 /* Buttons from Reference Image */
 .btn-lime {
-  background-color: var(--primary-lime);
-  color: var(--text-dark);
-  font-weight: 700;
+  background-color: #fbbf24 !important;
+  color: #111827 !important;
+  font-weight: 800 !important;
   font-size: 0.95rem;
   padding: 14px 28px;
   border-radius: var(--radius-md);
@@ -121,6 +123,7 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
 }
 
 .btn-lime:hover {
@@ -312,7 +315,20 @@ button {
   scrollbar-width: none;  /* Firefox */
 }
 
+@media (min-width: 901px) {
+  .product-image-sticky-col {
+    position: sticky !important;
+    top: 110px !important;
+    align-self: start !important;
+  }
+}
+
 @media (max-width: 900px) {
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   /* Enforce single-column stacks on grid-split containers */
   .hero-grid-split {
     grid-template-columns: 1fr !important;
@@ -1142,6 +1158,23 @@ details.referral-details > summary {
     border: 1.5px solid #fbbf24 !important;
     color: #fbbf24 !important;
     box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15) !important;
+  }
+}
+
+/* Mobile Floating Bottom Bar styling */
+@media (max-width: 768px) {
+  .mobile-floating-bar {
+    display: flex !important;
+  }
+  .product-detail-wrapper-spacing {
+    padding-bottom: 160px !important;
+  }
+  .product-actions-grid {
+    display: none !important;
+  }
+  .whatsapp-float-btn {
+    bottom: 96px !important;
+    right: 20px !important;
   }
 }
 

@@ -1326,6 +1326,7 @@ function App() {
   };
 
   const currentPage = currentPageState;
+  const showWhatsAppIcon = !['cart', 'checkout', 'admin', 'admin-login', 'pundit-dashboard', 'astrologer-dashboard'].includes(currentPage);
 
   // Reactive URL popstate and deep-linking router
   const handleUrlRouting = React.useCallback((path: string, search: string) => {
@@ -5643,6 +5644,44 @@ function App() {
         </div>
       )}
 
+      {/* Floating WhatsApp Community Icon */}
+      {showWhatsAppIcon && (
+        <a
+          href="https://whatsapp.com/channel/0029Vb7rBVLKbYMGudL6lJ2d"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '56px',
+            height: '56px',
+            backgroundColor: '#25D366',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
+            boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
+            zIndex: 9999,
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            cursor: 'pointer'
+          }}
+          className="whatsapp-float-btn"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.08)';
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 211, 102, 0.45)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 16px rgba(37, 211, 102, 0.3)';
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+            <path d="M12.012 2c-5.506 0-9.969 4.47-9.969 10 0 1.76.459 3.41 1.259 4.85l-1.302 4.75 4.87-1.28c1.39.75 2.97 1.18 4.652 1.18 5.505 0 9.969-4.47 9.969-10s-4.464-10-9.969-10zm0 1.63c4.61 0 8.344 3.75 8.344 8.37 0 4.62-3.73 8.37-8.344 8.37-1.55 0-2.99-.42-4.24-1.15l-.3-.18-2.88.75.77-2.81-.2-.32a8.31 8.31 0 0 1-1.15-4.26c0-4.62 3.73-8.37 8.34-8.37zm-3.51 4.54c-.16 0-.34.02-.5.09-.34.14-.65.41-.8.74-.28.61-.31 1.57.24 2.6 1 1.86 2.37 3.32 4.14 4.25.79.42 1.63.71 2.35.63.48-.05.89-.32 1.08-.73.16-.34.12-.76-.11-.99l-1.38-1.38c-.22-.22-.57-.22-.79 0l-.53.53a.36.36 0 0 1-.44.06c-.53-.28-1.2-.72-1.72-1.24-.52-.52-.96-1.19-1.24-1.72a.36.36 0 0 1 .06-.44l.53-.53c.22-.22.22-.57 0-.79l-1.38-1.38c-.1-.1-.23-.16-.36-.16z"/>
+          </svg>
+        </a>
+      )}
     </div>
   );
 }
