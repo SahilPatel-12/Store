@@ -6,6 +6,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/sitemap-:sub.xml",
+      "destination": "/api/sitemap?sub=:sub"
+    },
+    {
       "source": "/robots.txt",
       "destination": "/api/robots"
     },

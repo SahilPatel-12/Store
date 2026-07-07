@@ -76,6 +76,54 @@ export const sitemapRegistry: SitemapModuleConfig[] = [
     robotsPolicy: 'index, follow'
   },
   {
+    id: 'auth',
+    name: 'Devotee Login Portal',
+    enabled: true,
+    type: 'static',
+    staticPath: '/auth',
+    priority: 0.5,
+    changefreq: 'monthly',
+    includeInHTML: true,
+    includeInXML: true,
+    robotsPolicy: 'index, follow'
+  },
+  {
+    id: 'sitemap',
+    name: 'Sacred Sitemap',
+    enabled: true,
+    type: 'static',
+    staticPath: '/sitemap',
+    priority: 0.5,
+    changefreq: 'weekly',
+    includeInHTML: true,
+    includeInXML: true,
+    robotsPolicy: 'index, follow'
+  },
+  {
+    id: 'pundit-login',
+    name: 'Pundit Portal Login',
+    enabled: true,
+    type: 'static',
+    staticPath: '/pundit-login',
+    priority: 0.5,
+    changefreq: 'monthly',
+    includeInHTML: true,
+    includeInXML: true,
+    robotsPolicy: 'index, follow'
+  },
+  {
+    id: 'astrologer-login',
+    name: 'Astrologer Portal Login',
+    enabled: true,
+    type: 'static',
+    staticPath: '/astrologer-login',
+    priority: 0.5,
+    changefreq: 'monthly',
+    includeInHTML: true,
+    includeInXML: true,
+    robotsPolicy: 'index, follow'
+  },
+  {
     id: 'products',
     name: 'Puja Products',
     enabled: true,

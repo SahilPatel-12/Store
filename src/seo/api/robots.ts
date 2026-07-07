@@ -1,9 +1,9 @@
-import { buildRobotsTxt } from '../src/seo/robots-generator';
+import { buildRobotsTxt } from '../robots-generator';
 
 export type VercelRequest = any;
 export type VercelResponse = any;
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(_req: VercelRequest, res: VercelResponse) {
   try {
     const robots = buildRobotsTxt();
     res.setHeader('Content-Type', 'text/plain');
