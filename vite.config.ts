@@ -14,6 +14,16 @@ function vercelDevPlugin() {
 
       server.middlewares.use(async (req: any, res: any, next) => {
         if (req.url && req.url.startsWith('/api/')) {
+          // Handle CORS preflight request
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 200;
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token, Authorization');
+            res.end();
+            return;
+          }
+
           const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
           let pathname = url.pathname;
           
