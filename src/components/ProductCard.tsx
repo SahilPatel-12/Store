@@ -26,7 +26,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     : 0;
 
   // Curate a gorgeous spiritual background gradient based on category
-  const getCategoryGradient = (category: string) => {
+  const getCategoryGradient = (category?: string) => {
+    if (!category) {
+      return 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)';
+    }
     switch (category) {
       case 'kits':
         return 'linear-gradient(135deg, #ffedd5 0%, #ffebd5 100%)'; /* warm peach */

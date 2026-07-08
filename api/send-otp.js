@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from './_lib/supabase-admin.js';
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
@@ -14,17 +14,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     const encryptionKey = process.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE';
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: 'Database credentials not configured in server environment.' });
-    }
-
     // 1. Fetch settings from database
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('website_settings')
       .select('value')
       .eq('key', 'whatsapp_settings')

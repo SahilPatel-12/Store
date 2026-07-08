@@ -138,15 +138,11 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const refreshOrders = async (showToast = false) => {
     try {
       if (showToast) setIsRefreshing(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data, error } = await supabase
-          .from('website_store_orders')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        if (data) {
+      const token = localStorage.getItem('session_token') || '';
+      const response = await fetch(`/api/customer/orders?sessionToken=${token}`);
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      const data = await response.json();
+      if (data) {
           const mappedOrders: LocalOrder[] = data.map((o: any) => ({
             orderId: o.order_id,
             userId: o.user_id,
@@ -176,7 +172,6 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
           setOrders(mappedOrders);
           if (showToast) setFeedbackToast('Order statuses successfully synced!');
         }
-      }
     } catch (err) {
       console.error('Failed to sync orders:', err);
     } finally {
@@ -431,7 +426,10 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     }
   };
 
-  const getCategoryGradient = (cat: string) => {
+  const getCategoryGradient = (cat?: string) => {
+    if (!cat) {
+      return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    }
     switch (cat.toLowerCase()) {
       case 'rudraksha':
       case 'tulsi mala':
@@ -743,7 +741,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                               width: '56px',
                               height: '56px',
                               borderRadius: 'var(--radius-md)',
-                              background: getCategoryGradient(item.product.category),
+                              background: getCategoryGradient(item.product?.category),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -751,27 +749,27 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                               flexShrink: 0,
                               overflow: 'hidden'
                             }}>
-                              {isImageUrl(item.product.image) ? (
-                                <img src={getDisplayImageUrl(item.product.image)} alt={item.product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              {isImageUrl(item.product?.image) ? (
+                                <img src={getDisplayImageUrl(item.product?.image)} alt={item.product?.name || 'Product'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
-                                item.product.image || '📿'
+                                item.product?.image || '📿'
                               )}
                             </div>
                             <div>
                               <span style={{ fontSize: '0.68rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>
-                                {item.product.spiritualType}
+                                {item.product?.spiritualType || 'Sacred Item'}
                               </span>
                               <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '2px' }}>
-                                {item.product.name}
+                                {item.product?.name || 'Spiritual Item'}
                               </h4>
                               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Quantity: {item.quantity} • price: ₹{item.product.price.toFixed(2)} each
+                                Quantity: {item.quantity} • price: ₹{(item.product?.price || 0).toFixed(2)} each
                               </p>
                             </div>
                           </div>
 
                           <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                            ₹{(item.product.price * item.quantity).toFixed(2)}
+                            ₹{((item.product?.price || 0) * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       ))}

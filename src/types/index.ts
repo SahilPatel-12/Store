@@ -108,9 +108,16 @@ export interface LocalOrder {
   paymentScreenshot?: string;
   paymentStatus?: string;
   paymentDeclineCount?: number;
+  payment_provider?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  payment_verified_at?: string;
+  amount_paid_paise?: number;
+  currency?: string;
+  payment_failure_reason?: string;
+  razorpay_mode?: string;
   gstPercentSnapshot?: number;
   gstAmountSnapshot?: number;
   deliveryAmountSnapshot?: number;
   freeDeliveryEligibleSnapshot?: boolean;
 }
-

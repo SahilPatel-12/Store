@@ -37,7 +37,7 @@ import {
   Compass
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, getAdminSupabase } from '../lib/supabase';
 import { encryptText, decryptText, hashPassword } from '../lib/crypto';
 import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
@@ -121,6 +121,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('All');
 
+  React.useEffect(() => {
+    if (adminSession?.token) {
+      (supabase as any).rest.headers['x-admin-token'] = adminSession.token;
+    }
+    return () => {
+      delete (supabase as any).rest.headers['x-admin-token'];
+    };
+  }, [adminSession]);
+
   // Staging media compressor queue
   const [mediaQueue, setMediaQueue] = React.useState<Record<string, {
     file: File;
@@ -202,12 +211,19 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           };
         });
       } catch (err) {
-        console.error('Image compression failed:', err);
+        console.error('Image compression failed, falling back to original file:', err);
         setMediaQueue(prev => {
           if (!prev[tempId]) return prev;
           return {
             ...prev,
-            [tempId]: { ...prev[tempId], status: 'failed' }
+            [tempId]: {
+              ...prev[tempId],
+              status: 'ready',
+              progress: 100,
+              compressedFile: file,
+              compressedSize: file.size,
+              percentSaved: 0
+            }
           };
         });
       }
@@ -244,12 +260,19 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           };
         });
       } catch (err) {
-        console.error('Video compression failed:', err);
+        console.error('Video compression failed, falling back to original file:', err);
         setMediaQueue(prev => {
           if (!prev[tempId]) return prev;
           return {
             ...prev,
-            [tempId]: { ...prev[tempId], status: 'failed' }
+            [tempId]: {
+              ...prev[tempId],
+              status: 'ready',
+              progress: 100,
+              compressedFile: file,
+              compressedSize: file.size,
+              percentSaved: 0
+            }
           };
         });
       }
@@ -496,10 +519,20 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
 
-  // Razorpay settings state
+  // Razorpay settings state (Phase 2 Server-side)
+  const [razorpayMode, setRazorpayMode] = React.useState<'test' | 'live'>('test');
   const [razorpayKeyId, setRazorpayKeyId] = React.useState('');
   const [razorpayKeySecret, setRazorpayKeySecret] = React.useState('');
+  const [razorpayWebhookSecret, setRazorpayWebhookSecret] = React.useState('');
+  const [razorpayHasKeySecret, setRazorpayHasKeySecret] = React.useState(false);
+  const [razorpayHasWebhookSecret, setRazorpayHasWebhookSecret] = React.useState(false);
+  const [razorpayConnectionStatus, setRazorpayConnectionStatus] = React.useState('Not Tested');
+  const [razorpayLastVerifiedAt, setRazorpayLastVerifiedAt] = React.useState<string | null>(null);
+  const [activePaymentProvider, setActivePaymentProvider] = React.useState<'manual_upi' | 'razorpay'>('manual_upi');
+  const [legacyManualUpiEnabled, setLegacyManualUpiEnabled] = React.useState(true);
   const [isSavingRazorpay, setIsSavingRazorpay] = React.useState(false);
+  const [isTestingRazorpay, setIsTestingRazorpay] = React.useState(false);
+  const [isLoadingRazorpayConfig, setIsLoadingRazorpayConfig] = React.useState(false);
   const [isRefreshingOrders, setIsRefreshingOrders] = React.useState(false);
 
   // Barcode / UPI QR settings state
@@ -638,7 +671,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       setBannerImages(finalBanners);
       setShowcaseImage(finalShowcase);
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'homepage_settings',
@@ -825,7 +858,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         }
       }
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_banners_settings',
@@ -930,8 +963,20 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     async function loadSettings() {
       setIsLoadingSettings(true);
       try {
+        // 0. Verify admin session token
+        const { error: sessionError } = await getAdminSupabase()
+          .from('website_settings')
+          .select('key')
+          .limit(1);
+
+        if (sessionError && (sessionError.code === '42501' || sessionError.message.includes('row-level security policy'))) {
+          alert('Your administrator session has expired or is invalid. Please log in again.');
+          if (onLogout) onLogout();
+          return;
+        }
+
         // 1. Fetch WhatsApp settings
-        const { data: waData } = await supabase
+        const { data: waData } = await getAdminSupabase()
           .from('website_settings')
           .select('value')
           .eq('key', 'whatsapp_settings')
@@ -951,26 +996,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           }
         }
 
-        // 2. Fetch Razorpay settings
-        const { data: rzData } = await supabase
-          .from('website_settings')
-          .select('value')
-          .eq('key', 'razorpay_settings')
-          .single();
-        
-        if (rzData && rzData.value) {
-          const val = rzData.value as { keyId?: string; keySecret?: string };
-          setRazorpayKeyId(val.keyId || '');
-          if (val.keySecret) {
-            try {
-              const decrypted = await decryptText(val.keySecret, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-              setRazorpayKeySecret(decrypted);
-            } catch (decErr) {
-              console.error('Failed to decrypt Razorpay key secret:', decErr);
-              setRazorpayKeySecret('');
-            }
-          }
-        }
+        // 2. Fetch Razorpay settings - Migrated to server config API (Phase 2)
 
         // 3. Fetch Tax & Delivery settings
         if (taxDeliverySettings) {
@@ -1024,7 +1050,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsSavingSettings(true);
     try {
       const encrypted = await encryptText(whatsappToken, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'whatsapp_settings',
@@ -1043,31 +1069,135 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
+  const loadRazorpayConfig = async (mode: 'test' | 'live') => {
+    setIsLoadingRazorpayConfig(true);
+    try {
+      const token = adminSession?.token || localStorage.getItem('session_token') || '';
+      const response = await fetch(`/api/admin/razorpay/config?mode=${mode}&adminToken=${encodeURIComponent(token)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRazorpayKeyId(data.keyId || '');
+        setRazorpayHasKeySecret(data.hasKeySecret || false);
+        setRazorpayHasWebhookSecret(data.hasWebhookSecret || false);
+        setRazorpayConnectionStatus(data.connectionStatus || 'Not Tested');
+        setRazorpayLastVerifiedAt(data.lastVerifiedAt || null);
+        setActivePaymentProvider(data.activePaymentProvider || 'manual_upi');
+        setLegacyManualUpiEnabled(data.legacyManualUpiEnabled !== undefined ? data.legacyManualUpiEnabled : true);
+        // Keep input secrets empty per Correction 2
+        setRazorpayKeySecret('');
+        setRazorpayWebhookSecret('');
+      } else {
+        console.error('Failed to load Razorpay config:', await response.text());
+      }
+    } catch (err) {
+      console.error('Error loading Razorpay config:', err);
+    } finally {
+      setIsLoadingRazorpayConfig(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'settings') {
+      loadRazorpayConfig(razorpayMode);
+    }
+  }, [activeTab, razorpayMode]);
+
   const handleSaveRazorpaySettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!razorpayKeyId || !razorpayKeySecret) {
-      alert('Please fill out both Razorpay Key ID and Key Secret.');
+    if (!razorpayKeyId) {
+      alert('Please fill out the Razorpay Key ID.');
       return;
     }
+
+    if (razorpayMode === 'live') {
+      const confirmed = window.confirm(
+        "WARNING: You are configuring LIVE MODE. This accepts real customer payments. Are you sure you want to save live credentials?"
+      );
+      if (!confirmed) return;
+    }
+
     setIsSavingRazorpay(true);
     try {
-      const encryptedSecret = await encryptText(razorpayKeySecret, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-      const { error } = await supabase
-        .from('website_settings')
-        .upsert({
-          key: 'razorpay_settings',
-          value: {
-            keyId: razorpayKeyId,
-            keySecret: encryptedSecret
-          }
-        });
-      if (error) throw error;
-      triggerToast('Razorpay API credentials saved and encrypted successfully!');
+      const token = adminSession?.token || localStorage.getItem('session_token') || '';
+      const response = await fetch('/api/admin/razorpay/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
+        body: JSON.stringify({
+          mode: razorpayMode,
+          keyId: razorpayKeyId,
+          keySecret: razorpayKeySecret,
+          webhookSecret: razorpayWebhookSecret,
+          activePaymentProvider,
+          legacyManualUpiEnabled
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server responded with status ${response.status}`);
+      }
+
+      const resData = await response.json();
+      if (resData.success) {
+        setRazorpayKeyId(resData.config.keyId || '');
+        setRazorpayHasKeySecret(resData.config.hasKeySecret || false);
+        setRazorpayHasWebhookSecret(resData.config.hasWebhookSecret || false);
+        setRazorpayConnectionStatus(resData.config.connectionStatus || 'Not Tested');
+        setRazorpayLastVerifiedAt(resData.config.lastVerifiedAt || null);
+        setActivePaymentProvider(resData.config.activePaymentProvider || 'manual_upi');
+        setLegacyManualUpiEnabled(resData.config.legacyManualUpiEnabled !== undefined ? resData.config.legacyManualUpiEnabled : true);
+        // Keep input secrets empty per Correction 2
+        setRazorpayKeySecret('');
+        setRazorpayWebhookSecret('');
+        triggerToast(`Razorpay ${razorpayMode.toUpperCase()} configuration saved successfully!`);
+      } else {
+        throw new Error(resData.error || 'Failed to save configuration.');
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to save Razorpay settings: ' + (err as Error).message);
     } finally {
       setIsSavingRazorpay(false);
+    }
+  };
+
+  const handleTestRazorpayConnection = async () => {
+    setIsTestingRazorpay(true);
+    try {
+      const token = adminSession?.token || localStorage.getItem('session_token') || '';
+      const response = await fetch('/api/admin/razorpay/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
+        body: JSON.stringify({
+          mode: razorpayMode
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server responded with status ${response.status}`);
+      }
+
+      const resData = await response.json();
+      setRazorpayConnectionStatus(resData.connectionStatus || 'Failed');
+      setRazorpayLastVerifiedAt(resData.verifiedAt || null);
+
+      if (resData.success) {
+        triggerToast('Connection test successful! Stored credentials are valid.');
+      } else {
+        alert(`Connection test failed:\n${resData.safeMessage || 'Verification failed.'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Connection test failed: ' + (err as Error).message);
+    } finally {
+      setIsTestingRazorpay(false);
     }
   };
 
@@ -1084,7 +1214,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         return;
       }
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'tax_delivery_settings',
@@ -1122,7 +1252,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
     setIsSavingBarcode(true);
     try {
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'payment_barcode_settings',
@@ -1242,7 +1372,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleSaveCategoriesOrder = async () => {
     setIsSavingCategoriesOrder(true);
     try {
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_categories_settings',
@@ -1293,7 +1423,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const updatedList = [...safeCategoriesList, { name: trimmedName, hidden: false }];
       const updatedOrder = [...sortedCategoriesList.filter(n => n !== 'all'), trimmedName];
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_categories_settings',
@@ -1346,7 +1476,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const updatedList = safeCategoriesList.map(c => c.name === oldName ? { ...c, name: trimmedNew } : c);
       const updatedOrder = sortedCategoriesList.map(name => name === oldName ? trimmedNew : name);
 
-      const { error: settingsError } = await supabase
+      const { error: settingsError } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_categories_settings',
@@ -1358,7 +1488,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       if (settingsError) throw settingsError;
 
       // 2. Update products category values in Supabase website_pooja_products
-      const { error: productsError } = await supabase
+      const { error: productsError } = await getAdminSupabase()
         .from('website_pooja_products')
         .update({ category: trimmedNew })
         .eq('category', oldName);
@@ -1391,7 +1521,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const updatedList = safeCategoriesList.filter(c => c.name !== categoryName);
       const updatedOrder = sortedCategoriesList.filter(name => name !== categoryName);
 
-      const { error: settingsError } = await supabase
+      const { error: settingsError } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_categories_settings',
@@ -1403,7 +1533,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       if (settingsError) throw settingsError;
 
       // 2. Update products category values in Supabase website_pooja_products
-      const { error: productsError } = await supabase
+      const { error: productsError } = await getAdminSupabase()
         .from('website_pooja_products')
         .update({ category: 'Uncategorized' })
         .eq('category', categoryName);
@@ -1430,7 +1560,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     try {
       const updatedList = safeCategoriesList.map(c => c.name === categoryName ? { ...c, hidden: !c.hidden } : c);
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'shop_categories_settings',
@@ -1579,7 +1709,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const updatedOrders = { ...(productsOrder || {}) };
       updatedOrders[selectedSorterCategory] = sortedProductsList.map(p => p.id);
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_settings')
         .upsert({
           key: 'category_products_settings',
@@ -1626,7 +1756,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     
     setIsBulkGSTApplying(true);
     try {
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_pooja_products')
         .update({
           gst_override_enabled: true,
@@ -1658,7 +1788,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     
     setIsBulkDeliveryApplying(true);
     try {
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_pooja_products')
         .update({
           delivery_override_enabled: true,
@@ -1713,7 +1843,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     if (window.confirm(`Are you sure you want to publish the ${idsToPublish.length} selected Pooja product drafts to the live website?`)) {
       setIsBulkPublishing(true);
       try {
-        const { error } = await supabase
+        const { error } = await getAdminSupabase()
           .from('website_pooja_products')
           .update({ is_published: true, published_at: new Date().toISOString() })
           .in('id', idsToPublish);
@@ -2334,7 +2464,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsSuspendingUser(userId);
     try {
       const newSuspended = !currentSuspended;
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_store_users')
         .update({ is_suspended: newSuspended })
         .eq('id', userId);
@@ -2474,7 +2604,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsSuspendingAstrologer(astrologer.id);
     try {
       // 1. Update the is_suspended flag in website_store_users
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_store_users')
         .update({ is_suspended: nextSuspended })
         .eq('id', targetUserId);
@@ -2483,7 +2613,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
       // 2. If suspending, also turn them offline in website_store_astrologers
       if (nextSuspended) {
-        await supabase
+        await getAdminSupabase()
           .from('website_store_astrologers')
           .update({ is_online: false })
           .eq('id', astrologer.id);
@@ -2520,7 +2650,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsDeletingAstrologer(astrologer.id);
     try {
       // 1. Delete from website_store_astrologers table
-      const { error: astErr } = await supabase
+      const { error: astErr } = await getAdminSupabase()
         .from('website_store_astrologers')
         .delete()
         .eq('id', astrologer.id);
@@ -2535,8 +2665,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         });
         if (userErr) {
           console.warn('Could not cascade delete user profile, trying simple delete:', userErr);
-          await supabase.from('website_store_users').delete().eq('id', astrologer.user_id);
-          await supabase.from('app_users').delete().eq('id', astrologer.user_id);
+          await getAdminSupabase().from('website_store_users').delete().eq('id', astrologer.user_id);
+          await getAdminSupabase().from('app_users').delete().eq('id', astrologer.user_id);
         }
       }
 
@@ -2805,7 +2935,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const limitVal = newUserLimit.trim() === '' ? null : parseInt(newUserLimit.trim(), 10);
       const productVal = newProductId.trim() === '' ? null : newProductId.trim();
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_store_coupons')
         .insert({
           code,
@@ -2840,7 +2970,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleDeleteCoupon = async (id: string, code: string) => {
     if (window.confirm(`Are you sure you want to delete coupon code "${code}"?`)) {
       try {
-        const { error } = await supabase
+        const { error } = await getAdminSupabase()
           .from('website_store_coupons')
           .delete()
           .eq('id', id);
@@ -2992,13 +3122,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       if (isNewPoojaProduct) {
         const insertPayload = { ...dbPayload } as any;
         delete insertPayload.id;
-        const { error } = await supabase
+        const { error } = await getAdminSupabase()
           .from('website_pooja_products')
           .insert([insertPayload]);
         if (error) throw error;
         triggerToast('New Pooja product inserted successfully!');
       } else {
-        const { error } = await supabase
+        const { error } = await getAdminSupabase()
           .from('website_pooja_products')
           .update(dbPayload)
           .eq('id', finalProduct.id);
@@ -3063,7 +3193,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           await Promise.all(urlsToDelete.map(url => deleteFromR2(url).catch(e => console.error(e))));
         }
 
-        const { error } = await supabase
+        const { error } = await getAdminSupabase()
           .from('website_pooja_products')
           .delete()
           .eq('id', id);
@@ -3152,7 +3282,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         custom_delivery: clone.customDelivery !== undefined && clone.customDelivery !== null ? parseFloat(clone.customDelivery.toString()) : null
       };
 
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_pooja_products')
         .insert([dbPayload]);
 
@@ -3168,7 +3298,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleTogglePublishPoojaProduct = async (id: string, currentPublished: boolean, name: string) => {
     try {
       const newPublished = !currentPublished;
-      const { error } = await supabase
+      const { error } = await getAdminSupabase()
         .from('website_pooja_products')
         .update({ 
           is_published: newPublished,
@@ -3381,13 +3511,22 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   // Order status changes
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('website_store_orders')
-        .update({ status })
-        .eq('order_id', orderId);
-      if (error) throw error;
+      const adminToken = adminSession?.token || '';
+      const res = await fetch('/api/admin/orders/update-delivery-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ orderId, status, adminToken })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error updating status');
+      }
     } catch (err) {
-      console.error('Failed to update order status in Supabase:', err);
+      console.error('Failed to update order status:', err);
+      triggerToast(`Failed to update status: ${(err as Error).message}`);
+      return;
     }
 
     setOrders(prev => prev.map(o => {
@@ -3401,91 +3540,112 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   // Order payment status changes
   const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string) => {
+    const order = orders.find(o => o.orderId === orderId);
+    if (order && order.payment_provider === 'razorpay') {
+      triggerToast('Manual payment confirmation is blocked for Razorpay orders.');
+      return;
+    }
+    if (paymentStatus !== 'Confirmed') {
+      triggerToast('Direct status setting is restricted to confirmation.');
+      return;
+    }
     try {
-      const { error } = await supabase
-        .from('website_store_orders')
-        .update({ payment_status: paymentStatus })
-        .eq('order_id', orderId);
-      if (error) throw error;
+      const adminToken = adminSession?.token || '';
+      const res = await fetch('/api/admin/orders/confirm-legacy-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ orderId, adminToken })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error confirming payment');
+      }
     } catch (err) {
-      console.error('Failed to update payment status in Supabase:', err);
+      console.error('Failed to confirm payment:', err);
+      triggerToast(`Failed to confirm payment: ${(err as Error).message}`);
+      return;
     }
 
     setOrders(prev => prev.map(o => {
       if (o.orderId === orderId) {
-        return { ...o, paymentStatus };
+        return { ...o, paymentStatus: 'Confirmed', status: 'Being Packed' };
       }
       return o;
     }));
 
     setSelectedOrderDetails(prev => {
       if (prev && prev.orderId === orderId) {
-        return { ...prev, paymentStatus };
+        return { ...prev, paymentStatus: 'Confirmed', status: 'Being Packed' };
       }
       return prev;
     });
 
-    triggerToast(`Order #${orderId} payment marked as ${paymentStatus}!`);
+    triggerToast(`Order #${orderId} payment marked as Confirmed!`);
   };
 
   const handleDeclinePayment = async (orderId: string) => {
     const order = orders.find(o => o.orderId === orderId);
     if (!order) return;
-
-    const currentCount = order.paymentDeclineCount || 0;
-    const newCount = currentCount + 1;
-    const isCancelled = newCount >= 3;
+    if (order.payment_provider === 'razorpay') {
+      triggerToast('Manual payment decline is blocked for Razorpay orders.');
+      return;
+    }
 
     try {
-      const updateData: any = {
-        payment_status: 'Declined',
-        payment_decline_count: newCount
-      };
-      if (isCancelled) {
-        updateData.status = 'Cancelled';
+      const adminToken = adminSession?.token || '';
+      const res = await fetch('/api/admin/orders/decline-legacy-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ orderId, adminToken })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error declining payment');
       }
 
-      const { error } = await supabase
-        .from('website_store_orders')
-        .update(updateData)
-        .eq('order_id', orderId);
-
-      if (error) throw error;
+      const resData = await res.json();
+      const updatedOrder = resData.order;
+      const newCount = updatedOrder.payment_decline_count;
+      const isCancelled = updatedOrder.status === 'Cancelled';
 
       triggerToast(
         isCancelled 
           ? `Order #${orderId} payment declined (Attempt ${newCount}/3). Order has been automatically cancelled!`
           : `Order #${orderId} payment declined (Attempt ${newCount}/3). User notified to re-upload.`
       );
+
+      setOrders(prev => prev.map(o => {
+        if (o.orderId === orderId) {
+          return { 
+            ...o, 
+            paymentStatus: 'Declined', 
+            paymentDeclineCount: newCount,
+            status: updatedOrder.status
+          };
+        }
+        return o;
+      }));
+
+      setSelectedOrderDetails(prev => {
+        if (prev && prev.orderId === orderId) {
+          return { 
+            ...prev, 
+            paymentStatus: 'Declined', 
+            paymentDeclineCount: newCount,
+            status: updatedOrder.status
+          };
+        }
+        return prev;
+      });
     } catch (err) {
-      console.error('Failed to decline payment in Supabase:', err);
-      triggerToast('Failed to decline payment. Please try again.');
+      console.error('Failed to decline payment:', err);
+      triggerToast(`Failed to decline payment: ${(err as Error).message}`);
       return;
     }
-
-    setOrders(prev => prev.map(o => {
-      if (o.orderId === orderId) {
-        return { 
-          ...o, 
-          paymentStatus: 'Declined', 
-          paymentDeclineCount: newCount,
-          status: isCancelled ? 'Cancelled' : o.status
-        };
-      }
-      return o;
-    }));
-
-    setSelectedOrderDetails(prev => {
-      if (prev && prev.orderId === orderId) {
-        return { 
-          ...prev, 
-          paymentStatus: 'Declined', 
-          paymentDeclineCount: newCount,
-          status: isCancelled ? 'Cancelled' : prev.status
-        };
-      }
-      return prev;
-    });
   };
 
   // Filter products by query
@@ -6034,18 +6194,127 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     Razorpay Payment Gateway API
                   </h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Configure your Razorpay Key ID and Secret Key to accept cards, UPI, and netbanking payments.
+                    Configure Razorpay API Keys and Webhook parameters. Credentials are encrypted and verified server-side.
                   </p>
                 </div>
               </div>
 
-              {isLoadingSettings ? (
+              {isLoadingRazorpayConfig ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Razorpay API status...</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Razorpay config...</p>
                 </div>
               ) : (
                 <form onSubmit={handleSaveRazorpaySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
+                  {/* Mode Selection */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Payment Gateway Mode
+                    </label>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setRazorpayMode('test')}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid ' + (razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                          backgroundColor: razorpayMode === 'test' ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        Test Mode
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRazorpayMode('live')}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid ' + (razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                          backgroundColor: razorpayMode === 'live' ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        Live Mode
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Payment Provider Selection */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Active Payment Provider
+                    </label>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActivePaymentProvider('manual_upi')}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid ' + (activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                          backgroundColor: activePaymentProvider === 'manual_upi' ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        Manual UPI QR (Legacy)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePaymentProvider('razorpay')}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid ' + (activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                          backgroundColor: activePaymentProvider === 'razorpay' ? '#f0fdf4' : '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        Razorpay Gateway (Online)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Legacy Manual UPI Visibility Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      id="legacyManualUpiEnabled"
+                      checked={legacyManualUpiEnabled}
+                      onChange={(e) => setLegacyManualUpiEnabled(e.target.checked)}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        accentColor: 'var(--primary-lime)',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <label htmlFor="legacyManualUpiEnabled" style={{ fontSize: '0.88rem', fontWeight: 650, color: 'var(--text-dark)', cursor: 'pointer' }}>
+                      Show Legacy Manual UPI Option to customers even when Razorpay is active
+                    </label>
+                  </div>
+
                   {/* Key ID Input */}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -6054,7 +6323,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="rzp_live_..."
+                      placeholder={razorpayMode === 'live' ? "rzp_live_..." : "rzp_test_..."}
                       value={razorpayKeyId}
                       onChange={(e) => setRazorpayKeyId(e.target.value)}
                       style={{
@@ -6074,13 +6343,17 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
                   {/* Key Secret Input */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Razorpay Key Secret *
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <span>Razorpay Key Secret</span>
+                      {razorpayHasKeySecret && (
+                        <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          Configured ✓
+                        </span>
+                      )}
                     </label>
                     <input
                       type="password"
-                      required
-                      placeholder="Enter secret key..."
+                      placeholder={razorpayHasKeySecret ? "Leave empty to keep existing secret..." : "Enter secret key..."}
                       value={razorpayKeySecret}
                       onChange={(e) => setRazorpayKeySecret(e.target.value)}
                       style={{
@@ -6096,44 +6369,110 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
                       onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                     />
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
-                      Your secret Razorpay API key. This is encrypted on your client device and stored securely in the database.
-                    </span>
                   </div>
 
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSavingRazorpay}
-                    className="btn-lime"
-                    style={{
-                      padding: '14px 28px',
-                      fontSize: '0.9rem',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-md)',
-                      width: '100%',
-                      marginTop: '8px',
-                      cursor: isSavingRazorpay ? 'not-allowed' : 'pointer',
-                      opacity: isSavingRazorpay ? 0.75 : 1
-                    }}
-                  >
-                    {isSavingRazorpay ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid #ffffff',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          animation: 'spin 0.6s linear infinite',
-                          marginRight: '8px'
-                        }} />
-                        Encrypting & Saving Credentials...
-                      </>
-                    ) : (
-                      'Save & Encrypt Razorpay Settings'
+                  {/* Webhook Secret Input */}
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <span>Webhook Secret</span>
+                      {razorpayHasWebhookSecret && (
+                        <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          Configured ✓
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="password"
+                      placeholder={razorpayHasWebhookSecret ? "Leave empty to keep existing webhook secret..." : "Enter webhook secret..."}
+                      value={razorpayWebhookSecret}
+                      onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        transition: 'border-color 0.15s',
+                        backgroundColor: '#f9fafb'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                    />
+                  </div>
+
+                  {/* Status Indicator */}
+                  <div style={{
+                    padding: '16px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid var(--border-light)',
+                    fontSize: '0.82rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Connection Status:</span>
+                      <span style={{
+                        fontWeight: 'bold',
+                        color: razorpayConnectionStatus === 'Connected' ? 'green' : razorpayConnectionStatus === 'Failed' ? 'red' : 'orange'
+                      }}>
+                        {razorpayConnectionStatus}
+                      </span>
+                    </div>
+                    {razorpayLastVerifiedAt && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Last Verified:</span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {new Date(razorpayLastVerifiedAt).toLocaleString()}
+                        </span>
+                      </div>
                     )}
-                  </button>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      disabled={isTestingRazorpay || isSavingRazorpay}
+                      onClick={handleTestRazorpayConnection}
+                      style={{
+                        flex: 1,
+                        padding: '14px 20px',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        backgroundColor: '#ffffff',
+                        color: 'var(--text-dark)',
+                        cursor: (isTestingRazorpay || isSavingRazorpay) ? 'not-allowed' : 'pointer',
+                        opacity: (isTestingRazorpay || isSavingRazorpay) ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {isTestingRazorpay ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    
+                    <button
+                      type="submit"
+                      disabled={isSavingRazorpay || isTestingRazorpay}
+                      className="btn-lime"
+                      style={{
+                        flex: 2,
+                        padding: '14px 20px',
+                        fontSize: '0.9rem',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: (isSavingRazorpay || isTestingRazorpay) ? 'not-allowed' : 'pointer',
+                        opacity: (isSavingRazorpay || isTestingRazorpay) ? 0.75 : 1
+                      }}
+                    >
+                      {isSavingRazorpay ? 'Saving...' : 'Save Configuration'}
+                    </button>
+                  </div>
 
                 </form>
               )}
@@ -6367,13 +6706,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         }
                         if (confirm(`Are you sure you want to set custom GST override to ${pct}% for ALL pooja products? This will update all items in the database.`)) {
                           try {
-                            const { error } = await supabase
+                            const { error } = await getAdminSupabase()
                               .from('website_pooja_products')
                               .update({
                                 gst_override_enabled: true,
                                 custom_gst: pct
                               })
-                              .neq('id', 'placeholder-non-existent-id');
+                              .neq('id', '00000000-0000-0000-0000-000000000000');
                             
                             if (error) throw error;
                             triggerToast(`Successfully applied ${pct}% GST override to all products!`);
@@ -6393,13 +6732,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       onClick={async () => {
                         if (confirm(`Are you sure you want to REMOVE GST overrides for ALL pooja products? They will revert to inheriting the global GST settings.`)) {
                           try {
-                            const { error } = await supabase
+                            const { error } = await getAdminSupabase()
                               .from('website_pooja_products')
                               .update({
                                 gst_override_enabled: false,
                                 custom_gst: null
                               })
-                              .neq('id', 'placeholder-non-existent-id');
+                              .neq('id', '00000000-0000-0000-0000-000000000000');
                             
                             if (error) throw error;
                             triggerToast(`Successfully removed GST overrides from all products!`);
@@ -6451,13 +6790,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         }
                         if (confirm(`Are you sure you want to set custom delivery override to ₹${cost} for ALL pooja products? This will update all items in the database.`)) {
                           try {
-                            const { error } = await supabase
+                            const { error } = await getAdminSupabase()
                               .from('website_pooja_products')
                               .update({
                                 delivery_override_enabled: true,
                                 custom_delivery: cost
                               })
-                              .neq('id', 'placeholder-non-existent-id');
+                              .neq('id', '00000000-0000-0000-0000-000000000000');
                             
                             if (error) throw error;
                             triggerToast(`Successfully applied ₹${cost} delivery override to all products!`);
@@ -6477,13 +6816,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       onClick={async () => {
                         if (confirm(`Are you sure you want to REMOVE delivery overrides for ALL pooja products? They will revert to inheriting the global delivery settings.`)) {
                           try {
-                            const { error } = await supabase
+                            const { error } = await getAdminSupabase()
                               .from('website_pooja_products')
                               .update({
                                 delivery_override_enabled: false,
                                 custom_delivery: null
                               })
-                              .neq('id', 'placeholder-non-existent-id');
+                              .neq('id', '00000000-0000-0000-0000-000000000000');
                             
                             if (error) throw error;
                             triggerToast(`Successfully removed delivery overrides from all products!`);
@@ -10857,11 +11196,31 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     Phone: {selectedOrderDetails.phoneNumber}
                   </p>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Method: {selectedOrderDetails.paymentMethod}
+                    Payment Provider: <strong style={{ textTransform: 'capitalize' }}>{selectedOrderDetails.payment_provider || selectedOrderDetails.paymentMethod || 'Manual UPI'}</strong>
                   </p>
-                  {selectedOrderDetails.razorpayPaymentId && (
+                  {selectedOrderDetails.razorpay_mode && (
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Razorpay Txn: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.razorpayPaymentId}</code>
+                      Razorpay Mode: <span style={{ textTransform: 'uppercase', fontWeight: 'bold', color: selectedOrderDetails.razorpay_mode === 'live' ? '#ef4444' : '#3b82f6' }}>{selectedOrderDetails.razorpay_mode}</span>
+                    </p>
+                  )}
+                  {selectedOrderDetails.razorpay_order_id && (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Razorpay Order ID: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.razorpay_order_id}</code>
+                    </p>
+                  )}
+                  {selectedOrderDetails.razorpay_payment_id && (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Razorpay Payment ID: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.razorpay_payment_id}</code>
+                    </p>
+                  )}
+                  {selectedOrderDetails.amount_paid_paise && (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Amount Paid: <strong>₹{(Number(selectedOrderDetails.amount_paid_paise) / 100).toFixed(2)}</strong> ({selectedOrderDetails.currency || 'INR'})
+                    </p>
+                  )}
+                  {selectedOrderDetails.payment_verified_at && (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Verified At: {new Date(selectedOrderDetails.payment_verified_at).toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -10931,7 +11290,35 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   )}
 
                   {/* Approve/Confirm & Decline Buttons */}
-                  {selectedOrderDetails.status === 'Cancelled' ? (
+                  {selectedOrderDetails.payment_provider === 'razorpay' ? (
+                    selectedOrderDetails.paymentStatus === 'Confirmed' ? (
+                      <div style={{
+                        padding: '12px 14px',
+                        backgroundColor: '#f0fdf4',
+                        color: '#15803d',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        border: '1px solid #bbf7d0'
+                      }}>
+                        Online Payment Confirmed via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '12px 14px',
+                        backgroundColor: '#eff6ff',
+                        color: '#1e40af',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        border: '1px solid #bfdbfe'
+                      }}>
+                        Payment is Pending via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
+                      </div>
+                    )
+                  ) : selectedOrderDetails.status === 'Cancelled' ? (
                     <div style={{
                       padding: '10px',
                       backgroundColor: '#fee2e2',

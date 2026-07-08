@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Star, Check, Plus, Minus, ShoppingCart, ZoomIn } from 'lucide-react';
+import { X, Star, ShoppingCart, ZoomIn } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -14,8 +14,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onAddToCart,
 }) => {
-  const [quantity, setQuantity] = React.useState(1);
-  const [showMore, setShowMore] = React.useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -34,10 +32,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   }, [isLightboxOpen]);
 
   React.useEffect(() => {
-    // Reset quantity to 1 and showMore to false when product changes
-    setQuantity(1);
-    setShowMore(false);
-
     // Disable body scroll when modal is active
     if (product) {
       document.body.style.overflow = 'hidden';
@@ -59,9 +53,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     ((product as PoojaProduct).galleryImages?.find((img: any) => img.isVideo) as any)?.thumbnail;
 
   const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
-  const hasMoreContent = (product.description && product.description.length > 120) || (product.benefits && product.benefits.length > 2);
 
-  const getCategoryGradient = (category: string) => {
+  const getCategoryGradient = (category?: string) => {
+    if (!category) {
+      return 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)';
+    }
     switch (category) {
       case 'kits':
         return 'linear-gradient(135deg, #ffedd5 0%, #ffebd5 100%)';
@@ -76,18 +72,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         return 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)';
     }
   };
-
-  const handleIncrement = () => {
-    const limit = product?.purchaseLimit;
-    setQuantity(prev => {
-      if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
-        alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
-        return prev;
-      }
-      return prev + 1;
-    });
-  };
-  const handleDecrement = () => setQuantity(prev => (prev > 1 ? prev - 1 : 1));
 
   return (
     <div

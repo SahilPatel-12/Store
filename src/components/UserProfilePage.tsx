@@ -797,13 +797,11 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const fetchAddresses = React.useCallback(async () => {
     if (!loggedInUser) return;
     try {
-      const { data, error } = await supabase
-        .from('website_store_addresses')
-        .select('*')
-        .eq('user_id', loggedInUser.id)
-        .order('created_at', { ascending: true });
+      const token = localStorage.getItem('session_token') || '';
+      const response = await fetch(`/api/customer/addresses?sessionToken=${token}`);
+      if (!response.ok) throw new Error('Failed to fetch addresses');
+      const data = await response.json();
 
-      if (error) throw error;
       if (data) {
         const mapped: Address[] = data.map((item: any) => ({
           id: item.id,
@@ -982,13 +980,31 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     };
 
     try {
-      const { data, error } = await supabase
-        .from('website_store_addresses')
-        .insert(addressData)
-        .select()
-        .single();
+      const token = localStorage.getItem('session_token') || '';
+      const response = await fetch('/api/customer/addresses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionToken: token,
+          type: addressData.type,
+          name: addressData.name,
+          phone: addressData.phone,
+          street: addressData.street,
+          city: addressData.city,
+          state: addressData.state,
+          zip: addressData.zip,
+          is_default: addressData.is_default
+        })
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error saving address');
+      }
+
+      const data = await response.json();
 
       if (data) {
         const added: Address = {
@@ -1026,12 +1042,22 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const handleDeleteAddress = async (id: string) => {
     if (!loggedInUser) return;
     try {
-      const { error } = await supabase
-        .from('website_store_addresses')
-        .delete()
-        .eq('id', id);
+      const token = localStorage.getItem('session_token') || '';
+      const response = await fetch('/api/customer/addresses', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          addressId: id,
+          sessionToken: token
+        })
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error deleting address');
+      }
 
       const deletedAddr = addresses.find((a) => a.id === id);
       const nextAddresses = addresses.filter((a) => a.id !== id);
@@ -1039,12 +1065,30 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       // If we deleted the default, set first remaining as default
       if (deletedAddr?.isDefault && nextAddresses.length > 0) {
         const newDefault = nextAddresses[0];
-        const { error: updateError } = await supabase
-          .from('website_store_addresses')
-          .update({ is_default: true })
-          .eq('id', newDefault.id);
+        const updateResponse = await fetch('/api/customer/addresses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            sessionToken: token,
+            id: newDefault.id,
+            type: newDefault.type,
+            name: newDefault.name,
+            phone: newDefault.phone,
+            street: newDefault.street,
+            city: newDefault.city,
+            state: newDefault.state,
+            zip: newDefault.zip,
+            is_default: true
+          })
+        });
 
-        if (updateError) throw updateError;
+        if (!updateResponse.ok) {
+          const errData = await updateResponse.json().catch(() => ({}));
+          throw new Error(errData.error || 'Server error setting default address');
+        }
+
         newDefault.isDefault = true;
       }
       
@@ -1060,21 +1104,33 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const handleSetDefaultAddress = async (id: string) => {
     if (!loggedInUser) return;
     try {
-      // First, set all other addresses to is_default = false for this user
-      const { error: clearError } = await supabase
-        .from('website_store_addresses')
-        .update({ is_default: false })
-        .eq('user_id', loggedInUser.id);
+      const token = localStorage.getItem('session_token') || '';
+      const target = addresses.find(a => a.id === id);
+      if (!target) return;
 
-      if (clearError) throw clearError;
+      const response = await fetch('/api/customer/addresses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionToken: token,
+          id: target.id,
+          type: target.type,
+          name: target.name,
+          phone: target.phone,
+          street: target.street,
+          city: target.city,
+          state: target.state,
+          zip: target.zip,
+          is_default: true
+        })
+      });
 
-      // Second, set the selected address to is_default = true
-      const { error: setError } = await supabase
-        .from('website_store_addresses')
-        .update({ is_default: true })
-        .eq('id', id);
-
-      if (setError) throw setError;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server error setting default address');
+      }
 
       setAddresses(
         addresses.map((a) => ({
@@ -1118,7 +1174,10 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     }
   };
 
-  const getCategoryGradient = (cat: string) => {
+  const getCategoryGradient = (cat?: string) => {
+    if (!cat) {
+      return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    }
     switch (cat.toLowerCase()) {
       case 'rudraksha':
       case 'tulsi mala':
@@ -2689,16 +2748,16 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                           width: '70px',
                           height: '70px',
                           borderRadius: 'var(--radius-md)',
-                          background: getCategoryGradient(p.category),
+                          background: getCategoryGradient(p?.category),
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0
                         }}>
-                          {p.image && isImageUrl(p.image) ? (
+                          {p?.image && isImageUrl(p?.image) ? (
                             <img 
-                              src={getDisplayImageUrl(p.image)} 
-                              alt={p.name} 
+                              src={getDisplayImageUrl(p?.image)} 
+                              alt={p?.name || 'Product'} 
                               style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} 
                             />
                           ) : (

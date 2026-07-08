@@ -19,6 +19,7 @@ import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { uploadToR2 } from '../lib/cloudflare/r2';
+import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
 
 
 interface Address {
@@ -48,6 +49,11 @@ interface CheckoutPageProps {
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
   };
+  paymentActivation?: {
+    activePaymentProvider: 'manual_upi' | 'razorpay';
+    razorpayMode: 'test' | 'live';
+    legacyManualUpiEnabled: boolean;
+  };
 }
 
 type Step = 'address' | 'payment' | 'confirmation';
@@ -64,6 +70,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   onApplyCoupon,
   discountPercent,
   taxDeliverySettings,
+  paymentActivation,
 }) => {
   const [step, setStep] = React.useState<Step>('address');
   const [paymentMethod] = React.useState<PaymentMethod>('upi');
@@ -73,6 +80,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = React.useState('');
   const [isUploadingScreenshot, setIsUploadingScreenshot] = React.useState(false);
   const [copiedUpi, setCopiedUpi] = React.useState(false);
+  const [selectedPaymentOption, setSelectedPaymentOption] = React.useState<'razorpay' | 'manual_upi'>('manual_upi');
+
+  React.useEffect(() => {
+    if (paymentActivation?.activePaymentProvider === 'razorpay') {
+      setSelectedPaymentOption('razorpay');
+    } else {
+      setSelectedPaymentOption('manual_upi');
+    }
+  }, [paymentActivation]);
 
   // Address fields
   const [fullName, setFullName] = React.useState('');
@@ -97,6 +113,27 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
   const [couponMessage, setCouponMessage] = React.useState({ text: '', type: '' });
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
+  // Razorpay integration hook
+  const { handleRazorpayPayment } = useRazorpayCheckout({
+    cart,
+    discountPercent,
+    appliedCouponCode,
+    fullName,
+    phone,
+    email,
+    addressLine1,
+    addressLine2,
+    city,
+    state,
+    pincode,
+    taxDeliverySettings,
+    onOrderSuccess,
+    onOrderComplete,
+    setIsPlacingOrder,
+    setStep
+  });
+
 
   React.useEffect(() => {
     if (appliedCouponCode) {
@@ -139,13 +176,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       async function fetchUserAddresses() {
         try {
-          const { data, error } = await supabase
-            .from('website_store_addresses')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: true });
+          const token = localStorage.getItem('session_token') || '';
+          const response = await fetch(`/api/customer/addresses?sessionToken=${token}`);
+          if (!response.ok) throw new Error('Failed to fetch addresses');
+          const data = await response.json();
           
-          if (error) throw error;
           if (data) {
             const mapped: Address[] = data.map((item: any) => ({
               id: item.id,
@@ -496,13 +531,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   const handlePaymentNext = async () => {
     if (isPlacingOrder) return;
-    if (!validatePayment()) return;
-    setIsPlacingOrder(true);
-    try {
-      await completeOrder('Scan & Pay (UPI)');
-    } catch (err) {
-      console.error(err);
-      setIsPlacingOrder(false);
+    if (selectedPaymentOption === 'razorpay') {
+      await handleRazorpayPayment(orderId);
+    } else {
+      if (!validatePayment()) return;
+      setIsPlacingOrder(true);
+      try {
+        await completeOrder('Scan & Pay (UPI)');
+      } catch (err) {
+        console.error(err);
+        setIsPlacingOrder(false);
+      }
     }
   };
 
@@ -858,7 +897,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     {addressErrors.pincode && <p style={errorStyle}>{addressErrors.pincode}</p>}
                   </div>
                 </div>
-
                 <button
                   id="checkout-address-next"
                   onClick={handleAddressNext}
@@ -881,154 +919,230 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               }}>
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Lock size={18} style={{ color: 'var(--primary-lime)' }} />
-                  Direct Payment Details (UPI)
+                  {selectedPaymentOption === 'razorpay' ? 'Secure Online Payment' : 'Direct Payment Details (UPI)'}
                 </h2>
 
-                {/* UPI QR Direct Scan & Pay Form */}
-                {paymentMethod === 'upi' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* Amount to be Paid Badge */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '14px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid var(--primary-lime)',
-                      textAlign: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
-                      <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
-                        ₹{finalTotal.toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* QR Code Container with sleek card styling */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      backgroundColor: '#ffffff',
-                      padding: '24px 16px',
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                      border: '1px solid #e5e7eb',
-                      position: 'relative'
-                    }}>
-                      <img 
-                        src={getQrCodeUrl()} 
-                        alt="UPI QR Code Barcode" 
-                        style={{
-                          width: '190px',
-                          height: '190px',
-                          objectFit: 'contain',
-                          borderRadius: '6px',
-                          border: '1px solid #f3f4f6',
-                          padding: '6px',
-                          marginBottom: '14px'
-                        }}
-                      />
-
-                      <span style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 800,
-                        color: 'var(--primary-lime)',
-                        backgroundColor: 'var(--primary-lime-light)',
-                        padding: '2px 10px',
-                        borderRadius: '999px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginBottom: '12px'
-                      }}>
-                        Scan to Pay
-                      </span>
-
-                      {/* UPI ID display & copy button */}
-                      <div style={{
+                {/* Payment Option Selector (Tabs) */}
+                {paymentActivation?.activePaymentProvider === 'razorpay' && paymentActivation?.legacyManualUpiEnabled && (
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    borderBottom: '1px solid #e5e7eb',
+                    paddingBottom: '16px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPaymentOption('razorpay')}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid ' + (selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                        backgroundColor: selectedPaymentOption === 'razorpay' ? '#f0fdf4' : '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.88rem',
+                        color: selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: '#f9fafb',
-                        padding: '8px 14px',
-                        borderRadius: '6px',
-                        border: '1px solid #e5e7eb',
-                        width: '100%',
-                        justifyContent: 'space-between'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                          <span style={{ fontSize: '0.62rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
-                          <a
-                            href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`}
-                            style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              color: 'var(--primary-lime, #15803d)',
-                              fontFamily: 'monospace',
-                              textDecoration: 'underline',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {barcodeSettings?.upiId || '7974478098@paytm'}
-                          </a>
-                        </div>
-                        <button
-                          onClick={handleCopyUpi}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            backgroundColor: copiedUpi ? '#10b981' : 'var(--primary-lime)',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            fontSize: '0.7rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            transition: 'background-color 0.2s'
-                          }}
-                        >
-                          {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
-                          {copiedUpi ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Lock size={16} /> Pay Online (UPI, Cards)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPaymentOption('manual_upi')}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid ' + (selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                        backgroundColor: selectedPaymentOption === 'manual_upi' ? '#f0fdf4' : '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.88rem',
+                        color: selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Upload size={16} /> Manual Scan & Pay
+                    </button>
+                  </div>
+                )}
 
-                      {/* Pay via UPI App Button */}
+                {/* Conditional Payment Flow */}
+                {paymentMethod === 'upi' && (
+                  selectedPaymentOption === 'razorpay' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Amount to be Paid Badge */}
                       <div style={{
-                        marginTop: '16px',
-                        width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '8px'
+                        alignItems: 'center',
+                        padding: '14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--primary-lime-light)',
+                        border: '1px solid var(--primary-lime)',
+                        textAlign: 'center'
                       }}>
-                        <button
+                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                        <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                          ₹{finalTotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Razorpay Banner Info */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px',
+                        padding: '24px 16px',
+                        borderRadius: '12px',
+                        backgroundColor: '#f9fafb',
+                        border: '1px solid #e5e7eb',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '50%',
+                          backgroundColor: '#ecfdf5',
+                          color: '#059669'
+                        }}>
+                          <ShieldCheck size={28} />
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111827', margin: '0 0 4px 0' }}>Razorpay Secure Checkout</h3>
+                          <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: 0, lineHeight: 1.4 }}>
+                            Supports UPI, Credit/Debit Cards, Net Banking, and popular Wallets.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Amount to be Paid Badge */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--primary-lime-light)',
+                        border: '1px solid var(--primary-lime)',
+                        textAlign: 'center'
+                      }}>
+                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                        <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                          ₹{finalTotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* QR Code Container with sleek card styling */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        backgroundColor: '#ffffff',
+                        padding: '24px 16px',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                        border: '1px solid #e5e7eb',
+                        position: 'relative'
+                      }}>
+                        <img 
+                          src={getQrCodeUrl()} 
+                          alt="UPI QR Code Barcode" 
+                          style={{
+                            width: '180px',
+                            height: '180px',
+                            objectFit: 'contain',
+                            marginBottom: '16px'
+                          }}
+                        />
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', fontWeight: 600 }}>UPI ID: {barcodeSettings?.upiId || '7974478098@paytm'}</span>
+                          
+                          <button
+                            onClick={handleCopyUpi}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px 16px',
+                              borderRadius: '20px',
+                              border: '1.5px solid var(--primary-lime)',
+                              backgroundColor: copiedUpi ? 'var(--primary-lime-light)' : '#ffffff',
+                              color: 'var(--primary-lime)',
+                              fontSize: '0.8rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <Copy size={14} />
+                            {copiedUpi ? 'Copied ID!' : 'Copy UPI ID'}
+                          </button>
+                        </div>
+
+                        {/* Informative Help Text inside QR container */}
+                        <div style={{
+                          marginTop: '20px',
+                          padding: '12px 14px',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '8px',
+                          border: '1px solid #f3f4f6',
+                          width: '100%'
+                        }}>
+                          <p style={{
+                            fontSize: '0.72rem',
+                            color: '#6b7280',
+                            textAlign: 'center',
+                            margin: 0,
+                            lineHeight: 1.2
+                          }}>
+                            * Scan this QR code using any UPI app (PhonePe, GPay, Paytm, BHIM, etc.) to complete the transaction.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Clickable Mobile Link Helper */}
+                      <div style={{ textAlign: 'center' }}>
+                        <button 
                           onClick={handleUpiRedirect}
                           style={{
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            backgroundColor: 'var(--primary-lime)',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '0.9rem',
+                            gap: '8px',
+                            fontSize: '0.85rem',
+                            color: 'var(--primary-lime)',
                             fontWeight: 800,
-                            transition: 'background-color 0.2s',
-                            boxShadow: 'var(--shadow-sm)',
-                            textAlign: 'center',
-                            gap: '6px',
+                            border: '1.5px solid var(--primary-lime)',
+                            padding: '10px 18px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--primary-lime-light)',
                             cursor: 'pointer'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                         >
-                          ⚡ Pay via Mobile UPI App
+                          Open in UPI App
                         </button>
                         <p style={{
-                          fontSize: '0.62rem',
+                          fontSize: '0.7rem',
                           color: '#9ca3af',
+                          marginTop: '8px',
                           textAlign: 'center',
                           margin: 0,
                           lineHeight: 1.2
@@ -1036,88 +1150,86 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           * Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.
                         </p>
                       </div>
-                    </div>
 
-                    {/* Screenshot Uploader Area */}
-                    <div>
-                      <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
-                        Upload Payment Screenshot *
-                      </label>
-                      
-                      <div style={{
-                        position: 'relative',
-                        border: `2px dashed ${paymentErrors.screenshot ? '#ef4444' : (paymentScreenshotUrl ? '#10b981' : '#d1d5db')}`,
-                        borderRadius: '8px',
-                        padding: '24px 14px',
-                        textAlign: 'center',
-                        backgroundColor: paymentScreenshotUrl ? '#f0fdf4' : '#fafafa',
-                        cursor: isUploadingScreenshot ? 'wait' : 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleScreenshotUpload}
-                          disabled={isUploadingScreenshot}
-                          style={{
-                            position: 'absolute',
-                            top: 0, left: 0, width: '100%', height: '100%',
-                            opacity: 0, cursor: 'pointer'
-                          }}
-                        />
+                      {/* Screenshot Uploader Area */}
+                      <div>
+                        <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
+                          Upload Payment Screenshot *
+                        </label>
+                        
+                        <div style={{
+                          position: 'relative',
+                          border: `2px dashed ${paymentErrors.screenshot ? '#ef4444' : (paymentScreenshotUrl ? '#10b981' : '#d1d5db')}`,
+                          borderRadius: '8px',
+                          padding: '24px 14px',
+                          textAlign: 'center',
+                          backgroundColor: paymentScreenshotUrl ? '#f0fdf4' : '#fafafa',
+                          cursor: isUploadingScreenshot ? 'wait' : 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleScreenshotUpload}
+                            disabled={isUploadingScreenshot}
+                            style={{
+                              position: 'absolute',
+                              top: 0, left: 0, width: '100%', height: '100%',
+                              opacity: 0, cursor: 'pointer'
+                            }}
+                          />
 
-                        {isUploadingScreenshot ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                            <div className="spinner" style={{
-                              width: '24px', height: '24px',
-                              border: '3px solid #e5e7eb',
-                              borderTop: '3px solid var(--primary-lime)',
-                              borderRadius: '50%'
-                            }} />
-                            <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 700 }}>
-                              Uploading proof...
-                            </span>
-                          </div>
-                        ) : paymentScreenshotUrl ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '34px', height: '34px',
-                              borderRadius: '50%',
-                              backgroundColor: '#dcfce7',
-                              color: '#15803d'
-                            }}>
-                              <Check size={18} />
+                          {isUploadingScreenshot ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <div className="spinner" style={{
+                                width: '24px', height: '24px',
+                                border: '3px solid #e5e7eb',
+                                borderTop: '3px solid var(--primary-lime)',
+                                borderRadius: '50%'
+                              }} />
+                              <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 700 }}>
+                                Uploading proof...
+                              </span>
                             </div>
-                            <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 800 }}>
-                              Screenshot Uploaded Successfully!
-                            </span>
-                            <span style={{ fontSize: '0.68rem', color: '#6b7280', textDecoration: 'underline' }}>
-                              Click to change image
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <Upload size={26} style={{ color: '#9ca3af', marginBottom: '2px' }} />
-                            <span style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 800 }}>
-                              Click to select screenshot
-                            </span>
-                            <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>
-                              PNG, JPG, or WEBP confirmation image
-                            </span>
-                          </div>
+                          ) : paymentScreenshotUrl ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '34px', height: '34px',
+                                borderRadius: '50%',
+                                backgroundColor: '#dcfce7',
+                                color: '#15803d'
+                              }}>
+                                <Check size={18} />
+                              </div>
+                              <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 800 }}>
+                                Screenshot Uploaded Successfully!
+                              </span>
+                              <span style={{ fontSize: '0.68rem', color: '#6b7280', textDecoration: 'underline' }}>
+                                Click to change image
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                              <Upload size={26} style={{ color: '#9ca3af', marginBottom: '2px' }} />
+                              <span style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 800 }}>
+                                Click to select screenshot
+                              </span>
+                              <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>
+                                PNG, JPG, or WEBP confirmation image
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {paymentErrors.screenshot && (
+                          <p style={{ ...errorStyle, marginTop: '6px' }}>{paymentErrors.screenshot}</p>
                         )}
                       </div>
-                      {paymentErrors.screenshot && (
-                        <p style={{ ...errorStyle, marginTop: '6px' }}>{paymentErrors.screenshot}</p>
-                      )}
                     </div>
-                  </div>
+                  )
                 )}
-
-
 
                 <button
                   id="checkout-payment-next"
@@ -1126,7 +1238,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="btn-lime"
                   style={{ width: '100%', padding: '15px', marginTop: '28px', justifyContent: 'center', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800 }}
                 >
-                  <Lock size={16} /> {isPlacingOrder ? 'Processing...' : `Place Order — ₹${finalTotal.toFixed(2)}`}
+                  <Lock size={16} /> {isPlacingOrder ? 'Processing...' : (selectedPaymentOption === 'razorpay' ? `Pay Securely — ₹${finalTotal.toFixed(2)}` : `Place Order — ₹${finalTotal.toFixed(2)}`)}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>

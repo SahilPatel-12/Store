@@ -6,6 +6,7 @@ import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { CompressionStatusWidget } from '../lib/mediaCompressor';
+import { supabase } from '../lib/supabase';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -68,13 +69,15 @@ interface VidyaReviewsSectionProps {
   editable: boolean;
   handleWriteReviewClick: () => void;
   handleDeleteReview?: (id: string) => void;
+  isVidyaRudraksh?: boolean;
 }
 
 const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
   reviews,
   editable,
   handleWriteReviewClick,
-  handleDeleteReview
+  handleDeleteReview,
+  isVidyaRudraksh = false
 }) => {
   const [activeDetailReview, setActiveDetailReview] = React.useState<any | null>(null);
   const [activeModalImageIndex, setActiveModalImageIndex] = React.useState<number>(0);
@@ -86,7 +89,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
     "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80",
     "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=250&h=250&q=80",
     "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=250&h=250&q=80",
-    "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=250&h=250&q=80",
+    "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=250&h=250&q=80",
     "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=250&h=250&q=80"
   ];
 
@@ -215,7 +218,12 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
   };
 
   return (
-    <div style={{ textAlign: 'left', marginTop: '48px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+    <div style={{
+      textAlign: 'left',
+      marginTop: isVidyaRudraksh ? '0px' : '48px',
+      borderTop: isVidyaRudraksh ? 'none' : '1px solid var(--border-light)',
+      paddingTop: isVidyaRudraksh ? '0px' : '40px'
+    }}>
       <h2 className="vidya-reviews-title">
         Ratings and reviews
       </h2>
@@ -605,7 +613,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
             .ratings-summary-col {
               gap: 12px;
             }
-            .ratings-summary-col span {
+            .ratings-score-value {
               font-size: 2.2rem !important;
             }
             .histogram-row {
@@ -1357,6 +1365,2119 @@ const VidyaEmotionalHookSection: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+interface VidyaParentPainSectionProps {
+  onBuyNow: () => void;
+}
+
+const VidyaParentPainSection: React.FC<VidyaParentPainSectionProps> = ({ onBuyNow }) => {
+  const painPoints = [
+    "Homework se bachta hai",
+    "Teacher bolte hain dhyan nahi deta",
+    "Mobile hi chalata rehta hai",
+    "Exam mein ghabra jata hai",
+    "Baar baar yaad karke bhool jata hai",
+    "Marks improve nahi ho rahe",
+    "Padhai mein interest nahi",
+    "Confidence kam"
+  ];
+
+  const [selectedPains, setSelectedPains] = React.useState<Record<number, boolean>>({});
+
+  const togglePain = (idx: number) => {
+    setSelectedPains(prev => ({
+      ...prev,
+      [idx]: !prev[idx]
+    }));
+  };
+
+  const selectedCount = Object.values(selectedPains).filter(Boolean).length;
+
+  return (
+    <section className="vidya-pain-section">
+      <style>{`
+        .vidya-pain-section {
+          padding: 56px 0;
+          background-color: #fdfaf7;
+          border-bottom: 1.5px dashed #fbd5b5;
+          font-family: var(--font-sans);
+          text-align: center;
+        }
+        @media (max-width: 768px) {
+          .vidya-pain-section {
+            padding: 36px 0;
+          }
+        }
+        .vidya-pain-container {
+          max-width: 1000px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-pain-header {
+          margin-bottom: 32px;
+        }
+        .vidya-pain-tag {
+          display: inline-block;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ef4444;
+          background: #ffe4e6;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .vidya-pain-title {
+          font-size: 1.9rem;
+          font-weight: 900;
+          color: #2d140e;
+          line-height: 1.3;
+          margin: 0 auto;
+          max-width: 700px;
+        }
+        .vidya-pain-subtitle {
+          font-size: 0.88rem;
+          color: #6b7280;
+          margin-top: 10px;
+        }
+        .vidya-pain-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+          margin-bottom: 36px;
+        }
+        .vidya-pain-card {
+          background: #ffffff;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 20px;
+          padding: 20px 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          user-select: none;
+          position: relative;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .vidya-pain-card.active {
+          border-color: #ef4444;
+          background: #fff5f5;
+          transform: scale(1.03);
+          box-shadow: 0 10px 20px rgba(239, 68, 68, 0.08);
+          animation: card-shake 0.3s ease;
+        }
+        .vidya-pain-card:not(.active):hover {
+          border-color: #fca5a5;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.02);
+        }
+        @keyframes card-shake {
+          0%, 100% { transform: scale(1.03) rotate(0deg); }
+          25% { transform: scale(1.03) rotate(-1.5deg); }
+          75% { transform: scale(1.03) rotate(1.5deg); }
+        }
+        .vidya-pain-checkbox {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 1.5px solid #d1d5db;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.7rem;
+          color: transparent;
+          transition: all 0.2s;
+        }
+        .vidya-pain-card.active .vidya-pain-checkbox {
+          border-color: #ef4444;
+          background: #ef4444;
+          color: #ffffff;
+        }
+        .vidya-pain-text {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #374151;
+          line-height: 1.35;
+        }
+        .vidya-pain-card.active .vidya-pain-text {
+          color: #991b1b;
+        }
+        
+        .vidya-pain-callout-wrap {
+          max-height: 0;
+          overflow: hidden;
+          opacity: 0;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vidya-pain-callout-wrap.visible {
+          max-height: 260px;
+          opacity: 1;
+        }
+        .vidya-pain-callout {
+          background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+          border: 1.5px solid #fecdd3;
+          border-radius: 20px;
+          padding: 20px 24px;
+          display: inline-flex;
+          align-items: flex-start;
+          gap: 16px;
+          margin-top: 10px;
+          box-shadow: 0 10px 25px rgba(220, 38, 38, 0.06);
+          max-width: 800px;
+          text-align: left;
+        }
+        .vidya-pain-callout-icon {
+          font-size: 1.5rem;
+          animation: finger-bounce 1s infinite ease-in-out;
+          margin-top: 2px;
+        }
+        @keyframes finger-bounce {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(6px); }
+        }
+        
+        .vidya-pain-callout-content {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          width: 100%;
+        }
+        .vidya-pain-callout-text {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #991b1b;
+          line-height: 1.4;
+        }
+        .vidya-pain-cta-box {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          background: #ffffff;
+          border: 1px solid rgba(239, 68, 68, 0.15);
+          padding: 10px 16px;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        }
+        .vidya-pain-cta-text {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #374151;
+          line-height: 1.4;
+        }
+        .vidya-pain-buy-btn {
+          background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+          color: #ffffff;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 0.88rem;
+          font-weight: 900;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+          box-shadow: 0 4px 12px rgba(234, 88, 12, 0.2);
+          transition: all 0.2s;
+        }
+        .vidya-pain-buy-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(234, 88, 12, 0.3);
+          background: linear-gradient(135deg, #dd5209 0%, #ea580c 100%);
+        }
+        
+        @media (max-width: 991px) {
+          .vidya-pain-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+          }
+          .vidya-pain-title {
+            font-size: 1.5rem;
+          }
+        }
+        @media (max-width: 768px) {
+          .vidya-pain-callout {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 16px;
+          }
+          .vidya-pain-cta-box {
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+            padding: 12px;
+            width: 100%;
+          }
+          .vidya-pain-buy-btn {
+            width: 100%;
+            justify-content: center;
+          }
+          .vidya-pain-callout-icon {
+            display: none;
+          }
+        }
+        @media (max-width: 480px) {
+          .vidya-pain-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .vidya-pain-card {
+            padding: 14px 10px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-align: center;
+          }
+          .vidya-pain-text {
+            font-size: 0.8rem;
+          }
+          .vidya-pain-checkbox {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+          }
+          .vidya-pain-callout {
+            padding: 14px;
+            gap: 6px;
+          }
+          .vidya-pain-callout-text {
+            text-align: center;
+            font-size: 0.9rem;
+          }
+        }
+      `}</style>
+      <div className="vidya-pain-container">
+        <div className="vidya-pain-header">
+          <span className="vidya-pain-tag">Self-Assessment Quiz</span>
+          <h2 className="vidya-pain-title">
+            Kya Aap Bhi Inmein Se Kisi Pareshani Ka Samna Kar Rahe Hain?
+          </h2>
+          <p className="vidya-pain-subtitle">Apne bachche mein dikhne wale lakshano par tap karein (Select all that apply):</p>
+        </div>
+        <div className="vidya-pain-grid">
+          {painPoints.map((point, index) => {
+            const isActive = !!selectedPains[index];
+            return (
+              <div
+                className={`vidya-pain-card ${isActive ? 'active' : ''}`}
+                key={index}
+                onClick={() => togglePain(index)}
+              >
+                <div className="vidya-pain-checkbox">✓</div>
+                <span className="vidya-pain-text">{point}</span>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className={`vidya-pain-callout-wrap ${selectedCount > 0 ? 'visible' : ''}`}>
+          <div className="vidya-pain-callout">
+            <span className="vidya-pain-callout-icon">👉</span>
+            <div className="vidya-pain-callout-content">
+              <div className="vidya-pain-callout-text">
+                Agar aapne inmein se <strong>ek bhi</strong> pareshani select ki hai... to niche di gayi jankari ko dhyan se padhiye.
+              </div>
+              <div className="vidya-pain-cta-box">
+                <span className="vidya-pain-cta-text">
+                  Apne bachche ki in pareshaniyon ko door karne ke liye <strong>Vidya Rudraksh</strong> aaj hi order karein!
+                </span>
+                <button className="vidya-pain-buy-btn" onClick={onBuyNow}>
+                  <span>Buy Now (₹1)</span>
+                  <ShoppingBag size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const VidyaEmotionalStorySection: React.FC = () => {
+  const messages = [
+    { sender: "Mother", text: "Maine School Badla...", time: "8:01 PM", color: "#fef3c7", textColor: "#92400e" },
+    { sender: "Father", text: "Maine Tuition Lagwayi...", time: "8:02 PM", color: "#e0f2fe", textColor: "#075985" },
+    { sender: "Mother", text: "Maine Coaching Bhi Karwayi...", time: "8:03 PM", color: "#fef3c7", textColor: "#92400e" },
+    { sender: "Father", text: "Lekin... Fir Bhi Padhai Mein Man Nahi Lagta! 😔", time: "8:04 PM", color: "#fee2e2", textColor: "#991b1b", isCritical: true }
+  ];
+
+  const [visibleCount, setVisibleCount] = React.useState(1);
+  const [isTyping, setIsTyping] = React.useState(false);
+
+  const handleNextMessage = () => {
+    if (visibleCount < messages.length && !isTyping) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setVisibleCount(prev => prev + 1);
+        setIsTyping(false);
+      }, 700);
+    }
+  };
+
+  return (
+    <section className="vidya-chat-section">
+      <style>{`
+        .vidya-chat-section {
+          padding: 56px 0;
+          background-color: #f6f9fb;
+          border-bottom: 1.5px dashed #bcd3e3;
+          font-family: var(--font-sans);
+        }
+        @media (max-width: 768px) {
+          .vidya-chat-section {
+            padding: 36px 0;
+          }
+        }
+        .vidya-chat-container {
+          max-width: 520px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-chat-header {
+          text-align: center;
+          margin-bottom: 24px;
+        }
+        .vidya-chat-tag {
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .vidya-chat-title {
+          font-size: 1.6rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin: 12px 0 6px;
+        }
+        .vidya-chat-desc {
+          font-size: 0.84rem;
+          color: #6b7280;
+          line-height: 1.4;
+        }
+        .vidya-chat-window {
+          background: #efeae2; /* Classic chat bg color */
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+          border: 4px solid #ffffff;
+        }
+        .vidya-chat-topbar {
+          background: #075e54;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: #ffffff;
+        }
+        .vidya-chat-avatar {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: #128c7e;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.1rem;
+          font-weight: 800;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .vidya-chat-status-info {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          line-height: 1.2;
+        }
+        .vidya-chat-group-name {
+          font-size: 0.95rem;
+          font-weight: 800;
+        }
+        .vidya-chat-status {
+          font-size: 0.74rem;
+          opacity: 0.85;
+        }
+        .vidya-chat-body {
+          padding: 20px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          min-height: 240px;
+          background-image: radial-gradient(#dfdcd6 1.5px, transparent 1.5px);
+          background-size: 16px 16px;
+        }
+        .vidya-chat-bubble-wrap {
+          display: flex;
+          flex-direction: column;
+          max-width: 85%;
+          animation: slide-in-bubble 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .vidya-chat-bubble-wrap.mother {
+          align-self: flex-start;
+        }
+        .vidya-chat-bubble-wrap.father {
+          align-self: flex-end;
+        }
+        @keyframes slide-in-bubble {
+          from { opacity: 0; transform: translateY(12px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .vidya-chat-bubble-sender {
+          font-size: 0.7rem;
+          font-weight: 800;
+          margin-bottom: 2px;
+          text-transform: uppercase;
+        }
+        .vidya-chat-bubble-wrap.mother .vidya-chat-bubble-sender { color: #b45309; text-align: left; }
+        .vidya-chat-bubble-wrap.father .vidya-chat-bubble-sender { color: #0369a1; text-align: right; }
+        
+        .vidya-chat-bubble {
+          border-radius: 14px;
+          padding: 10px 14px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          position: relative;
+          text-align: left;
+        }
+        .vidya-chat-bubble-wrap.mother .vidya-chat-bubble {
+          background: #ffffff;
+          border-top-left-radius: 2px;
+          color: #374151;
+        }
+        .vidya-chat-bubble-wrap.father .vidya-chat-bubble {
+          background: #e1ffc7;
+          border-top-right-radius: 2px;
+          color: #374151;
+        }
+        .vidya-chat-bubble-wrap.critical .vidya-chat-bubble {
+          background: #fee2e2;
+          border: 1.5px solid #fca5a5;
+          color: #991b1b;
+        }
+        .vidya-chat-bubble-text {
+          font-size: 0.95rem;
+          font-weight: 700;
+          line-height: 1.4;
+        }
+        .vidya-chat-bubble-time {
+          font-size: 0.65rem;
+          color: #8c8c8c;
+          text-align: right;
+          margin-top: 4px;
+          display: block;
+        }
+        
+        .vidya-chat-typing-bubble {
+          background: #ffffff;
+          border-radius: 12px;
+          border-top-left-radius: 2px;
+          padding: 8px 14px;
+          align-self: flex-start;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .typing-dot {
+          width: 6px;
+          height: 6px;
+          background: #9ca3af;
+          border-radius: 50%;
+          animation: dot-jump 1.4s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes dot-jump {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        
+        .vidya-chat-action-btn {
+          margin: 16px 0;
+          background: #128c7e;
+          color: #ffffff;
+          font-weight: 800;
+          font-size: 0.9rem;
+          padding: 12px 24px;
+          border-radius: 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          box-shadow: 0 6px 16px rgba(18, 140, 126, 0.25);
+          transition: all 0.2s;
+        }
+        .vidya-chat-action-btn:hover {
+          background: #075e54;
+          transform: translateY(-1px);
+        }
+        .vidya-chat-pivot-banner {
+          background: linear-gradient(135deg, #2d140e 0%, #451a03 100%);
+          border-radius: 20px;
+          padding: 24px 20px;
+          margin-top: 24px;
+          box-shadow: 0 10px 24px rgba(45, 20, 14, 0.15);
+          color: #ffffff;
+          text-align: center;
+          animation: slide-in-bubble 0.5s ease forwards;
+        }
+        .vidya-chat-pivot-text {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #fed7aa;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          margin-bottom: 6px;
+          display: block;
+        }
+        .vidya-chat-pivot-headline {
+          font-size: 1.3rem;
+          font-weight: 800;
+          line-height: 1.35;
+          margin: 0;
+        }
+      `}</style>
+      <div className="vidya-chat-container">
+        <div className="vidya-chat-header">
+          <span className="vidya-chat-tag">Parent Story</span>
+          <h2 className="vidya-chat-title">Har Parent Yehi Sochta Hai...</h2>
+          <p className="vidya-chat-desc">School badalne se lekar coaching tak, maa-baap sab karke thak chuke hain.</p>
+        </div>
+
+        <div className="vidya-chat-window">
+          <div className="vidya-chat-topbar">
+            <div className="vidya-chat-avatar">🏡</div>
+            <div className="vidya-chat-status-info">
+              <span className="vidya-chat-group-name">Parents Discussion</span>
+              <span className="vidya-chat-status">
+                {isTyping ? "typing..." : "online"}
+              </span>
+            </div>
+          </div>
+          
+          <div className="vidya-chat-body">
+            {messages.slice(0, visibleCount).map((msg, idx) => {
+              const isMother = msg.sender === "Mother";
+              return (
+                <div key={idx} className={`vidya-chat-bubble-wrap ${isMother ? 'mother' : 'father'} ${msg.isCritical ? 'critical' : ''}`}>
+                  <span className="vidya-chat-bubble-sender">{msg.sender}</span>
+                  <div className="vidya-chat-bubble">
+                    <span className="vidya-chat-bubble-text">{msg.text}</span>
+                    <span className="vidya-chat-bubble-time">{msg.time}</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {isTyping && (
+              <div className="vidya-chat-typing-bubble">
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {visibleCount < messages.length ? (
+          <button className="vidya-chat-action-btn" onClick={handleNextMessage} disabled={isTyping}>
+            {isTyping ? "Aage Padh rahe hain..." : "Aage Kya Hua? Padhye 👉"}
+          </button>
+        ) : (
+          <div className="vidya-chat-pivot-banner">
+            <span className="vidya-chat-pivot-text">The Solution</span>
+            <h3 className="vidya-chat-pivot-headline">
+              Yahi soch <span style={{ color: '#fbbf24', fontWeight: 900 }}>Vidya Rudraksh</span> ki prerna bani.
+            </h3>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+interface VidyaVideoSectionProps {
+  videoUrl?: string;
+  thumbnailUrl?: string;
+}
+
+const VidyaVideoSection: React.FC<VidyaVideoSectionProps> = ({ videoUrl, thumbnailUrl }) => {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  const defaultVideo = videoUrl || "https://assets.mixkit.co/videos/preview/mixkit-spiritual-meditation-session-in-nature-41584-large.mp4";
+  const defaultPoster = thumbnailUrl || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1200&q=80";
+
+  const handlePlayClick = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(err => {
+          console.error("Video play failed:", err);
+          setIsPlaying(true);
+        });
+      }
+    }
+  };
+
+  return (
+    <section className="vidya-video-section">
+      <style>{`
+        .vidya-video-section {
+          padding: 60px 0;
+          background-color: #fffbeb;
+          border-top: 1.5px solid #fce8cc;
+          border-bottom: 1.5px solid #fce8cc;
+          font-family: var(--font-sans);
+          text-align: center;
+        }
+        @media (max-width: 768px) {
+          .vidya-video-section {
+            padding: 36px 0;
+          }
+        }
+        .vidya-video-container {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-video-tag {
+          display: inline-block;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .vidya-video-title {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin-bottom: 28px;
+          line-height: 1.35;
+        }
+        .vidya-video-wrapper {
+          position: relative;
+          border-radius: 28px;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(45, 20, 14, 0.2);
+          border: 5px solid #ffffff;
+          aspect-ratio: 16/9;
+          background: #000;
+          cursor: pointer;
+        }
+        .vidya-video-element {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .vidya-video-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(45, 20, 14, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.3s ease;
+          z-index: 10;
+        }
+        .vidya-video-overlay.hidden {
+          opacity: 0;
+          pointer-events: none;
+        }
+        
+        /* Animated Play Ripple */
+        .vidya-ripple-btn {
+          position: relative;
+          width: 80px;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 12;
+        }
+        .vidya-play-btn-circle {
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          background: #f97316;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          position: relative;
+          z-index: 15;
+          box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .vidya-ripple-ring {
+          position: absolute;
+          border: 2px solid #fdba74;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          animation: ripple-out 2.5s infinite ease-out;
+          opacity: 0;
+          z-index: 10;
+          pointer-events: none;
+        }
+        .vidya-ripple-ring:nth-child(2) { animation-delay: 0.8s; }
+        .vidya-ripple-ring:nth-child(3) { animation-delay: 1.6s; }
+        
+        .vidya-video-wrapper:hover .vidya-play-btn-circle {
+          transform: scale(1.1);
+          background: #ea580c;
+        }
+        
+        @keyframes ripple-out {
+          0% { transform: scale(1); opacity: 0.8; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+        
+        .vidya-video-badge {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: rgba(0, 0, 0, 0.65);
+          color: #ffffff;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 11;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vidya-video-badge-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background-color: #ef4444;
+          animation: live-blink 1s infinite;
+        }
+        @keyframes live-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @media (max-width: 768px) {
+          .vidya-video-title {
+            font-size: 1.5rem;
+          }
+          .vidya-play-btn-circle {
+            width: 60px;
+            height: 60px;
+          }
+          .vidya-play-btn-circle svg {
+            width: 24px;
+            height: 24px;
+          }
+          .vidya-ripple-btn {
+            width: 64px;
+            height: 64px;
+          }
+        }
+      `}</style>
+      <div className="vidya-video-container">
+        <span className="vidya-video-tag">Intro Video</span>
+        <h2 className="vidya-video-title">Sirf 2 Minute Mein Samajhiye Vidya Rudraksh Kya Hai?</h2>
+        
+        <div className="vidya-video-wrapper" onClick={handlePlayClick}>
+          <video
+            ref={videoRef}
+            className="vidya-video-element"
+            src={defaultVideo}
+            poster={defaultPoster}
+            playsInline
+            controls={isPlaying}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+          />
+          <div className={`vidya-video-overlay ${isPlaying ? 'hidden' : ''}`}>
+            <div className="vidya-ripple-btn">
+              <div className="vidya-ripple-ring" />
+              <div className="vidya-ripple-ring" />
+              <div className="vidya-ripple-ring" />
+              <div className="vidya-play-btn-circle">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '4px' }}>
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="vidya-video-badge">
+            <span className="vidya-video-badge-dot" />
+            2:00 Min Intro
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const VidyaSandipaniAshramSection: React.FC = () => {
+  const steps = [
+    { title: "Krishna", subtitle: "Bhagwan Shri Krishna", desc: "Bhagwan Shri Krishna ne isi Sandipani Ashram mein Guru Sandipani se 64 vidyaon aur 16 kalaon ka gyan prapt kiya tha.", icon: "🪈", bg: "#fef3c7" },
+    { title: "Guru Sandipani", subtitle: "Guru Shiksha Sthali", desc: "Maharishi Sandipani ne yahan Shri Krishna aur Sudama ko shiksha di. Unki tapasya se bhoomi pavitra hui.", icon: "🧘", bg: "#ffedd5" },
+    { title: "Ashram", subtitle: "Aitihasik Ashram Sthali", desc: "Ujjain ka aitihasik Sandipani Ashram jahan aaj bhi shiksha-siddhi aur pavitrata ka vaas hai.", icon: "🛕", bg: "#ffe4e6" },
+    { title: "Pandit", subtitle: "Vedic Pandit Ji", desc: "Ashram ke parampara-shuddh vedic pandit ji ki dekh-rekh mein pujan ka aayojan kiya jata hai.", icon: "📿", bg: "#dcfce7" },
+    { title: "Anushthan", subtitle: "Vidya Siddhi Anushthan", desc: "Sacred mantras aur shastrokt vidhi se anushthan karake har ek Vidya Rudraksh ko abhimantrit kiya jata hai.", icon: "🔥", bg: "#dbeafe" }
+  ];
+
+  const [activeStep, setActiveStep] = React.useState(0);
+
+  return (
+    <section className="vidya-ashram-section">
+      <style>{`
+        .vidya-ashram-section {
+          padding: 60px 0;
+          background-color: #ffffff;
+          border-bottom: 1px solid #f3f4f6;
+          font-family: var(--font-sans);
+          text-align: center;
+        }
+        @media (max-width: 768px) {
+          .vidya-ashram-section {
+            padding: 36px 0;
+          }
+        }
+        .vidya-ashram-container {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-ashram-tag {
+          display: inline-block;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .vidya-ashram-title {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin-bottom: 36px;
+          line-height: 1.3;
+        }
+        
+        /* Interactive Step Grid */
+        .vidya-ashram-tabs {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          position: relative;
+          margin-bottom: 40px;
+          padding: 0 10px;
+        }
+        .vidya-ashram-progress-bg {
+          position: absolute;
+          top: 36px;
+          left: 10px;
+          right: 10px;
+          height: 4px;
+          background: #f3f4f6;
+          z-index: 1;
+          transform: translateY(-50%);
+          border-radius: 2px;
+        }
+        .vidya-ashram-progress-bar {
+          position: absolute;
+          top: 36px;
+          left: 10px;
+          height: 4px;
+          background: linear-gradient(90deg, #f97316 0%, #ea580c 100%);
+          z-index: 2;
+          transform: translateY(-50%);
+          transition: width 0.4s ease;
+          border-radius: 2px;
+        }
+        .vidya-ashram-tab-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+          z-index: 5;
+          cursor: pointer;
+          flex: 1;
+        }
+        .vidya-ashram-tab-btn {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 3px solid #e5e7eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.4rem;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .vidya-ashram-tab-item.active .vidya-ashram-tab-btn {
+          border-color: #ea580c;
+          background: #ea580c;
+          color: #ffffff;
+          transform: scale(1.15);
+          box-shadow: 0 8px 20px rgba(234, 88, 12, 0.25);
+        }
+        .vidya-ashram-tab-label {
+          margin-top: 8px;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #6b7280;
+          transition: color 0.3s;
+        }
+        .vidya-ashram-tab-item.active .vidya-ashram-tab-label {
+          color: #ea580c;
+        }
+        
+        /* Dynamic Description Card */
+        .vidya-ashram-detail-card {
+          background: #ffffff;
+          border: 1.5px solid #fed7aa;
+          border-radius: 24px;
+          padding: 28px 24px;
+          box-shadow: 0 16px 36px rgba(249, 115, 22, 0.05);
+          text-align: left;
+          position: relative;
+          overflow: hidden;
+          animation: fade-up-detail 0.4s ease;
+        }
+        @keyframes fade-up-detail {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .vidya-ashram-detail-badge {
+          display: inline-block;
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 4px 10px;
+          border-radius: 8px;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
+        .vidya-ashram-detail-title {
+          font-size: 1.4rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin-bottom: 8px;
+        }
+        .vidya-ashram-detail-desc {
+          font-size: 0.92rem;
+          color: #4b5563;
+          line-height: 1.55;
+          margin: 0;
+        }
+        
+        .vidya-ashram-bottom-card {
+          background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+          border: 1.5px solid #fed7aa;
+          border-radius: 20px;
+          padding: 24px;
+          margin-top: 36px;
+          box-shadow: 0 10px 25px rgba(249, 115, 22, 0.05);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+        }
+        .vidya-ashram-bottom-text {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #2d140e;
+          line-height: 1.45;
+          margin: 0;
+          text-align: left;
+        }
+        
+        @media (max-width: 600px) {
+          .vidya-ashram-tab-btn {
+            width: 44px;
+            height: 44px;
+            font-size: 1.2rem;
+          }
+          .vidya-ashram-progress-bg,
+          .vidya-ashram-progress-bar {
+            top: 32px;
+          }
+          .vidya-ashram-tab-label {
+            font-size: 0.72rem;
+          }
+          .vidya-ashram-detail-title {
+            font-size: 1.2rem;
+          }
+          .vidya-ashram-detail-desc {
+            font-size: 0.84rem;
+          }
+          .vidya-ashram-bottom-card {
+            flex-direction: column;
+            text-align: center;
+          }
+          .vidya-ashram-bottom-text {
+            text-align: center;
+            font-size: 0.9rem;
+          }
+        }
+      `}</style>
+      <div className="vidya-ashram-container">
+        <span className="vidya-ashram-tag">Sandipani Ashram</span>
+        <h2 className="vidya-ashram-title">Bhagwan Shri Krishna Ki Shiksha Sthali Se...</h2>
+        
+        {/* Interactive Timeline Tabs */}
+        <div className="vidya-ashram-tabs">
+          <div className="vidya-ashram-progress-bg" />
+          <div 
+            className="vidya-ashram-progress-bar" 
+            style={{ width: `calc(100% * (${activeStep} / 4))` }}
+          />
+          {steps.map((step, idx) => (
+            <div 
+              key={idx} 
+              className={`vidya-ashram-tab-item ${idx === activeStep ? 'active' : ''}`}
+              onClick={() => setActiveStep(idx)}
+            >
+              <button 
+                className="vidya-ashram-tab-btn"
+                style={{ 
+                  backgroundColor: idx === activeStep ? '#ea580c' : '#ffffff',
+                  color: idx === activeStep ? '#ffffff' : 'inherit'
+                }}
+              >
+                {step.icon}
+              </button>
+              <span className="vidya-ashram-tab-label">{step.title}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Detailed description panel for active step */}
+        <div className="vidya-ashram-detail-card" key={activeStep}>
+          <span className="vidya-ashram-detail-badge" style={{ backgroundColor: `${steps[activeStep].bg}bb`, color: '#2d140e' }}>
+            Step {activeStep + 1} of 5
+          </span>
+          <h3 className="vidya-ashram-detail-title">{steps[activeStep].subtitle}</h3>
+          <p className="vidya-ashram-detail-desc">{steps[activeStep].desc}</p>
+        </div>
+
+        {/* Static Vedic Summary Card */}
+        <div className="vidya-ashram-bottom-card">
+          <span style={{ fontSize: '2rem', flexShrink: 0 }}>✨</span>
+          <p className="vidya-ashram-bottom-text">
+            Isi pavitra bhoomi par <strong>Vidya Siddhi Anushthan</strong> ke baad <strong>Vidya Rudraksh</strong> abhimantrit kiya jata hai.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const VidyaWhyParentsTrustSection: React.FC = () => {
+  const trustPoints = [
+    { 
+      title: "Padhai Mein Man Lagane Mein Sahayak", 
+      desc: "Chanchal mann shant hota hai, jisse padhai mein ruchi badhti hai.", 
+      howItWorks: "Rudraksh ki electromagnetic vibrations brain cell receptors ko active karti hain, jisse dhyan lagana aasan ho jata hai.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+          <path d="M6 6h10" />
+          <path d="M6 10h10" />
+          <path d="M13 14h3" />
+        </svg>
+      ), 
+      color: "#f59e0b" 
+    },
+    { 
+      title: "Ekagrata Ko Majboot Banane Mein Sahayak", 
+      desc: "Concentration span badhta hai, jisse dhyan idhar-udhar nahi bhatakta.", 
+      howItWorks: "Alpha brain waves frequency ko support karke attention span aur consistency ko stabilize karne mein help karta hai.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="6" />
+          <circle cx="12" cy="12" r="2" />
+        </svg>
+      ), 
+      color: "#3b82f6" 
+    },
+    { 
+      title: "Positive Study Habit Banane Mein Sahayak", 
+      desc: "Baithne ki aadat aur continuous learning process smooth hoti hai.", 
+      howItWorks: "Body and mind stability increase hone se distraction fatigue reduce hota hai, jisse productive study sessions lambe chalte hain.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+          <path d="M17 14h-6" />
+          <path d="M13 18H7" />
+          <path d="M7 14h.01" />
+          <path d="M17 18h.01" />
+        </svg>
+      ), 
+      color: "#10b981" 
+    },
+    { 
+      title: "Atmavishwas Badhane Mein Sahayak", 
+      desc: "Exams ke darr aur anxiety se mukti milti hai, self-confidence majboot hota hai.", 
+      howItWorks: "Adrenaline ke hyper-secretion ko control karke nervousness ko control karta hai aur public performance confidence badhata hai.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+          <path d="M12 2a5 5 0 0 0-5 5v5h10V7a5 5 0 0 0-5-5z" />
+        </svg>
+      ), 
+      color: "#ec4899" 
+    },
+    { 
+      title: "Positive Learning Environment", 
+      desc: "Aura positive hota hai, jisse ghar mein padhai ka anukul vatavaran banta hai.", 
+      howItWorks: "Ujjain ke Siddh Ashram dwara prapt energetic frequency ghar ke negative aura aur stress factors ko eliminate karti hai.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <path d="M9 22V12h6v10" />
+        </svg>
+      ), 
+      color: "#ef4444" 
+    },
+    { 
+      title: "Vidya Ke Prati Sankalp", 
+      desc: "Gyan aur shiksha ke prati adar aur lagan ka sankalp jagrit hota hai.", 
+      howItWorks: "Anya vedic anushthan se prapt prerna se bachcha padhai ko bojh nahi, balki ek siddhi aur gyan ka marg samajhne lagta hai.",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+      ), 
+      color: "#8b5cf6" 
+    }
+  ];
+
+  const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
+  const [showAll, setShowAll] = React.useState<boolean>(false);
+  const [isMobile, setIsMobile] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const visiblePoints = isMobile && !showAll ? trustPoints.slice(0, 2) : trustPoints;
+
+  return (
+    <section className="vidya-trust-section">
+      <style>{`
+        .vidya-trust-section {
+          padding: 64px 0;
+          background-color: #fffcf6;
+          border-top: 1.5px solid #fce8cc;
+          border-bottom: 1.5px solid #fce8cc;
+          font-family: var(--font-sans);
+          text-align: center;
+        }
+        @media (max-width: 768px) {
+          .vidya-trust-section {
+            padding: 36px 0;
+          }
+        }
+        .vidya-trust-container {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-trust-tag {
+          display: inline-block;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .vidya-trust-heading {
+          font-size: 2rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin-bottom: 16px;
+          line-height: 1.35;
+        }
+        .vidya-trust-subtext {
+          font-size: 0.88rem;
+          color: #6b7280;
+          margin-bottom: 40px;
+        }
+        .vidya-trust-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+        }
+        .vidya-trust-card {
+          background: #ffffff;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 24px;
+          padding: 24px;
+          text-align: left;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          overflow: hidden;
+        }
+        .vidya-trust-card:hover {
+          transform: translateY(-4px);
+          border-color: #fed7aa;
+          box-shadow: 0 16px 30px rgba(249, 115, 22, 0.05);
+        }
+        .vidya-trust-card.expanded {
+          border-color: #ea580c;
+          box-shadow: 0 16px 30px rgba(234, 88, 12, 0.08);
+          background: #fffdfb;
+        }
+        .vidya-trust-card-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px;
+          transition: all 0.3s;
+        }
+        .vidya-trust-card:hover .vidya-trust-card-icon {
+          transform: scale(1.1) rotate(4deg);
+        }
+        .vidya-trust-card-title {
+          font-size: 1.05rem;
+          font-weight: 850;
+          color: #1f2937;
+          margin: 0 0 8px 0;
+          line-height: 1.4;
+        }
+        .vidya-trust-card-desc {
+          font-size: 0.84rem;
+          color: #6b7280;
+          line-height: 1.5;
+          margin: 0 0 12px 0;
+        }
+        
+        .vidya-trust-expand-trigger {
+          font-size: 0.74rem;
+          font-weight: 800;
+          color: #ea580c;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: auto;
+        }
+        .vidya-trust-details-drawer {
+          overflow: hidden;
+          max-height: 0;
+          opacity: 0;
+          transition: all 0.3s ease;
+          border-top: 0px solid transparent;
+          margin-top: 0;
+          padding-top: 0;
+        }
+        .vidya-trust-card.expanded .vidya-trust-details-drawer {
+          max-height: 120px;
+          opacity: 1;
+          border-top: 1.5px dashed #fed7aa;
+          margin-top: 12px;
+          padding-top: 12px;
+        }
+        .vidya-trust-details-desc {
+          font-size: 0.78rem;
+          color: #7c2d12;
+          background: #fff8f1;
+          padding: 8px 12px;
+          border-radius: 10px;
+          line-height: 1.45;
+          margin: 0;
+        }
+        
+        .vidya-trust-show-more-btn {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 28px auto 0 auto;
+          padding: 12px 24px;
+          background: #ffffff;
+          border: 2px solid #ea580c;
+          color: #ea580c;
+          font-size: 0.9rem;
+          font-weight: 800;
+          border-radius: 9999px;
+          cursor: pointer;
+          transition: all 0.25s ease;
+          box-shadow: 0 4px 12px rgba(234, 88, 12, 0.08);
+          outline: none;
+        }
+        .vidya-trust-show-more-btn:hover {
+          background: #ea580c;
+          color: #ffffff;
+          box-shadow: 0 6px 16px rgba(234, 88, 12, 0.16);
+          transform: translateY(-1px);
+        }
+        
+        @media (max-width: 991px) {
+          .vidya-trust-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+          .vidya-trust-heading {
+            font-size: 1.6rem;
+          }
+        }
+        @media (max-width: 768px) {
+          .vidya-trust-show-more-btn {
+            display: inline-flex;
+          }
+        }
+        @media (max-width: 600px) {
+          .vidya-trust-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+          .vidya-trust-card {
+            padding: 20px;
+          }
+        }
+      `}</style>
+      <div className="vidya-trust-container">
+        <span className="vidya-trust-tag">Devotee Trust</span>
+        <h2 className="vidya-trust-heading">
+          Mata-Pita Vidya Rudraksh Par Vishwas Kyon Karte Hain?
+        </h2>
+        <p className="vidya-trust-subtext">Click card to reveal spiritual & scientific reason:</p>
+        
+        <div className="vidya-trust-grid">
+          {visiblePoints.map((item) => {
+            const originalIdx = trustPoints.indexOf(item);
+            const isExpanded = expandedIndex === originalIdx;
+            return (
+              <div 
+                className={`vidya-trust-card ${isExpanded ? 'expanded' : ''}`} 
+                key={originalIdx}
+                onClick={() => setExpandedIndex(isExpanded ? null : originalIdx)}
+              >
+                <div className="vidya-trust-card-icon" style={{ backgroundColor: `${item.color}15` }}>
+                  {item.icon(item.color)}
+                </div>
+                <h3 className="vidya-trust-card-title">{item.title}</h3>
+                <p className="vidya-trust-card-desc">{item.desc}</p>
+                
+                <span className="vidya-trust-expand-trigger">
+                  {isExpanded ? "Hide Details ✕" : "How it works? +"}
+                </span>
+
+                <div className="vidya-trust-details-drawer">
+                  <p className="vidya-trust-details-desc">
+                    {item.howItWorks}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {isMobile && (
+          <button 
+            className="vidya-trust-show-more-btn"
+            onClick={() => setShowAll(!showAll)}
+          >
+            <span>{showAll ? "Show Less Reasons" : "Show All Reasons"}</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showAll ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s ease' }}>
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const VidyaWhyOneRupeeSection: React.FC = () => {
+  const chargesBreakdown = [
+    { title: "Ritual Charges", desc: "Ashram ke vedic panditon ki siddhi pujan samagri aur anushthan kriya ki mool cost.", icon: "🕉️", color: "#f59e0b" },
+    { title: "Packing Charges", desc: "Rudraksh ko surakshit rakhne ke liye gangajal se dhule box aur sacred thread ki packaging.", icon: "📦", color: "#3b82f6" },
+    { title: "Shipping Charges", desc: "Ujjain se seedhe aapke ghar tak surakshit pahunchane ke logistics aur delivery partner charges.", icon: "🚚", color: "#10b981" }
+  ];
+
+  const [activeCharge, setActiveCharge] = React.useState<number | null>(null);
+
+  return (
+    <section className="vidya-onerupee-section">
+      <style>{`
+        .vidya-onerupee-section {
+          padding: 60px 0 36px 0;
+          background-color: #fffdf6;
+          border-top: 1.5px dashed #fed7aa;
+          border-bottom: 1.5px dashed #fed7aa;
+          font-family: var(--font-sans);
+          text-align: center;
+        }
+        @media (max-width: 768px) {
+          .vidya-onerupee-section {
+            padding: 36px 0 20px 0;
+          }
+        }
+        .vidya-onerupee-container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        .vidya-onerupee-tag {
+          display: inline-block;
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #ea580c;
+          background: #ffedd5;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 16px;
+        }
+        .vidya-onerupee-heading {
+          font-size: 2.1rem;
+          font-weight: 900;
+          color: #2d140e;
+          margin-bottom: 24px;
+          line-height: 1.3;
+        }
+        
+        /* Interactive Coin Illustration */
+        .vidya-onerupee-coin-wrap {
+          margin: 28px auto;
+          width: 110px;
+          height: 110px;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+        }
+        .vidya-onerupee-coin {
+          width: 90px;
+          height: 90px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+          border: 4px solid #ffffff;
+          box-shadow: 0 10px 25px rgba(217, 119, 6, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          font-size: 2.5rem;
+          font-weight: 900;
+          position: relative;
+          z-index: 12;
+          animation: coin-wobble 4s infinite ease-in-out;
+        }
+        @keyframes coin-wobble {
+          0%, 100% { transform: rotateY(0deg) rotate(0deg); }
+          50% { transform: rotateY(180deg) rotate(5deg); }
+        }
+        .vidya-onerupee-coin-ripple {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          border: 2px solid #fed7aa;
+          animation: coin-ripple-out 3s infinite ease-out;
+          opacity: 0;
+          z-index: 8;
+        }
+        .vidya-onerupee-coin-ripple:nth-child(2) { animation-delay: 1.5s; }
+        @keyframes coin-ripple-out {
+          0% { transform: scale(0.9); opacity: 0.8; }
+          100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .vidya-onerupee-story {
+          font-size: 1.2rem;
+          line-height: 1.6;
+          color: #4b5563;
+          font-weight: 700;
+          margin-bottom: 32px;
+        }
+        .vidya-onerupee-highlight {
+          color: #b45309;
+          font-size: 1.4rem;
+          font-weight: 900;
+          display: block;
+          margin: 12px 0;
+        }
+        
+        /* Interactive charges list */
+        .vidya-onerupee-charges-label {
+          font-size: 0.86rem;
+          font-weight: 800;
+          color: #6b7280;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+          letter-spacing: 1px;
+        }
+        .vidya-onerupee-charges-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .vidya-onerupee-charge-card {
+          background: #ffffff;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 18px;
+          padding: 16px 12px;
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.01);
+        }
+        .vidya-onerupee-charge-card.active {
+          border-color: #ea580c;
+          background: #fffdfa;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(234, 88, 12, 0.08);
+        }
+        .vidya-onerupee-charge-check {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #10b981;
+        }
+        .vidya-onerupee-charge-title {
+          font-size: 0.95rem;
+          font-weight: 850;
+          color: #1f2937;
+        }
+        
+        /* Popup explanation drawer */
+        .vidya-onerupee-explanation-wrap {
+          overflow: hidden;
+          max-height: 0;
+          opacity: 0;
+          transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vidya-onerupee-explanation-wrap.visible {
+          max-height: 120px;
+          opacity: 1;
+          margin-bottom: 20px;
+        }
+        .vidya-onerupee-explanation {
+          background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+          border: 1.5px solid #fed7aa;
+          border-radius: 16px;
+          padding: 14px 20px;
+          font-size: 0.86rem;
+          font-weight: 700;
+          color: #7c2d12;
+          display: inline-block;
+          max-width: 100%;
+          line-height: 1.45;
+          text-align: left;
+        }
+        
+        @media (max-width: 768px) {
+          .vidya-onerupee-heading {
+            font-size: 1.7rem;
+          }
+          .vidya-onerupee-story {
+            font-size: 1.05rem;
+          }
+          .vidya-onerupee-highlight {
+            font-size: 1.25rem;
+          }
+        }
+        @media (max-width: 500px) {
+          .vidya-onerupee-charges-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+          .vidya-onerupee-charge-card {
+            flex-direction: row;
+            padding: 12px 16px;
+            justify-content: flex-start;
+            gap: 12px;
+          }
+          .vidya-onerupee-explanation {
+            font-size: 0.8rem;
+            padding: 12px;
+            text-align: center;
+          }
+        }
+      `}</style>
+      <div className="vidya-onerupee-container">
+        <span className="vidya-onerupee-tag">₹1 Spirit</span>
+        <h2 className="vidya-onerupee-heading">Hum Sirf ₹1 Mein Kyu De Rahe Hain?</h2>
+        
+        {/* Glowing floating coin */}
+        <div className="vidya-onerupee-coin-wrap">
+          <div className="vidya-onerupee-coin-ripple" />
+          <div className="vidya-onerupee-coin-ripple" />
+          <div className="vidya-onerupee-coin">₹1</div>
+        </div>
+
+        <p className="vidya-onerupee-story">
+          Har Bachcha <span style={{ color: '#ea580c', fontWeight: 900 }}>Vidya Ka Adhikari</span> Hai.<br />
+          Isliye Rudraksh Ka Moolya <span className="vidya-onerupee-highlight">Matra ₹1 Rakha Gaya Hai.</span>
+        </p>
+
+        <span className="vidya-onerupee-charges-label">Aap Sirf Niche Diye Charges Dete Hain (Tap for details):</span>
+        
+        <div className="vidya-onerupee-charges-grid">
+          {chargesBreakdown.map((item, idx) => {
+            const isActive = activeCharge === idx;
+            return (
+              <div 
+                key={idx} 
+                className={`vidya-onerupee-charge-card ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveCharge(isActive ? null : idx)}
+              >
+                <span className="vidya-onerupee-charge-check">✔</span>
+                <span className="vidya-onerupee-charge-title">{item.title}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className={`vidya-onerupee-explanation-wrap ${activeCharge !== null ? 'visible' : ''}`}>
+          {activeCharge !== null && (
+            <div className="vidya-onerupee-explanation">
+              <span style={{ fontSize: '1.2rem', marginRight: '6px' }}>
+                {chargesBreakdown[activeCharge].icon}
+              </span>
+              <strong>{chargesBreakdown[activeCharge].title}: </strong>
+              {chargesBreakdown[activeCharge].desc}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+interface VidyaCustomerStoriesSectionProps {
+  activeProducts: any[];
+  onViewDetails: (product: any) => void;
+}
+
+const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = ({
+  activeProducts,
+  onViewDetails
+}) => {
+  const [videoReviews, setVideoReviews] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState<boolean>(true);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const fetchVideoReviews = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('video_reviews')
+          .select('*')
+          .order('sort_order', { ascending: true })
+          .limit(10);
+
+        if (error) {
+          console.error("Error fetching video reviews from Supabase:", error);
+        } else if (data && data.length > 0) {
+          setVideoReviews(data);
+        }
+      } catch (err) {
+        console.error("Supabase fetch failed for video_reviews:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVideoReviews();
+  }, []);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const cardWidth = window.innerWidth <= 768 ? 245 + 16 : 270 + 20;
+      const scrollAmount = direction === 'left' ? -cardWidth * 2 : cardWidth * 2;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Use DB reviews if present, otherwise fall back to first 5 activeProducts
+  const hasDbReviews = !loading && videoReviews.length > 0;
+  const displayCount = hasDbReviews ? videoReviews.length : Math.min(activeProducts.length, 5);
+
+  if (displayCount === 0) return null;
+
+  return (
+    <section className="vidya-stories-section">
+      <style>{`
+        .vidya-stories-section {
+          padding: 56px 0;
+          background-color: #ffffff;
+          font-family: var(--font-sans);
+          text-align: center;
+          border-top: 1px solid var(--border-light);
+          position: relative;
+        }
+        @media (max-width: 768px) {
+          .vidya-stories-section {
+            padding: 36px 0 24px 0;
+          }
+        }
+        .vidya-stories-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+          position: relative;
+        }
+        .vidya-stories-heading {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #111827;
+          margin-bottom: 32px;
+          letter-spacing: -0.5px;
+        }
+        @media (max-width: 768px) {
+          .vidya-stories-heading {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+          }
+        }
+        
+        .vidya-stories-carousel-wrapper {
+          position: relative;
+          width: 100%;
+        }
+
+        .vidya-stories-grid {
+          display: flex;
+          gap: 20px;
+          overflow-x: auto;
+          padding: 8px 4px 16px 4px;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          -webkit-overflow-scrolling: touch;
+          scroll-behavior: smooth;
+        }
+        .vidya-stories-grid::-webkit-scrollbar {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          .vidya-stories-grid {
+            gap: 16px;
+            padding-bottom: 12px;
+          }
+        }
+        
+        .vidya-story-card {
+          position: relative;
+          width: 270px;
+          height: 480px;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          border: 1.5px solid rgba(0, 0, 0, 0.04);
+          cursor: pointer;
+          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
+          flex-shrink: 0;
+        }
+        @media (max-width: 768px) {
+          .vidya-story-card {
+            width: 245px;
+            height: 435px;
+          }
+        }
+        .vidya-story-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.14);
+        }
+        
+        .vidya-story-video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        
+        /* Floating product overlay */
+        .vidya-story-product-overlay {
+          position: absolute;
+          bottom: 16px;
+          left: 12px;
+          right: 12px;
+          background: #ffffff;
+          border-radius: 16px;
+          padding: 8px 10px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          z-index: 10;
+          transition: transform 0.2s;
+        }
+        .vidya-story-card:hover .vidya-story-product-overlay {
+          transform: scale(1.02);
+        }
+        .vidya-story-prod-img {
+          width: 38px;
+          height: 38px;
+          border-radius: 8px;
+          object-fit: cover;
+          border: 1px solid rgba(0, 0, 0, 0.06);
+          flex-shrink: 0;
+        }
+        .vidya-story-prod-info {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          min-width: 0;
+          width: 100%;
+        }
+        .vidya-story-prod-name {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #1f2937;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          text-align: left;
+        }
+        .vidya-story-price-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .vidya-story-sale-price {
+          font-size: 0.8rem;
+          font-weight: 900;
+          color: #ea580c;
+        }
+        .vidya-story-orig-price {
+          font-size: 0.68rem;
+          text-decoration: line-through;
+          color: #9ca3af;
+          font-weight: 700;
+        }
+        .vidya-story-discount {
+          font-size: 0.64rem;
+          color: #10b981;
+          font-weight: 850;
+        }
+
+        .vidya-carousel-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 1px solid var(--border-light);
+          box-shadow: var(--shadow-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 20;
+          transition: all 0.2s;
+          color: var(--text-dark);
+        }
+        .vidya-carousel-btn:hover {
+          background: var(--bg-light);
+          transform: translateY(-50%) scale(1.05);
+          color: var(--primary-orange);
+        }
+        .vidya-carousel-btn.left {
+          left: -22px;
+        }
+        .vidya-carousel-btn.right {
+          right: -22px;
+        }
+        @media (max-width: 1024px) {
+          .vidya-carousel-btn {
+            display: none;
+          }
+        }
+      `}</style>
+      <div className="vidya-stories-container">
+        <h2 className="vidya-stories-heading">Our Devotees' Most Loved Blessings</h2>
+        
+        <div className="vidya-stories-carousel-wrapper">
+          {/* Navigation Buttons for Desktop */}
+          <button 
+            className="vidya-carousel-btn left" 
+            onClick={() => scroll('left')}
+            aria-label="Previous"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          
+          <div className="vidya-stories-grid" ref={scrollRef}>
+            {hasDbReviews ? (
+              videoReviews.map((rev) => {
+                // Try to find matching catalog product by name matching the puja_name
+                const p = activeProducts.find(prod => 
+                  prod.name?.toLowerCase().includes(rev.puja_name?.toLowerCase()) ||
+                  rev.puja_name?.toLowerCase().includes(prod.name?.toLowerCase())
+                ) || activeProducts[0];
+
+                if (!p) return null;
+
+                const displayImg = p.images?.[0] || p.image || rev.thumbnail_url || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80";
+                const discountPercent = p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+
+                return (
+                  <div 
+                    key={rev.id} 
+                    className="vidya-story-card"
+                    onClick={() => {
+                      onViewDetails(p);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    <video 
+                      className="vidya-story-video"
+                      src={rev.video_url}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                    <div className="vidya-story-product-overlay">
+                      <img src={displayImg} alt={p.name} className="vidya-story-prod-img" />
+                      <div className="vidya-story-prod-info">
+                        <span className="vidya-story-prod-name">{p.name}</span>
+                        <div className="vidya-story-price-row">
+                          <span className="vidya-story-sale-price">₹{p.price}</span>
+                          {p.originalPrice && (
+                            <span className="vidya-story-orig-price">₹{p.originalPrice}</span>
+                          )}
+                          {discountPercent > 0 && (
+                            <span className="vidya-story-discount">-{discountPercent}%</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              activeProducts.slice(0, 5).map((p, idx) => {
+                const fallbackVideos = [
+                  "https://assets.mixkit.co/videos/preview/mixkit-holding-sacred-beads-during-meditation-41585-large.mp4",
+                  "https://assets.mixkit.co/videos/preview/mixkit-young-man-worshipping-outdoors-41586-large.mp4",
+                  "https://assets.mixkit.co/videos/preview/mixkit-guru-explaining-spiritual-teachings-41587-large.mp4",
+                  "https://assets.mixkit.co/videos/preview/mixkit-meditating-bell-chime-in-temple-41588-large.mp4",
+                  "https://assets.mixkit.co/videos/preview/mixkit-holding-sacred-beads-during-meditation-41585-large.mp4"
+                ];
+                const videoSrc = p.videoUrl || fallbackVideos[idx % fallbackVideos.length];
+                const displayImg = p.images?.[0] || p.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80";
+                const discountPercent = p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+
+                return (
+                  <div 
+                    key={p.id} 
+                    className="vidya-story-card"
+                    onClick={() => {
+                      onViewDetails(p);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    <video 
+                      className="vidya-story-video"
+                      src={videoSrc}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                    <div className="vidya-story-product-overlay">
+                      <img src={displayImg} alt={p.name} className="vidya-story-prod-img" />
+                      <div className="vidya-story-prod-info">
+                        <span className="vidya-story-prod-name">{p.name}</span>
+                        <div className="vidya-story-price-row">
+                          <span className="vidya-story-sale-price">₹{p.price}</span>
+                          {p.originalPrice && (
+                            <span className="vidya-story-orig-price">₹{p.originalPrice}</span>
+                          )}
+                          {discountPercent > 0 && (
+                            <span className="vidya-story-discount">-{discountPercent}%</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          
+          <button 
+            className="vidya-carousel-btn right" 
+            onClick={() => scroll('right')}
+            aria-label="Next"
+          >
+            <ChevronRight size={24} />
+          </button>
         </div>
       </div>
     </section>
@@ -4134,7 +6255,15 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
       {/* Section 2 — Emotional Hook (Only for Vidya Rudraksh) */}
       {isVidyaRudraksh && (
-        <VidyaEmotionalHookSection />
+        <>
+          <VidyaEmotionalHookSection />
+          <VidyaParentPainSection onBuyNow={handleBuyNowClick} />
+          <VidyaEmotionalStorySection />
+          <VidyaVideoSection videoUrl={pooja.videoUrl} thumbnailUrl={pooja.uiLabels?.videoThumbnail} />
+          <VidyaSandipaniAshramSection />
+          <VidyaWhyParentsTrustSection />
+          <VidyaWhyOneRupeeSection />
+        </>
       )}
 
       {/* Detailed Pooja Description & Spiritual Elements */}
@@ -4973,9 +7102,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </section>
         )}
 
+      {/* Customer Reels Stories Showcase Carousel */}
+      <VidyaCustomerStoriesSection
+        activeProducts={activeProducts}
+        onViewDetails={onViewDetails}
+      />
+
       {/* Reviews Section */}
       {(!reviewsHidden || editable) && (
-        <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+        <section style={{
+          marginTop: isVidyaRudraksh ? '32px' : '56px',
+          borderTop: isVidyaRudraksh ? 'none' : '1px solid var(--border-light)',
+          paddingTop: isVidyaRudraksh ? '0px' : '40px'
+        }}>
           <div className="container">
             {editable && (
               <div style={{
@@ -5046,6 +7185,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     }
                   }}
                   handleDeleteReview={handleDeleteReview}
+                  isVidyaRudraksh={isVidyaRudraksh}
                 />
               ) : (
                 <div style={{ textAlign: 'left' }}>
@@ -5966,6 +8106,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
         </div>
       </section>
+
+
 
       {/* Visual Toast Notification Overlay */}
       {showShareToast && (

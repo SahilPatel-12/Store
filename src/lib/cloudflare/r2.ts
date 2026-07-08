@@ -1,23 +1,25 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+/**
+ * Cloudflare R2 Client Upload Helper (Refactored to secure server-side pre-signed URLs)
+ */
 
-const endpoint = import.meta.env.VITE_CLOUDFLARE_ENDPOINT || '';
-const accessKeyId = import.meta.env.VITE_CLOUDFLARE_ACCESS_KEY_ID || '';
-const secretAccessKey = import.meta.env.VITE_CLOUDFLARE_SECRET_ACCESS_KEY || '';
-const bucketName = import.meta.env.VITE_CLOUDFLARE_BUCKET_NAME || 'mantrapujaapp';
-const publicBaseUrl = import.meta.env.VITE_CLOUDFLARE_PUBLIC_BASE_URL || '';
-
-if (!endpoint || !accessKeyId || !secretAccessKey) {
-  console.warn('Cloudflare R2 configurations are missing from environment variables. Ensure .env.local is present.');
+function getSessionToken(): string | null {
+  try {
+    return localStorage.getItem('session_token');
+  } catch (e) {
+    return null;
+  }
 }
 
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: endpoint,
-  credentials: {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
-  },
-});
+function getAdminToken(): string | null {
+  try {
+    const stored = localStorage.getItem('ridae_admin_auth_session');
+    if (stored) {
+      const session = JSON.parse(stored);
+      return session?.token || null;
+    }
+  } catch (e) {}
+  return null;
+}
 
 /**
  * Helper to compress image client-side using Canvas.
@@ -104,83 +106,124 @@ async function compressImage(file: File, maxDimension = 1920, quality = 0.8): Pr
 }
 
 /**
- * Uploads a file directly to Cloudflare R2 bucket and returns its public CDN URL.
- * Automatically compresses image files before upload.
+ * Uploads a file using secure, short-lived pre-signed URLs from the server.
  * @param file The File object to upload
  * @param pathPrefix Directory prefix (e.g. 'products/thumbnails')
+ * @param skipCompression Skip client-side image compression
  */
 export async function uploadToR2(file: File, pathPrefix: string = 'products', skipCompression = false): Promise<string> {
   // Compress image client-side before uploading unless skipped
   const processedFile = skipCompression ? file : await compressImage(file);
 
-  const uniqueId = crypto.randomUUID();
-  const nameParts = processedFile.name.split('.');
-  const extension = nameParts.length > 1 ? nameParts.pop() : '';
-  const sanitizedName = nameParts.join('.').replace(/[^a-zA-Z0-9]/g, '_');
-  
-  const key = `${pathPrefix}/${uniqueId}_${sanitizedName}${extension ? '.' + extension : ''}`;
+  const prefixToPurpose: Record<string, string> = {
+    'referrals': 'referrals',
+    'products/thumbnails': 'products/thumbnails',
+    'products/gallery': 'products/gallery',
+    'products/videos': 'products/videos',
+    'products/pundits': 'products/pundits',
+    'priests': 'priests',
+    'banners': 'banners',
+    'homepage/banners': 'banners',
+    'homepage/showcase': 'banners',
+    'shop/main-banners': 'banners',
+    'astrologers/photos': 'astrologers/photos',
+    'pundits/photos': 'pundits/photos',
+    'pundits/documents': 'pundits/documents',
+    'orders/proofs': 'orders/proofs',
+    'reviews/images': 'reviews/images',
+    'reviews/videos': 'reviews/videos'
+  };
+
+  let purpose = prefixToPurpose[pathPrefix] || pathPrefix;
+  if (pathPrefix.startsWith('shop/category-banners')) {
+    purpose = 'banners';
+  }
+  if (pathPrefix.startsWith('section-icons-')) {
+    purpose = 'section-icons';
+  }
+
+  const sessionToken = getSessionToken();
+  const adminToken = getAdminToken();
 
   try {
-    const arrayBuffer = await processedFile.arrayBuffer();
-    const body = new Uint8Array(arrayBuffer);
-
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: body,
-      ContentType: processedFile.type,
+    // 1. Get pre-signed URL from server
+    const sigResponse = await fetch('/api/r2-presigned', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        purpose,
+        filename: processedFile.name,
+        contentType: processedFile.type,
+        fileSize: processedFile.size,
+        sessionToken,
+        adminToken
+      })
     });
 
-    await s3Client.send(command);
+    if (!sigResponse.ok) {
+      const errData = await sigResponse.json().catch(() => ({}));
+      throw new Error(errData.error || `Server responded with status ${sigResponse.status}`);
+    }
 
-    const cleanBaseUrl = publicBaseUrl.endsWith('/') ? publicBaseUrl.slice(0, -1) : publicBaseUrl;
-    return `${cleanBaseUrl}/${key}`;
+    const { presignedUrl, publicUrl } = await sigResponse.json();
+
+    // 2. Perform direct PUT upload to R2
+    const uploadResponse = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': processedFile.type
+      },
+      body: processedFile
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Direct upload failed with status ${uploadResponse.status}`);
+    }
+
+    return publicUrl;
   } catch (error) {
     console.error('R2 upload failed:', error);
-    throw new Error('Could not upload asset to Cloudflare R2 storage: ' + (error as Error).message);
+    throw new Error('Could not upload asset to Cloudflare R2: ' + (error as Error).message);
   }
 }
 
 /**
- * Deletes a file from Cloudflare R2 based on its public CDN URL.
- * @param url The public CDN URL of the asset to delete
+ * Deletes a file from Cloudflare R2 based on its public URL.
+ * @param url The public URL of the asset to delete
  */
 export async function deleteFromR2(url: string): Promise<void> {
   if (!url) return;
-  // If the url is a local blob preview URL or mock, skip R2 delete
   if (url.startsWith('blob:') || !url.startsWith('http')) {
     return;
   }
 
+  const adminToken = getAdminToken();
+  if (!adminToken) {
+    console.warn('[R2 Client] Asset deletion requires admin privileges.');
+    return;
+  }
+
   try {
-    const cleanBaseUrl = publicBaseUrl.endsWith('/') ? publicBaseUrl.slice(0, -1) : publicBaseUrl;
-    let key = '';
-    
-    if (url.startsWith(cleanBaseUrl)) {
-      key = url.replace(cleanBaseUrl + '/', '');
-    } else {
-      // Fallback: parse pathname
-      try {
-        const urlObj = new URL(url);
-        key = decodeURIComponent(urlObj.pathname.substring(1));
-      } catch (e) {
-        return;
-      }
-    }
-
-    if (!key) return;
-
-    console.log(`[R2] Initiating delete for Key: ${key}`);
-    const command = new DeleteObjectCommand({
-      Bucket: bucketName,
-      Key: key,
+    const response = await fetch('/api/r2-presigned', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url,
+        adminToken
+      })
     });
 
-    await s3Client.send(command);
-    console.log(`[R2] Successfully deleted key: ${key}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server responded with status ${response.status}`);
+    }
+
+    console.log(`[R2 Client] Deleted asset successfully: ${url}`);
   } catch (error) {
     console.error('R2 deletion failed:', error);
   }
 }
-
-

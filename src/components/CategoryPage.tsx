@@ -118,7 +118,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setItemsLimit(prev => prev + 8);
   };
 
-  const getCategoryGradient = (cat: string) => {
+  const getCategoryGradient = (cat?: string) => {
+    if (!cat) {
+      return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    }
     switch (cat.toLowerCase()) {
       case 'rudraksha':
       case 'tulsi mala':

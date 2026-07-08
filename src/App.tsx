@@ -982,8 +982,8 @@ function App() {
       const stored = localStorage.getItem('ridae_admin_auth_session');
       if (stored) {
         const session = JSON.parse(stored);
-        if (session && session.isAuthenticated && session.expireTime > Date.now()) {
-          return { username: session.username, loginTime: session.loginTime, token: session.token || null };
+        if (session && session.isAuthenticated && session.token && session.expireTime > Date.now()) {
+          return { username: session.username, loginTime: session.loginTime, token: session.token };
         }
       }
       return null;
@@ -997,13 +997,13 @@ function App() {
       const stored = localStorage.getItem('ridae_admin_auth_session');
       if (stored) {
         const session = JSON.parse(stored);
-        if (session && session.isAuthenticated && session.expireTime > Date.now()) {
+        if (session && session.isAuthenticated && session.token && session.expireTime > Date.now()) {
           return true;
         }
         localStorage.removeItem('ridae_admin_auth_session');
         localStorage.removeItem('ridae_admin_auth');
       }
-      return localStorage.getItem('ridae_admin_auth') === 'true';
+      return false;
     } catch (e) {
       return false;
     }
@@ -1326,7 +1326,6 @@ function App() {
   };
 
   const currentPage = currentPageState;
-  const showWhatsAppIcon = !['cart', 'checkout', 'admin', 'admin-login', 'pundit-dashboard', 'astrologer-dashboard'].includes(currentPage);
 
   // Reactive URL popstate and deep-linking router
   const handleUrlRouting = React.useCallback((path: string, search: string) => {
@@ -1903,6 +1902,22 @@ function App() {
     }
   };
 
+  const loadPaymentActivationSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'payment_activation_settings')
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.value) {
+        setPaymentActivation(data.value);
+      }
+    } catch (err) {
+      console.error('Error loading payment activation settings:', err);
+    }
+  };
+
   const loadHomepageSettings = async () => {
     try {
       const { data, error } = await supabase
@@ -1922,15 +1937,18 @@ function App() {
   const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
 
   const bannerSlides = React.useMemo(() => {
+    if (shopBannersConfig && (shopBannersConfig as any).mainBanners && (shopBannersConfig as any).mainBanners.length > 0) {
+      return (shopBannersConfig as any).mainBanners as (string | { imageUrl: string; redirectUrl: string })[];
+    }
     if (homepageConfig && homepageConfig.bannerImages && homepageConfig.bannerImages.length > 0) {
-      return homepageConfig.bannerImages;
+      return homepageConfig.bannerImages as (string | { imageUrl: string; redirectUrl: string })[];
     }
     return [
       'https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1600&q=80',
       'https://images.unsplash.com/photo-1608976328321-df6ff1a27944?auto=format&fit=crop&w=1600&q=80',
       'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1600&q=80'
-    ];
-  }, [homepageConfig]);
+    ] as (string | { imageUrl: string; redirectUrl: string })[];
+  }, [shopBannersConfig, homepageConfig]);
 
   React.useEffect(() => {
     setCurrentSlideIndex(0);
@@ -1980,7 +1998,8 @@ function App() {
           loadShopBannersSettings(),
           loadCategoriesOrder(),
           loadProductsOrder(),
-          loadTaxDeliverySettings()
+          loadTaxDeliverySettings(),
+          loadPaymentActivationSettings()
         ]);
       } catch (err) {
         console.error('Error loading initial app config:', err);
@@ -2180,18 +2199,21 @@ function App() {
 
   const fetchOrdersFromSupabase = React.useCallback(async () => {
     try {
-      let query = supabase.from('website_store_orders').select('*');
-      
+      let data: any[] = [];
       if (isAdminAuthenticated) {
-        query = query.order('created_at', { ascending: false });
+        const adminSession = JSON.parse(localStorage.getItem('ridae_admin_auth_session') || '{}');
+        const adminToken = adminSession.token || '';
+        const res = await fetch(`/api/admin/orders/list?adminToken=${adminToken}`);
+        if (!res.ok) throw new Error('Failed to fetch admin orders');
+        data = await res.json();
       } else if (loggedInUser) {
-        query = query.eq('user_id', loggedInUser.id).order('created_at', { ascending: false });
+        const sessionToken = localStorage.getItem('session_token') || '';
+        const res = await fetch(`/api/customer/orders?sessionToken=${sessionToken}`);
+        if (!res.ok) throw new Error('Failed to fetch devotee orders');
+        data = await res.json();
       } else {
         return;
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
       
       if (data) {
         const mappedOrders: LocalOrder[] = data.map((o: any) => ({
@@ -2307,6 +2329,17 @@ function App() {
   const [appliedCouponCode, setAppliedCouponCode] = React.useState('');
   const [discountPercent, setDiscountPercent] = React.useState(0);
   const [appliedCouponProductId, setAppliedCouponProductId] = React.useState<string | null>(null);
+
+  // Lifted payment activation settings
+  const [paymentActivation, setPaymentActivation] = React.useState<{
+    activePaymentProvider: 'manual_upi' | 'razorpay';
+    razorpayMode: 'test' | 'live';
+    legacyManualUpiEnabled: boolean;
+  }>({
+    activePaymentProvider: 'manual_upi',
+    razorpayMode: 'test',
+    legacyManualUpiEnabled: true
+  });
 
   // Auto-invalidate coupon if the restricted product is removed from cart
   React.useEffect(() => {
@@ -4529,99 +4562,61 @@ function App() {
           }}
           discountPercent={discountPercent}
           taxDeliverySettings={taxDeliverySettings}
+          paymentActivation={paymentActivation}
           onOrderSuccess={async (details) => {
-            const newOrder: LocalOrder = {
-              ...details,
-              userId: loggedInUser?.id,
-              status: 'Being Packed'
-            };
-            
+            const checkoutAttemptId = details.orderId;
+            const sessionToken = localStorage.getItem('session_token') || '';
+
             try {
-              const orderPayload: any = {
-                order_id: newOrder.orderId,
-                user_id: newOrder.userId || null,
-                items: newOrder.items,
-                subtotal: newOrder.subtotal,
-                discount: newOrder.discount,
-                discount_percent: newOrder.discountPercent,
-                shipping: newOrder.shipping,
-                tax: newOrder.tax,
-                total: newOrder.total,
-                payment_method: newOrder.paymentMethod,
-                delivery_city: newOrder.deliveryCity,
-                delivery_state: newOrder.deliveryState,
-                full_name: newOrder.fullName,
-                email: newOrder.email,
-                address_line1: newOrder.addressLine1,
-                address_line2: newOrder.addressLine2 || null,
-                pincode: newOrder.pincode,
-                phone_number: newOrder.phoneNumber,
-                status: newOrder.status,
-                razorpay_payment_id: newOrder.razorpayPaymentId || null,
-                payment_screenshot: newOrder.paymentScreenshot || null,
-                payment_status: newOrder.paymentStatus || 'Pending',
-                gst_percent_snapshot: newOrder.gstPercentSnapshot ?? null,
-                gst_amount_snapshot: newOrder.gstAmountSnapshot ?? null,
-                delivery_amount_snapshot: newOrder.deliveryAmountSnapshot ?? null,
-                free_delivery_eligible_snapshot: newOrder.freeDeliveryEligibleSnapshot ?? null
+              const res = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  items: details.items.map((i: any) => ({
+                    productId: i.product.id,
+                    quantity: i.quantity
+                  })),
+                  shippingAddress: {
+                    fullName: details.fullName,
+                    phoneNumber: details.phoneNumber,
+                    email: details.email || '',
+                    addressLine1: details.addressLine1,
+                    addressLine2: details.addressLine2 || '',
+                    city: details.deliveryCity,
+                    state: details.deliveryState,
+                    pincode: details.pincode
+                  },
+                  paymentMethod: details.paymentMethod,
+                  couponCode: details.appliedCouponCode || '',
+                  checkoutAttemptId,
+                  sessionToken,
+                  paymentScreenshot: details.paymentScreenshot || null
+                })
+              });
+
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with status ${res.status}`);
+              }
+
+              const result = await res.json();
+              console.log('[Checkout App] Secure order created:', result.orderId);
+
+              const newOrder: LocalOrder = {
+                ...details,
+                orderId: result.orderId,
+                userId: loggedInUser?.id,
+                status: 'Payment Pending',
+                paymentStatus: 'Pending',
+                subtotal: result.subtotal,
+                discount: result.discount,
+                shipping: result.shipping,
+                tax: result.tax,
+                total: result.total
               };
 
-              let { error } = await supabase.from('website_store_orders').insert(orderPayload);
-              
-              if (error) {
-                // Check if error is due to missing columns in database
-                const isMissingRazorpay = error.code === 'PGRST204' && (error.message && error.message.includes('razorpay_payment_id'));
-                const isMissingScreenshot = error.code === 'PGRST204' && (error.message && error.message.includes('payment_screenshot'));
-                const isMissingPaymentStatus = error.code === 'PGRST204' && (error.message && error.message.includes('payment_status'));
-                
-                if (isMissingRazorpay || isMissingScreenshot || isMissingPaymentStatus) {
-                  console.warn('Handling missing order columns in remote database. Retrying...');
-                  const fallbackPayload = { ...orderPayload };
-                  if (isMissingRazorpay) {
-                    delete (fallbackPayload as any).razorpay_payment_id;
-                  }
-                  if (isMissingScreenshot) {
-                    delete (fallbackPayload as any).payment_screenshot;
-                  }
-                  if (isMissingPaymentStatus) {
-                    delete (fallbackPayload as any).payment_status;
-                  }
-                  const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
-                  error = retryResult.error;
-                }
-              }
-
-              if (error) throw error;
-
-              // Record coupon redemption if one was applied
-              if (details.appliedCouponCode && loggedInUser) {
-                try {
-                  const { data: couponData, error: couponFetchError } = await supabase
-                    .from('website_store_coupons')
-                    .select('id, redemptions_count')
-                    .eq('code', details.appliedCouponCode)
-                    .single();
-
-                  if (!couponFetchError && couponData) {
-                    await supabase
-                      .from('website_store_coupon_redemptions')
-                      .insert({
-                        coupon_id: couponData.id,
-                        user_id: loggedInUser.id,
-                        order_id: newOrder.orderId
-                      });
-
-                    await supabase
-                      .from('website_store_coupons')
-                      .update({ redemptions_count: (couponData.redemptions_count || 0) + 1 })
-                      .eq('id', couponData.id);
-                  }
-                } catch (couponErr) {
-                  console.error('Error logging coupon redemption:', couponErr);
-                }
-              }
-
-              // Proactively sync shipping details to user saved addresses if logged in
               if (loggedInUser) {
                 // Sync user email if it was entered during checkout
                 if (details.email && details.email.trim() !== '') {
@@ -4649,54 +4644,55 @@ function App() {
                 }
 
                 try {
-                  const { data: existing, error: findError } = await supabase
-                    .from('website_store_addresses')
-                    .select('id')
-                    .eq('user_id', loggedInUser.id)
-                    .eq('street', details.addressLine1)
-                    .eq('city', details.deliveryCity)
-                    .eq('state', details.deliveryState)
-                    .eq('zip', details.pincode);
+                  const token = localStorage.getItem('session_token') || '';
+                  const existingResponse = await fetch(`/api/customer/addresses?sessionToken=${token}`);
+                  if (existingResponse.ok) {
+                    const existingData = await existingResponse.json();
+                    const alreadyExists = existingData.some((addr: any) =>
+                      addr.street === details.addressLine1 &&
+                      addr.city === details.deliveryCity &&
+                      addr.state === details.deliveryState &&
+                      addr.zip === details.pincode
+                    );
 
-                  if (!findError && (!existing || existing.length === 0)) {
-                    // Check count to see if we should set default
-                    const { count, error: countError } = await supabase
-                      .from('website_store_addresses')
-                      .select('*', { count: 'exact', head: true })
-                      .eq('user_id', loggedInUser.id);
-                    
-                    const isDefault = !countError && (count === 0);
-
-                    await supabase
-                      .from('website_store_addresses')
-                      .insert({
-                        user_id: loggedInUser.id,
-                        type: 'Checkout Address',
-                        name: details.fullName,
-                        phone: details.phoneNumber,
-                        street: details.addressLine1,
-                        city: details.deliveryCity,
-                        state: details.deliveryState,
-                        zip: details.pincode,
-                        is_default: isDefault
+                    if (!alreadyExists) {
+                      const isDefault = existingData.length === 0;
+                      await fetch('/api/customer/addresses', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                          sessionToken: token,
+                          type: 'Checkout Address',
+                          name: details.fullName,
+                          phone: details.phoneNumber,
+                          street: details.addressLine1,
+                          city: details.deliveryCity,
+                          state: details.deliveryState,
+                          zip: details.pincode,
+                          is_default: isDefault
+                        })
                       });
+                    }
                   }
                 } catch (syncErr) {
                   console.error('Failed to sync shipping address during checkout:', syncErr);
                 }
               }
+
+              setOrdersState(prev => {
+                if (prev.some(o => o.orderId === newOrder.orderId)) {
+                  return prev;
+                }
+                return [newOrder, ...prev];
+              });
+              setOrderDetails(newOrder);
+              setCurrentPage('success');
             } catch (err) {
               console.error('Failed to save order to Supabase:', err);
+              alert('Checkout Failed: ' + (err as Error).message);
             }
-
-            setOrdersState(prev => {
-              if (prev.some(o => o.orderId === newOrder.orderId)) {
-                return prev;
-              }
-              return [newOrder, ...prev];
-            });
-            setOrderDetails(details);
-            setCurrentPage('success');
           }}
         />
       ) : currentPage === 'success' && orderDetails ? (
@@ -5169,96 +5165,60 @@ function App() {
         }}
         discountPercent={discountPercent}
         taxDeliverySettings={taxDeliverySettings}
+        paymentActivation={paymentActivation}
         onOrderSuccess={async (details) => {
-          const newOrder: LocalOrder = {
-            ...details,
-            userId: loggedInUser?.id,
-            status: 'Being Packed'
-          };
-          
+          const checkoutAttemptId = details.orderId;
+          const sessionToken = localStorage.getItem('session_token') || '';
+
           try {
-            const orderPayload: any = {
-              order_id: newOrder.orderId,
-              user_id: newOrder.userId || null,
-              items: newOrder.items,
-              subtotal: newOrder.subtotal,
-              discount: newOrder.discount,
-              discount_percent: newOrder.discountPercent,
-              shipping: newOrder.shipping,
-              tax: newOrder.tax,
-              total: newOrder.total,
-              payment_method: newOrder.paymentMethod,
-              delivery_city: newOrder.deliveryCity,
-              delivery_state: newOrder.deliveryState,
-              full_name: newOrder.fullName,
-              email: newOrder.email,
-              address_line1: newOrder.addressLine1,
-              address_line2: newOrder.addressLine2 || null,
-              pincode: newOrder.pincode,
-              phone_number: newOrder.phoneNumber,
-              status: newOrder.status,
-              razorpay_payment_id: newOrder.razorpayPaymentId || null,
-              payment_screenshot: newOrder.paymentScreenshot || null,
-              payment_status: newOrder.paymentStatus || 'Pending',
-              gst_percent_snapshot: newOrder.gstPercentSnapshot ?? null,
-              gst_amount_snapshot: newOrder.gstAmountSnapshot ?? null,
-              delivery_amount_snapshot: newOrder.deliveryAmountSnapshot ?? null,
-              free_delivery_eligible_snapshot: newOrder.freeDeliveryEligibleSnapshot ?? null
+            const res = await fetch('/api/orders/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                items: details.items.map((i: any) => ({
+                  productId: i.product.id,
+                  quantity: i.quantity
+                })),
+                shippingAddress: {
+                  fullName: details.fullName,
+                  phoneNumber: details.phoneNumber,
+                  email: details.email || '',
+                  addressLine1: details.addressLine1,
+                  addressLine2: details.addressLine2 || '',
+                  city: details.deliveryCity,
+                  state: details.deliveryState,
+                  pincode: details.pincode
+                },
+                paymentMethod: details.paymentMethod,
+                couponCode: details.appliedCouponCode || '',
+                checkoutAttemptId,
+                sessionToken,
+                paymentScreenshot: details.paymentScreenshot || null
+              })
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || `Server responded with status ${res.status}`);
+            }
+
+            const result = await res.json();
+            console.log('[Checkout App] Secure order created (Seamless):', result.orderId);
+
+            const newOrder: LocalOrder = {
+              ...details,
+              orderId: result.orderId,
+              userId: loggedInUser?.id,
+              status: 'Payment Pending',
+              paymentStatus: 'Pending',
+              subtotal: result.subtotal,
+              discount: result.discount,
+              shipping: result.shipping,
+              tax: result.tax,
+              total: result.total
             };
-
-            let { error } = await supabase.from('website_store_orders').insert(orderPayload);
-            
-            if (error) {
-              // Check if error is due to missing columns in database
-              const isMissingRazorpay = error.code === 'PGRST204' && (error.message && error.message.includes('razorpay_payment_id'));
-              const isMissingScreenshot = error.code === 'PGRST204' && (error.message && error.message.includes('payment_screenshot'));
-              const isMissingPaymentStatus = error.code === 'PGRST204' && (error.message && error.message.includes('payment_status'));
-              
-              if (isMissingRazorpay || isMissingScreenshot || isMissingPaymentStatus) {
-                console.warn('Handling missing order columns in remote database. Retrying...');
-                const fallbackPayload = { ...orderPayload };
-                if (isMissingRazorpay) {
-                  delete (fallbackPayload as any).razorpay_payment_id;
-                }
-                if (isMissingScreenshot) {
-                  delete (fallbackPayload as any).payment_screenshot;
-                }
-                if (isMissingPaymentStatus) {
-                  delete (fallbackPayload as any).payment_status;
-                }
-                const retryResult = await supabase.from('website_store_orders').insert(fallbackPayload);
-                error = retryResult.error;
-              }
-            }
-
-            if (error) throw error;
-
-            if (details.appliedCouponCode && loggedInUser) {
-              try {
-                const { data: couponData, error: couponFetchError } = await supabase
-                  .from('website_store_coupons')
-                  .select('id, redemptions_count')
-                  .eq('code', details.appliedCouponCode)
-                  .single();
-
-                if (!couponFetchError && couponData) {
-                  await supabase
-                    .from('website_store_coupon_redemptions')
-                    .insert({
-                      coupon_id: couponData.id,
-                      user_id: loggedInUser.id,
-                      order_id: newOrder.orderId
-                    });
-
-                  await supabase
-                    .from('website_store_coupons')
-                    .update({ redemptions_count: (couponData.redemptions_count || 0) + 1 })
-                    .eq('id', couponData.id);
-                }
-              } catch (couponErr) {
-                console.error('Error logging coupon redemption:', couponErr);
-              }
-            }
 
             if (loggedInUser) {
               // Sync user email if it was entered during checkout
@@ -5287,53 +5247,55 @@ function App() {
               }
 
               try {
-                const { data: existing, error: findError } = await supabase
-                  .from('website_store_addresses')
-                  .select('id')
-                  .eq('user_id', loggedInUser.id)
-                  .eq('street', details.addressLine1)
-                  .eq('city', details.deliveryCity)
-                  .eq('state', details.deliveryState)
-                  .eq('zip', details.pincode);
+                const token = localStorage.getItem('session_token') || '';
+                const existingResponse = await fetch(`/api/customer/addresses?sessionToken=${token}`);
+                if (existingResponse.ok) {
+                  const existingData = await existingResponse.json();
+                  const alreadyExists = existingData.some((addr: any) =>
+                    addr.street === details.addressLine1 &&
+                    addr.city === details.deliveryCity &&
+                    addr.state === details.deliveryState &&
+                    addr.zip === details.pincode
+                  );
 
-                if (!findError && (!existing || existing.length === 0)) {
-                  const { count, error: countError } = await supabase
-                    .from('website_store_addresses')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', loggedInUser.id);
-                  
-                  const isDefault = !countError && (count === 0);
-
-                  await supabase
-                    .from('website_store_addresses')
-                    .insert({
-                      user_id: loggedInUser.id,
-                      type: 'Checkout Address',
-                      name: details.fullName,
-                      phone: details.phoneNumber,
-                      street: details.addressLine1,
-                      city: details.deliveryCity,
-                      state: details.deliveryState,
-                      zip: details.pincode,
-                      is_default: isDefault
+                  if (!alreadyExists) {
+                    const isDefault = existingData.length === 0;
+                    await fetch('/api/customer/addresses', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({
+                        sessionToken: token,
+                        type: 'Checkout Address',
+                        name: details.fullName,
+                        phone: details.phoneNumber,
+                        street: details.addressLine1,
+                        city: details.deliveryCity,
+                        state: details.deliveryState,
+                        zip: details.pincode,
+                        is_default: isDefault
+                      })
                     });
+                  }
                 }
               } catch (syncErr) {
                 console.error('Failed to sync shipping address during checkout:', syncErr);
               }
             }
+
+            setOrdersState(prev => {
+              if (prev.some(o => o.orderId === newOrder.orderId)) {
+                return prev;
+              }
+              return [newOrder, ...prev];
+            });
+            setOrderDetails(newOrder);
+            setCurrentPage('success');
           } catch (err) {
             console.error('Failed to save order to Supabase:', err);
+            alert('Checkout Failed: ' + (err as Error).message);
           }
-
-          setOrdersState(prev => {
-            if (prev.some(o => o.orderId === newOrder.orderId)) {
-              return prev;
-            }
-            return [newOrder, ...prev];
-          });
-          setOrderDetails(details);
-          setCurrentPage('success');
         }}
         onOrderComplete={handleClearCart}
       />
@@ -5644,44 +5606,7 @@ function App() {
         </div>
       )}
 
-      {/* Floating WhatsApp Community Icon */}
-      {showWhatsAppIcon && (
-        <a
-          href="https://whatsapp.com/channel/0029Vb7rBVLKbYMGudL6lJ2d"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            width: '56px',
-            height: '56px',
-            backgroundColor: '#25D366',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
-            zIndex: 9999,
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            cursor: 'pointer'
-          }}
-          className="whatsapp-float-btn"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.08)';
-            e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 211, 102, 0.45)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 16px rgba(37, 211, 102, 0.3)';
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
-            <path d="M12.012 2c-5.506 0-9.969 4.47-9.969 10 0 1.76.459 3.41 1.259 4.85l-1.302 4.75 4.87-1.28c1.39.75 2.97 1.18 4.652 1.18 5.505 0 9.969-4.47 9.969-10s-4.464-10-9.969-10zm0 1.63c4.61 0 8.344 3.75 8.344 8.37 0 4.62-3.73 8.37-8.344 8.37-1.55 0-2.99-.42-4.24-1.15l-.3-.18-2.88.75.77-2.81-.2-.32a8.31 8.31 0 0 1-1.15-4.26c0-4.62 3.73-8.37 8.34-8.37zm-3.51 4.54c-.16 0-.34.02-.5.09-.34.14-.65.41-.8.74-.28.61-.31 1.57.24 2.6 1 1.86 2.37 3.32 4.14 4.25.79.42 1.63.71 2.35.63.48-.05.89-.32 1.08-.73.16-.34.12-.76-.11-.99l-1.38-1.38c-.22-.22-.57-.22-.79 0l-.53.53a.36.36 0 0 1-.44.06c-.53-.28-1.2-.72-1.72-1.24-.52-.52-.96-1.19-1.24-1.72a.36.36 0 0 1 .06-.44l.53-.53c.22-.22.22-.57 0-.79l-1.38-1.38c-.1-.1-.23-.16-.36-.16z"/>
-          </svg>
-        </a>
-      )}
+
     </div>
   );
 }

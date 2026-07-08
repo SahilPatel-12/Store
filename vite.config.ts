@@ -18,11 +18,15 @@ function vercelDevPlugin() {
           const pathname = url.pathname;
           
           let filePath = '';
-          if (pathname === '/api/send-otp') filePath = './api/send-otp.js';
-          else if (pathname === '/api/share') filePath = './api/share.js';
-          else if (pathname === '/api/sitemap') filePath = './api/sitemap.ts';
-          else if (pathname === '/api/robots') filePath = './api/robots.ts';
-          else if (pathname === '/api/seo-render') filePath = './api/seo-render.ts';
+          const fs = await import('fs');
+          const relativePathJs = `./api${pathname.substring(4)}.js`;
+          const relativePathTs = `./api${pathname.substring(4)}.ts`;
+
+          if (fs.existsSync(relativePathJs)) {
+            filePath = relativePathJs;
+          } else if (fs.existsSync(relativePathTs)) {
+            filePath = relativePathTs;
+          }
           
           if (filePath) {
             try {
@@ -99,7 +103,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     ...(mode === 'development' ? [vercelDevPlugin()] : [])
   ],
-  envPrefix: ['VITE_', 'NEXT_PUBLIC_', 'ENCRYPTION_'],
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   optimizeDeps: {
     include: ['react', 'react-dom']
   },

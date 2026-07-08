@@ -39,7 +39,10 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     setToastMessage(`"${product.name}" moved to cart successfully!`);
   };
 
-  const getCategoryGradient = (cat: string) => {
+  const getCategoryGradient = (cat?: string) => {
+    if (!cat) {
+      return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+    }
     switch (cat.toLowerCase()) {
       case 'rudraksha':
       case 'tulsi mala':
