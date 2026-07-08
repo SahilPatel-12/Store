@@ -67,6 +67,21 @@ function parseQueryParams(url) {
   return params;
 }
 
+// Path map to translate Vercel rewrites to consolidated API endpoints on GCP/Coolify
+const PATH_MAP = {
+  '/api/admin/whatsapp/config': { file: 'admin.js', action: 'whatsapp-config' },
+  '/api/admin/razorpay/config': { file: 'admin.js', action: 'razorpay-config' },
+  '/api/admin/razorpay/test-connection': { file: 'admin.js', action: 'razorpay-test' },
+  '/api/admin/orders/update-delivery-status': { file: 'admin.js', action: 'orders-update' },
+  '/api/admin/orders/confirm-legacy-payment': { file: 'admin.js', action: 'orders-confirm' },
+  '/api/admin/orders/decline-legacy-payment': { file: 'admin.js', action: 'orders-decline' },
+  '/api/admin/orders/list': { file: 'admin.js', action: 'orders-list' },
+  '/api/payments/razorpay/create-order': { file: 'payments.js', action: 'create-order' },
+  '/api/payments/razorpay/verify': { file: 'payments.js', action: 'verify' },
+  '/api/customer/orders': { file: 'customer.js', action: 'orders' },
+  '/api/customer/addresses': { file: 'customer.js', action: 'addresses' }
+};
+
 // Main server handler
 const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -75,14 +90,20 @@ const server = http.createServer(async (req, res) => {
   // 1. API Route Handler
   if (pathname.startsWith('/api/')) {
     let filePath = '';
-    const apiPath = pathname.substring(5); // Remove "/api/"
-    const relativePathJs = path.join(__dirname, 'api', `${apiPath}.js`);
-    const relativePathTs = path.join(__dirname, 'api', `${apiPath}.ts`);
+    const mapped = PATH_MAP[pathname];
 
-    if (fs.existsSync(relativePathJs)) {
-      filePath = relativePathJs;
-    } else if (fs.existsSync(relativePathTs)) {
-      filePath = relativePathTs;
+    if (mapped) {
+      filePath = path.join(__dirname, 'api', mapped.file);
+    } else {
+      const apiPath = pathname.substring(5); // Remove "/api/"
+      const relativePathJs = path.join(__dirname, 'api', `${apiPath}.js`);
+      const relativePathTs = path.join(__dirname, 'api', `${apiPath}.ts`);
+
+      if (fs.existsSync(relativePathJs)) {
+        filePath = relativePathJs;
+      } else if (fs.existsSync(relativePathTs)) {
+        filePath = relativePathTs;
+      }
     }
 
     if (filePath) {
@@ -91,8 +112,12 @@ const server = http.createServer(async (req, res) => {
         const handler = module.default;
         const config = module.config || {};
 
-        // Parse query params
-        req.query = parseQueryParams(req.url);
+        // Parse query params (inject action if mapped)
+        const queryParams = parseQueryParams(req.url);
+        if (mapped) {
+          queryParams.action = mapped.action;
+        }
+        req.query = queryParams;
 
         // Parse body if bodyParser is not disabled and it's a POST/PUT/PATCH request
         const shouldParseBody = config.api?.bodyParser !== false;
