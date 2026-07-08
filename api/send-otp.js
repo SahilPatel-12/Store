@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './_lib/supabase-admin.js';
+import { decryptTextServer } from './_lib/crypto-server.js';
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
@@ -33,32 +34,42 @@ export default async function handler(req, res) {
     }
 
     const val = data.value;
-    if (!val.endpoint || !val.token) {
+    if (!val.endpoint || (!val.encrypted_token && !val.token)) {
       return res.status(400).json({ error: 'WhatsApp gateway configurations are incomplete.' });
     }
 
-    // 2. Decrypt token using Node's native crypto (AES-128-GCM)
+    // 2. Decrypt token using Node's native crypto
     let decryptedToken;
-    try {
-      const keyData = Buffer.alloc(16);
-      const keyBuf = Buffer.from(encryptionKey);
-      keyBuf.copy(keyData, 0, 0, Math.min(keyBuf.length, 16));
+    if (val.version === 'v2' || val.encrypted_token) {
+      try {
+        decryptedToken = decryptTextServer(val.encrypted_token, val.iv, val.auth_tag);
+      } catch (decErr) {
+        console.error('[send-otp] Secure GCM decryption failed:', decErr);
+        return res.status(500).json({ error: 'Failed to decrypt secure WhatsApp gateway credentials on server.' });
+      }
+    } else {
+      // Legacy GCM decryption using AES-128-GCM
+      try {
+        const keyData = Buffer.alloc(16);
+        const keyBuf = Buffer.from(encryptionKey);
+        keyBuf.copy(keyData, 0, 0, Math.min(keyBuf.length, 16));
 
-      const combined = Buffer.from(val.token, 'base64');
-      const iv = combined.subarray(0, 12);
-      const encrypted = combined.subarray(12);
+        const combined = Buffer.from(val.token, 'base64');
+        const iv = combined.subarray(0, 12);
+        const encrypted = combined.subarray(12);
 
-      const decipher = crypto.createDecipheriv('aes-128-gcm', keyData, iv);
-      const authTag = encrypted.subarray(encrypted.length - 16);
-      const cipher = encrypted.subarray(0, encrypted.length - 16);
+        const decipher = crypto.createDecipheriv('aes-128-gcm', keyData, iv);
+        const authTag = encrypted.subarray(encrypted.length - 16);
+        const cipher = encrypted.subarray(0, encrypted.length - 16);
 
-      decipher.setAuthTag(authTag);
-      let decrypted = decipher.update(cipher, 'binary', 'utf8');
-      decrypted += decipher.final('utf8');
-      decryptedToken = decrypted;
-    } catch (decErr) {
-      console.error('[send-otp] Decryption failed:', decErr);
-      return res.status(500).json({ error: 'Failed to decrypt WhatsApp gateway credentials on server.' });
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(cipher, 'binary', 'utf8');
+        decrypted += decipher.final('utf8');
+        decryptedToken = decrypted;
+      } catch (decErr) {
+        console.error('[send-otp] Legacy decryption failed:', decErr);
+        return res.status(500).json({ error: 'Failed to decrypt legacy WhatsApp gateway credentials on server.' });
+      }
     }
 
     // 3. Dispatch HTTP request to gateway

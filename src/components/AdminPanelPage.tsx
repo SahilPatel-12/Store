@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase, getAdminSupabase } from '../lib/supabase';
-import { encryptText, decryptText, hashPassword } from '../lib/crypto';
+import { hashPassword } from '../lib/crypto';
 import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
@@ -975,25 +975,21 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           return;
         }
 
-        // 1. Fetch WhatsApp settings
-        const { data: waData } = await getAdminSupabase()
-          .from('website_settings')
-          .select('value')
-          .eq('key', 'whatsapp_settings')
-          .single();
-        
-        if (waData && waData.value) {
-          const val = waData.value as { endpoint?: string; token?: string };
-          setWhatsappEndpoint(val.endpoint || '');
-          if (val.token) {
-            try {
-              const decrypted = await decryptText(val.token, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-              setWhatsappToken(decrypted);
-            } catch (decErr) {
-              console.error('Failed to decrypt WhatsApp token:', decErr);
+        // 1. Fetch WhatsApp settings via secure server API
+        try {
+          const token = adminSession?.token || localStorage.getItem('session_token') || '';
+          const response = await fetch(`/api/admin/whatsapp/config?adminToken=${encodeURIComponent(token)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setWhatsappEndpoint(data.endpoint || '');
+            if (data.isConfigured) {
+              setWhatsappToken('••••••••••••••••');
+            } else {
               setWhatsappToken('');
             }
           }
+        } catch (waErr) {
+          console.error('Failed to fetch WhatsApp config via API:', waErr);
         }
 
         // 2. Fetch Razorpay settings - Migrated to server config API (Phase 2)
@@ -1049,17 +1045,26 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
     setIsSavingSettings(true);
     try {
-      const encrypted = await encryptText(whatsappToken, import.meta.env.ENCRYPTION_STRING_KEY || 'sg6XisTlL2QcXSuE');
-      const { error } = await getAdminSupabase()
-        .from('website_settings')
-        .upsert({
-          key: 'whatsapp_settings',
-          value: {
-            endpoint: whatsappEndpoint,
-            token: encrypted
-          }
-        });
-      if (error) throw error;
+      const token = adminSession?.token || localStorage.getItem('session_token') || '';
+      const submitToken = whatsappToken === '••••••••••••••••' ? '' : whatsappToken;
+
+      const response = await fetch(`/api/admin/whatsapp/config?adminToken=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
+        body: JSON.stringify({
+          endpoint: whatsappEndpoint,
+          token: submitToken
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Server error saving configurations.');
+      }
+
       triggerToast('WhatsApp configurations stored & encrypted successfully!');
     } catch (err) {
       console.error(err);

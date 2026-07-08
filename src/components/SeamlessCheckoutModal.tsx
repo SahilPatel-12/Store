@@ -130,8 +130,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const [couponInput, setCouponInput] = React.useState(appliedCouponCode);
   const [couponMsg, setCouponMsg] = React.useState({ text: '', type: '' });
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
-  const [availableCoupons, setAvailableCoupons] = React.useState<{code: string, discount_percent: number}[]>([]);
-  const [showCouponsList, setShowCouponsList] = React.useState(false);
+
 
   // Payment fields
   const [paymentErrors, setPaymentErrors] = React.useState<Record<string, string>>({});
@@ -226,22 +225,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       }
     }
 
-    async function fetchCoupons() {
-      try {
-        const { data } = await supabase
-          .from('website_store_coupons')
-          .select('code, discount_percent')
-          .limit(5);
-        if (data) {
-          setAvailableCoupons(data);
-        }
-      } catch (err) {
-        console.error('Coupons fetch error:', err);
-      }
-    }
-
     loadConfig();
-    fetchCoupons();
   }, [isOpen]);
 
   React.useEffect(() => {
@@ -1119,31 +1103,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 </p>
               )}
 
-              {/* View available coupons */}
-              {availableCoupons.length > 0 && (
-                <div style={{ marginTop: '8px', borderTop: '1px solid #f3f4f6', paddingTop: '6px' }}>
-                  <button 
-                    onClick={() => setShowCouponsList(!showCouponsList)}
-                    style={{ background: 'none', border: 'none', fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary-lime)', cursor: 'pointer', padding: 0 }}
-                  >
-                    {showCouponsList ? 'Hide available coupons' : `% View available coupons (${availableCoupons.length})`}
-                  </button>
-                  {showCouponsList && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', backgroundColor: '#f9fafb', padding: '6px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                      {availableCoupons.map((c) => (
-                        <div 
-                          key={c.code} 
-                          onClick={() => { setCouponInput(c.code); handleApplyCouponCode(); setShowCouponsList(false); }}
-                          style={{ display: 'flex', justifyContent: 'space-between', padding: '6px', backgroundColor: '#ffffff', border: '1px solid #f3f4f6', borderRadius: '4px', cursor: 'pointer', fontSize: '0.74rem' }}
-                        >
-                          <span style={{ fontWeight: 800, color: 'var(--primary-lime)' }}>{c.code}</span>
-                          <span style={{ color: '#16a34a', fontWeight: 700 }}>Save {c.discount_percent}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
           )}
 
@@ -1522,62 +1482,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 </h3>
               </div>
 
-              {/* Payment Option Selector (Tabs) */}
-              {paymentActivation?.activePaymentProvider === 'razorpay' && paymentActivation?.legacyManualUpiEnabled && (
-                <div style={{
-                  display: 'flex',
-                  gap: '10px',
-                  marginBottom: '16px',
-                  borderBottom: '1px solid #e5e7eb',
-                  paddingBottom: '12px',
-                  width: '100%'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPaymentOption('razorpay')}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1.5px solid ' + (selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                      backgroundColor: selectedPaymentOption === 'razorpay' ? '#f0fdf4' : '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '0.82rem',
-                      color: selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Lock size={14} /> Pay Online (UPI, Cards)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPaymentOption('manual_upi')}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1.5px solid ' + (selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                      backgroundColor: selectedPaymentOption === 'manual_upi' ? '#f0fdf4' : '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '0.82rem',
-                      color: selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Upload size={14} /> Manual Scan & Pay
-                  </button>
-                </div>
-              )}
+
 
               {/* Conditional Payment Flow */}
               {paymentMethod === 'upi' && (

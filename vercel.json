@@ -1,5 +1,4 @@
 {
-  "ignoreCommand": "exit 0",
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -22,7 +21,7 @@
       "destination": "/api/send-otp"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

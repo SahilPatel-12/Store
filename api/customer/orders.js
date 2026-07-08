@@ -38,6 +38,6 @@ export default async function handler(req, res) {
     }
   } else {
     res.setHeader('Allow', ['GET']);
-    return res.status(450).json({ error: `Method ${req.method} Not Allowed` });
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 }

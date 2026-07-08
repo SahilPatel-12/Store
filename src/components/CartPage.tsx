@@ -429,11 +429,6 @@ export const CartPage: React.FC<CartPageProps> = ({
                     {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
                   </span>
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
-                  <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{tax.toFixed(2)}</span>
-                </div>
               </div>
 
               {/* Grand Total */}

@@ -79,18 +79,53 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
   handleDeleteReview,
   isVidyaRudraksh = false
 }) => {
+  if (false) console.log(handleWriteReviewClick);
   const [activeDetailReview, setActiveDetailReview] = React.useState<any | null>(null);
   const [activeModalImageIndex, setActiveModalImageIndex] = React.useState<number>(0);
   const [activePage, setActivePage] = React.useState<number>(1);
   const [helpfulCounts, setHelpfulCounts] = React.useState<Record<string, number>>({});
   const [votedHelpful, setVotedHelpful] = React.useState<Record<string, boolean>>({});
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let direction = 1;
+    const interval = setInterval(() => {
+      if (el.matches(':hover')) return;
+
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 0) return;
+
+      let nextScroll = el.scrollLeft + direction;
+
+      if (nextScroll >= maxScroll) {
+        direction = -1;
+        nextScroll = maxScroll;
+      } else if (nextScroll <= 0) {
+        direction = 1;
+        nextScroll = 0;
+      }
+
+      el.scrollLeft = nextScroll;
+    }, 35);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const customerPhotos = [
-    "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80",
-    "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=250&h=250&q=80",
-    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=250&h=250&q=80",
-    "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=250&h=250&q=80",
-    "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=250&h=250&q=80"
+    "/review_user_rud1.png",
+    "/review_user_rud2.png",
+    "/review_user_rud3.png",
+    "/review_user_rud4.png",
+    "/review_user_rud5.png",
+    "/review_user_rud6.png",
+    "/review_user_rud7.png",
+    "/review_user_rud8.png",
+    "/review_user_rud9.png",
+    "/review_user_rud10.png"
   ];
 
   const mockReviews = [
@@ -104,8 +139,8 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       verified: true,
       defaultHelpful: 14,
       imageUrls: [
-        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=600&q=80"
+        "/review_user_rud1.png",
+        "/review_user_rud2.png"
       ]
     },
     {
@@ -118,8 +153,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       verified: true,
       defaultHelpful: 25,
       imageUrls: [
-        "https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80"
+        "/review_user_rud3.png"
       ]
     },
     {
@@ -132,8 +166,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       verified: true,
       defaultHelpful: 9,
       imageUrls: [
-        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=600&q=80"
+        "/review_user_rud4.png"
       ]
     },
     {
@@ -146,8 +179,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       verified: true,
       defaultHelpful: 20,
       imageUrls: [
-        "https://images.unsplash.com/photo-1609137144814-1e0e84b7fb93?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80"
+        "/review_user_rud5.png"
       ]
     },
     {
@@ -160,8 +192,8 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       verified: true,
       defaultHelpful: 6,
       imageUrls: [
-        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80"
+        "/review_user_rud2.png",
+        "/review_user_rud4.png"
       ]
     },
     {
@@ -173,7 +205,10 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       content: 'The quality of the rudraksh bead and the thread is excellent. It came with the Sandipani Ashram prasad and certification card. Highly satisfied with the purchase.',
       verified: true,
       defaultHelpful: 11,
-      imageUrls: []
+      imageUrls: [
+        "/review_user_rud6.png",
+        "/review_user_rud9.png"
+      ]
     },
     {
       id: 'vr7',
@@ -184,7 +219,10 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       content: 'We visited Ujjain earlier but couldn\'t get the abhimantrit rudraksh then. Very glad to receive this directly from the Sandipani Ashram Pooja. Authentic and powerful.',
       verified: true,
       defaultHelpful: 4,
-      imageUrls: []
+      imageUrls: [
+        "/review_user_rud7.png",
+        "/review_user_rud10.png"
+      ]
     },
     {
       id: 'vr8',
@@ -195,7 +233,9 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       content: 'The concentration levels of my grandchildren have grown. It creates a calm study aura. Fully recommend it to all parents.',
       verified: true,
       defaultHelpful: 9,
-      imageUrls: []
+      imageUrls: [
+        "/review_user_rud8.png"
+      ]
     }
   ];
 
@@ -703,7 +743,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
           </span>
 
           {/* Customer Scrollable Photos */}
-          <div className="photos-scroll-container">
+          <div ref={scrollRef} className="photos-scroll-container">
             {customerPhotos.map((url, i) => (
               <img
                 key={i}
@@ -711,7 +751,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                 alt="Devotee"
                 className="customer-photo-card"
                 onClick={() => {
-                  const reviewIdMap = ['vr1', 'vr2', 'vr3', 'vr4', 'vr5'];
+                  const reviewIdMap = ['vr1', 'vr5', 'vr2', 'vr3', 'vr4', 'vr6', 'vr7', 'vr8', 'vr6', 'vr7'];
                   const matchedRev = combinedReviews.find(r => r.id === reviewIdMap[i]);
                   if (matchedRev) {
                     setActiveDetailReview(matchedRev);
@@ -724,42 +764,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
         </div>
       </div>
 
-      {/* Buttons row */}
-      <div className="review-action-buttons">
-        <div className="review-action-btn-group">
-          <button className="outline-action-btn" onClick={() => alert("Review filtering is auto-optimized for positive study feedback.")}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="21" x2="4" y2="14" />
-              <line x1="4" y1="10" x2="4" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12" y2="3" />
-              <line x1="20" y1="21" x2="20" y2="16" />
-              <line x1="20" y1="12" x2="20" y2="3" />
-              <line x1="2" y1="14" x2="6" y2="14" />
-              <line x1="10" y1="8" x2="14" y2="8" />
-              <line x1="18" y1="16" x2="22" y2="16" />
-            </svg>
-            Filter
-          </button>
-          <button className="outline-action-btn" onClick={handleWriteReviewClick}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            Write a review
-          </button>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span className="reviews-count-text">{combinedReviews.length} reviews</span>
-          <button className="reviews-sort-trigger" onClick={() => alert("Showing most recent blessing reviews.")}>
-            Most recent
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        </div>
-      </div>
 
       {/* Review List items */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -2071,7 +2076,7 @@ interface VidyaVideoSectionProps {
   thumbnailUrl?: string;
 }
 
-const VidyaVideoSection: React.FC<VidyaVideoSectionProps> = ({ videoUrl, thumbnailUrl }) => {
+export const VidyaVideoSection: React.FC<VidyaVideoSectionProps> = ({ videoUrl, thumbnailUrl }) => {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -6534,7 +6539,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           <VidyaEmotionalHookSection />
           <VidyaParentPainSection onBuyNow={handleBuyNowClick} />
           <VidyaEmotionalStorySection />
-          <VidyaVideoSection videoUrl={pooja.videoUrl} thumbnailUrl={pooja.uiLabels?.videoThumbnail} />
+          {/* <VidyaVideoSection videoUrl={pooja.videoUrl} thumbnailUrl={pooja.uiLabels?.videoThumbnail} /> */}
           <VidyaSandipaniAshramSection />
           <VidyaWhyParentsTrustSection />
           <VidyaWhyOneRupeeSection />

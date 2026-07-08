@@ -922,61 +922,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   {selectedPaymentOption === 'razorpay' ? 'Secure Online Payment' : 'Direct Payment Details (UPI)'}
                 </h2>
 
-                {/* Payment Option Selector (Tabs) */}
-                {paymentActivation?.activePaymentProvider === 'razorpay' && paymentActivation?.legacyManualUpiEnabled && (
-                  <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    marginBottom: '24px',
-                    borderBottom: '1px solid #e5e7eb',
-                    paddingBottom: '16px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPaymentOption('razorpay')}
-                      style={{
-                        flex: 1,
-                        padding: '12px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid ' + (selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                        backgroundColor: selectedPaymentOption === 'razorpay' ? '#f0fdf4' : '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '0.88rem',
-                        color: selectedPaymentOption === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <Lock size={16} /> Pay Online (UPI, Cards)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPaymentOption('manual_upi')}
-                      style={{
-                        flex: 1,
-                        padding: '12px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid ' + (selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                        backgroundColor: selectedPaymentOption === 'manual_upi' ? '#f0fdf4' : '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '0.88rem',
-                        color: selectedPaymentOption === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <Upload size={16} /> Manual Scan & Pay
-                    </button>
-                  </div>
-                )}
+
 
                 {/* Conditional Payment Flow */}
                 {paymentMethod === 'upi' && (
@@ -1366,10 +1312,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         <span style={{ color: 'var(--text-muted)' }}>Shipping</span>
                         <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
-                        <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
-                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '14px 0 0', borderTop: '2px solid var(--border-light)' }}>
                         <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>Total Charged</span>
                         <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{finalTotal.toFixed(2)}</span>
@@ -1509,10 +1451,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <span style={{ fontWeight: 700, color: shippingCost === 0 ? '#10b981' : 'var(--text-dark)' }}>
                       {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
                     </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Sales Tax / GST</span>
-                    <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
                   </div>
 
                   <div style={{ borderTop: '2px solid var(--border-light)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../_lib/supabase-admin.js';
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
-    return res.status(450).json({ error: `Method ${req.method} Not Allowed` });
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
   const { items, shippingAddress, paymentMethod, couponCode, checkoutAttemptId, sessionToken } = req.body;

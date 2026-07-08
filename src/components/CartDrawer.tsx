@@ -52,8 +52,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [couponError, setCouponError] = React.useState('');
   const [couponSuccess, setCouponSuccess] = React.useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
-  const [isCouponsDropdownOpen, setIsCouponsDropdownOpen] = React.useState(false);
-  const [availableCoupons, setAvailableCoupons] = React.useState<any[]>([]);
   const [isCouponSectionExpanded, setIsCouponSectionExpanded] = React.useState(false);
 
 
@@ -69,34 +67,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [appliedCouponCode, discountPercent]);
 
-  // Fetch available coupons from database
-  React.useEffect(() => {
-    async function fetchCoupons() {
-      try {
-        const { data } = await supabase
-          .from('website_store_coupons')
-          .select('code, discount_percent')
-          .limit(5);
-        if (data && data.length > 0) {
-          setAvailableCoupons(data);
-        } else {
-          setAvailableCoupons([
-            { code: 'DEVOTION10', discount_percent: 10 },
-            { code: 'SHIV30', discount_percent: 30 }
-          ]);
-        }
-      } catch (err) {
-        console.error(err);
-        setAvailableCoupons([
-          { code: 'DEVOTION10', discount_percent: 10 },
-          { code: 'SHIV30', discount_percent: 30 }
-        ]);
-      }
-    }
-    if (isOpen) {
-      fetchCoupons();
-    }
-  }, [isOpen]);
+
 
   // Pricing calculations
   const items = Array.isArray(cartItems) ? cartItems.filter(Boolean) : [];
@@ -717,73 +688,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {couponError && <p style={{ color: '#ef4444', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponError}</p>}
                   {couponSuccess && <p style={{ color: '#16a34a', fontSize: '0.74rem', marginTop: '4px', fontWeight: 600 }}>{couponSuccess}</p>}
 
-                  {/* View Available Coupons Trigger */}
-                  <div style={{ marginTop: '10px', borderTop: '1px solid #f3f4f6', paddingTop: '8px' }}>
-                    <button
-                      onClick={() => setIsCouponsDropdownOpen(prev => !prev)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        fontSize: '0.74rem',
-                        color: 'var(--text-muted)',
-                        fontWeight: 700,
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <span>% Available Coupons</span>
-                      <span style={{ color: 'var(--primary-lime, #f97316)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                        View Coupons <ChevronDown size={12} style={{ transform: isCouponsDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                      </span>
-                    </button>
-                    
-                    {isCouponsDropdownOpen && (
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        marginTop: '8px',
-                        backgroundColor: '#f9fafb',
-                        padding: '8px',
-                        borderRadius: '4px',
-                        border: '1px solid #e5e7eb'
-                      }}>
-                        {availableCoupons.map((coupon, i) => (
-                          <div
-                            key={i}
-                            onClick={() => {
-                              setCouponCodeInput(coupon.code);
-                              handleApplyCoupon(coupon.code);
-                              setIsCouponsDropdownOpen(false);
-                            }}
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              padding: '6px 8px',
-                              backgroundColor: '#ffffff',
-                              borderRadius: '3px',
-                              border: '1px solid #f3f4f6',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.1s'
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fff7ed')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
-                          >
-                            <span style={{ fontWeight: 800, color: 'var(--primary-lime, #f97316)', fontSize: '0.76rem', letterSpacing: '0.5px' }}>
-                              {coupon.code}
-                            </span>
-                            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
-                              Save {coupon.discount_percent}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+
                 </div>
               )}
             </div>
@@ -880,10 +785,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Delivery Charges</span>
                   <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
-                </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Sales Tax / GST</span>
-                  <span>₹{formatPrice(tax)}</span>
                 </div>
               </div>
             </div>

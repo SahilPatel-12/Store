@@ -1937,11 +1937,11 @@ function App() {
   const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
 
   const bannerSlides = React.useMemo(() => {
-    if (shopBannersConfig && (shopBannersConfig as any).mainBanners && (shopBannersConfig as any).mainBanners.length > 0) {
-      return (shopBannersConfig as any).mainBanners as (string | { imageUrl: string; redirectUrl: string })[];
-    }
     if (homepageConfig && homepageConfig.bannerImages && homepageConfig.bannerImages.length > 0) {
       return homepageConfig.bannerImages as (string | { imageUrl: string; redirectUrl: string })[];
+    }
+    if (shopBannersConfig && (shopBannersConfig as any).mainBanners && (shopBannersConfig as any).mainBanners.length > 0) {
+      return (shopBannersConfig as any).mainBanners as (string | { imageUrl: string; redirectUrl: string })[];
     }
     return [
       'https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1600&q=80',
