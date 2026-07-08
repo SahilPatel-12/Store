@@ -5178,6 +5178,22 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 >
                   {/* Embedded badge keyframe styles */}
                   <style>{`
+                    .product-price-container {
+                      display: flex;
+                      align-items: center;
+                      gap: 12px;
+                      flex-wrap: wrap;
+                    }
+                    @media (max-width: 480px) {
+                      .product-price-container {
+                        padding: 10px 12px !important;
+                        gap: 8px !important;
+                        flex-wrap: nowrap !important;
+                      }
+                      .product-price-container .highlight-price-flash {
+                        font-size: 1.8rem !important;
+                      }
+                    }
                     .highlight-price-flash {
                       font-weight: 900;
                       color: #b91c1c !important;
@@ -5623,15 +5639,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
 
             {/* Pricing Section with Dynamic Modifier */}
-            <div style={{
+            <div className="product-price-container" style={{
               padding: '16px',
               backgroundColor: '#ffffff',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-light)',
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: '8px 12px',
-              flexWrap: 'wrap',
               boxShadow: 'var(--shadow-sm)'
             }}>
               <span 
@@ -8409,7 +8421,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
           <span 
             className={singleItemPrice === 1 ? "highlight-price-flash" : ""} 
-            style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}
+            style={{ fontSize: '1.55rem', fontWeight: 900, color: 'var(--primary-forest)' }}
           >
             ₹{singleItemPrice.toFixed(2)}
           </span>
