@@ -6,6 +6,38 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load environment variables from .env / .env.local if they exist
+function loadEnvFiles() {
+  const files = ['.env', '.env.local'];
+  for (const file of files) {
+    const filePath = path.join(__dirname, file);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        content.split('\n').forEach(line => {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+            const index = trimmed.indexOf('=');
+            const key = trimmed.substring(0, index).trim();
+            let value = trimmed.substring(index + 1).trim();
+            // Remove wrapping quotes if any
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+              value = value.substring(1, value.length - 1);
+            }
+            if (process.env[key] === undefined) {
+              process.env[key] = value;
+            }
+          }
+        });
+      } catch (err) {
+        console.error(`[Server] Error loading env file ${file}:`, err);
+      }
+    }
+  }
+}
+
+loadEnvFiles();
+
 // Helper to determine Content-Type
 const MIME_TYPES = {
   '.html': 'text/html',
