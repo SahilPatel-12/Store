@@ -5887,9 +5887,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   padding: '20px 24px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
                   gap: '16px',
-                  flexWrap: 'wrap',
                   boxShadow: 'var(--shadow-sm)',
                   position: 'relative',
                   overflow: 'hidden',
@@ -5926,29 +5924,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
                   <div className="blessing-glow-effect" />
 
-                  {/* Text Content */}
-                  <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{
-                      fontSize: '1.25rem',
-                      fontWeight: 900,
-                      color: '#7c2d12',
-                      fontFamily: 'var(--font-sans)',
-                      letterSpacing: '-0.3px'
-                    }}>
-                      Temple Blessed
-                    </span>
-                    <span style={{
-                      fontSize: '0.94rem',
-                      fontWeight: 700,
-                      color: '#ea580c',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      Vikrant Bhairav Mandir, Ujjain
-                    </span>
-                  </div>
-
                   {/* Guru Ji Avatar */}
                   <div className="priest-image-container" style={{
                     width: '64px',
@@ -5960,7 +5935,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    flexShrink: 0
                   }}>
                     <img 
                       src="/siddh_pandit_ji.png" 
@@ -5982,6 +5958,29 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         objectFit: 'cover'
                       }}
                     />
+                  </div>
+
+                  {/* Text Content */}
+                  <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      fontSize: '1.25rem',
+                      fontWeight: 900,
+                      color: '#7c2d12',
+                      fontFamily: 'var(--font-sans)',
+                      letterSpacing: '-0.3px'
+                    }}>
+                      Temple Blessed
+                    </span>
+                    <span style={{
+                      fontSize: '0.94rem',
+                      fontWeight: 700,
+                      color: '#ea580c',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      Vikrant Bhairav Mandir, Ujjain
+                    </span>
                   </div>
                 </div>
 
