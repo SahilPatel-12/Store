@@ -89,6 +89,18 @@ const server = http.createServer(async (req, res) => {
 
   // 1. API Route Handler
   if (pathname.startsWith('/api/')) {
+    // Add CORS headers for API requests
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token, Authorization');
+
+    // Handle CORS preflight request
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 200;
+      res.end();
+      return;
+    }
+
     let filePath = '';
     const mapped = PATH_MAP[pathname];
 
