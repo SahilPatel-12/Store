@@ -5178,6 +5178,72 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 >
                   {/* Embedded badge keyframe styles */}
                   <style>{`
+                    .highlight-price-flash {
+                      font-weight: 900;
+                      color: #b91c1c !important;
+                      animation: price-pulse 1.5s infinite ease-in-out;
+                      display: inline-block;
+                    }
+                    @keyframes price-pulse {
+                      0%, 100% { transform: scale(1); text-shadow: 0 0 4px rgba(185, 28, 28, 0.2); }
+                      50% { transform: scale(1.06); text-shadow: 0 0 12px rgba(185, 28, 28, 0.5); color: #dc2626 !important; }
+                    }
+                    .btn-buy-now-saffron-glass {
+                      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+                      color: #ffffff !important;
+                      position: relative !important;
+                      overflow: hidden !important;
+                      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.45) !important;
+                      border: none !important;
+                      transition: transform 0.2s, box-shadow 0.2s !important;
+                    }
+                    .btn-buy-now-saffron-glass:hover {
+                      transform: translateY(-2px);
+                      box-shadow: 0 6px 20px rgba(234, 88, 12, 0.65) !important;
+                    }
+                    .btn-buy-now-saffron-glass::after {
+                      content: '' !important;
+                      position: absolute !important;
+                      top: -50% !important;
+                      left: -60% !important;
+                      width: 30% !important;
+                      height: 200% !important;
+                      background: rgba(255, 255, 255, 0.45) !important;
+                      transform: rotate(30deg) !important;
+                      animation: glass-shimmer 2.2s infinite linear !important;
+                      pointer-events: none !important;
+                    }
+                    @keyframes glass-shimmer {
+                      0% { left: -60%; }
+                      30% { left: 140%; }
+                      100% { left: 140%; }
+                    }
+                    .limited-offer-badge {
+                      background-color: #ef4444;
+                      color: #ffffff;
+                      font-size: 0.72rem;
+                      font-weight: 800;
+                      padding: 2.5px 8px;
+                      border-radius: var(--radius-full);
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+                      animation: pulse-limited-offer 1.2s infinite ease-in-out;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 4px;
+                    }
+                    @keyframes pulse-limited-offer {
+                      0%, 100% { transform: scale(1); opacity: 0.95; }
+                      50% { transform: scale(1.05); opacity: 1; filter: brightness(1.15); }
+                    }
+                    @keyframes clock-vibrate {
+                      0%, 85%, 100% { transform: translate(0, 0) rotate(0deg); }
+                      88% { transform: translate(-2px, -1px) rotate(-8deg); }
+                      91% { transform: translate(2px, 1px) rotate(8deg); }
+                      94% { transform: translate(-2px, 1px) rotate(-8deg); }
+                      97% { transform: translate(2px, -1px) rotate(8deg); }
+                    }
                     .product-detail-title {
                       font-size: 2rem;
                     }
@@ -5338,7 +5404,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       flex-shrink: 0;
                     }
                     .badge-icon-clock-container svg {
-                      animation: clock-ticktock 1.2s infinite ease-in-out;
+                      animation: clock-vibrate 3s infinite ease-in-out;
                       transform-origin: center;
                     }
                   `}</style>
@@ -5568,7 +5634,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               flexWrap: 'wrap',
               boxShadow: 'var(--shadow-sm)'
             }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+              <span 
+                className={singleItemPrice === 1 ? "highlight-price-flash" : ""} 
+                style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-forest)' }}
+              >
                 {editable ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                     ₹
@@ -5609,16 +5678,23 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     )}
                   </span>
                   {discountPct > 0 && (
-                    <span style={{
-                      backgroundColor: '#ef4444',
-                      color: '#ffffff',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-full)'
-                    }}>
-                      {discountPct}% OFF
-                    </span>
+                    discountPct === 100 || singleItemPrice === 1 ? (
+                      <span className="limited-offer-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={12} style={{ animation: 'clock-vibrate 3s infinite ease-in-out' }} />
+                        Limited Offer
+                      </span>
+                    ) : (
+                      <span style={{
+                        backgroundColor: '#ef4444',
+                        color: '#ffffff',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-full)'
+                      }}>
+                        {discountPct}% OFF
+                      </span>
+                    )
                   )}
                 </>
               )}
@@ -5773,18 +5849,14 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
               <button
                 onClick={handleBuyNowClick}
+                className="btn-buy-now-saffron-glass"
                 style={{
-                  backgroundColor: '#111827',
-                  color: '#ffffff',
                   fontWeight: 800,
                   borderRadius: 'var(--radius-md)',
                   padding: '16px',
                   textAlign: 'center',
-                  boxShadow: 'var(--shadow-sm)',
                   transition: 'opacity 0.15s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
                 Buy Now
               </button>
@@ -8335,12 +8407,24 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         textAlign: 'left'
       }}>
         {/* Price Row */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '0.9rem' }}>
-          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{singleItemPrice.toFixed(2)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+          <span 
+            className={singleItemPrice === 1 ? "highlight-price-flash" : ""} 
+            style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}
+          >
+            ₹{singleItemPrice.toFixed(2)}
+          </span>
           {originalItemPrice && (
             <>
               <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: '0.85rem' }}>₹{originalItemPrice.toFixed(2)}</span>
-              <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.78rem' }}>{discountPct}% OFF</span>
+              {discountPct === 100 || singleItemPrice === 1 ? (
+                <span className="limited-offer-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Clock size={12} style={{ animation: 'clock-vibrate 3s infinite ease-in-out' }} />
+                  Limited Offer
+                </span>
+              ) : (
+                <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.78rem' }}>{discountPct}% OFF</span>
+              )}
             </>
           )}
         </div>
@@ -8365,16 +8449,14 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </button>
           <button
             onClick={handleBuyNowClick}
+            className="btn-buy-now-saffron-glass"
             style={{
-              backgroundColor: '#111827',
-              color: '#ffffff',
               fontWeight: 800,
               padding: '12px',
               borderRadius: 'var(--radius-md)',
               textAlign: 'center',
               fontSize: '0.88rem',
-              textTransform: 'uppercase',
-              boxShadow: '0 2px 4px rgba(17, 24, 39, 0.15)'
+              textTransform: 'uppercase'
             }}
           >
             Buy Now
