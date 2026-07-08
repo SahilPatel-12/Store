@@ -15,8 +15,35 @@ function vercelDevPlugin() {
       server.middlewares.use(async (req: any, res: any, next) => {
         if (req.url && req.url.startsWith('/api/')) {
           const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-          const pathname = url.pathname;
+          let pathname = url.pathname;
           
+          // Parse query parameters
+          const query: Record<string, string> = {};
+          url.searchParams.forEach((val, key) => {
+            query[key] = val;
+          });
+
+          // Simulate vercel.json rewrites locally
+          if (pathname.startsWith('/api/admin/')) {
+            const action = pathname.substring(11);
+            pathname = '/api/admin';
+            if (action === 'whatsapp/config') query['action'] = 'whatsapp-config';
+            else if (action === 'razorpay/config') query['action'] = 'razorpay-config';
+            else if (action === 'razorpay/test-connection') query['action'] = 'razorpay-test';
+            else if (action === 'orders/update-delivery-status') query['action'] = 'orders-update';
+            else if (action === 'orders/confirm-legacy-payment') query['action'] = 'orders-confirm';
+            else if (action === 'orders/decline-legacy-payment') query['action'] = 'orders-decline';
+            else if (action === 'orders/list') query['action'] = 'orders-list';
+          } else if (pathname.startsWith('/api/payments/razorpay/')) {
+            const action = pathname.substring(23);
+            pathname = '/api/payments';
+            query['action'] = action;
+          } else if (pathname.startsWith('/api/customer/')) {
+            const action = pathname.substring(14);
+            pathname = '/api/customer';
+            query['action'] = action;
+          }
+
           let filePath = '';
           const fs = await import('fs');
           const relativePathJs = `./api${pathname.substring(4)}.js`;
@@ -33,11 +60,6 @@ function vercelDevPlugin() {
               const module = await server.ssrLoadModule(filePath);
               const handler = module.default;
               
-              // Parse query
-              const query: Record<string, string> = {};
-              url.searchParams.forEach((val, key) => {
-                query[key] = val;
-              });
               req.query = query;
               
               // Parse body
