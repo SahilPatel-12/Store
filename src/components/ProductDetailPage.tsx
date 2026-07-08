@@ -4086,16 +4086,464 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   return (
     <div className="product-detail-wrapper-spacing" style={{ paddingBottom: '80px', backgroundColor: isVidyaRudraksh ? '#ffffff' : '#fafafa', background: isVidyaRudraksh ? '#ffffff' : '#fafafa', position: 'relative' }}>
 
-      {/* Breadcrumbs Row */}
-      <div className="container" style={{ paddingTop: '24px', paddingBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left' }}>
-          <span style={{ cursor: 'pointer', fontWeight: 600 }} onClick={onBackToShop}>Shop</span>
-          <ChevronRight size={14} />
-          <span style={{ cursor: 'pointer', fontWeight: 600 }}>{product.category}</span>
-          <ChevronRight size={14} />
-          <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>{product.name}</span>
+      {/* Embedded badge keyframe styles & marquee styles */}
+      <style>{`
+        /* Marquee scrolling animation */
+        .announcement-marquee-wrapper {
+          display: flex;
+          width: max-content;
+          animation: marquee-scroll 22s linear infinite;
+        }
+        .announcement-marquee {
+          display: flex;
+          flex-shrink: 0;
+          align-items: center;
+          justify-content: space-around;
+          min-width: 100%;
+          gap: 40px;
+        }
+        @keyframes marquee-scroll {
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); }
+        }
+        .product-price-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        @media (max-width: 480px) {
+          .product-price-container {
+            padding: 10px 12px !important;
+            gap: 8px !important;
+            flex-wrap: nowrap !important;
+          }
+          .product-price-container .highlight-price-flash {
+            font-size: 1.8rem !important;
+          }
+        }
+        .highlight-price-flash {
+          font-weight: 900;
+          color: #b91c1c !important;
+          animation: price-pulse 1.5s infinite ease-in-out;
+          display: inline-block;
+        }
+        @keyframes price-pulse {
+          0%, 100% { transform: scale(1); text-shadow: 0 0 4px rgba(185, 28, 28, 0.2); }
+          50% { transform: scale(1.06); text-shadow: 0 0 12px rgba(185, 28, 28, 0.5); color: #dc2626 !important; }
+        }
+        .btn-buy-now-saffron-glass {
+          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+          color: #ffffff !important;
+          position: relative !important;
+          overflow: hidden !important;
+          box-shadow: 0 4px 14px rgba(234, 88, 12, 0.45) !important;
+          border: none !important;
+          transition: transform 0.2s, box-shadow 0.2s !important;
+        }
+        .btn-buy-now-saffron-glass:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(234, 88, 12, 0.65) !important;
+        }
+        .btn-buy-now-saffron-glass::after {
+          content: '' !important;
+          position: absolute !important;
+          top: -50% !important;
+          left: -60% !important;
+          width: 30% !important;
+          height: 200% !important;
+          background: rgba(255, 255, 255, 0.45) !important;
+          transform: rotate(30deg) !important;
+          animation: glass-shimmer 2.2s infinite linear !important;
+          pointer-events: none !important;
+        }
+        @keyframes glass-shimmer {
+          0% { left: -60%; }
+          30% { left: 140%; }
+          100% { left: 140%; }
+        }
+        .limited-offer-badge {
+          background-color: #ef4444;
+          color: #ffffff;
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 2.5px 8px;
+          border-radius: var(--radius-full);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+          animation: pulse-limited-offer 1.2s infinite ease-in-out;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        @keyframes pulse-limited-offer {
+          0%, 100% { transform: scale(1); opacity: 0.95; }
+          50% { transform: scale(1.05); opacity: 1; filter: brightness(1.15); }
+        }
+        @keyframes clock-vibrate {
+          0%, 85%, 100% { transform: translate(0, 0) rotate(0deg); }
+          88% { transform: translate(-2px, -1px) rotate(-8deg); }
+          91% { transform: translate(2px, 1px) rotate(8deg); }
+          94% { transform: translate(-2px, 1px) rotate(-8deg); }
+          97% { transform: translate(2px, -1px) rotate(8deg); }
+        }
+        .product-detail-title {
+          font-size: 2rem;
+        }
+        @media (max-width: 768px) {
+          .product-detail-title {
+            font-size: 1.7rem;
+          }
+        }
+        @media (max-width: 480px) {
+          .product-detail-title {
+            font-size: 1.45rem;
+          }
+        }
+        .vidya-live-badges-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px 14px;
+        }
+        .location-badge-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background-color: rgba(239, 68, 68, 0.05);
+          border: 1.5px solid rgba(239, 68, 68, 0.25);
+          border-radius: 12px;
+          padding: 10px 16px;
+          margin-bottom: 16px;
+          text-align: left;
+        }
+        .location-badge-text {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #b91c1c;
+          line-height: 1.4;
+        }
+        .badge-live-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          background-color: rgba(16, 185, 129, 0.06);
+          border: 1px solid rgba(16, 185, 129, 0.25);
+          border-radius: var(--radius-full);
+          padding: 6px 16px 6px 8px;
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: #059669;
+          box-shadow: var(--shadow-sm);
+          white-space: nowrap;
+        }
+        .badge-live-pill-orange {
+          background-color: rgba(245, 158, 11, 0.06);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          color: #d97706;
+        }
+        @media (max-width: 480px) {
+          .vidya-live-badges-row {
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+          }
+          .location-badge-container {
+            padding: 8px 12px !important;
+            margin-bottom: 12px !important;
+            gap: 8px !important;
+          }
+          .location-badge-text {
+            font-size: 0.76rem !important;
+          }
+          .badge-icon-pin-container {
+            width: 22px !important;
+            height: 22px !important;
+          }
+          .badge-icon-pin-container svg {
+            width: 12px !important;
+            height: 12px !important;
+          }
+          .badge-live-pill {
+            flex: 1;
+            justify-content: center;
+            padding: 4px 6px !important;
+            font-size: 0.68rem !important;
+            gap: 4px !important;
+          }
+          .badge-icon-live-container, .badge-icon-clock-container {
+            width: 20px !important;
+            height: 20px !important;
+          }
+          .badge-icon-live-container svg, .badge-icon-clock-container svg {
+            width: 10px !important;
+            height: 10px !important;
+          }
+        }
+        @keyframes radar-ping-red {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+          70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        @keyframes pin-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .badge-icon-pin-container {
+          animation: radar-ping-red 2s infinite ease-in-out;
+          background-color: rgba(239, 68, 68, 0.15);
+          border-radius: 50%;
+          width: 26px;
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .badge-icon-pin-container svg {
+          animation: pin-bounce 1.5s infinite ease-in-out;
+          transform-origin: center;
+        }
+        @keyframes radar-ping-green {
+          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+          70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @keyframes radar-ping-orange {
+          0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+          70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        @keyframes eye-blink {
+          0%, 90%, 100% { transform: scaleY(1); }
+          95% { transform: scaleY(0.2); }
+        }
+        .badge-icon-live-container {
+          animation: radar-ping-green 2s infinite ease-in-out;
+          background-color: rgba(16, 185, 129, 0.15);
+          border-radius: 50%;
+          width: 26px;
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .badge-icon-live-container svg {
+          animation: eye-blink 3s infinite ease-in-out;
+          transform-origin: center;
+        }
+        .badge-icon-clock-container {
+          animation: radar-ping-orange 2s infinite ease-in-out;
+          background-color: rgba(245, 158, 11, 0.15);
+          border-radius: 50%;
+          width: 26px;
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .badge-icon-clock-container svg {
+          animation: clock-vibrate 3s infinite ease-in-out;
+          transform-origin: center;
+        }
+      `}</style>
+
+      {/* Marquee Announcement Bar */}
+      <div style={{
+        backgroundColor: '#ea580c',
+        color: '#ffffff',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        padding: '10px 0',
+        fontSize: '0.88rem',
+        fontWeight: 800,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+      }}>
+        <div className="announcement-marquee-wrapper">
+          <div className="announcement-marquee">
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+          </div>
+          <div className="announcement-marquee">
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+          </div>
         </div>
       </div>
+
+      {/* Product Title & Info Header Block (Positioned above visual showcase) */}
+      <header className="container" style={{ paddingTop: '24px', paddingBottom: '8px', textAlign: 'left' }}>
+        {/* Category Tag & Share Button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <span style={{
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            backgroundColor: 'var(--primary-lime-light)',
+            color: 'var(--primary-lime)',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-sm)'
+          }}>
+            {isVidyaRudraksh ? 'Study & Focus' : product.spiritualType}
+          </span>
+          <button
+            onClick={handleShareClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Share2 size={16} /> Share
+          </button>
+        </div>
+
+        {/* Title */}
+        <h1 className="product-detail-title" style={{
+          fontWeight: 900,
+          color: 'var(--text-dark)',
+          lineHeight: '1.2',
+          marginBottom: '4px'
+        }}>
+          {isVidyaRudraksh ? (
+            "Sandipani Ashram Se Siddh Vidya Rudraksh"
+          ) : editable ? (
+            <InlineEdit
+              value={product.name}
+              onChange={(val) => onUpdate && onUpdate({ name: val })}
+              placeholder="Product Name"
+            />
+          ) : (
+            product.name
+          )}
+        </h1>
+
+        {/* Sanskrit Name */}
+        {!isVidyaRudraksh && (editable || pooja.sanskritName) && (
+          <div style={{
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            color: 'var(--primary-forest)',
+            fontFamily: 'Georgia, serif',
+            fontStyle: 'italic',
+            marginBottom: '8px'
+          }}>
+            {editable ? (
+              <InlineEdit
+                value={pooja.sanskritName || ''}
+                onChange={(val) => onUpdate && onUpdate({ sanskritName: val })}
+                placeholder="Sanskrit Name"
+              />
+            ) : (
+              pooja.sanskritName
+            )}
+          </div>
+        )}
+
+        {/* Devotional Subtitle */}
+        {(editable || pooja.subtitle || isVidyaRudraksh) && (
+          <p style={{
+            fontSize: '0.92rem',
+            fontWeight: 500,
+            color: 'var(--text-muted)',
+            marginBottom: '12px',
+            lineHeight: '1.4'
+          }}>
+            {isVidyaRudraksh ? (
+              "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
+            ) : editable ? (
+              <InlineEdit
+                value={pooja.subtitle || ''}
+                onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
+                placeholder="Devotional Subtitle"
+              />
+            ) : (
+              pooja.subtitle
+            )}
+          </p>
+        )}
+
+        {/* Location Badge (Only for Vidya Rudraksh) */}
+        {isVidyaRudraksh && (
+          <div className="location-badge-container">
+            <span 
+              className="badge-icon-pin-container" 
+              style={{ 
+                color: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                borderRadius: '50%',
+                width: '26px',
+                height: '26px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <MapPin size={15} strokeWidth={2.5} />
+            </span>
+            <span className="location-badge-text">
+              Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddh Anushthan Ke Baad Abhimantrit
+            </span>
+          </div>
+        )}
+
+        {/* Live viewers & Countdown deal badges (Only for Vidya Rudraksh) */}
+        {isVidyaRudraksh && (
+          <div 
+            className="vidya-live-badges-row"
+            style={{
+              marginBottom: '16px',
+              fontFamily: 'var(--font-sans)',
+              textAlign: 'left'
+            }}
+          >
+            {/* Viewer Count Badge */}
+            <div className="badge-live-pill">
+              <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
+                <Eye size={15} strokeWidth={2.5} />
+              </span>
+              <span>{viewersCount} people viewing now</span>
+            </div>
+
+            {/* Countdown Deal Badge */}
+            <div className="badge-live-pill badge-live-pill-orange">
+              <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
+                <Clock size={15} strokeWidth={2.5} />
+              </span>
+              <span>Sale ends in {timeLeft || '09:45:45'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Star Rating summary */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star
+                key={s}
+                size={16}
+                fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
+                color="#fbbf24"
+              />
+            ))}
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
+        </div>
+      </header>
 
       {/* Devotional Sections Visibility Toolbar */}
       {editable && (
@@ -5047,403 +5495,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           {/* Right Column: Title, Specs, Variant, Quantity, and Main Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left', minWidth: 0 }}>
 
-            {/* Title & Reviews Row */}
+            {/* Reviews Row */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  backgroundColor: 'var(--primary-lime-light)',
-                  color: 'var(--primary-lime)',
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-sm)'
-                }}>
-                  {isVidyaRudraksh ? 'Study & Focus' : product.spiritualType}
-                </span>
-
-                {/* Share Button */}
-                <button
-                  onClick={handleShareClick}
-                  style={{
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-lime)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                >
-                  <Share2 size={16} /> Share
-                </button>
-              </div>
-
-              <h1 className="product-detail-title" style={{
-                fontWeight: 900,
-                color: 'var(--text-dark)',
-                lineHeight: '1.2',
-                marginBottom: '4px'
-              }}>
-                {isVidyaRudraksh ? (
-                  "Sandipani Ashram Se Siddh Vidya Rudraksh"
-                ) : editable ? (
-                  <InlineEdit
-                    value={product.name}
-                    onChange={(val) => onUpdate && onUpdate({ name: val })}
-                    placeholder="Product Name"
-                  />
-                ) : (
-                  product.name
-                )}
-              </h1>
-              {!isVidyaRudraksh && (editable || pooja.sanskritName) && (
-                <div style={{
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  color: 'var(--primary-forest)',
-                  fontFamily: 'Georgia, serif',
-                  fontStyle: 'italic',
-                  marginBottom: '8px'
-                }}>
-                  {editable ? (
-                    <InlineEdit
-                      value={pooja.sanskritName || ''}
-                      onChange={(val) => onUpdate && onUpdate({ sanskritName: val })}
-                      placeholder="Sanskrit Name"
-                    />
-                  ) : (
-                    pooja.sanskritName
-                  )}
-                </div>
-              )}
-              {(editable || pooja.subtitle || isVidyaRudraksh) && (
-                <p style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 500,
-                  color: 'var(--text-muted)',
-                  marginBottom: '12px',
-                  lineHeight: '1.4'
-                }}>
-                  {isVidyaRudraksh ? (
-                    "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
-                  ) : editable ? (
-                    <InlineEdit
-                      value={pooja.subtitle || ''}
-                      onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
-                      placeholder="Devotional Subtitle"
-                    />
-                  ) : (
-                    pooja.subtitle
-                  )}
-                </p>
-              )}
-
-              {/* Location Badge (Only for Vidya Rudraksh) */}
-              {isVidyaRudraksh && (
-                <div className="location-badge-container">
-                  <span 
-                    className="badge-icon-pin-container" 
-                    style={{ 
-                      color: '#ef4444',
-                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                      borderRadius: '50%',
-                      width: '26px',
-                      height: '26px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}
-                  >
-                    <MapPin size={15} strokeWidth={2.5} />
-                  </span>
-                  <span className="location-badge-text">
-                    Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddhi Anushthan Ke Baad Abhimantrit
-                  </span>
-                </div>
-              )}
-
-              {/* Live viewers & Countdown deal badges (Only for Vidya Rudraksh) */}
-              {isVidyaRudraksh && (
-                <div 
-                  className="vidya-live-badges-row"
-                  style={{
-                    marginBottom: '16px',
-                    fontFamily: 'var(--font-sans)',
-                    textAlign: 'left'
-                  }}
-                >
-                  {/* Embedded badge keyframe styles */}
-                  <style>{`
-                    .product-price-container {
-                      display: flex;
-                      align-items: center;
-                      gap: 12px;
-                      flex-wrap: wrap;
-                    }
-                    @media (max-width: 480px) {
-                      .product-price-container {
-                        padding: 10px 12px !important;
-                        gap: 8px !important;
-                        flex-wrap: nowrap !important;
-                      }
-                      .product-price-container .highlight-price-flash {
-                        font-size: 1.8rem !important;
-                      }
-                    }
-                    .highlight-price-flash {
-                      font-weight: 900;
-                      color: #b91c1c !important;
-                      animation: price-pulse 1.5s infinite ease-in-out;
-                      display: inline-block;
-                    }
-                    @keyframes price-pulse {
-                      0%, 100% { transform: scale(1); text-shadow: 0 0 4px rgba(185, 28, 28, 0.2); }
-                      50% { transform: scale(1.06); text-shadow: 0 0 12px rgba(185, 28, 28, 0.5); color: #dc2626 !important; }
-                    }
-                    .btn-buy-now-saffron-glass {
-                      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
-                      color: #ffffff !important;
-                      position: relative !important;
-                      overflow: hidden !important;
-                      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.45) !important;
-                      border: none !important;
-                      transition: transform 0.2s, box-shadow 0.2s !important;
-                    }
-                    .btn-buy-now-saffron-glass:hover {
-                      transform: translateY(-2px);
-                      box-shadow: 0 6px 20px rgba(234, 88, 12, 0.65) !important;
-                    }
-                    .btn-buy-now-saffron-glass::after {
-                      content: '' !important;
-                      position: absolute !important;
-                      top: -50% !important;
-                      left: -60% !important;
-                      width: 30% !important;
-                      height: 200% !important;
-                      background: rgba(255, 255, 255, 0.45) !important;
-                      transform: rotate(30deg) !important;
-                      animation: glass-shimmer 2.2s infinite linear !important;
-                      pointer-events: none !important;
-                    }
-                    @keyframes glass-shimmer {
-                      0% { left: -60%; }
-                      30% { left: 140%; }
-                      100% { left: 140%; }
-                    }
-                    .limited-offer-badge {
-                      background-color: #ef4444;
-                      color: #ffffff;
-                      font-size: 0.72rem;
-                      font-weight: 800;
-                      padding: 2.5px 8px;
-                      border-radius: var(--radius-full);
-                      text-transform: uppercase;
-                      letter-spacing: 0.5px;
-                      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
-                      animation: pulse-limited-offer 1.2s infinite ease-in-out;
-                      display: inline-flex;
-                      align-items: center;
-                      gap: 4px;
-                    }
-                    @keyframes pulse-limited-offer {
-                      0%, 100% { transform: scale(1); opacity: 0.95; }
-                      50% { transform: scale(1.05); opacity: 1; filter: brightness(1.15); }
-                    }
-                    @keyframes clock-vibrate {
-                      0%, 85%, 100% { transform: translate(0, 0) rotate(0deg); }
-                      88% { transform: translate(-2px, -1px) rotate(-8deg); }
-                      91% { transform: translate(2px, 1px) rotate(8deg); }
-                      94% { transform: translate(-2px, 1px) rotate(-8deg); }
-                      97% { transform: translate(2px, -1px) rotate(8deg); }
-                    }
-                    .product-detail-title {
-                      font-size: 2rem;
-                    }
-                    @media (max-width: 768px) {
-                      .product-detail-title {
-                        font-size: 1.7rem;
-                      }
-                    }
-                    @media (max-width: 480px) {
-                      .product-detail-title {
-                        font-size: 1.45rem;
-                      }
-                    }
-                    .vidya-live-badges-row {
-                      display: flex;
-                      flex-wrap: wrap;
-                      gap: 10px 14px;
-                    }
-                    .location-badge-container {
-                      display: flex;
-                      align-items: center;
-                      gap: 12px;
-                      background-color: rgba(239, 68, 68, 0.05);
-                      border: 1.5px solid rgba(239, 68, 68, 0.25);
-                      border-radius: 12px;
-                      padding: 10px 16px;
-                      margin-bottom: 16px;
-                      text-align: left;
-                    }
-                    .location-badge-text {
-                      font-size: 0.88rem;
-                      font-weight: 700;
-                      color: #b91c1c;
-                      line-height: 1.4;
-                    }
-                    .badge-live-pill {
-                      display: inline-flex;
-                      align-items: center;
-                      gap: 10px;
-                      background-color: rgba(16, 185, 129, 0.06);
-                      border: 1px solid rgba(16, 185, 129, 0.25);
-                      border-radius: var(--radius-full);
-                      padding: 6px 16px 6px 8px;
-                      font-size: 0.85rem;
-                      font-weight: 800;
-                      color: #059669;
-                      box-shadow: var(--shadow-sm);
-                      white-space: nowrap;
-                    }
-                    .badge-live-pill-orange {
-                      background-color: rgba(245, 158, 11, 0.06);
-                      border: 1px solid rgba(245, 158, 11, 0.25);
-                      color: #d97706;
-                    }
-                    @media (max-width: 480px) {
-                      .vidya-live-badges-row {
-                        flex-wrap: wrap !important;
-                        gap: 8px !important;
-                      }
-                      .location-badge-container {
-                        padding: 8px 12px !important;
-                        margin-bottom: 12px !important;
-                        gap: 8px !important;
-                      }
-                      .location-badge-text {
-                        font-size: 0.76rem !important;
-                      }
-                      .badge-icon-pin-container {
-                        width: 22px !important;
-                        height: 22px !important;
-                      }
-                      .badge-icon-pin-container svg {
-                        width: 12px !important;
-                        height: 12px !important;
-                      }
-                      .badge-live-pill {
-                        flex: 1;
-                        justify-content: center;
-                        padding: 4px 6px !important;
-                        font-size: 0.68rem !important;
-                        gap: 4px !important;
-                      }
-                      .badge-icon-live-container, .badge-icon-clock-container {
-                        width: 20px !important;
-                        height: 20px !important;
-                      }
-                      .badge-icon-live-container svg, .badge-icon-clock-container svg {
-                        width: 10px !important;
-                        height: 10px !important;
-                      }
-                    }
-                    @keyframes radar-ping-red {
-                      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-                      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-                      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-                    }
-                    @keyframes pin-bounce {
-                      0%, 100% { transform: translateY(0); }
-                      50% { transform: translateY(-4px); }
-                    }
-                    .badge-icon-pin-container {
-                      animation: radar-ping-red 2s infinite ease-in-out;
-                      background-color: rgba(239, 68, 68, 0.15);
-                      border-radius: 50%;
-                      width: 26px;
-                      height: 26px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      flex-shrink: 0;
-                    }
-                    .badge-icon-pin-container svg {
-                      animation: pin-bounce 1.5s infinite ease-in-out;
-                      transform-origin: center;
-                    }
-                    @keyframes radar-ping-green {
-                      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
-                      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-                      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-                    }
-                    @keyframes radar-ping-orange {
-                      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
-                      70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-                      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-                    }
-                    @keyframes eye-blink {
-                      0%, 90%, 100% { transform: scaleY(1); }
-                      95% { transform: scaleY(0.2); }
-                    }
-                    @keyframes clock-ticktock {
-                      0%, 100% { transform: rotate(-15deg); }
-                      50% { transform: rotate(15deg); }
-                    }
-                    .badge-icon-live-container {
-                      animation: radar-ping-green 2s infinite ease-in-out;
-                      background-color: rgba(16, 185, 129, 0.15);
-                      border-radius: 50%;
-                      width: 26px;
-                      height: 26px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      flex-shrink: 0;
-                    }
-                    .badge-icon-live-container svg {
-                      animation: eye-blink 3s infinite ease-in-out;
-                      transform-origin: center;
-                    }
-                    .badge-icon-clock-container {
-                      animation: radar-ping-orange 2s infinite ease-in-out;
-                      background-color: rgba(245, 158, 11, 0.15);
-                      border-radius: 50%;
-                      width: 26px;
-                      height: 26px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      flex-shrink: 0;
-                    }
-                    .badge-icon-clock-container svg {
-                      animation: clock-vibrate 3s infinite ease-in-out;
-                      transform-origin: center;
-                    }
-                  `}</style>
-
-                  {/* Viewer Count Badge */}
-                  <div className="badge-live-pill">
-                    <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
-                      <Eye size={15} strokeWidth={2.5} />
-                    </span>
-                    <span>{viewersCount} people viewing now</span>
-                  </div>
-
-                  {/* Countdown Deal Badge */}
-                  <div className="badge-live-pill badge-live-pill-orange">
-                    <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
-                      <Clock size={15} strokeWidth={2.5} />
-                    </span>
-                    <span>Sale ends in {timeLeft || '09:45:45'}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Star Rating summary */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
                   {[1, 2, 3, 4, 5].map((s) => (
