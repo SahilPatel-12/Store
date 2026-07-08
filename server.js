@@ -85,7 +85,7 @@ const PATH_MAP = {
 // Main server handler
 const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = parsedUrl.pathname;
+  const pathname = decodeURIComponent(parsedUrl.pathname);
 
   // Diagnostic log for all requests
   console.log(`[Server] Request: ${req.method} ${pathname}`);
