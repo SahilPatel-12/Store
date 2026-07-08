@@ -1,4 +1,5 @@
 {
+  "ignoreCommand": "exit 0",
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -17,51 +18,11 @@
       "destination": "/api/share"
     },
     {
-      "source": "/api/admin/whatsapp/config",
-      "destination": "/api/admin?action=whatsapp-config"
+      "source": "/api/send-otp",
+      "destination": "/api/send-otp"
     },
     {
-      "source": "/api/admin/razorpay/config",
-      "destination": "/api/admin?action=razorpay-config"
-    },
-    {
-      "source": "/api/admin/razorpay/test-connection",
-      "destination": "/api/admin?action=razorpay-test"
-    },
-    {
-      "source": "/api/admin/orders/update-delivery-status",
-      "destination": "/api/admin?action=orders-update"
-    },
-    {
-      "source": "/api/admin/orders/confirm-legacy-payment",
-      "destination": "/api/admin?action=orders-confirm"
-    },
-    {
-      "source": "/api/admin/orders/decline-legacy-payment",
-      "destination": "/api/admin?action=orders-decline"
-    },
-    {
-      "source": "/api/admin/orders/list",
-      "destination": "/api/admin?action=orders-list"
-    },
-    {
-      "source": "/api/payments/razorpay/create-order",
-      "destination": "/api/payments?action=create-order"
-    },
-    {
-      "source": "/api/payments/razorpay/verify",
-      "destination": "/api/payments?action=verify"
-    },
-    {
-      "source": "/api/customer/orders",
-      "destination": "/api/customer?action=orders"
-    },
-    {
-      "source": "/api/customer/addresses",
-      "destination": "/api/customer?action=addresses"
-    },
-    {
-      "source": "/((?!api/|sitemap|robots|share).*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
