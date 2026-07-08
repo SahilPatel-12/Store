@@ -3790,6 +3790,32 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     };
   }, [lightboxIndex, resolvedGallery.length]);
 
+  // Swipe Handlers for mobile gallery finger scroll
+  const touchStartX = React.useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX;
+    if (diff > 50) {
+      setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
+    } else if (diff < -50) {
+      setActiveImageIndex((prev) => (prev - 1 + resolvedGallery.length) % resolvedGallery.length);
+    }
+    touchStartX.current = null;
+  };
+
+  // Auto-scroll images every 3 seconds, resetting timer on active index transition
+  React.useEffect(() => {
+    if (resolvedGallery.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeImageIndex, resolvedGallery.length]);
+
   // Resolve explicit related products first, then fallback to automatic ones
   const resolvedRelated = React.useMemo(() => {
     if (pooja.relatedProducts && pooja.relatedProducts.length > 0) {
@@ -4358,7 +4384,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         padding: '10px 0',
         fontSize: '0.88rem',
         fontWeight: 800,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+        boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
+        marginBottom: '16px'
       }}>
         <div className="announcement-marquee-wrapper">
           <div className="announcement-marquee">
@@ -4378,8 +4405,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
       {/* Product Title & Info Header Block (Positioned above visual showcase) */}
       <header className="container" style={{ paddingTop: '24px', paddingBottom: '8px', textAlign: 'left' }}>
-        {/* Category Tag & Share Button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        {/* Category Tag */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
           <span style={{
             fontSize: '0.78rem',
             fontWeight: 800,
@@ -4392,22 +4419,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           }}>
             {isVidyaRudraksh ? 'Study & Focus' : product.spiritualType}
           </span>
-          <button
-            onClick={handleShareClick}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <Share2 size={16} /> Share
-          </button>
         </div>
 
         {/* Title */}
@@ -4429,120 +4440,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             product.name
           )}
         </h1>
-
-        {/* Sanskrit Name */}
-        {!isVidyaRudraksh && (editable || pooja.sanskritName) && (
-          <div style={{
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            color: 'var(--primary-forest)',
-            fontFamily: 'Georgia, serif',
-            fontStyle: 'italic',
-            marginBottom: '8px'
-          }}>
-            {editable ? (
-              <InlineEdit
-                value={pooja.sanskritName || ''}
-                onChange={(val) => onUpdate && onUpdate({ sanskritName: val })}
-                placeholder="Sanskrit Name"
-              />
-            ) : (
-              pooja.sanskritName
-            )}
-          </div>
-        )}
-
-        {/* Devotional Subtitle */}
-        {(editable || pooja.subtitle || isVidyaRudraksh) && (
-          <p style={{
-            fontSize: '0.92rem',
-            fontWeight: 500,
-            color: 'var(--text-muted)',
-            marginBottom: '12px',
-            lineHeight: '1.4'
-          }}>
-            {isVidyaRudraksh ? (
-              "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
-            ) : editable ? (
-              <InlineEdit
-                value={pooja.subtitle || ''}
-                onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
-                placeholder="Devotional Subtitle"
-              />
-            ) : (
-              pooja.subtitle
-            )}
-          </p>
-        )}
-
-        {/* Location Badge (Only for Vidya Rudraksh) */}
-        {isVidyaRudraksh && (
-          <div className="location-badge-container">
-            <span 
-              className="badge-icon-pin-container" 
-              style={{ 
-                color: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                borderRadius: '50%',
-                width: '26px',
-                height: '26px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}
-            >
-              <MapPin size={15} strokeWidth={2.5} />
-            </span>
-            <span className="location-badge-text">
-              Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddh Anushthan Ke Baad Abhimantrit
-            </span>
-          </div>
-        )}
-
-        {/* Live viewers & Countdown deal badges (Only for Vidya Rudraksh) */}
-        {isVidyaRudraksh && (
-          <div 
-            className="vidya-live-badges-row"
-            style={{
-              marginBottom: '16px',
-              fontFamily: 'var(--font-sans)',
-              textAlign: 'left'
-            }}
-          >
-            {/* Viewer Count Badge */}
-            <div className="badge-live-pill">
-              <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
-                <Eye size={15} strokeWidth={2.5} />
-              </span>
-              <span>{viewersCount} people viewing now</span>
-            </div>
-
-            {/* Countdown Deal Badge */}
-            <div className="badge-live-pill badge-live-pill-orange">
-              <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
-                <Clock size={15} strokeWidth={2.5} />
-              </span>
-              <span>Sale ends in {timeLeft || '09:45:45'}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Star Rating summary */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Star
-                key={s}
-                size={16}
-                fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
-                color="#fbbf24"
-              />
-            ))}
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
-        </div>
       </header>
 
       {/* Devotional Sections Visibility Toolbar */}
@@ -4797,6 +4694,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
             {/* Primary Image View */}
             <div 
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
               onClick={() => {
                 if (!editable && !resolvedGallery[activeImageIndex]?.isEmoji) {
                   setLightboxIndex(activeImageIndex);
@@ -4817,6 +4716,38 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 cursor: resolvedGallery[activeImageIndex]?.isEmoji ? 'default' : 'zoom-in',
               }}
             >
+              {/* Floating Share Button on Image */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShareClick();
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(4px)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-sm)',
+                  zIndex: 25,
+                  color: 'var(--text-dark)',
+                  transition: 'all 0.2s',
+                }}
+                title="Share product"
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <Share2 size={18} />
+              </button>
               {!resolvedGallery[activeImageIndex]?.isEmoji && (
                 <button
                   type="button"
@@ -5494,6 +5425,123 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
           {/* Right Column: Title, Specs, Variant, Quantity, and Main Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left', minWidth: 0 }}>
+
+            {/* Reviews, Subtitle & Live Badges Block (Moved below image/right column start) */}
+            <div>
+              {/* Sanskrit Name */}
+              {!isVidyaRudraksh && (editable || pooja.sanskritName) && (
+                <div style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  color: 'var(--primary-forest)',
+                  fontFamily: 'Georgia, serif',
+                  fontStyle: 'italic',
+                  marginBottom: '8px'
+                }}>
+                  {editable ? (
+                    <InlineEdit
+                      value={pooja.sanskritName || ''}
+                      onChange={(val) => onUpdate && onUpdate({ sanskritName: val })}
+                      placeholder="Sanskrit Name"
+                    />
+                  ) : (
+                    pooja.sanskritName
+                  )}
+                </div>
+              )}
+
+              {/* Devotional Subtitle */}
+              {(editable || pooja.subtitle || isVidyaRudraksh) && (
+                <p style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 500,
+                  color: 'var(--text-muted)',
+                  marginBottom: '12px',
+                  lineHeight: '1.4'
+                }}>
+                  {isVidyaRudraksh ? (
+                    "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
+                  ) : editable ? (
+                    <InlineEdit
+                      value={pooja.subtitle || ''}
+                      onChange={(val) => onUpdate && onUpdate({ subtitle: val })}
+                      placeholder="Devotional Subtitle"
+                    />
+                  ) : (
+                    pooja.subtitle
+                  )}
+                </p>
+              )}
+
+              {/* Location Badge (Only for Vidya Rudraksh) */}
+              {isVidyaRudraksh && (
+                <div className="location-badge-container" style={{ marginBottom: '12px' }}>
+                  <span 
+                    className="badge-icon-pin-container" 
+                    style={{ 
+                      color: '#ef4444',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      borderRadius: '50%',
+                      width: '26px',
+                      height: '26px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <MapPin size={15} strokeWidth={2.5} />
+                  </span>
+                  <span className="location-badge-text">
+                    Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddh Anushthan Ke Baad Abhimantrit
+                  </span>
+                </div>
+              )}
+
+              {/* Live viewers & Countdown deal badges (Only for Vidya Rudraksh) */}
+              {isVidyaRudraksh && (
+                <div 
+                  className="vidya-live-badges-row"
+                  style={{
+                    marginBottom: '12px',
+                    fontFamily: 'var(--font-sans)',
+                    textAlign: 'left'
+                  }}
+                >
+                  {/* Viewer Count Badge */}
+                  <div className="badge-live-pill">
+                    <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
+                      <Eye size={15} strokeWidth={2.5} />
+                    </span>
+                    <span>{viewersCount} people viewing now</span>
+                  </div>
+
+                  {/* Countdown Deal Badge */}
+                  <div className="badge-live-pill badge-live-pill-orange">
+                    <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
+                      <Clock size={15} strokeWidth={2.5} />
+                    </span>
+                    <span>Sale ends in {timeLeft || '09:45:45'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Star Rating summary */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={16}
+                      fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
+                      color="#fbbf24"
+                    />
+                  ))}
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
+              </div>
+            </div>
 
             {/* Trust Badges (Only for Vidya Rudraksh) */}
               {isVidyaRudraksh && (
