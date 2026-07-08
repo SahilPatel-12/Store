@@ -1061,8 +1061,17 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Server error saving configurations.');
+        const errorText = await response.text();
+        let errorMsg = `Server error (Status ${response.status})`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          if (errorText) {
+            errorMsg += `: ${errorText.substring(0, 150)}`;
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       triggerToast('WhatsApp configurations stored & encrypted successfully!');
