@@ -5495,24 +5495,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           {/* Right Column: Title, Specs, Variant, Quantity, and Main Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left', minWidth: 0 }}>
 
-            {/* Reviews Row */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={16}
-                      fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
-                      color="#fbbf24"
-                    />
-                  ))}
-                </div>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
-              </div>
-
-              {/* Trust Badges (Only for Vidya Rudraksh) */}
+            {/* Trust Badges (Only for Vidya Rudraksh) */}
               {isVidyaRudraksh && (
                 <div 
                   className="vidya-trust-grid"
@@ -5689,7 +5672,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   </div>
                 </div>
               )}
-            </div>
 
             {/* Pricing Section with Dynamic Modifier */}
             <div className="product-price-container" style={{
