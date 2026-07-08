@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
+import { supabaseAdmin } from '../supabase-admin.js';
 
 async function verifyAdmin(token) {
   if (!token) return false;

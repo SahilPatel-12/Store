@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
-import { getRazorpayClient } from '../../_lib/razorpay-client.js';
-import { decryptTextServer } from '../../_lib/crypto-server.js';
+import { supabaseAdmin } from '../supabase-admin.js';
+import { getRazorpayClient } from '../razorpay-client.js';
+import { decryptTextServer } from '../crypto-server.js';
 
 // Verify devotee session
 async function verifySession(token) {

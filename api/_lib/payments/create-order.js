@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
-import { getRazorpayClient } from '../../_lib/razorpay-client.js';
+import { supabaseAdmin } from '../supabase-admin.js';
+import { getRazorpayClient } from '../razorpay-client.js';
 
 // Verify the devotee session and return customer ID
 async function verifySession(token) {

@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
-import { encryptTextServer } from '../../_lib/crypto-server.js';
+import { supabaseAdmin } from '../supabase-admin.js';
+import { encryptTextServer } from '../crypto-server.js';
 
 // Verify if the admin token is valid and not expired
 async function verifyAdmin(token) {

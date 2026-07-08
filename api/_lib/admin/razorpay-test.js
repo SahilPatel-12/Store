@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
-import { getRazorpayClient } from '../../_lib/razorpay-client.js';
+import { supabaseAdmin } from '../supabase-admin.js';
+import { getRazorpayClient } from '../razorpay-client.js';
 
 // Verify if the admin token is valid and not expired
 async function verifyAdmin(token) {

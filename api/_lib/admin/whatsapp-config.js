@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../../_lib/supabase-admin.js';
-import { encryptTextServer, decryptTextServer } from '../../_lib/crypto-server.js';
+import { supabaseAdmin } from '../supabase-admin.js';
+import { encryptTextServer, decryptTextServer } from '../crypto-server.js';
 
 async function verifyAdmin(token) {
   if (!token) return null;
