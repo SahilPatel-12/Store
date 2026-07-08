@@ -4345,7 +4345,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         }} className="hero-grid-split">
 
           {/* Left Column: Visual Showcase & Authenticity Badges */}
-          <div className="product-image-sticky-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="product-image-sticky-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
 
             {/* Primary Image View */}
             <div 
@@ -5045,7 +5045,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </div>
 
           {/* Right Column: Title, Specs, Variant, Quantity, and Main Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left', minWidth: 0 }}>
 
             {/* Title & Reviews Row */}
             <div>
@@ -5817,6 +5817,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '16px',
+                  flexWrap: 'wrap',
                   boxShadow: 'var(--shadow-sm)',
                   position: 'relative',
                   overflow: 'hidden',
