@@ -1,4 +1,17 @@
 export async function hashPassword(password: string): Promise<string> {
+  const hasSubtle = typeof window !== 'undefined' && window.crypto && window.crypto.subtle;
+  if (!hasSubtle) {
+    try {
+      const forge = await loadForge();
+      const md = forge.md.sha256.create();
+      md.update(password, 'utf8');
+      return md.digest().toHex();
+    } catch (e) {
+      console.error('Password hash fallback failed:', e);
+      throw new Error('Hash failed');
+    }
+  }
+
   const msgUint8 = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
