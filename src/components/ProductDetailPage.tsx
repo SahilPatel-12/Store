@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Sparkles, Package, MapPin } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Package, MapPin, Landmark } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -5088,7 +5088,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 marginBottom: '4px'
               }}>
                 {isVidyaRudraksh ? (
-                  "Sandipani Ashram Se Siddh Vidya Rudraksh™"
+                  "Sandipani Ashram Se Siddh Vidya Rudraksh"
                 ) : editable ? (
                   <InlineEdit
                     value={product.name}
@@ -5584,7 +5584,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         boxShadow: '0 4px 10px rgba(251, 191, 36, 0.3)'
                       }}
                     >
-                      <Sparkles size={15} />
+                      <Landmark size={15} />
                     </div>
                     <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
                       Sandipani Ashram Siddh
