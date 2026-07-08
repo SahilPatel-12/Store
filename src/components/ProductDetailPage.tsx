@@ -1109,7 +1109,8 @@ const VidyaEmotionalHookSection: React.FC = () => {
           overflow: hidden;
           box-shadow: 0 12px 24px rgba(249, 115, 22, 0.08);
           border: 3px solid #ffffff;
-          height: 250px;
+          aspect-ratio: 1 / 1;
+          width: 100%;
         }
         .dream-image-wrapper img {
           width: 100%;
@@ -1249,8 +1250,10 @@ const VidyaEmotionalHookSection: React.FC = () => {
             gap: 24px;
           }
           .dream-image-wrapper {
-            max-width: 100%;
-            height: 200px;
+            width: 100%;
+            max-width: 340px;
+            margin: 0 auto;
+            aspect-ratio: 1 / 1;
           }
         }
         @media (max-width: 480px) {
@@ -1282,7 +1285,7 @@ const VidyaEmotionalHookSection: React.FC = () => {
           <div className="emotional-left-col">
             <div className="dream-image-wrapper">
               <img 
-                src="/student_study_focus.png" 
+                src="/student_study_focus.jpg" 
                 alt="Child concentrating on studies happily"
                 onError={(e) => {
                   e.currentTarget.onerror = null;
@@ -1293,7 +1296,7 @@ const VidyaEmotionalHookSection: React.FC = () => {
                 <span style={{ fontSize: '1.1rem' }}>🕉️</span>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>Blessed Environment</span>
-                  <span style={{ fontSize: '0.66rem', color: '#ea580c', fontWeight: 700 }}>Vikrant Bhairav Ujjain</span>
+                  <span style={{ fontSize: '0.66rem', color: '#ea580c', fontWeight: 700 }}>Sandipani Ashram</span>
                 </div>
               </div>
             </div>
@@ -1741,9 +1744,43 @@ const VidyaEmotionalStorySection: React.FC = () => {
           }
         }
         .vidya-chat-container {
-          max-width: 520px;
+          max-width: 1100px;
           margin: 0 auto;
           padding: 0 20px;
+        }
+        .vidya-chat-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+          align-items: start;
+        }
+        @media (max-width: 991px) {
+          .vidya-chat-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+        }
+        .vidya-chat-image-col {
+          position: relative;
+          border-radius: 20px;
+          overflow: hidden;
+          box-shadow: 0 12px 24px rgba(45, 20, 14, 0.08);
+          border: 3px solid #ffffff;
+          aspect-ratio: 1 / 1;
+          width: 100%;
+          max-width: 460px;
+          margin: 0 auto;
+        }
+        .vidya-chat-image-col img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .vidya-chat-content-col {
+          width: 100%;
+          max-width: 520px;
+          margin: 0 auto;
         }
         .vidya-chat-header {
           text-align: center;
@@ -1958,53 +1995,72 @@ const VidyaEmotionalStorySection: React.FC = () => {
           <p className="vidya-chat-desc">School badalne se lekar coaching tak, maa-baap sab karke thak chuke hain.</p>
         </div>
 
-        <div className="vidya-chat-window">
-          <div className="vidya-chat-topbar">
-            <div className="vidya-chat-avatar">🏡</div>
-            <div className="vidya-chat-status-info">
-              <span className="vidya-chat-group-name">Parents Discussion</span>
-              <span className="vidya-chat-status">
-                {isTyping ? "typing..." : "online"}
-              </span>
+        <div className="vidya-chat-grid">
+          {/* Left Column: Stressed Parents Image */}
+          <div className="vidya-chat-image-col">
+            <img 
+              src="/parent_story_stress.jpg" 
+              alt="Parents concerned or strict while child is studying" 
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=800&q=80";
+              }}
+            />
+          </div>
+
+          {/* Right Column: Chat Window and Action Button */}
+          <div className="vidya-chat-content-col">
+            <div className="vidya-chat-window">
+              <div className="vidya-chat-topbar">
+                <div className="vidya-chat-avatar">🏡</div>
+                <div className="vidya-chat-status-info">
+                  <span className="vidya-chat-group-name">Parents Discussion</span>
+                  <span className="vidya-chat-status">
+                    {isTyping ? "typing..." : "online"}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="vidya-chat-body">
+                {messages.slice(0, visibleCount).map((msg, idx) => {
+                  const isMother = msg.sender === "Mother";
+                  return (
+                    <div key={idx} className={`vidya-chat-bubble-wrap ${isMother ? 'mother' : 'father'} ${msg.isCritical ? 'critical' : ''}`}>
+                      <span className="vidya-chat-bubble-sender">{msg.sender}</span>
+                      <div className="vidya-chat-bubble">
+                        <span className="vidya-chat-bubble-text">{msg.text}</span>
+                        <span className="vidya-chat-bubble-time">{msg.time}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {isTyping && (
+                  <div className="vidya-chat-typing-bubble">
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '16px' }}>
+              {visibleCount < messages.length ? (
+                <button className="vidya-chat-action-btn" onClick={handleNextMessage} disabled={isTyping}>
+                  {isTyping ? "Aage Padh rahe hain..." : "Aage Kya Hua? Padhye 👉"}
+                </button>
+              ) : (
+                <div className="vidya-chat-pivot-banner">
+                  <span className="vidya-chat-pivot-text">The Solution</span>
+                  <h3 className="vidya-chat-pivot-headline">
+                    Yahi soch <span style={{ color: '#fbbf24', fontWeight: 900 }}>Vidya Rudraksh</span> ki prerna bani.
+                  </h3>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div className="vidya-chat-body">
-            {messages.slice(0, visibleCount).map((msg, idx) => {
-              const isMother = msg.sender === "Mother";
-              return (
-                <div key={idx} className={`vidya-chat-bubble-wrap ${isMother ? 'mother' : 'father'} ${msg.isCritical ? 'critical' : ''}`}>
-                  <span className="vidya-chat-bubble-sender">{msg.sender}</span>
-                  <div className="vidya-chat-bubble">
-                    <span className="vidya-chat-bubble-text">{msg.text}</span>
-                    <span className="vidya-chat-bubble-time">{msg.time}</span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {isTyping && (
-              <div className="vidya-chat-typing-bubble">
-                <div className="typing-dot" />
-                <div className="typing-dot" />
-                <div className="typing-dot" />
-              </div>
-            )}
-          </div>
         </div>
-
-        {visibleCount < messages.length ? (
-          <button className="vidya-chat-action-btn" onClick={handleNextMessage} disabled={isTyping}>
-            {isTyping ? "Aage Padh rahe hain..." : "Aage Kya Hua? Padhye 👉"}
-          </button>
-        ) : (
-          <div className="vidya-chat-pivot-banner">
-            <span className="vidya-chat-pivot-text">The Solution</span>
-            <h3 className="vidya-chat-pivot-headline">
-              Yahi soch <span style={{ color: '#fbbf24', fontWeight: 900 }}>Vidya Rudraksh</span> ki prerna bani.
-            </h3>
-          </div>
-        )}
       </div>
     </section>
   );
@@ -4132,6 +4188,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); }
         }
+        @keyframes pulse-red {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.3); opacity: 0.4; }
+        }
+        .animate-pulse-red {
+          animation: pulse-red 1.5s infinite ease-in-out;
+        }
         .product-price-container {
           display: flex;
           align-items: center;
@@ -5527,19 +5590,23 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               )}
 
               {/* Star Rating summary */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star
                       key={s}
                       size={16}
-                      fill={s <= Math.round(product.rating) ? '#fbbf24' : 'none'}
+                      fill={s <= (isVidyaRudraksh ? 4 : Math.round(product.rating)) ? '#fbbf24' : 'none'}
                       color="#fbbf24"
                     />
                   ))}
                 </div>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>{product.rating}</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>({reviews.length} customer reviews)</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                  {isVidyaRudraksh ? '4.5' : product.rating}
+                </span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  ({isVidyaRudraksh ? '21' : reviews.length} customer reviews)
+                </span>
               </div>
             </div>
 
@@ -5548,7 +5615,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <div 
                   className="vidya-trust-grid"
                   style={{
-                    marginTop: '20px',
+                    marginTop: '8px',
                     display: 'grid',
                     padding: '4px 0'
                   }}
@@ -5794,6 +5861,34 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </>
               )}
             </div>
+
+            {/* Items Left Alert (Directly below price card) */}
+            {isVidyaRudraksh && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                color: '#dc2626',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fee2e2',
+                borderRadius: 'var(--radius-sm)',
+                padding: '6px 12px',
+                marginTop: '-8px',
+                boxShadow: 'var(--shadow-xs)',
+                width: 'fit-content'
+              }}>
+                <span className="animate-pulse-red" style={{
+                  display: 'inline-block',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#dc2626'
+                }}></span>
+                <span>Only 309/500 items left!</span>
+              </div>
+            )}
 
             {/* Quantity Selector & Wishlist */}
             {!isVidyaRudraksh && (
@@ -6074,7 +6169,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       alignItems: 'center',
                       gap: '4px'
                     }}>
-                      Vikrant Bhairav Mandir, Ujjain
+                      Sandipani Ashram Ujjain
                     </span>
                   </div>
                 </div>
