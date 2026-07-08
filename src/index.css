@@ -315,7 +315,7 @@ button {
   scrollbar-width: none;  /* Firefox */
 }
 
-@media (min-width: 901px) {
+@media (min-width: 1025px) {
   .product-image-sticky-col {
     position: sticky !important;
     top: 110px !important;
@@ -323,7 +323,7 @@ button {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   html, body {
     max-width: 100%;
     overflow-x: hidden;

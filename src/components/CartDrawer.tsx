@@ -473,6 +473,139 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
           )}
 
+          {/* Explore More upselling section */}
+          {items.length > 0 && crossSellProducts.length > 0 && (
+            <div style={{ textAlign: 'left' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
+                Explore More
+              </h3>
+              
+              <div
+                className="no-scrollbar"
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  scrollSnapType: 'x mandatory',
+                  WebkitOverflowScrolling: 'touch'
+                }}
+              >
+                {crossSellProducts.map((product) => {
+                  const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
+                  const discountPct = hasDiscount ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100) : 0;
+
+                  return (
+                    <div
+                      key={product.id}
+                      style={{
+                        width: '180px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        flexShrink: 0,
+                        scrollSnapAlign: 'start',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      {/* Product Thumbnail */}
+                      <div style={{
+                        width: '100%',
+                        height: '110px',
+                        borderRadius: '6px',
+                        backgroundColor: '#f3f4f6',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {isImageUrl(product.image) ? (
+                          <img
+                            src={getDisplayImageUrl(product.image)}
+                            alt={product.name || 'product'}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '2.5rem' }}>{typeof product.image === 'string' ? product.image : '📿'}</span>
+                        )}
+                      </div>
+
+                      {/* Product details */}
+                      <h4 style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: 'var(--text-dark)',
+                        marginTop: '8px',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        height: '32px',
+                        lineHeight: 1.2
+                      }} title={product.name}>
+                        {product.name}
+                      </h4>
+
+                      {/* Pricing with originalPrice */}
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        {hasDiscount && (
+                          <span style={{ textDecoration: 'line-through', fontSize: '0.74rem', color: '#9ca3af' }}>₹{product.originalPrice}</span>
+                        )}
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                      </div>
+
+                      {/* Discount Tag & Add to Cart button */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
+                        {hasDiscount ? (
+                          <span style={{
+                            backgroundColor: '#e6f4ea',
+                            color: '#137333',
+                            fontSize: '0.68rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700
+                          }}>
+                            {discountPct}% off
+                          </span>
+                        ) : (
+                          <div />
+                        )}
+
+                        <button
+                          onClick={() => onAddToCart ? onAddToCart(product, 1) : onUpdateQuantity(product.id, 1)}
+                          style={{
+                            padding: '4px 12px',
+                            border: '1px solid var(--primary-lime, #f97316)',
+                            backgroundColor: 'transparent',
+                            color: 'var(--primary-lime, #f97316)',
+                            borderRadius: '4px',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--primary-lime, #f97316)';
+                            e.currentTarget.style.color = '#ffffff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = 'var(--primary-lime, #f97316)';
+                          }}
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Coupon Code Input Card */}
           {items.length > 0 && (
             <div style={{
@@ -481,7 +614,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               border: '1px solid #e5e7eb',
               boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
               overflow: 'hidden',
-              flexShrink: 0
+              flexShrink: 0,
+              marginTop: '16px'
             }}>
               {/* Compact Toggle Button Header */}
               <button
@@ -652,139 +786,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Explore More upselling section */}
-          {items.length > 0 && crossSellProducts.length > 0 && (
-            <div style={{ textAlign: 'left' }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
-                Explore More
-              </h3>
-              
-              <div
-                className="no-scrollbar"
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  overflowX: 'auto',
-                  paddingBottom: '4px',
-                  scrollSnapType: 'x mandatory',
-                  WebkitOverflowScrolling: 'touch'
-                }}
-              >
-                {crossSellProducts.map((product) => {
-                  const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
-                  const discountPct = hasDiscount ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100) : 0;
-
-                  return (
-                    <div
-                      key={product.id}
-                      style={{
-                        width: '180px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        flexShrink: 0,
-                        scrollSnapAlign: 'start',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-                      }}
-                    >
-                      {/* Product Thumbnail */}
-                      <div style={{
-                        width: '100%',
-                        height: '110px',
-                        borderRadius: '6px',
-                        backgroundColor: '#f3f4f6',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {isImageUrl(product.image) ? (
-                          <img
-                            src={getDisplayImageUrl(product.image)}
-                            alt={product.name || 'product'}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: '2.5rem' }}>{typeof product.image === 'string' ? product.image : '📿'}</span>
-                        )}
-                      </div>
-
-                      {/* Product details */}
-                      <h4 style={{
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        color: 'var(--text-dark)',
-                        marginTop: '8px',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        height: '32px',
-                        lineHeight: 1.2
-                      }} title={product.name}>
-                        {product.name}
-                      </h4>
-
-                      {/* Pricing with originalPrice */}
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
-                        {hasDiscount && (
-                          <span style={{ textDecoration: 'line-through', fontSize: '0.74rem', color: '#9ca3af' }}>₹{product.originalPrice}</span>
-                        )}
-                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>₹{product.price}</span>
-                      </div>
-
-                      {/* Discount Tag & Add to Cart button */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
-                        {hasDiscount ? (
-                          <span style={{
-                            backgroundColor: '#e6f4ea',
-                            color: '#137333',
-                            fontSize: '0.68rem',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontWeight: 700
-                          }}>
-                            {discountPct}% off
-                          </span>
-                        ) : (
-                          <div />
-                        )}
-
-                        <button
-                          onClick={() => onAddToCart ? onAddToCart(product, 1) : onUpdateQuantity(product.id, 1)}
-                          style={{
-                            padding: '4px 12px',
-                            border: '1px solid var(--primary-lime, #f97316)',
-                            backgroundColor: 'transparent',
-                            color: 'var(--primary-lime, #f97316)',
-                            borderRadius: '4px',
-                            fontSize: '0.74rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            transition: 'all 0.15s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'var(--primary-lime, #f97316)';
-                            e.currentTarget.style.color = '#ffffff';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                            e.currentTarget.style.color = 'var(--primary-lime, #f97316)';
-                          }}
-                        >
-                          + Add
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           )}
         </div>

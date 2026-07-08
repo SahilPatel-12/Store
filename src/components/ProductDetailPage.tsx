@@ -5081,8 +5081,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </button>
               </div>
 
-              <h1 style={{
-                fontSize: '2rem',
+              <h1 className="product-detail-title" style={{
                 fontWeight: 900,
                 color: 'var(--text-dark)',
                 lineHeight: '1.2',
@@ -5179,6 +5178,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 >
                   {/* Embedded badge keyframe styles */}
                   <style>{`
+                    .product-detail-title {
+                      font-size: 2rem;
+                    }
+                    @media (max-width: 768px) {
+                      .product-detail-title {
+                        font-size: 1.7rem;
+                      }
+                    }
+                    @media (max-width: 480px) {
+                      .product-detail-title {
+                        font-size: 1.45rem;
+                      }
+                    }
                     .vidya-live-badges-row {
                       display: flex;
                       flex-wrap: wrap;
@@ -5222,7 +5234,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     }
                     @media (max-width: 480px) {
                       .vidya-live-badges-row {
-                        flex-wrap: nowrap !important;
+                        flex-wrap: wrap !important;
                         gap: 8px !important;
                       }
                       .location-badge-container {
@@ -5415,7 +5427,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         gap: 8px !important;
                       }
                       .vidya-trust-item {
-                        white-space: nowrap !important;
+                        white-space: normal !important;
                       }
                     }
                     @keyframes badge-heartbeat {
@@ -5552,7 +5564,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               border: '1px solid var(--border-light)',
               display: 'flex',
               alignItems: 'baseline',
-              gap: '12px',
+              gap: '8px 12px',
+              flexWrap: 'wrap',
               boxShadow: 'var(--shadow-sm)'
             }}>
               <span style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
