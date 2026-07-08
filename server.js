@@ -87,6 +87,9 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
+  // Diagnostic log for all requests
+  console.log(`[Server] Request: ${req.method} ${pathname}`);
+
   // 1. API Route Handler
   if (pathname.startsWith('/api/')) {
     // Add CORS headers for API requests
