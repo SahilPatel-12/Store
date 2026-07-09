@@ -7,13 +7,14 @@ interface Msg91TestLabPageProps {
 
 interface ConfigStatus {
   configured: boolean;
+  detectedProduct: string;
   authKeyPresent: boolean;
-  templateIdPresent: boolean;
-  flowIdPresent: boolean;
+  smsFlowIdPresent: boolean;
+  otpTemplateIdPresent: boolean;
   widgetIdPresent: boolean;
-  widgetTokenPresent: boolean;
-  whatsappConfigPresent: boolean;
-  detectedArchitecture: string;
+  whatsappTemplatePresent: boolean;
+  whatsappIntegratedNumberPresent: boolean;
+  verificationMode: string;
 }
 
 const styles = {
@@ -279,7 +280,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       const data: ConfigStatus = await res.json();
       setConfig(data);
       setIsAuthenticated(true);
-      addLog(`Status loaded. Architecture: ${data.detectedArchitecture.toUpperCase()}. Configured: ${data.configured}`);
+      addLog(`Status loaded. Product: ${data.detectedProduct.toUpperCase()}. Configured: ${data.configured}`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to initialize Test Lab.');
       addLog(`Error loading configuration status: ${err.message}`);
@@ -327,7 +328,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       }
 
       setSendResult('ACCEPTED');
-      addLog('✔ MSG91 Flow request accepted by gateway.');
+      addLog(`✔ MSG91 Flow request accepted by gateway. Response: ${data.gatewayResponse || ''}`);
     } catch (err: any) {
       setSendResult('FAILED');
       setDeliveryChannel('NOT TESTED');
@@ -470,35 +471,25 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
               <div>
-                <span style={styles.label}>MSG91 Architecture</span>
-                <span style={styles.value}>FLOW API</span>
+                <span style={styles.label}>PRODUCT</span>
+                <span style={styles.value}>SMS FLOW / TEMPLATE API</span>
               </div>
               <div>
-                <span style={styles.label}>MSG91 Flow Test</span>
-                <span style={{ ...styles.value, color: config?.configured ? '#34d399' : '#f87171' }}>
-                  {config?.configured ? 'AVAILABLE' : 'UNAVAILABLE'}
-                </span>
+                <span style={styles.label}>DELIVERY CHANNEL</span>
+                <span style={styles.value}>SMS</span>
               </div>
               <div>
-                <span style={styles.label}>Requested Provider</span>
-                <span style={styles.value}>MSG91</span>
+                <span style={styles.label}>OTP VARIABLE</span>
+                <span style={{ ...styles.value, color: '#a855f7' }}>var1</span>
               </div>
               <div>
-                <span style={styles.label}>Delivery Channel Control</span>
-                <span style={{ ...styles.value, fontSize: '12px', padding: '2px 6px', backgroundColor: '#0f172a', borderRadius: '4px' }}>
-                  MSG91 DASHBOARD FLOW
-                </span>
+                <span style={styles.label}>OTP GENERATION</span>
+                <span style={styles.value}>LOCAL SERVER</span>
               </div>
               <div>
-                <span style={styles.label}>Detected Delivery Channel</span>
-                <span style={{ ...styles.value, color: '#fbbf24' }}>
-                  {deliveryChannel === 'NOT TESTED' ? 'AWAITING DISPATCH' : deliveryChannel === 'AWAITING CONFIRMATION' ? 'AWAITING MANUAL CONFIRMATION' : deliveryChannel}
-                </span>
-              </div>
-              <div>
-                <span style={styles.label}>Verification Mode</span>
+                <span style={styles.label}>OTP VERIFICATION</span>
                 <span style={{ ...styles.value, fontSize: '11px', color: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.05)', padding: '4px 6px', border: '1px solid rgba(96,165,250,0.1)', borderRadius: '4px', display: 'inline-block' }}>
-                  LOCAL SERVER HASH VERIFICATION
+                  LOCAL SERVER HASH
                 </span>
               </div>
             </div>
@@ -581,7 +572,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
                       border: isSending || !phoneNumber || !config?.configured ? '1px solid #334155' : 'none'
                     }}
                   >
-                    {isSending ? 'Sending...' : 'Send MSG91 Test OTP'}
+                    {isSending ? 'Sending...' : 'Send MSG91 SMS OTP'}
                   </button>
                 </div>
               </form>
@@ -592,33 +583,27 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
               )}
             </div>
 
-            {/* Step 2: Channel Confirmation */}
+            {/* Step 2: SMS Delivery Confirmation */}
             {sendResult === 'ACCEPTED' && (
               <div style={{ marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '24px', textAlign: 'left' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                  2. Physical Delivery Confirmation
+                  2. SMS Delivery Confirmation
                 </h3>
                 <p style={{ fontSize: '13px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: '1.5' }}>
-                  MSG91 has accepted the Flow dispatch. Check your device and select where the code physically arrived.
+                  MSG91 accepted the SMS request. Check your SMS inbox.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                   <button
                     onClick={() => handleManualChannel('SMS')}
                     style={deliveryChannel === 'SMS' ? styles.buttonConfirm : styles.buttonSecondary}
                   >
-                    💬 Received by SMS
-                  </button>
-                  <button
-                    onClick={() => handleManualChannel('WHATSAPP')}
-                    style={deliveryChannel === 'WHATSAPP' ? { ...styles.buttonConfirm, backgroundColor: '#059669' } : styles.buttonSecondary}
-                  >
-                    🟢 Received on WhatsApp
+                    💬 I Received SMS OTP
                   </button>
                   <button
                     onClick={() => handleManualChannel('NOT RECEIVED')}
                     style={deliveryChannel === 'NOT RECEIVED' ? styles.buttonReject : styles.buttonSecondary}
                   >
-                    ❌ Did Not Receive OTP
+                    ❌ I Did Not Receive SMS OTP
                   </button>
                 </div>
               </div>
@@ -628,7 +613,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
             {sendResult === 'ACCEPTED' && deliveryChannel !== 'NOT RECEIVED' && deliveryChannel !== 'NOT TESTED' && (
               <div style={{ textAlign: 'left' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
-                  3. Local Matching Check
+                  3. Enter OTP & Verify
                 </h3>
                 <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
                   <div style={{ flex: '2 1 200px' }}>

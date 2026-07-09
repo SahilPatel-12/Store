@@ -36,10 +36,24 @@ export default async function handler(req, res) {
     }
 
     // 2. Normalize phone number
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-    let formattedPhone = cleanPhone;
-    if (formattedPhone.length === 10) {
-      formattedPhone = '91' + formattedPhone;
+    const normalizeIndianPhone = (phoneStr) => {
+      const cleaned = phoneStr.replace(/[^\d+]/g, '');
+      let digits = cleaned.startsWith('+') ? cleaned.substring(1) : cleaned;
+      if (digits.startsWith('91') && digits.length === 12) {
+        return digits;
+      }
+      if (digits.startsWith('0') && digits.length === 11) {
+        return '91' + digits.substring(1);
+      }
+      if (digits.length === 10) {
+        return '91' + digits;
+      }
+      return null;
+    };
+
+    const formattedPhone = normalizeIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({ error: 'Invalid Indian phone number format.' });
     }
 
     // 3. Query the latest test OTP record for this admin and phone number

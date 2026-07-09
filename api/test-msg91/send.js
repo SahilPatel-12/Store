@@ -46,14 +46,25 @@ export default async function handler(req, res) {
 
     // 2. Validate and Normalize Phone Number
     const ipAddress = getClientIp(req);
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-    let formattedPhone = cleanPhone;
-    if (formattedPhone.length === 10) {
-      formattedPhone = '91' + formattedPhone;
-    }
+    
+    const normalizeIndianPhone = (phoneStr) => {
+      const cleaned = phoneStr.replace(/[^\d+]/g, '');
+      let digits = cleaned.startsWith('+') ? cleaned.substring(1) : cleaned;
+      if (digits.startsWith('91') && digits.length === 12) {
+        return digits;
+      }
+      if (digits.startsWith('0') && digits.length === 11) {
+        return '91' + digits.substring(1);
+      }
+      if (digits.length === 10) {
+        return '91' + digits;
+      }
+      return null;
+    };
 
-    if (formattedPhone.length < 10 || formattedPhone.length > 15) {
-      return res.status(400).json({ error: 'Invalid phone number format.' });
+    const formattedPhone = normalizeIndianPhone(phone);
+    if (!formattedPhone) {
+      return res.status(400).json({ error: 'Invalid Indian phone number format. Must be a 10-digit mobile number, optionally prefixed with 0, 91, or +91.' });
     }
 
     // 3. Database-backed Rate Limiting
@@ -163,10 +174,9 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           flow_id: decryptedTemplateId,
-          sender: val.sender_id || 'MisCRM',
+          sender: val.senderId || val.sender_id || 'MisCRM',
           mobiles: formattedPhone,
-          var1: otp,
-          otp: otp
+          var1: otp
         })
       });
     } catch (fetchErr) {
@@ -213,7 +223,10 @@ export default async function handler(req, res) {
 
       return res.status(400).json({
         error: 'MSG91 gateway rejected the request.',
-        details: responseBody.substring(0, 200) // Safe truncation
+        provider: 'msg91',
+        product: 'flow-api',
+        requestAccepted: false,
+        providerType: parsedResponse?.type || 'error'
       });
     }
 
@@ -228,13 +241,21 @@ export default async function handler(req, res) {
       console.error('[test-msg91-send] Logging rate-limit entry failed:', logErr.message);
     }
 
+    let txnIdMasked = '******';
+    if (parsedResponse && parsedResponse.message) {
+      const msg = String(parsedResponse.message);
+      if (msg.length > 4) {
+        txnIdMasked = `******${msg.slice(-4)}`;
+      }
+    }
+
     return res.status(200).json({
       success: true,
       provider: 'msg91',
-      architecture: 'flow',
+      product: 'flow-api',
       requestAccepted: true,
-      deliveryChannel: 'dashboard-controlled',
-      verificationMode: 'local-server-hash'
+      providerType: 'success',
+      transactionIdMasked: txnIdMasked
     });
 
   } catch (err) {

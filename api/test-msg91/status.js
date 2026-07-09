@@ -50,18 +50,18 @@ export default async function handler(req, res) {
 
     const val = msg91Data.value;
     const authKeyPresent = !!val.encrypted_auth_key;
-    const templateIdPresent = !!val.encrypted_template_id;
-    const flowIdPresent = templateIdPresent; // Generic flow_id maps to templateId in our schema
+    const templateIdPresent = !!val.encrypted_template_id; // Stored templateId is the Flow ID
     
     return res.status(200).json({
       configured: authKeyPresent && templateIdPresent,
+      detectedProduct: 'flow-api',
       authKeyPresent,
-      templateIdPresent,
-      flowIdPresent,
+      smsFlowIdPresent: templateIdPresent,
+      otpTemplateIdPresent: false,
       widgetIdPresent: false,
-      widgetTokenPresent: false,
-      whatsappConfigPresent: false,
-      detectedArchitecture: 'flow'
+      whatsappTemplatePresent: false,
+      whatsappIntegratedNumberPresent: false,
+      verificationMode: 'local-server-hash'
     });
 
   } catch (err) {
