@@ -1896,6 +1896,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {allOrders.map((order) => {
+                      const isPendingUpi = order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && order.status !== 'Cancelled';
                       const isPendingPayment = (order.paymentMethod === 'Scan & Pay (UPI)' || order.paymentMethod === 'Razorpay') && order.paymentStatus !== 'Confirmed' && order.status !== 'Cancelled' && order.status !== 'Payment Pending';
                       const badge = getStatusColor(order.status);
                       return (
