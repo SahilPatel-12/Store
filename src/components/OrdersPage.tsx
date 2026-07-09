@@ -7,6 +7,7 @@ import {
   Truck,
   MapPin,
   Download,
+  Share2,
   RotateCcw,
   Info,
   ArrowLeft,
@@ -36,6 +37,202 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
     console.error('Error converting asset to data URL:', err);
     return url;
   }
+};
+
+const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
+  const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
+  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
+  const lightGray = [229, 231, 235]; // #e5e7eb
+
+  // Header - Brand Left Side (With logo image load)
+  try {
+    const logoDataUrl = await getAssetAsDataUrl(logo);
+    doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 29, 21);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 29, 26);
+    doc.text('Email: support@mantrapuja.com', 29, 30);
+    doc.text('Web: www.mantrapuja.com', 29, 34);
+  } catch (e) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 14, 25);
+    doc.text('Email: support@mantrapuja.com', 14, 29);
+    doc.text('Web: www.mantrapuja.com', 14, 33);
+  }
+
+  // Header - Invoice Info (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.text('INVOICE', 196, 20, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
+  doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+
+  // Divider Line
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.5);
+  doc.line(14, 42, 196, 42);
+
+  // Billing Address Section (Left)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('BILL TO:', 14, 50);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(order.fullName, 14, 55);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99); // gray-600
+  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
+  doc.text(`Email: ${order.email}`, 14, 64);
+  
+  // Format long address nicely
+  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  const splitAddress = doc.splitTextToSize(addressText, 80);
+  doc.text(splitAddress, 14, 68);
+
+  // Payment details (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('PAYMENT DETAILS:', 120, 50);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99);
+  doc.text(`Method: ${order.paymentMethod}`, 120, 55);
+
+  let displayPaymentStatus = order.paymentStatus || 'Pending';
+  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+    displayPaymentStatus = 'Confirmed';
+  }
+  doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
+
+  // Table header background block
+  let y = 85;
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(14, y, 182, 8, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Sacred Item Details', 18, y + 5.5);
+  doc.text('Qty', 115, y + 5.5, { align: 'center' });
+  doc.text('Price', 150, y + 5.5, { align: 'right' });
+  doc.text('Amount', 190, y + 5.5, { align: 'right' });
+
+  y += 8; // move past header row
+
+  // Table Rows
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  
+  order.items.forEach((item, index) => {
+    // Alternating row backgrounds
+    if (index % 2 === 1) {
+      doc.setFillColor(249, 250, 251); // gray-50
+      doc.rect(14, y, 182, 8, 'F');
+    }
+    
+    doc.text(item.product.name, 18, y + 5.5);
+    doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
+    doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
+    doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
+    
+    y += 8;
+  });
+
+  // Table border line below rows
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.line(14, y, 196, y);
+  y += 8;
+
+  // Pricing calculations block
+  const labelX = 140;
+  const valueX = 190;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+
+  doc.text('Subtotal:', labelX, y);
+  doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 6;
+
+  if (order.discount > 0) {
+    doc.setTextColor(16, 185, 129); // green
+    doc.text(`Discount (${order.discountPercent}%):`, labelX, y);
+    doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    y += 6;
+  }
+
+  doc.text('Shipping:', labelX, y);
+  doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 6;
+
+  // Draw line for total
+  doc.setLineWidth(0.5);
+  doc.line(130, y, 196, y);
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('Total Charged:', labelX, y);
+  doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 15;
+
+  // Footer Blessings Box
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let footerY = pageHeight - 35; // Position near the bottom of A4 page
+  if (y > footerY) {
+    footerY = y + 10;
+  }
+
+  // Draw decorative line
+  doc.setDrawColor(251, 191, 36); // Gold border
+  doc.setLineWidth(0.7);
+  doc.line(20, footerY, 190, footerY);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9.5);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home.', 105, footerY + 7, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(107, 114, 128); // gray
+  doc.text('Thank you for shopping with Mantra Puja!', 105, footerY + 13, { align: 'center' });
+
+  return doc;
 };
 
 interface OrdersPageProps {
@@ -76,6 +273,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const [uploadErrors, setUploadErrors] = React.useState<Record<string, string>>({});
   const [copiedUpiOrderId, setCopiedUpiOrderId] = React.useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = React.useState<Record<string, File>>({});
+  const [sharingOrderId, setSharingOrderId] = React.useState<string | null>(null);
+  const [shareExpandedOrderId, setShareExpandedOrderId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function loadConfig() {
@@ -239,210 +438,84 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // Download Invoice receipt builder
   const handleDownloadInvoice = async (order: LocalOrder) => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    // Color Palette
-    const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
-    const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
-    const textColor = [55, 65, 81]; // #374151 (Dark Gray)
-    const lightGray = [229, 231, 235]; // #e5e7eb
-
-    // Header - Brand Left Side (With logo image load)
     try {
-      const logoDataUrl = await getAssetAsDataUrl(logo);
-      doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text('MANTRA PUJA', 29, 21);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(107, 114, 128); // gray-500
-      doc.text('Spiritual & Temple Offerings', 29, 26);
-      doc.text('Email: support@mantrapuja.com', 29, 30);
-      doc.text('Web: www.mantrapuja.com', 29, 34);
-    } catch (e) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text('MANTRA PUJA', 14, 20);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(107, 114, 128); // gray-500
-      doc.text('Spiritual & Temple Offerings', 14, 25);
-      doc.text('Email: support@mantrapuja.com', 14, 29);
-      doc.text('Web: www.mantrapuja.com', 14, 33);
+      const doc = await generateInvoiceDoc(order);
+      doc.save(`Invoice-${order.orderId}.pdf`);
+      setFeedbackToast(`Downloaded invoice for #${order.orderId}!`);
+    } catch (err) {
+      console.error('Failed to download invoice:', err);
+      setFeedbackToast('Failed to download invoice.');
     }
+  };
 
-    // Header - Invoice Info (Right side)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    doc.text('INVOICE', 196, 20, { align: 'right' });
+  const handleShareInvoice = async (order: LocalOrder, platform: string) => {
+    setSharingOrderId(order.orderId);
+    try {
+      const doc = await generateInvoiceDoc(order);
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
-    doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+      // Upload public invoice PDF to Cloudflare R2
+      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
 
-    // Divider Line
-    doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-    doc.setLineWidth(0.5);
-    doc.line(14, 42, 196, 42);
+      // Construct sharing message with thank you text from Mantra Puja team
+      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
+      const encoded = encodeURIComponent(text);
 
-    // Billing Address Section (Left)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('BILL TO:', 14, 50);
+      const urls: Record<string, string> = {
+        whatsapp: `https://wa.me/?text=${encoded}`,
+        twitter: `https://twitter.com/intent/tweet?text=${encoded}`,
+        telegram: `https://t.me/share/url?url=${pdfUrl}&text=${encoded}`,
+      };
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(order.fullName, 14, 55);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(75, 85, 99); // gray-600
-    doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
-    doc.text(`Email: ${order.email}`, 14, 64);
-    
-    // Format long address nicely
-    const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-    const splitAddress = doc.splitTextToSize(addressText, 80);
-    doc.text(splitAddress, 14, 68);
-
-    // Payment details (Right side)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('PAYMENT DETAILS:', 120, 50);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(75, 85, 99);
-    doc.text(`Method: ${order.paymentMethod}`, 120, 55);
-
-    let displayPaymentStatus = order.paymentStatus || 'Pending';
-    if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
-      displayPaymentStatus = 'Confirmed';
+      if (urls[platform]) {
+        window.open(urls[platform], '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to share invoice:', err);
+      setFeedbackToast('Failed to generate sharing link.');
+    } finally {
+      setSharingOrderId(null);
     }
-    doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
+  };
 
-    // Table header background block
-    let y = 85;
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(14, y, 182, 8, 'F');
+  const handleNativeShareInvoice = async (order: LocalOrder) => {
+    setSharingOrderId(order.orderId);
+    try {
+      const doc = await generateInvoiceDoc(order);
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(255, 255, 255);
-    doc.text('Sacred Item Details', 18, y + 5.5);
-    doc.text('Qty', 115, y + 5.5, { align: 'center' });
-    doc.text('Price', 150, y + 5.5, { align: 'right' });
-    doc.text('Amount', 190, y + 5.5, { align: 'right' });
+      // Upload public invoice PDF to Cloudflare R2
+      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
 
-    y += 8; // move past header row
+      // Construct sharing message with thank you text from Mantra Puja team
+      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
 
-    // Table Rows
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    
-    order.items.forEach((item, index) => {
-      // Alternating row backgrounds
-      if (index % 2 === 1) {
-        doc.setFillColor(249, 250, 251); // gray-50
-        doc.rect(14, y, 182, 8, 'F');
+      // Try native share API with text & link (which ensures the message is not stripped by apps like WhatsApp)
+      if (navigator.share) {
+        await navigator.share({
+          title: `Invoice #${order.orderId}`,
+          text: text
+        });
+        return;
       }
       
-      doc.text(item.product.name, 18, y + 5.5);
-      doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
-      doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
-      doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
-      
-      y += 8;
-    });
-
-    // Table border line below rows
-    doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-    doc.line(14, y, 196, y);
-    y += 8;
-
-    // Pricing calculations block
-    const labelX = 140;
-    const valueX = 190;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-
-    doc.text('Subtotal:', labelX, y);
-    doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
-    y += 6;
-
-    if (order.discount > 0) {
-      doc.setTextColor(16, 185, 129); // green
-      doc.text(`Discount (${order.discountPercent}%):`, labelX, y);
-      doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      y += 6;
+      // Fallback: expand social media share panel
+      setShareExpandedOrderId(prev => prev === order.orderId ? null : order.orderId);
+    } catch (err) {
+      console.error('Native share failed:', err);
+      setShareExpandedOrderId(prev => prev === order.orderId ? null : order.orderId);
+    } finally {
+      setSharingOrderId(null);
     }
-
-    doc.text('Shipping:', labelX, y);
-    doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
-    y += 6;
-
-    // Draw line for total
-    doc.setLineWidth(0.5);
-    doc.line(130, y, 196, y);
-    y += 6;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('Total Charged:', labelX, y);
-    doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
-    y += 15;
-
-    // Footer Blessings Box
-    const pageHeight = doc.internal.pageSize.getHeight();
-    let footerY = pageHeight - 35; // Position near the bottom of A4 page
-    if (y > footerY) {
-      footerY = y + 10;
-    }
-
-    // Draw decorative line
-    doc.setDrawColor(251, 191, 36); // Gold border
-    doc.setLineWidth(0.7);
-    doc.line(20, footerY, 190, footerY);
-
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9.5);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home.', 105, footerY + 7, { align: 'center' });
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray
-    doc.text('Thank you for shopping with Mantra Puja!', 105, footerY + 13, { align: 'center' });
-
-    // Save the PDF
-    doc.save(`Invoice-${order.orderId}.pdf`);
-    
-    setFeedbackToast(`Downloaded invoice for #${order.orderId}!`);
   };
 
   const getStatusColor = (order: LocalOrder) => {
     if (order.status === 'Cancelled') {
       return { bg: '#fee2e2', text: '#dc2626', icon: <XCircle size={14} />, label: 'Cancelled' };
     }
-    if (order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed') {
+    if ((order.paymentMethod === 'Scan & Pay (UPI)' || order.paymentMethod === 'Razorpay') && order.paymentStatus !== 'Confirmed') {
       return { bg: '#fff7ed', text: '#c2410c', icon: <Clock size={14} />, label: 'Payment Pending' };
     }
     switch (order.status) {
@@ -1198,19 +1271,21 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     backgroundColor: '#fafafa',
                     borderTop: '1px solid var(--border-light)',
                     display: 'flex',
+                    flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     flexWrap: 'wrap',
                     gap: '12px'
-                  }}>
+                  }} className="orders-card-toolbar">
                     {/* Left Actions: Tracking and Cancel controls */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flex: '1 1 auto', minWidth: '140px' }} className="orders-toolbar-left">
                       {order.status !== 'Cancelled' ? (
                         <button
                           onClick={() => setExpandedTrackingOrderId(isTrackingExpanded ? null : order.orderId)}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
+                            justifyContent: 'center',
                             gap: '6px',
                             padding: '8px 16px',
                             backgroundColor: isTrackingExpanded ? 'var(--primary-forest)' : '#ffffff',
@@ -1219,7 +1294,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                             borderRadius: 'var(--radius-md)',
                             fontSize: '0.8rem',
                             fontWeight: 700,
-                            boxShadow: 'var(--shadow-sm)'
+                            boxShadow: 'var(--shadow-sm)',
+                            cursor: 'pointer',
+                            flex: '1 1 auto'
                           }}
                         >
                           <Truck size={14} style={{ color: isTrackingExpanded ? '#ffffff' : 'var(--primary-lime)' }} />
@@ -1227,20 +1304,45 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <XCircle size={14} style={{ color: '#ef4444' }} /> Ordered Cancelled
+                          <XCircle size={14} style={{ color: '#ef4444' }} /> Order Cancelled
                         </span>
                       )}
-
                     </div>
 
-                    {/* Right Actions: Reorder, invoice */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      
+                    {/* Right Actions: Reorder, Share, Invoice */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end', minWidth: '200px' }} className="orders-toolbar-right">
+                      {/* Share Order button */}
+                      <button
+                        disabled={sharingOrderId === order.orderId}
+                        onClick={() => handleNativeShareInvoice(order)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '8px 16px',
+                          backgroundColor: shareExpandedOrderId === order.orderId || sharingOrderId === order.orderId ? 'var(--primary-lime-light)' : '#ffffff',
+                          color: shareExpandedOrderId === order.orderId || sharingOrderId === order.orderId ? 'var(--primary-lime)' : 'var(--text-dark)',
+                          border: `1.5px solid ${shareExpandedOrderId === order.orderId || sharingOrderId === order.orderId ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          boxShadow: 'var(--shadow-sm)',
+                          cursor: sharingOrderId === order.orderId ? 'not-allowed' : 'pointer',
+                          flex: '1 1 auto'
+                        }}
+                      >
+                        <Share2 size={14} style={{ color: shareExpandedOrderId === order.orderId || sharingOrderId === order.orderId ? 'var(--primary-lime)' : 'var(--text-muted)' }} />
+                        <span>{sharingOrderId === order.orderId ? 'Sharing...' : 'Share'}</span>
+                      </button>
+
+                      {/* Download Invoice button */}
                       <button
                         onClick={() => handleDownloadInvoice(order)}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '6px',
                           padding: '8px 16px',
                           backgroundColor: '#ffffff',
@@ -1249,7 +1351,9 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                           borderRadius: 'var(--radius-md)',
                           fontSize: '0.8rem',
                           fontWeight: 700,
-                          boxShadow: 'var(--shadow-sm)'
+                          boxShadow: 'var(--shadow-sm)',
+                          cursor: 'pointer',
+                          flex: '1 1 auto'
                         }}
                       >
                         <Download size={14} style={{ color: 'var(--text-muted)' }} />
@@ -1267,17 +1371,63 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                             borderRadius: 'var(--radius-md)',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            justifyContent: 'center',
+                            gap: '6px',
+                            cursor: 'pointer',
+                            flex: '1 1 auto'
                           }}
                         >
                           <RotateCcw size={14} />
                           <span>Reorder Items</span>
                         </button>
                       )}
-
                     </div>
-
                   </div>
+
+                  {/* Share Expanded Panel for this order card */}
+                  {shareExpandedOrderId === order.orderId && (
+                    <div style={{
+                      backgroundColor: '#ffffff',
+                      borderTop: '1px solid var(--border-light)',
+                      padding: '16px 24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      textAlign: 'left'
+                    }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                        Share your order invoice PDF with a thank you message 🙏
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {[
+                          { id: 'whatsapp', label: '💬 WhatsApp', color: '#25d366' },
+                          { id: 'twitter', label: '🐦 X (Twitter)', color: '#1d9bf0' },
+                          { id: 'telegram', label: '✈️ Telegram', color: '#0088cc' },
+                        ].map(p => (
+                          <button
+                            key={p.id}
+                            disabled={sharingOrderId === order.orderId}
+                            onClick={() => handleShareInvoice(order, p.id)}
+                            style={{
+                              padding: '8px 16px',
+                              borderRadius: 'var(--radius-full)',
+                              backgroundColor: sharingOrderId === order.orderId ? '#e5e7eb' : p.color,
+                              color: sharingOrderId === order.orderId ? '#9ca3af' : '#ffffff',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: sharingOrderId === order.orderId ? 'not-allowed' : 'pointer',
+                              border: 'none',
+                              transition: 'all 0.2s ease',
+                              flex: '1 1 auto',
+                              textAlign: 'center'
+                            }}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

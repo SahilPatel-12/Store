@@ -192,7 +192,7 @@ export default async function handler(req, res) {
         status: 'Payment Pending',
         payment_status: 'Pending',
         payment_screenshot: req.body.paymentScreenshot || null,
-        payment_provider: 'manual_upi', // Phase 1 active provider
+        payment_provider: paymentMethod === 'Razorpay' ? 'razorpay' : 'manual_upi',
         checkout_attempt_id: checkoutAttemptId,
         gst_percent_snapshot: settings.global_gst_percent,
         gst_amount_snapshot: taxTotalPaise / 100,

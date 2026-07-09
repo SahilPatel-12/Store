@@ -1169,6 +1169,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         return { bg: '#dcfce7', text: '#15803d' };
       case 'Shipped':
         return { bg: '#dbeafe', text: '#1d4ed8' };
+      case 'Payment Pending':
+        return { bg: '#fff7ed', text: '#c2410c' };
       default:
         return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)' };
     }
@@ -1894,7 +1896,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {allOrders.map((order) => {
-                      const isPendingUpi = order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && order.status !== 'Cancelled';
+                      const isPendingPayment = (order.paymentMethod === 'Scan & Pay (UPI)' || order.paymentMethod === 'Razorpay') && order.paymentStatus !== 'Confirmed' && order.status !== 'Cancelled' && order.status !== 'Payment Pending';
                       const badge = getStatusColor(order.status);
                       return (
                         <div
@@ -1952,7 +1954,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badge.text }} />
                                 {order.status}
                               </span>
-                              {isPendingUpi && (
+                              {isPendingPayment && (
                                 <span style={{
                                   backgroundColor: '#fff7ed',
                                   color: '#c2410c',
