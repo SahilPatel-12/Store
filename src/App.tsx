@@ -4956,157 +4956,350 @@ function App() {
 
       {/* upgraded Premium Devotional Footer */}
       {currentPage !== 'admin' && currentPage !== 'admin-login' && currentPage !== 'pundit-login' && currentPage !== 'pundit-dashboard' && currentPage !== 'astrologer-login' && currentPage !== 'astrologer-dashboard' && (
-        <footer style={{
-        backgroundColor: 'var(--primary-forest)',
-        color: '#ffffff',
-        padding: '60px 0 30px 0',
-        marginTop: 'auto',
-        borderTop: '4px solid var(--primary-lime)',
-        textAlign: 'left'
-      }}>
-        <div className="container">
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1.5fr 1fr 1fr 1.2fr',
-            gap: '40px',
-            marginBottom: '40px'
-          }} className="hero-grid-split">
-            
-            {/* Column 1: Brand Essence */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                <img 
-                  src={logo} 
-                  alt="Mantra Puja Logo" 
-                  style={{ 
-                    height: '55px', 
-                    objectFit: 'contain'
-                  }} 
-                />
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
-                Curating authentic, lab-certified Himalayan Rudrakshas, pure organic camphor, and deity brass idols. Energized at the legendary ghats of Varanasi to bring healing vibrations home.
-              </p>
-            </div>
-
-            {/* Column 2: Alt Navigation */}
-            <div>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
-                Sacred Navigation
-              </h4>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
-                <li>
-                  <button onClick={() => setCurrentPage('home')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Home Altar
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('shop')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Spiritual Shop
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('search')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Search Catalog
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setIsCartDrawerOpen(true)} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Shopping Cart
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('sitemap')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Altar Site Map
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('pundit-login')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Pandit Portal
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('astrologer-login')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Astrologer Portal
-                  </button>
-                </li>
-
-              </ul>
-            </div>
-
-            {/* Column 3: Support */}
-            <div>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
-                Our Essence
-              </h4>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
-                <li>
-                  <button onClick={() => setCurrentPage('about')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Brand Story
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('contact')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Contact Support
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('wishlist')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    My Wishlist
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('profile')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Devotee Dashboard
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 4: Legal Guidelines */}
-            <div>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary-lime)', marginBottom: '16px', letterSpacing: '0.5px' }}>
-                Divine Policies
-              </h4>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', padding: 0 }}>
-                <li>
-                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Privacy & Data Guidelines
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Refunds & Exchanges
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Sacred Dispatches Shipping
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setCurrentPage('policies')} style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                    Terms of Devotion
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-          </div>
-
-          {/* Footer Copyright */}
-          <div style={{
-            borderTop: '1px solid rgba(255,255,255,0.1)',
-            paddingTop: '20px',
-            textAlign: 'center',
-            fontSize: '0.78rem',
-            color: 'rgba(255,255,255,0.5)'
+        <footer className="devotional-gradient-header" style={{
+          background: 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 30%, #c2410c 65%, #d97706 100%)',
+          backgroundSize: '200% 200%',
+          color: '#ffffff',
+          marginTop: 'auto',
+          borderTop: '4px solid #ea580c', // Saffron divider
+          position: 'relative',
+          overflow: 'hidden',
+          textAlign: 'left'
+        }}>
+          {/* 100% Lightweight Rotating Lotus Mandala SVG (0ms load time) */}
+          <svg className="footer-mandala" viewBox="0 0 100 100" style={{
+            position: 'absolute',
+            bottom: '-120px',
+            right: '-120px',
+            width: '400px',
+            height: '400px',
+            opacity: 0.04,
+            transformOrigin: 'center',
+            animation: 'spinMandala 80s linear infinite',
+            pointerEvents: 'none',
+            zIndex: 1
           }}>
-            <span>© {new Date().getFullYear()} Mantra Puja. All Sacred Rights Reserved.</span>
-          </div>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#ffffff" strokeWidth="0.4" strokeDasharray="3,3" />
+            <circle cx="50" cy="50" r="35" fill="none" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="50" cy="50" r="25" fill="none" stroke="#ffffff" strokeWidth="0.4" strokeDasharray="2,2" />
+            {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+              <g transform={`rotate(${deg} 50 50)`} key={deg}>
+                <path d="M50 5 C55 20, 55 35, 50 50 C45 35, 45 20, 50 5" fill="none" stroke="#ffffff" strokeWidth="0.5" />
+              </g>
+            ))}
+          </svg>
 
-        </div>
-      </footer>
+          {/* Keyframe styles for expand outlines, spin, and grids */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes spinMandala {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            @keyframes bgShiftDevotional {
+              0% { background-position: 0% 50%; }
+              50% { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+            .devotional-gradient-header {
+              padding: 80px 0 40px 0;
+              animation: bgShiftDevotional 12s ease-in-out infinite;
+            }
+            .footer-nav-btn {
+              background: none;
+              border: none;
+              color: #d1d5db;
+              font-size: 0.85rem;
+              font-weight: 600;
+              text-align: left;
+              padding: 0;
+              margin: 0;
+              cursor: pointer;
+              transition: all 0.25s ease;
+              position: relative;
+              outline: none;
+            }
+            .footer-nav-btn::after {
+              content: '';
+              position: absolute;
+              width: 0;
+              height: 1px;
+              bottom: -2px;
+              left: 0;
+              background-color: #fb923c;
+              transition: width 0.25s ease;
+            }
+            .footer-nav-btn:hover {
+              color: #fde047 !important;
+              padding-left: 4px;
+            }
+            .footer-nav-btn:hover::after {
+              width: 100%;
+            }
+            .footer-trust-badge {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              padding: 16px 20px;
+              background: rgba(255, 255, 255, 0.02);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+              border-radius: 8px;
+              transition: all 0.25s ease;
+            }
+            .footer-trust-badge:hover {
+              background: rgba(255, 255, 255, 0.04);
+              border-color: rgba(250, 204, 21, 0.15);
+              transform: translateY(-2px);
+            }
+            @media (max-width: 768px) {
+              .devotional-gradient-header {
+                padding: 40px 0 24px 0 !important;
+              }
+              .footer-grid-container {
+                flex-direction: column !important;
+                gap: 20px !important;
+              }
+              .footer-trust-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+                margin-bottom: 40px !important;
+              }
+              .footer-trust-badge {
+                padding: 10px 14px !important;
+                gap: 10px !important;
+              }
+              .footer-trust-badge p {
+                display: none !important;
+              }
+              .footer-trust-badge h5 {
+                font-size: 0.76rem !important;
+              }
+              .footer-trust-badge svg {
+                width: 16px !important;
+                height: 16px !important;
+              }
+              .footer-mandala {
+                width: 240px !important;
+                height: 240px !important;
+                bottom: -60px !important;
+                right: -60px !important;
+              }
+            }
+          ` }} />
+
+          <div className="container" style={{ position: 'relative', zIndex: 5 }}>
+            
+            {/* Trust Badges Bar */}
+            <div 
+              className="footer-trust-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '20px',
+                marginBottom: '60px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                paddingBottom: '40px'
+              }}
+            >
+              <div className="footer-trust-badge">
+                <div style={{ backgroundColor: 'rgba(234, 88, 12, 0.15)', padding: '10px', borderRadius: '50%', color: '#fb923c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 3l1.912 4.113 4.5 1.012-3.037 3.325.962 4.663-4.337-2.125-4.337 2.125.962-4.663-3.037-3.325 4.5-1.012z"/></svg>
+                </div>
+                <div>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Directly From Varanasi</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>Energized on the holy banks of the Ganges River.</p>
+                </div>
+              </div>
+
+              <div className="footer-trust-badge">
+                <div style={{ backgroundColor: 'rgba(250, 204, 21, 0.15)', padding: '10px', borderRadius: '50%', color: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                </div>
+                <div>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Certified Vedic Items</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>100% natural stones & lab-certified Rudrakshas.</p>
+                </div>
+              </div>
+
+              <div className="footer-trust-badge">
+                <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: '10px', borderRadius: '50%', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Spiritual Guarantee</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>Sourced sustainably supporting temple karigars.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Link grid split */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '40px',
+              marginBottom: '40px'
+            }} className="footer-grid-container">
+              
+              {/* Column 1: Brand Essence */}
+              <div style={{ flex: '1.5 1 260px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+                  <img 
+                    src={logo} 
+                    alt="Mantra Puja Logo" 
+                    style={{ 
+                      height: '60px', 
+                      objectFit: 'contain'
+                    }} 
+                  />
+                </div>
+                <p style={{ fontSize: '0.86rem', color: '#9ca3af', lineHeight: 1.6 }}>
+                  Curating authentic, lab-certified Himalayan Rudrakshas, pure organic camphor, and deity brass idols. Energized at the legendary ghats of Varanasi to bring healing vibrations home.
+                </p>
+              </div>
+
+              {/* Column 2: Alt Navigation */}
+              <div style={{ flex: '1 1 170px' }}>
+                <h4 style={{
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  background: 'linear-gradient(90deg, #fef08a 0%, #f59e0b 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '20px',
+                  letterSpacing: '1px'
+                }}>
+                  Sacred Navigation
+                </h4>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
+                  <li>
+                    <button onClick={() => setCurrentPage('home')} className="footer-nav-btn">
+                      Home Altar
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('shop')} className="footer-nav-btn">
+                      Spiritual Shop
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('search')} className="footer-nav-btn">
+                      Search Catalog
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setIsCartDrawerOpen(true)} className="footer-nav-btn">
+                      Shopping Cart
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('sitemap')} className="footer-nav-btn">
+                      Altar Site Map
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('pundit-login')} className="footer-nav-btn">
+                      Pandit Portal
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('astrologer-login')} className="footer-nav-btn">
+                      Astrologer Portal
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 3: Support */}
+              <div style={{ flex: '1 1 170px' }}>
+                <h4 style={{
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  background: 'linear-gradient(90deg, #fef08a 0%, #f59e0b 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '20px',
+                  letterSpacing: '1px'
+                }}>
+                  Our Essence
+                </h4>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
+                  <li>
+                    <button onClick={() => setCurrentPage('about')} className="footer-nav-btn">
+                      Brand Story
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('contact')} className="footer-nav-btn">
+                      Contact Support
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('wishlist')} className="footer-nav-btn">
+                      My Wishlist
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('profile')} className="footer-nav-btn">
+                      Devotee Dashboard
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 4: Legal Guidelines */}
+              <div style={{ flex: '1 1 170px' }}>
+                <h4 style={{
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  background: 'linear-gradient(90deg, #fef08a 0%, #f59e0b 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '20px',
+                  letterSpacing: '1px'
+                }}>
+                  Divine Policies
+                </h4>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
+                  <li>
+                    <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
+                      Privacy & Data Guidelines
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
+                      Refunds & Exchanges
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
+                      Sacred Dispatches Shipping
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
+                      Terms of Devotion
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+
+            {/* Footer Copyright */}
+            <div style={{
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              paddingTop: '24px',
+              textAlign: 'center',
+              fontSize: '0.78rem',
+              color: '#9ca3af'
+            }}>
+              <span>© {new Date().getFullYear()} Mantra Puja Trust. All Sacred Rights Reserved.</span>
+            </div>
+
+          </div>
+        </footer>
       )}
 
       {currentPage !== 'detail' && (
