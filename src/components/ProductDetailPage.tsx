@@ -3792,7 +3792,7 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
                         e.stopPropagation();
                         const card = e.currentTarget.closest('.vidya-story-card');
                         const videoEl = card?.querySelector('video');
-                        toggleMute(cardId, videoEl);
+                        toggleMute(cardId, videoEl || null);
                       }}
                       aria-label={unmutedId === cardId ? "Mute video" : "Unmute video"}
                     >
@@ -3858,7 +3858,7 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
                         e.stopPropagation();
                         const card = e.currentTarget.closest('.vidya-story-card');
                         const videoEl = card?.querySelector('video');
-                        toggleMute(cardId, videoEl);
+                        toggleMute(cardId, videoEl || null);
                       }}
                       aria-label={unmutedId === cardId ? "Mute video" : "Unmute video"}
                     >
