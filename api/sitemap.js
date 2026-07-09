@@ -21996,6 +21996,7 @@ var staticRoutes = [
   "/contact",
   "/policies",
   "/auth",
+  "/style-login",
   "/affiliation",
   "/affiliation-program",
   "/sitemap",

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './_lib/supabase-admin.js';
-import { decryptTextServer, decryptTextWithCustomKey } from './_lib/crypto-server.js';
+import { decryptTextServer } from './_lib/crypto-server.js';
 import crypto from 'crypto';
 
 function getClientIp(req) {
@@ -90,78 +90,7 @@ export default async function handler(req, res) {
 
   try {
     // ==========================================
-    // Fetch and check MSG91 Settings First
-    // ==========================================
-    const { data: msg91Data } = await supabaseAdmin
-      .from('website_settings')
-      .select('value')
-      .eq('key', 'msg91_settings')
-      .maybeSingle();
-
-    if (msg91Data?.value) {
-      const val = msg91Data.value;
-      if (val.encrypted_auth_key && val.encrypted_template_id) {
-        const rawKey = process.env.ENCRYPTION_STRING_KEY_ESG_91 || 'gk4ukWKg78THpQ170x0XY0aPl9';
-        
-        let decryptedAuthKey, decryptedTemplateId;
-        try {
-          decryptedAuthKey = decryptTextWithCustomKey(val.encrypted_auth_key, val.auth_key_iv, val.auth_key_tag, rawKey);
-          decryptedTemplateId = decryptTextWithCustomKey(val.encrypted_template_id, val.template_id_iv, val.template_id_tag, rawKey);
-        } catch (decErr) {
-          console.error('[send-otp] Secure MSG91 decryption failed:', decErr);
-          return res.status(500).json({ error: 'Failed to decrypt MSG91 credentials on server.' });
-        }
-
-        const msg91SenderId = val.sender_id || '';
-
-        // Fire MSG91 Flow API request
-        const requestPayload = {
-          flow_id: decryptedTemplateId,
-          sender: msg91SenderId,
-          mobiles: formattedPhone,
-          var1: otp, // Maps to ##var1##
-          otp: otp   // Maps to ##otp##
-        };
-
-        // Output code in console log for secure local-only testing
-        console.log(`\n======================================================`);
-        console.log(`[send-otp] LOCAL TEST MSG91 OTP FOR ${formattedPhone}: ${otp}`);
-        console.log(`======================================================\n`);
-
-        console.log(`[send-otp] Dispatching OTP via MSG91 Flow API to phone: ${formattedPhone}, sender: ${msg91SenderId}`);
-        const resGateway = await fetch('https://control.msg91.com/api/v5/flow/', {
-          method: 'POST',
-          headers: {
-            'authkey': decryptedAuthKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestPayload)
-        });
-
-        const gatewayStatus = resGateway.status;
-        const gatewayResponseText = await resGateway.text();
-        console.log(`[send-otp] MSG91 gateway responded with status: ${gatewayStatus}, body: ${gatewayResponseText}`);
-
-        if (gatewayStatus === 200) {
-          // Log request in rate limiting logs
-          await logOtpRequest(formattedPhone, ipAddress);
-          return res.status(200).json({
-            success: true,
-            gatewayStatus,
-            message: 'OTP dispatched securely via MSG91.',
-            detail: gatewayResponseText
-          });
-        } else {
-          return res.status(gatewayStatus).json({
-            error: 'MSG91 OTP dispatch failed.',
-            detail: gatewayResponseText
-          });
-        }
-      }
-    }
-
-    // ==========================================
-    // Fallback: WhatsApp Settings Config
+    // WhatsApp Settings Config
     // ==========================================
     const { data: waData } = await supabaseAdmin
       .from('website_settings')
@@ -170,7 +99,7 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     if (!waData?.value) {
-      return res.status(400).json({ error: 'No OTP gateway configurations (MSG91 or WhatsApp) found.' });
+      return res.status(400).json({ error: 'No OTP gateway configurations (WhatsApp) found.' });
     }
 
     const val = waData.value;
@@ -212,10 +141,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Output code in console log for secure local-only testing
-    console.log(`\n======================================================`);
-    console.log(`[send-otp] LOCAL TEST WHATSAPP OTP FOR ${formattedPhone}: ${otp}`);
-    console.log(`======================================================\n`);
+    // Sanitized log: No plaintext OTP or full numbers
+    console.log('[send-otp] WhatsApp OTP request received');
 
     let gatewayStatus = 200;
     let gatewayResponseText = '';
@@ -226,13 +153,13 @@ export default async function handler(req, res) {
       urlObj.searchParams.set('phone', formattedPhone);
       urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
 
-      console.log(`[send-otp] Firing BhashSMS request to: ${urlObj.toString().replace(decryptedToken, '********')}`);
+      console.log('[send-otp] Firing BhashSMS gateway request');
       
       const resGateway = await fetch(urlObj.toString());
       gatewayStatus = resGateway.status;
       gatewayResponseText = await resGateway.text();
     } else {
-      console.log(`[send-otp] Firing POST gateway request to: ${val.endpoint}`);
+      console.log('[send-otp] Firing POST gateway request');
       const resGateway = await fetch(val.endpoint, {
         method: 'POST',
         headers: {
@@ -251,7 +178,11 @@ export default async function handler(req, res) {
       gatewayResponseText = await resGateway.text();
     }
 
-    console.log(`[send-otp] Gateway responded with status: ${gatewayStatus}, body: ${gatewayResponseText}`);
+    if (gatewayStatus === 200) {
+      console.log('[send-otp] WhatsApp gateway request completed successfully');
+    } else {
+      console.warn(`[send-otp] WhatsApp gateway rejected request. Status: ${gatewayStatus}`);
+    }
     
     // Log request in rate limiting logs
     await logOtpRequest(formattedPhone, ipAddress);

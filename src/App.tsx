@@ -37,6 +37,7 @@ const PunditDashboardPage = React.lazy(() => import('./components/PunditDashboar
 const SitemapPage = React.lazy(() => import('./components/SitemapPage').then(m => ({ default: m.SitemapPage })));
 const AstrologerLoginPage = React.lazy(() => import('./components/AstrologerLoginPage').then(m => ({ default: m.AstrologerLoginPage })));
 const AstrologerDashboardPage = React.lazy(() => import('./components/AstrologerDashboardPage').then(m => ({ default: m.AstrologerDashboardPage })));
+const Msg91TestLabPage = React.lazy(() => import('./components/Msg91TestLabPage'));
 
 
 // Default shop categories list
@@ -238,7 +239,7 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
-  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard' | 'sitemap'>('shop');
+  const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard' | 'sitemap' | 'style-login'>('shop');
   
   // Dynamic client-side pundit migration runner
   const [migrationStatus, setMigrationStatus] = React.useState<string | null>(null);
@@ -1336,7 +1337,7 @@ function App() {
         setCurrentPageState('admin-login');
       }
     } else {
-      if (isAdminAuthenticated) {
+      if (path !== '/style-login' && path !== '/style-login/' && isAdminAuthenticated) {
         try {
           localStorage.removeItem('ridae_admin_auth_session');
           localStorage.removeItem('ridae_admin_auth');
@@ -1411,6 +1412,8 @@ function App() {
         setCurrentPageState('policies');
       } else if (path === '/auth' || path === '/auth/') {
         setCurrentPageState('user-auth');
+      } else if (path === '/style-login' || path === '/style-login/') {
+        setCurrentPageState('style-login');
       } else if (path === '/affiliation' || path === '/affiliation/' || path === '/affiliation-program' || path === '/affiliation-program/') {
         setCurrentPageState('affiliation');
       } else if (path === '/pundit-login' || path === '/pundit-login/') {
@@ -4741,6 +4744,11 @@ function App() {
             } catch (e) {}
             setLoggedInUser(updatedUser);
           }}
+        />
+      ) : currentPage === 'style-login' ? (
+        <Msg91TestLabPage
+          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => setCurrentPage('shop')}
         />
       ) : currentPage === 'user-auth' ? (
         <UserAuthPage
