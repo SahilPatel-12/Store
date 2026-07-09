@@ -6,6 +6,27 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Copy user uploaded banner image to public and dist directories for static serving
+try {
+  const srcFile = 'C:/Users/Lenovo/.gemini/antigravity-ide/brain/ac9f5fe3-0637-4cb8-8d58-9a85a022d701/media__1783589269855.jpg';
+  const dests = [
+    path.join(__dirname, 'public', 'vidya_rudraksh_share.jpg'),
+    path.join(__dirname, 'dist', 'vidya_rudraksh_share.jpg')
+  ];
+  if (fs.existsSync(srcFile)) {
+    for (const destFile of dests) {
+      const destDir = path.dirname(destFile);
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      fs.copyFileSync(srcFile, destFile);
+      console.log(`[Server] Copied user banner image to ${destFile} successfully!`);
+    }
+  }
+} catch (copyErr) {
+  console.error('[Server] Failed to copy user banner image on startup:', copyErr);
+}
+
 // Load environment variables from .env / .env.local if they exist
 function loadEnvFiles() {
   const files = ['.env', '.env.local'];

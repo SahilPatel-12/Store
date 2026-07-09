@@ -794,7 +794,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               onClick={onCheckout}
               style={{
                 width: '100%',
-                backgroundColor: '#9a3412', // rich terracotta brown
+                backgroundColor: '#ea580c', // vibrant orange
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '12px',
@@ -806,15 +806,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 transition: 'all 0.2s ease-in-out',
-                boxShadow: '0 6px 20px rgba(154, 52, 18, 0.25)'
+                boxShadow: '0 6px 20px rgba(234, 88, 12, 0.25)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#7c2d12';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(154, 52, 18, 0.35)';
+                e.currentTarget.style.backgroundColor = '#d97706';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(234, 88, 12, 0.35)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#9a3412';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(154, 52, 18, 0.25)';
+                e.currentTarget.style.backgroundColor = '#ea580c';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(234, 88, 12, 0.25)';
               }}
             >
               <span style={{ letterSpacing: '0.5px' }}>CHECKOUT NOW</span>

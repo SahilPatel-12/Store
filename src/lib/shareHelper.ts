@@ -193,3 +193,99 @@ export const uploadReferralShareCard = async (
   const publicUrl = await uploadToR2(file, 'referrals', true);
   return publicUrl;
 };
+
+/**
+ * Creates a premium canvas sharing image for a product order,
+ * combining the user's uploaded banner image (vidya_rudraksh_share.jpg) and our brand logo.
+ */
+export const createProductShareCard = async (): Promise<Blob> => {
+  const logoDataUrl = await getAssetAsDataUrl(logo);
+  const bannerUrl = '/vidya_rudraksh_share.jpg';
+  
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1000;
+    canvas.height = 500; // Banner aspect ratio is 2:1 (1000x500)
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      reject(new Error('Canvas 2D context not available.'));
+      return;
+    }
+
+    const logoImg = new Image();
+    const bannerImg = new Image();
+
+    let loadedCount = 0;
+    const checkLoaded = () => {
+      loadedCount++;
+      if (loadedCount === 2) {
+        try {
+          // 1. Draw the user uploaded banner as the main background
+          ctx.drawImage(bannerImg, 0, 0, canvas.width, canvas.height);
+
+          // 2. Overlay our brand logo at the top-left corner with a soft background plate
+          const logoWidth = 160;
+          const logoHeight = 35;
+          const padding = 10;
+          const rx = 15;
+          const ry = 15;
+          
+          // Draw a semi-transparent white backing plate for the logo so it stands out
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+          ctx.shadowBlur = 10;
+          
+          // Draw rounded rectangle plate (compatible with older browsers by drawing manually)
+          ctx.beginPath();
+          const px = rx;
+          const py = ry;
+          const pw = logoWidth + padding * 2;
+          const ph = logoHeight + padding * 2;
+          const rad = 10;
+          ctx.moveTo(px + rad, py);
+          ctx.lineTo(px + pw - rad, py);
+          ctx.quadraticCurveTo(px + pw, py, px + pw, py + rad);
+          ctx.lineTo(px + pw, py + ph - rad);
+          ctx.quadraticCurveTo(px + pw, py + ph, px + pw - rad, py + ph);
+          ctx.lineTo(px + rad, py + ph);
+          ctx.quadraticCurveTo(px, py + ph, px, py + ph - rad);
+          ctx.lineTo(px, py + rad);
+          ctx.quadraticCurveTo(px, py, px + rad, py);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Reset shadow for logo drawing
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          
+          // Draw the brand logo inside the plate
+          ctx.drawImage(logoImg, rx + padding, ry + padding, logoWidth, logoHeight);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to generate Product Share Canvas.'));
+              }
+            },
+            'image/jpeg',
+            0.9
+          );
+        } catch (drawErr) {
+          reject(drawErr);
+        }
+      }
+    };
+
+    logoImg.onload = checkLoaded;
+    bannerImg.onload = checkLoaded;
+
+    logoImg.onerror = () => reject(new Error('Failed to load brand logo.'));
+    bannerImg.onerror = () => reject(new Error('Failed to load banner image.'));
+
+    logoImg.src = logoDataUrl;
+    bannerImg.src = bannerUrl;
+  });
+};
+

@@ -40,10 +40,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Order not found.' });
     }
 
-    // 2. Security validation: Verify payment provider is legacy manual_upi
-    if (order.payment_provider !== 'manual_upi') {
-      return res.status(403).json({ error: 'Forbidden: Cannot manually confirm payment for automated payment gateways.' });
-    }
+    // 2. Security validation (Omitted check to allow admin manual override for stuck Razorpay orders)
 
     // 3. Confirm only Pending or Declined legacy payments
     if (order.payment_status === 'Confirmed') {

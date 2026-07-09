@@ -3558,11 +3558,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   // Order payment status changes
   const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string) => {
-    const order = orders.find(o => o.orderId === orderId);
-    if (order && order.payment_provider === 'razorpay') {
-      triggerToast('Manual payment confirmation is blocked for Razorpay orders.');
-      return;
-    }
     if (paymentStatus !== 'Confirmed') {
       triggerToast('Direct status setting is restricted to confirmation.');
       return;
@@ -3606,10 +3601,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleDeclinePayment = async (orderId: string) => {
     const order = orders.find(o => o.orderId === orderId);
     if (!order) return;
-    if (order.payment_provider === 'razorpay') {
-      triggerToast('Manual payment decline is blocked for Razorpay orders.');
-      return;
-    }
 
     try {
       const adminToken = adminSession?.token || '';

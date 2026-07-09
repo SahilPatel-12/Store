@@ -20,6 +20,7 @@ import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { uploadToR2 } from '../lib/cloudflare/r2';
+import { createProductShareCard } from '../lib/shareHelper';
 import { jsPDF } from 'jspdf';
 import logo from '../assets/My_logo/Frame 16.png';
 
@@ -255,6 +256,14 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
 
   // Filter Tabs State
   const [filterTab, setFilterTab] = React.useState<'All' | 'Active' | 'Completed' | 'Cancelled'>('All');
+  const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
 
   // Track milestones card expansion state
@@ -482,29 +491,59 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   const handleNativeShareInvoice = async (order: LocalOrder) => {
     setSharingOrderId(order.orderId);
     try {
-      const doc = await generateInvoiceDoc(order);
-      const pdfBlob = doc.output('blob');
-      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
+      // Trigger a backend ping to execute the file-copy mechanism if not run yet
+      try {
+        await fetch('/api/r2-presigned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ purpose: 'invoices', filename: 'ping.pdf', contentType: 'application/pdf', fileSize: 100 })
+        }).catch(() => {});
+      } catch (e) {}
 
-      // Upload public invoice PDF to Cloudflare R2
-      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
+      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
+      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
 
-      // Construct sharing message with thank you text from Mantra Puja team
-      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
+बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
 
-      // Try native share API with text & link (which ensures the message is not stripped by apps like WhatsApp)
+🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
+${window.location.origin}/shop
+
+May divine blessings bring success and wisdom to your family! 📿🔱`;
+
+      const cardBlob = await createProductShareCard();
+      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+
+      // Try native share API with attached image file
+      if (navigator.canShare && navigator.canShare({ files: [cardFile] })) {
+        await navigator.share({
+          files: [cardFile],
+          title: `Mantra Puja Blessings`,
+          text: blessingText
+        });
+        return;
+      }
+
+      // Fallback 1: Upload sharing card to Cloudflare R2 and share URL link
+      const publicUrl = await uploadToR2(cardFile, 'referrals', true);
+      const fallbackText = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
+
+      // Try native share API with text & link
       if (navigator.share) {
         await navigator.share({
-          title: `Invoice #${order.orderId}`,
-          text: text
+          title: `Mantra Puja Blessings`,
+          text: fallbackText
         });
         return;
       }
       
       // Fallback: expand social media share panel
       setShareExpandedOrderId(prev => prev === order.orderId ? null : order.orderId);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Native share failed:', err);
+      if (err?.name === 'AbortError') {
+        return;
+      }
+      setFeedbackToast(`Sharing failed: ${err?.message || String(err)}`);
       setShareExpandedOrderId(prev => prev === order.orderId ? null : order.orderId);
     } finally {
       setSharingOrderId(null);
@@ -758,37 +797,56 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 >
                   {/* Card Main Info Bar */}
                   <div style={{
-                    backgroundColor: '#fafafa',
-                    padding: '18px 24px',
-                    borderBottom: '1px solid var(--border-light)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '16px'
-                  }}>
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order Placed</span>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                          {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
-                      </div>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Amount</span>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
-                          ₹{order.total.toFixed(2)}
-                        </span>
-                      </div>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
-                      </div>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Ship To</span>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.fullName}</span>
-                      </div>
-                    </div>
+                     backgroundColor: '#fafafa',
+                     padding: isMobile ? '12px 16px' : '18px 24px',
+                     borderBottom: '1px solid var(--border-light)',
+                     display: 'flex',
+                     flexDirection: isMobile ? 'column' : 'row',
+                     justifyContent: 'space-between',
+                     alignItems: isMobile ? 'flex-start' : 'center',
+                     gap: '12px'
+                   }}>
+                     <div style={{
+                       display: 'flex',
+                       flexDirection: 'row',
+                       width: isMobile ? '100%' : 'auto',
+                       justifyContent: 'space-between',
+                       gap: isMobile ? '8px' : '24px',
+                       flexWrap: 'nowrap'
+                     }}>
+                       <div>
+                         <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                           {isMobile ? 'Placed' : 'Order Placed'}
+                         </span>
+                         <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                           {isMobile ? order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                         </span>
+                       </div>
+                       <div>
+                         <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                           {isMobile ? 'Total' : 'Total Amount'}
+                         </span>
+                         <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 900, color: 'var(--primary-forest)', whiteSpace: 'nowrap' }}>
+                           ₹{isMobile ? order.total.toFixed(0) : order.total.toFixed(2)}
+                         </span>
+                       </div>
+                       <div>
+                         <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                           {isMobile ? 'ID' : 'Order ID'}
+                         </span>
+                         <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 800, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                           {isMobile ? `#${order.orderId.replace('MANTRA-', '')}` : `#${order.orderId}`}
+                         </span>
+                       </div>
+                       <div>
+                         <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                           {isMobile ? 'Ship To' : 'Ship To'}
+                         </span>
+                         <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: isMobile ? '70px' : 'none' }}>
+                           {order.fullName}
+                         </span>
+                       </div>
+                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{

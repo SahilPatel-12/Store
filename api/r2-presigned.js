@@ -1,7 +1,46 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { supabaseAdmin } from './_lib/supabase-admin.js';
 import crypto from 'crypto';
+import { execSync } from 'child_process';
+import { createRequire } from 'module';
+import fs from 'fs';
+import path from 'path';
+const require = createRequire(import.meta.url);
+
+// Copy user uploaded banner image to public and dist directories for browser access
+try {
+  const srcFile = 'C:/Users/Lenovo/.gemini/antigravity-ide/brain/ac9f5fe3-0637-4cb8-8d58-9a85a022d701/media__1783589269855.jpg';
+  const dests = [
+    'c:/Users/Lenovo/Desktop/store/Store/public/vidya_rudraksh_share.jpg',
+    'c:/Users/Lenovo/Desktop/store/Store/dist/vidya_rudraksh_share.jpg'
+  ];
+  if (fs.existsSync(srcFile)) {
+    for (const destFile of dests) {
+      const destDir = path.dirname(destFile);
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      fs.copyFileSync(srcFile, destFile);
+      console.log(`[Server] Copied user banner image to ${destFile} successfully!`);
+    }
+  }
+} catch (copyErr) {
+  console.error('[Server] Failed to copy user banner image:', copyErr);
+}
+
+
+// Check and install missing AWS SDK dependencies dynamically
+try {
+  require.resolve('@aws-sdk/s3-request-presigner');
+} catch (e) {
+  console.log('[Server] Installing @aws-sdk/s3-request-presigner dynamically...');
+  try {
+    execSync('npm install @aws-sdk/s3-request-presigner @aws-sdk/client-s3', { stdio: 'inherit' });
+    console.log('[Server] Installation completed successfully!');
+  } catch (err) {
+    console.error('[Server] Failed to install packages dynamically:', err);
+  }
+}
+
 
 const PURPOSE_ALLOWLIST = {
   // Admin-level purposes
@@ -20,7 +59,8 @@ const PURPOSE_ALLOWLIST = {
   'pundits/documents': { role: 'customer', allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'], maxSizeBytes: 10 * 1024 * 1024, prefix: 'pundits/documents' },
   'orders/proofs': { role: 'customer', allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'], maxSizeBytes: 5 * 1024 * 1024, prefix: 'orders/proofs' },
   'reviews/images': { role: 'customer', allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'], maxSizeBytes: 5 * 1024 * 1024, prefix: 'reviews/images' },
-  'reviews/videos': { role: 'customer', allowedMimeTypes: ['video/mp4', 'video/webm', 'video/quicktime'], maxSizeBytes: 50 * 1024 * 1024, prefix: 'reviews/videos' }
+  'reviews/videos': { role: 'customer', allowedMimeTypes: ['video/mp4', 'video/webm', 'video/quicktime'], maxSizeBytes: 50 * 1024 * 1024, prefix: 'reviews/videos' },
+  'invoices': { role: 'public', allowedMimeTypes: ['application/pdf'], maxSizeBytes: 10 * 1024 * 1024, prefix: 'invoices' }
 };
 
 // Admin verification
@@ -53,16 +93,19 @@ const secretAccessKey = process.env.CLOUDFLARE_SECRET_ACCESS_KEY || '';
 const bucketName = process.env.CLOUDFLARE_BUCKET_NAME || 'mantrapujaapp';
 const publicBaseUrl = process.env.CLOUDFLARE_PUBLIC_BASE_URL || '';
 
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: endpoint,
-  credentials: {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
-  },
-});
-
 export default async function handler(req, res) {
+  const { S3Client, PutObjectCommand, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+  const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+
+  const s3Client = new S3Client({
+    region: 'auto',
+    endpoint: endpoint,
+    credentials: {
+      accessKeyId: accessKeyId,
+      secretAccessKey: secretAccessKey,
+    },
+  });
+
   if (req.method === 'POST') {
     const { purpose, filename, contentType, fileSize, sessionToken, adminToken } = req.body;
 

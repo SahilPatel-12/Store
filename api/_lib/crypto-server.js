@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 // Derive a secure 256-bit key from the server encryption environment variable
-const RAW_KEY = process.env.PAYMENT_CONFIG_ENCRYPTION_KEY || 'dev_fallback_payment_encryption_key_must_be_rotated_prod';
+const RAW_KEY = process.env.PAYMENT_CONFIG_ENCRYPTION_KEY || process.env.ENCRYPTION_STRING_KEY || 'dev_fallback_payment_encryption_key_must_be_rotated_prod';
 const KEY = crypto.createHash('sha256').update(RAW_KEY).digest();
 
 /**

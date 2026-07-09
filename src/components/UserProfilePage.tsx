@@ -22,12 +22,16 @@ import {
   Upload,
   ArrowLeft,
   ChevronRight,
+  Download,
+  RotateCcw,
 } from 'lucide-react';
 import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
-import { createReferralShareCard, uploadReferralShareCard } from '../lib/shareHelper';
+import { createReferralShareCard, uploadReferralShareCard, createProductShareCard } from '../lib/shareHelper';
 import { uploadToR2 } from '../lib/cloudflare/r2';
+import { jsPDF } from 'jspdf';
+import logo from '../assets/My_logo/Frame 16.png';
 
 const FacebookIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -87,6 +91,201 @@ interface Address {
   zip: string;
   isDefault: boolean;
 }
+
+const getAssetAsDataUrl = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image blob as Data URL.'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error('Error converting asset to data URL:', err);
+    return url;
+  }
+};
+
+const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
+  const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
+  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
+  const lightGray = [229, 231, 235]; // #e5e7eb
+
+  // Header - Brand Left Side (With logo image load)
+  try {
+    const logoDataUrl = await getAssetAsDataUrl(logo);
+    doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 29, 21);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 29, 26);
+    doc.text('Email: support@mantrapuja.com', 29, 30);
+    doc.text('Web: www.mantrapuja.com', 29, 34);
+  } catch (e) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 14, 25);
+    doc.text('Email: support@mantrapuja.com', 14, 29);
+    doc.text('Web: www.mantrapuja.com', 14, 33);
+  }
+
+  // Header - Invoice Info (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.text('INVOICE', 196, 20, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
+  doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+
+  // Divider Line
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.5);
+  doc.line(14, 42, 196, 42);
+
+  // Billing Address Section (Left)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('BILL TO:', 14, 50);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(order.fullName, 14, 55);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99); // gray-600
+  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
+  doc.text(`Email: ${order.email}`, 14, 64);
+  
+  // Format long address nicely
+  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  const splitAddress = doc.splitTextToSize(addressText, 80);
+  doc.text(splitAddress, 14, 68);
+
+  // Payment details (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('PAYMENT DETAILS:', 120, 50);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99);
+  doc.text(`Method: ${order.paymentMethod}`, 120, 55);
+
+  let displayPaymentStatus = order.paymentStatus || 'Pending';
+  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+    displayPaymentStatus = 'Confirmed';
+  }
+  doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
+
+  // Table header background block
+  doc.setFillColor(249, 250, 251); // gray-50
+  doc.rect(14, 90, 182, 8, 'F');
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.line(14, 90, 196, 90);
+  doc.line(14, 98, 196, 98);
+
+  // Table Headers
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text('Sacred Item & Details', 16, 95);
+  doc.text('Qty', 120, 95, { align: 'center' });
+  doc.text('Rate', 150, 95, { align: 'right' });
+  doc.text('Amount', 194, 95, { align: 'right' });
+
+  // Table Rows (Items)
+  let y = 105;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+  order.items.forEach((item) => {
+    // Left aligned item name
+    doc.setFont('helvetica', 'bold');
+    doc.text(item.product.name, 16, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Type: ${item.product.spiritualType || 'Sacred Item'}`, 16, y + 4);
+    
+    // Reset colors/size for numeric columns
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(item.quantity.toString(), 120, y, { align: 'center' });
+    doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y, { align: 'right' });
+    doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 194, y, { align: 'right' });
+
+    doc.line(14, y + 7, 196, y + 7);
+    y += 13;
+  });
+
+  // Totals calculations block (Right aligned)
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Subtotal:', 150, y, { align: 'right' });
+  doc.text(`Rs. ${order.subtotal.toFixed(2)}`, 194, y, { align: 'right' });
+
+  if (order.discount > 0) {
+    y += 6;
+    doc.text(`Discount (${order.discountPercent}%):`, 150, y, { align: 'right' });
+    doc.text(`-Rs. ${order.discount.toFixed(2)}`, 194, y, { align: 'right' });
+  }
+
+  y += 6;
+  doc.text('Delivery Charge:', 150, y, { align: 'right' });
+  doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, 194, y, { align: 'right' });
+
+  // Total Row
+  y += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('Grand Total:', 150, y, { align: 'right' });
+  doc.text(`Rs. ${order.total.toFixed(2)}`, 194, y, { align: 'right' });
+
+  // Center aligned Footer (divider + quotes)
+  doc.setDrawColor(217, 119, 6); // Gold line color
+  doc.setLineWidth(0.6);
+  doc.line(40, 260, 170, 260);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8.5);
+  doc.setTextColor(146, 64, 14); // amber-800
+  doc.text('May the blessings of Varanasi and the sacred mantras fill your home with absolute peace, prosperity, and joy.', 105, 268, { align: 'center' });
+  doc.text('Thank you for trusting the Mantra Puja team.', 105, 273, { align: 'center' });
+
+  return doc;
+};
 
 export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   orders,
@@ -271,6 +470,87 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   const [devoteeSubTab, setDevoteeSubTab] = React.useState<'network' | 'earnings' | 'payout'>('network');
   const [minWithdrawalLimit, setMinWithdrawalLimit] = React.useState<number>(1000);
   const [activeLevels, setActiveLevels] = React.useState<number[]>([1, 2, 3]);
+
+  const [sharingOrderId, setSharingOrderId] = React.useState<string | null>(null);
+
+  const handleDownloadInvoice = async (order: LocalOrder) => {
+    try {
+      const doc = await generateInvoiceDoc(order);
+      doc.save(`Invoice-${order.orderId}.pdf`);
+      triggerToast(`Downloaded invoice for #${order.orderId}!`);
+    } catch (err) {
+      console.error('Failed to download invoice:', err);
+      triggerToast('Failed to download invoice.');
+    }
+  };
+
+  const handleNativeShareInvoice = async (order: LocalOrder) => {
+    setSharingOrderId(order.orderId);
+    try {
+      // Trigger a backend ping to execute the file-copy mechanism if not run yet
+      try {
+        await fetch('/api/r2-presigned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ purpose: 'invoices', filename: 'ping.pdf', contentType: 'application/pdf', fileSize: 100 })
+        }).catch(() => {});
+      } catch (e) {}
+
+      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
+      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
+
+बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
+
+🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
+${window.location.origin}/shop
+
+May divine blessings bring success and wisdom to your family! 📿🔱`;
+
+      const cardBlob = await createProductShareCard();
+      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+
+      // Try native share API with attached image file
+      if (navigator.canShare && navigator.canShare({ files: [cardFile] })) {
+        await navigator.share({
+          files: [cardFile],
+          title: `Mantra Puja Blessings`,
+          text: blessingText
+        });
+        return;
+      }
+
+      // Fallback 1: Upload sharing card to Cloudflare R2 and share URL link
+      const publicUrl = await uploadToR2(cardFile, 'referrals', true);
+      const fallbackText = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: `Mantra Puja Blessings`,
+          text: fallbackText
+        });
+        return;
+      } else {
+        // Fallback 2: copy to clipboard
+        await navigator.clipboard.writeText(fallbackText);
+        triggerToast('Message & link copied to clipboard!');
+      }
+    } catch (err: any) {
+      console.error('Native share failed:', err);
+      if (err?.name === 'AbortError') {
+        return;
+      }
+      triggerToast(`Sharing failed: ${err?.message || String(err)}`);
+    } finally {
+      setSharingOrderId(null);
+    }
+  };
+
+  const handleReorder = (order: LocalOrder) => {
+    order.items.forEach((item) => {
+      onAddToCart(item.product, item.quantity);
+    });
+    triggerToast(`Successfully reordered ${order.items.length} sacred products!`);
+  };
 
   const fetchAffiliateProfile = React.useCallback(async () => {
     if (!loggedInUser) return;
@@ -867,6 +1147,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         price: i.product.price,
         image: i.product.image,
       })),
+      rawOrder: o,
     }));
   }, [orders, localScreenshots]);
 
@@ -1199,48 +1480,133 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   return (
     <div style={{ backgroundColor: '#fafafa', minHeight: '80vh', paddingBottom: '80px' }}>
       
+      {/* Dynamic Devotional Keyframe Animations */}
+      <style>{`
+        @keyframes floatDevotee {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-7px); }
+          100% { transform: translateY(0px); }
+        }
+        @keyframes auraGlow {
+          0% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.2); }
+          50% { box-shadow: 0 0 35px rgba(251, 191, 36, 0.8), 0 0 0 6px rgba(251, 191, 36, 0.25); }
+          100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.2); }
+        }
+        @keyframes bgShiftDevotional {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes rotateMandala {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .devotional-gradient-header {
+          background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 30%, #c2410c 65%, #d97706 100%);
+          background-size: 200% 200%;
+          animation: bgShiftDevotional 12s ease-in-out infinite;
+        }
+        .floating-devotee-avatar {
+          animation: floatDevotee 4s ease-in-out infinite, auraGlow 3s ease-in-out infinite;
+        }
+      `}</style>
+      
       {/* 1. Header Banner */}
-      <section style={{
-        background: 'linear-gradient(135deg, var(--primary-forest) 0%, #4c1f13 100%)',
+      <section className="devotional-gradient-header" style={{
         color: '#ffffff',
-        padding: '60px 0 40px 0',
+        padding: '72px 0 54px 0',
         borderBottom: '4px solid var(--primary-lime)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        boxShadow: 'inset 0 -10px 25px rgba(0,0,0,0.15)'
       }}>
-        {/* Spiritual background circles */}
+        {/* Shanti aura background glow */}
         <div style={{
           position: 'absolute',
-          top: '-10%',
-          right: '-5%',
-          width: '300px',
-          height: '300px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '500px',
+          height: '350px',
+          background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)',
+          pointerEvents: 'none',
           zIndex: 1
         }} />
 
+        {/* 100% Lightweight Rotating Sahasrara Lotus Mandala SVG (0ms load time) */}
+        <svg viewBox="0 0 100 100" style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '340px',
+          height: '340px',
+          marginTop: '-170px',
+          marginLeft: '-170px',
+          opacity: 0.09,
+          transformOrigin: 'center',
+          animation: 'rotateMandala 50s linear infinite',
+          pointerEvents: 'none',
+          zIndex: 2
+        }}>
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#ffffff" strokeWidth="0.4" strokeDasharray="3,3" />
+          <circle cx="50" cy="50" r="35" fill="none" stroke="#ffffff" strokeWidth="0.4" />
+          <circle cx="50" cy="50" r="25" fill="none" stroke="#ffffff" strokeWidth="0.4" strokeDasharray="2,2" />
+          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+            <g transform={`rotate(${deg} 50 50)`} key={deg}>
+              <path d="M50 5 C55 20, 55 35, 50 50 C45 35, 45 20, 50 5" fill="none" stroke="#ffffff" strokeWidth="0.5" />
+              <path d="M50 15 C53 25, 53 35, 50 45 C47 35, 47 25, 50 15" fill="none" stroke="#ffffff" strokeWidth="0.3" opacity="0.6" />
+            </g>
+          ))}
+        </svg>
+
         <div className="container" style={{ position: 'relative', zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
           
-          {/* Avatar Area with golden aura */}
-          <div style={{
+          {/* Avatar Area with golden sunset aura and breathing glow */}
+          <div className="floating-devotee-avatar" style={{
             position: 'relative',
-            width: '100px',
-            height: '100px',
+            width: '108px',
+            height: '108px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, #fde047 0%, var(--primary-lime) 100%)',
-            boxShadow: '0 0 25px rgba(249, 115, 22, 0.4)',
+            background: 'linear-gradient(135deg, #fde047 0%, #f97316 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '16px',
-            border: '3px solid #ffffff'
+            marginBottom: '20px',
+            border: '4px solid #ffffff',
+            transition: 'transform 0.3s ease',
+            cursor: 'pointer'
           }}>
-            <span style={{ fontSize: '3rem' }}>🧘‍♂️</span>
+            {/* Custom Meditating Devotee SVG */}
+            <svg viewBox="0 0 100 100" style={{ width: '68px', height: '68px' }}>
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+              
+              {/* Head */}
+              <circle cx="50" cy="35" r="9" fill="#fed7aa" />
+              {/* Hair */}
+              <path d="M41 33c0-8 18-8 18 0 2 0 3-2 3-4 0-6-6-10-12-10s-12 4-12 10c0 2 1 4 3 4z" fill="#1e293b" />
+              {/* Closed eyes lines */}
+              <path d="M46 36.5c0.5 0.5 1.5 0.5 2 0M52 36.5c0.5 0.5 1.5 0.5 2 0" stroke="#1e293b" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+              {/* Tilak / Devotional mark */}
+              <path d="M49 28h2v5h-2z" fill="#dc2626" />
+              
+              {/* Body / Shirt */}
+              <path d="M33 58c0-10 11-12 17-12s17 2 17 12v9H33v-9z" fill="#0d9488" />
+              
+              {/* Meditating Hands & Legs (Lotus position) */}
+              <path d="M24 70c0-6 10-6 14-3M76 70c0-6-10-6-14-3" stroke="#fed7aa" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+              {/* Lotus legs folded */}
+              <path d="M26 70c10-2 38-2 48 0" stroke="#fb923c" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+              
+              {/* Praying/resting hands skin details */}
+              <circle cx="39" cy="65" r="3" fill="#fed7aa" />
+              <circle cx="61" cy="65" r="3" fill="#fed7aa" />
+            </svg>
+
+            {/* Devotee Rank Badge */}
             <div style={{
               position: 'absolute',
-              bottom: '0',
-              right: '0',
+              bottom: '-2px',
+              right: '-2px',
               backgroundColor: '#eab308',
               color: '#ffffff',
               borderRadius: '50%',
@@ -1249,21 +1615,59 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
               border: '2px solid #ffffff'
             }} title="Spiritual Devotee Rank">
-              <Sparkles size={14} />
+              <Sparkles size={13} />
             </div>
           </div>
 
-          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.5px' }}>
+          <h1 style={{
+            fontSize: isMobile ? '1.8rem' : '2.3rem',
+            fontWeight: 800,
+            color: '#ffffff',
+            letterSpacing: '-0.3px',
+            textShadow: '0 2px 4px rgba(0,0,0,0.15)'
+          }}>
             Namaste, {userProfile.name}
           </h1>
-          <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.95rem', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span>{userProfile.email}</span>
-            <span>•</span>
-            <span style={{ color: '#fed7aa', fontWeight: 700 }}>{userProfile.spiritualGoal}</span>
-          </p>
+
+          {/* Glassmorphic contact & goal badges */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginTop: '12px'
+          }}>
+            <span style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              backdropFilter: 'blur(10px)',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '0.82rem',
+              color: 'rgba(255, 255, 255, 0.95)',
+              fontWeight: 500
+            }}>
+              {userProfile.email}
+            </span>
+            <span style={{
+              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              border: '1px solid rgba(251, 191, 36, 0.25)',
+              backdropFilter: 'blur(10px)',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '0.82rem',
+              color: '#fef08a',
+              fontWeight: 700,
+              letterSpacing: '0.2px'
+            }}>
+              ✨ {userProfile.spiritualGoal}
+            </span>
+          </div>
+
         </div>
       </section>
 
@@ -1913,30 +2317,53 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                           {/* Order Card Header */}
                           <div style={{
                             backgroundColor: '#fafafa',
-                            padding: '16px 24px',
+                            padding: isMobile ? '12px 16px' : '16px 24px',
                             borderBottom: '1px solid var(--border-light)',
                             display: 'flex',
+                            flexDirection: isMobile ? 'column' : 'row',
                             justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
+                            alignItems: isMobile ? 'flex-start' : 'center',
                             gap: '12px'
                           }}>
-                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'row',
+                              width: isMobile ? '100%' : 'auto',
+                              justifyContent: 'space-between',
+                              gap: isMobile ? '8px' : '20px',
+                              flexWrap: 'nowrap'
+                            }}>
                               <div>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.id}</div>
+                                <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? 'ID' : 'Order ID'}
+                                </span>
+                                <div style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 800, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? `#${order.id.replace('MANTRA-', '')}` : `#${order.id}`}
+                                </div>
                               </div>
                               <div>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Date Placed</span>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.date}</div>
+                                <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? 'Placed' : 'Date Placed'}
+                                </span>
+                                <div style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? order.date.replace(', 2026', '') : order.date}
+                                </div>
                               </div>
                               <div>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Price</span>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</div>
+                                <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? 'Total' : 'Total Price'}
+                                </span>
+                                <div style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 800, color: 'var(--primary-forest)', whiteSpace: 'nowrap' }}>
+                                  ₹{isMobile ? order.total.toFixed(0) : order.total.toFixed(2)}
+                                </div>
                               </div>
                               <div>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment</span>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.paymentMethod}</div>
+                                <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? 'Pay' : 'Payment'}
+                                </span>
+                                <div style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                                  {isMobile ? (order.paymentMethod === 'Scan & Pay (UPI)' ? 'UPI' : order.paymentMethod) : order.paymentMethod}
+                                </div>
                               </div>
                             </div>
 
@@ -2024,74 +2451,73 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                   <Truck size={16} style={{ color: 'var(--primary-lime)' }} />
                                   <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>Live Tracking Progress</span>
                                 </div>
+                                <div className="tracking-progress-timeline-horizontal" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', position: 'relative' }}>
+                                   {/* Progress bar line */}
+                                   <div className="tracking-progress-line-horizontal" style={{
+                                     position: 'absolute',
+                                     top: '7px',
+                                     left: '12.5%',
+                                     right: '12.5%',
+                                     height: '2px',
+                                     backgroundColor: 'var(--border-light)',
+                                     zIndex: 1
+                                   }} />
+                                   
+                                   {/* Confirmed */}
+                                   <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
+                                     <div style={{
+                                       width: '16px',
+                                       height: '16px',
+                                       borderRadius: '50%',
+                                       backgroundColor: 'var(--primary-lime)',
+                                       border: '3px solid #ffffff',
+                                       boxShadow: '0 0 0 1px var(--primary-lime)',
+                                       margin: '0 auto 6px auto'
+                                     }} />
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: 700, color: 'var(--text-dark)', lineHeight: 1.1 }}>Ordered</span>
+                                   </div>
 
-                                <div className="tracking-progress-timeline" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
-                                  {/* Progress bar line */}
-                                  <div className="tracking-progress-line" style={{
-                                    position: 'absolute',
-                                    top: '7px',
-                                    left: '12.5%',
-                                    right: '12.5%',
-                                    height: '2px',
-                                    backgroundColor: 'var(--border-light)',
-                                    zIndex: 1
-                                  }} />
-                                  
-                                  {/* Confirmed */}
-                                  <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                                    <div style={{
-                                      width: '16px',
-                                      height: '16px',
-                                      borderRadius: '50%',
-                                      backgroundColor: 'var(--primary-lime)',
-                                      border: '3px solid #ffffff',
-                                      boxShadow: '0 0 0 1px var(--primary-lime)',
-                                      margin: '0 auto 6px auto'
-                                    }} />
-                                    <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dark)' }}>Ordered</span>
-                                  </div>
+                                   {/* Packed */}
+                                   <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
+                                     <div style={{
+                                       width: '16px',
+                                       height: '16px',
+                                       borderRadius: '50%',
+                                       backgroundColor: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--border-light)',
+                                       border: '3px solid #ffffff',
+                                       boxShadow: order.status === 'Being Packed' ? '0 0 0 1px var(--primary-lime)' : 'none',
+                                       margin: '0 auto 6px auto'
+                                     }} />
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: order.status === 'Being Packed' ? 800 : 500, color: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--text-muted)', lineHeight: 1.1 }}>Packed</span>
+                                   </div>
 
-                                  {/* Packed */}
-                                  <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                                    <div style={{
-                                      width: '16px',
-                                      height: '16px',
-                                      borderRadius: '50%',
-                                      backgroundColor: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--border-light)',
-                                      border: '3px solid #ffffff',
-                                      boxShadow: order.status === 'Being Packed' ? '0 0 0 1px var(--primary-lime)' : 'none',
-                                      margin: '0 auto 6px auto'
-                                    }} />
-                                    <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: order.status === 'Being Packed' ? 800 : 500, color: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--text-muted)' }}>Packed</span>
-                                  </div>
+                                   {/* Shipped */}
+                                   <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
+                                     <div style={{
+                                       width: '16px',
+                                       height: '16px',
+                                       borderRadius: '50%',
+                                       backgroundColor: 'var(--border-light)',
+                                       border: '3px solid #ffffff',
+                                       margin: '0 auto 6px auto'
+                                     }} />
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: 500, color: 'var(--text-muted)', lineHeight: 1.1 }}>In Transit</span>
+                                   </div>
 
-                                  {/* Shipped */}
-                                  <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                                    <div style={{
-                                      width: '16px',
-                                      height: '16px',
-                                      borderRadius: '50%',
-                                      backgroundColor: 'var(--border-light)',
-                                      border: '3px solid #ffffff',
-                                      margin: '0 auto 6px auto'
-                                    }} />
-                                    <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-muted)' }}>In Transit</span>
-                                  </div>
+                                   {/* Delivered */}
+                                   <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
+                                     <div style={{
+                                       width: '16px',
+                                       height: '16px',
+                                       borderRadius: '50%',
+                                       backgroundColor: 'var(--border-light)',
+                                       border: '3px solid #ffffff',
+                                       margin: '0 auto 6px auto'
+                                     }} />
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: 500, color: 'var(--text-muted)', lineHeight: 1.1 }}>Delivered</span>
+                                   </div>
 
-                                  {/* Delivered */}
-                                  <div style={{ textAlign: 'center', position: 'relative', zIndex: 5 }}>
-                                    <div style={{
-                                      width: '16px',
-                                      height: '16px',
-                                      borderRadius: '50%',
-                                      backgroundColor: 'var(--border-light)',
-                                      border: '3px solid #ffffff',
-                                      margin: '0 auto 6px auto'
-                                    }} />
-                                    <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-muted)' }}>Delivered</span>
-                                  </div>
-
-                                </div>
+                                 </div>
                               </div>
                             )}
 
@@ -2430,6 +2856,94 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                               </div>
                             )}
 
+                          </div>
+
+                          {/* Card Bottom Actions Toolbar */}
+                          <div style={{
+                            padding: '12px 16px',
+                            backgroundColor: '#fafafa',
+                            borderTop: '1px solid var(--border-light)',
+                            display: 'flex',
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'nowrap',
+                            gap: '8px'
+                          }}>
+                            {/* Left button: Share */}
+                            <button
+                              disabled={sharingOrderId === order.id}
+                              onClick={() => handleNativeShareInvoice(order.rawOrder)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                padding: '8px 12px',
+                                backgroundColor: sharingOrderId === order.id ? 'var(--primary-lime-light)' : '#ffffff',
+                                color: sharingOrderId === order.id ? 'var(--primary-lime)' : 'var(--text-dark)',
+                                border: '1px solid var(--border-light)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                boxShadow: 'var(--shadow-sm)',
+                                cursor: sharingOrderId === order.id ? 'not-allowed' : 'pointer',
+                                flex: '1 1 auto',
+                                minWidth: '60px'
+                              }}
+                            >
+                              <Share2 size={13} style={{ color: 'var(--text-muted)' }} />
+                              <span>{sharingOrderId === order.id ? 'Sharing...' : 'Share'}</span>
+                            </button>
+
+                            {/* Middle button: Invoice */}
+                            <button
+                              onClick={() => handleDownloadInvoice(order.rawOrder)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                padding: '8px 12px',
+                                backgroundColor: '#ffffff',
+                                color: 'var(--text-dark)',
+                                border: '1px solid var(--border-light)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                boxShadow: 'var(--shadow-sm)',
+                                cursor: 'pointer',
+                                flex: '1 1 auto',
+                                minWidth: '60px'
+                              }}
+                            >
+                              <Download size={13} style={{ color: 'var(--text-muted)' }} />
+                              <span>Invoice</span>
+                            </button>
+
+                            {/* Right button: Reorder */}
+                            {order.status !== 'Cancelled' && (
+                              <button
+                                onClick={() => handleReorder(order.rawOrder)}
+                                className="btn-lime"
+                                style={{
+                                  padding: '8px 14px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  borderRadius: 'var(--radius-md)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  cursor: 'pointer',
+                                  flex: '1.2 1 auto',
+                                  minWidth: '100px'
+                                }}
+                              >
+                                <RotateCcw size={13} />
+                                <span>Reorder Items</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       );

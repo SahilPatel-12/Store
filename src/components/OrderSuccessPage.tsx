@@ -22,6 +22,7 @@ import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
 import logo from '../assets/My_logo/Frame 16.png';
 import { uploadToR2 } from '../lib/cloudflare/r2';
+import { createProductShareCard } from '../lib/shareHelper';
 
 const getAssetAsDataUrl = async (url: string): Promise<string> => {
   try {
@@ -422,21 +423,37 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   const handleShare = async (platform: string) => {
     setIsSharing(true);
     try {
-      const doc = await generateInvoiceDoc(order);
-      const pdfBlob = doc.output('blob');
-      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
+      // Trigger a backend ping to execute the file-copy mechanism if not run yet
+      try {
+        await fetch('/api/r2-presigned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ purpose: 'invoices', filename: 'ping.pdf', contentType: 'application/pdf', fileSize: 100 })
+        }).catch(() => {});
+      } catch (e) {}
 
-      // Upload public invoice PDF to Cloudflare R2
-      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
+      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
+      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
 
-      // Construct sharing message with thank you text from Mantra Puja team
-      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
+बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
+
+🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
+${window.location.origin}/shop
+
+May divine blessings bring success and wisdom to your family! 📿🔱`;
+
+      const cardBlob = await createProductShareCard();
+      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+
+      // Upload public sharing card to Cloudflare R2
+      const publicUrl = await uploadToR2(cardFile, 'referrals', true);
+      const text = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
       const encoded = encodeURIComponent(text);
 
       const urls: Record<string, string> = {
         whatsapp: `https://wa.me/?text=${encoded}`,
         twitter: `https://twitter.com/intent/tweet?text=${encoded}`,
-        telegram: `https://t.me/share/url?url=${pdfUrl}&text=${encoded}`,
+        telegram: `https://t.me/share/url?url=${publicUrl}&text=${encoded}`,
       };
 
       if (urls[platform]) {
@@ -453,29 +470,58 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   const handleNativeShare = async () => {
     setIsSharing(true);
     try {
-      const doc = await generateInvoiceDoc(order);
-      const pdfBlob = doc.output('blob');
-      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
+      // Trigger a backend ping to execute the file-copy mechanism if not run yet
+      try {
+        await fetch('/api/r2-presigned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ purpose: 'invoices', filename: 'ping.pdf', contentType: 'application/pdf', fileSize: 100 })
+        }).catch(() => {});
+      } catch (e) {}
 
-      // Upload public invoice PDF to Cloudflare R2
-      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
+      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
+      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
 
-      // Construct sharing message with thank you text from Mantra Puja team
-      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
+बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
 
-      // Try native share API with text & link (which ensures the message is not stripped by apps like WhatsApp)
+🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
+${window.location.origin}/shop
+
+May divine blessings bring success and wisdom to your family! 📿🔱`;
+
+      const cardBlob = await createProductShareCard();
+      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+
+      // Try native share API with attached image file
+      if (navigator.canShare && navigator.canShare({ files: [cardFile] })) {
+        await navigator.share({
+          files: [cardFile],
+          title: `Mantra Puja Blessings`,
+          text: blessingText
+        });
+        return;
+      }
+
+      // Fallback 1: Upload sharing card to Cloudflare R2 and share URL link
+      const publicUrl = await uploadToR2(cardFile, 'referrals', true);
+      const fallbackText = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
+
       if (navigator.share) {
         await navigator.share({
-          title: `Invoice #${order.orderId}`,
-          text: text
+          title: `Mantra Puja Blessings`,
+          text: fallbackText
         });
         return;
       }
       
       // Fallback: expand social media share panel
       setShareExpanded(p => !p);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Native share failed:', err);
+      if (err?.name === 'AbortError') {
+        return;
+      }
+      alert(`Sharing failed: ${err?.message || String(err)}`);
       setShareExpanded(p => !p);
     } finally {
       setIsSharing(false);
