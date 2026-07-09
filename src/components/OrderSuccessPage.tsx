@@ -20,6 +20,23 @@ import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
+import logo from '../assets/My_logo/Frame 16.png';
+
+const getAssetAsDataUrl = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image blob as Data URL.'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error('Error converting asset to data URL:', err);
+    return url;
+  }
+};
 
 export interface OrderDetails {
   orderId: string;
@@ -192,7 +209,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadInvoice = () => {
+  const handleDownloadInvoice = async () => {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -205,18 +222,35 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     const textColor = [55, 65, 81]; // #374151 (Dark Gray)
     const lightGray = [229, 231, 235]; // #e5e7eb
 
-    // Header - Brand Left Side
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('MANTRA PUJA', 14, 20);
+    // Header - Brand Left Side (With logo image load)
+    try {
+      const logoDataUrl = await getAssetAsDataUrl(logo);
+      doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray-500
-    doc.text('Spiritual & Temple Offerings', 14, 25);
-    doc.text('Email: support@mantrapuja.com', 14, 29);
-    doc.text('Web: www.mantrapuja.com', 14, 33);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('MANTRA PUJA', 29, 21);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128); // gray-500
+      doc.text('Spiritual & Temple Offerings', 29, 26);
+      doc.text('Email: support@mantrapuja.com', 29, 30);
+      doc.text('Web: www.mantrapuja.com', 29, 34);
+    } catch (e) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('MANTRA PUJA', 14, 20);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128); // gray-500
+      doc.text('Spiritual & Temple Offerings', 14, 25);
+      doc.text('Email: support@mantrapuja.com', 14, 29);
+      doc.text('Web: www.mantrapuja.com', 14, 33);
+    }
 
     // Header - Invoice Info (Right side)
     doc.setFont('helvetica', 'bold');
@@ -229,7 +263,6 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
     doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
-    doc.text(`Est. Delivery: ${estimatedDelivery}`, 196, 36, { align: 'right' });
 
     // Divider Line
     doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
@@ -268,7 +301,12 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     doc.setFontSize(9);
     doc.setTextColor(75, 85, 99);
     doc.text(`Method: ${order.paymentMethod}`, 120, 55);
-    doc.text(`Status: ${order.paymentStatus || 'Pending'}`, 120, 59);
+
+    let displayPaymentStatus = order.paymentStatus || 'Pending';
+    if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+      displayPaymentStatus = 'Confirmed';
+    }
+    doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
 
     // Table header background block
     let y = 85;
@@ -298,8 +336,8 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       
       doc.text(item.product.name, 18, y + 5.5);
       doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
-      doc.text(`₹${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
-      doc.text(`₹${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
+      doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
+      doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
       
       y += 8;
     });
@@ -316,24 +354,19 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     doc.setFontSize(9);
 
     doc.text('Subtotal:', labelX, y);
-    doc.text(`₹${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
     y += 6;
 
     if (order.discount > 0) {
       doc.setTextColor(16, 185, 129); // green
       doc.text(`Discount (${order.discountPercent}%):`, labelX, y);
-      doc.text(`−₹${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
+      doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       y += 6;
     }
 
     doc.text('Shipping:', labelX, y);
-    doc.text(order.shipping === 0 ? 'FREE' : `₹${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
-    y += 6;
-
-    const taxLabel = `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%):`;
-    doc.text(taxLabel, labelX, y);
-    doc.text(`₹${order.tax.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
     y += 6;
 
     // Draw line for total
@@ -345,7 +378,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     doc.setFontSize(11);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text('Total Charged:', labelX, y);
-    doc.text(`₹${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
     y += 15;
 
     // Footer Blessings Box
@@ -358,12 +391,12 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     // Draw decorative line
     doc.setDrawColor(251, 191, 36); // Gold border
     doc.setLineWidth(0.7);
-    doc.line(40, footerY, 170, footerY);
+    doc.line(20, footerY, 190, footerY);
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9.5);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home. 🙏', 105, footerY + 7, { align: 'center' });
+    doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home.', 105, footerY + 7, { align: 'center' });
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);

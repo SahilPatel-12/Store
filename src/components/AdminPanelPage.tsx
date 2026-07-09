@@ -166,6 +166,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     const type = file.type.startsWith('video/') ? 'video' : 'image';
     const blobUrl = URL.createObjectURL(file);
 
+    if (type === 'video' && file.size > 5 * 1024 * 1024) {
+      alert(`Warning: This video is large (${(file.size / (1024 * 1024)).toFixed(1)} MB). For a smooth experience for devotees on 3G/4G networks, please compress the video to under 3-5 MB before uploading.`);
+    }
+
     setMediaQueue(prev => ({
       ...prev,
       [tempId]: {

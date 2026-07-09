@@ -104,6 +104,49 @@ export default async function handler(req, res) {
     const sanitizedName = filename.split('.').slice(0, -1).join('.').replace(/[^a-zA-Z0-9]/g, '_');
     const key = `${rules.prefix}/${uniqueId}_${sanitizedName}${extension ? '.' + extension : ''}`;
 
+    // Try Cloudflare Stream for videos if API token is configured
+    const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
+    const accountIdMatch = endpoint.match(/https:\/\/([a-f0-9]+)\.r2\.cloudflarestorage\.com/);
+    const accountId = accountIdMatch ? accountIdMatch[1] : '';
+
+    if (cfApiToken && accountId && (purpose === 'products/videos' || purpose === 'reviews/videos')) {
+      try {
+        const cfResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cfApiToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            maxDurationSeconds: 600,
+            meta: {
+              name: filename,
+              purpose: purpose
+            }
+          })
+        });
+
+        if (cfResponse.ok) {
+          const cfData = await cfResponse.json();
+          if (cfData.success && cfData.result) {
+            const uploadUrl = cfData.result.uploadURL;
+            const videoId = cfData.result.uid;
+            const publicUrl = `https://customer-${accountId}.cloudflarestream.com/${videoId}/iframe`;
+
+            return res.status(200).json({
+              presignedUrl: uploadUrl,
+              publicUrl: publicUrl,
+              isCloudflareStream: true
+            });
+          }
+        }
+        const errBody = await cfResponse.text();
+        console.error('[Cloudflare Stream] Direct upload creation failed:', cfResponse.status, errBody);
+      } catch (err) {
+        console.error('[Cloudflare Stream] Direct upload creation failed with error:', err);
+      }
+    }
+
     try {
       const command = new PutObjectCommand({
         Bucket: bucketName,

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Package, MapPin, Landmark } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Package, MapPin, Landmark, Volume2, VolumeX } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -3174,6 +3174,195 @@ const VidyaWhyOneRupeeSection: React.FC = () => {
   );
 };
 
+interface LazyVideoProps {
+  src: string;
+  className?: string;
+  muted: boolean;
+  isActive?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLVideoElement>) => void;
+  onEnded?: (e: React.SyntheticEvent<HTMLVideoElement>) => void;
+  poster?: string;
+}
+
+const LazyVideo: React.FC<LazyVideoProps> = ({ src, className, muted, isActive = false, onClick, onEnded, poster }) => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
+  const isCfStream = src.includes('cloudflarestream.com');
+
+  // Play if active in viewport (scroll-centered) or hovered
+  React.useEffect(() => {
+    setIsPlaying(isActive || isHovered);
+  }, [isActive, isHovered]);
+
+  React.useEffect(() => {
+    if (isPlaying) {
+      setHasLoaded(true);
+    }
+  }, [isPlaying]);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || isCfStream || !hasLoaded) return;
+
+    if (isPlaying) {
+      video.play().catch((err) => {
+        console.log("LazyVideo play issue:", err.message);
+      });
+    } else {
+      video.pause();
+    }
+  }, [isPlaying, isCfStream, hasLoaded]);
+
+  // Sync muted state when prop updates
+  React.useEffect(() => {
+    if (!isCfStream && videoRef.current) {
+      videoRef.current.muted = muted;
+    }
+  }, [muted, isCfStream]);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  const handleVideoClick = (e: React.MouseEvent<HTMLVideoElement>) => {
+    if (!isPlaying) {
+      setIsPlaying(true);
+    }
+    if (onClick) {
+      onClick(e);
+    }
+  };
+
+  if (isCfStream) {
+    if (!isPlaying) {
+      return (
+        <div
+          className={className}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsHovered(true);
+          }}
+          style={{
+            backgroundImage: poster ? `url(${poster})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: '#000000',
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
+            border: '2px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}>
+            <Play size={26} style={{ marginLeft: '4px' }} />
+          </div>
+        </div>
+      );
+    }
+
+    const embedUrl = `${src}${src.includes('?') ? '&' : '?'}autoplay=true&loop=true&muted=${muted ? 'true' : 'false'}`;
+
+    return (
+      <div
+        className={className}
+        onMouseLeave={handleMouseLeave}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <iframe
+          id={`cf-stream-${src}`}
+          src={embedUrl}
+          style={{ border: 'none', backgroundColor: '#000000', width: '100%', height: '100%' }}
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={className}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#000000' }}
+    >
+      <video
+        ref={videoRef}
+        src={hasLoaded ? src : undefined}
+        poster={poster}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        loop={!onEnded}
+        muted={muted}
+        playsInline
+        preload="none"
+        onClick={handleVideoClick}
+        onEnded={onEnded}
+      />
+      {!isPlaying && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPlaying(true);
+          }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
+            border: '2px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}>
+            <Play size={26} style={{ marginLeft: '4px' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface VidyaCustomerStoriesSectionProps {
   activeProducts: any[];
   onViewDetails: (product: any) => void;
@@ -3186,6 +3375,102 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
   const [videoReviews, setVideoReviews] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [unmutedId, setUnmutedId] = React.useState<string | null>(null);
+  const [activeCardId, setActiveCardId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const cards = container.querySelectorAll('.vidya-story-card');
+    if (cards.length === 0) return;
+
+    // Set first card active initially
+    const firstCardId = cards[0].getAttribute('data-card-id');
+    if (firstCardId) {
+      setActiveCardId(firstCardId);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const cardId = entry.target.getAttribute('data-card-id');
+            if (cardId) {
+              setActiveCardId(cardId);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        threshold: 0.6, // must be 60% in view inside the carousel wrapper to active-play
+        rootMargin: '0px'
+      }
+    );
+
+    cards.forEach((card) => observer.observe(card));
+    return () => {
+      cards.forEach((card) => observer.unobserve(card));
+    };
+  }, [videoReviews, activeProducts, loading]);
+
+  const toggleMute = (cardId: string, videoEl: HTMLVideoElement | null) => {
+    if (!videoEl) return;
+    const willBeMuted = unmutedId === cardId;
+    videoEl.muted = willBeMuted;
+    if (willBeMuted) {
+      setUnmutedId(null);
+    } else {
+      setUnmutedId(cardId);
+      // Mute all other videos in the carousel
+      if (scrollRef.current) {
+        const allVideos = scrollRef.current.querySelectorAll('video');
+        allVideos.forEach((v) => {
+          if (v !== videoEl) {
+            v.muted = true;
+          }
+        });
+      }
+    }
+  };
+
+  const handleVideoEnded = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+
+    // Safety checks to prevent scrolling on load stutters, pauses, or initial interruptions
+    if (video.currentTime < 1.5) {
+      return;
+    }
+    if (video.duration && Math.abs(video.currentTime - video.duration) > 1.0) {
+      return;
+    }
+
+    const currentCard = video.closest('.vidya-story-card');
+    if (!currentCard) return;
+
+    let nextCard = currentCard.nextElementSibling as HTMLElement;
+    if (!nextCard) {
+      nextCard = currentCard.parentElement?.firstElementChild as HTMLElement;
+    }
+
+    if (nextCard) {
+      nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+      const nextVideo = nextCard.querySelector('video');
+      const nextCardId = nextCard.getAttribute('data-card-id');
+      const currentCardId = currentCard.getAttribute('data-card-id');
+
+      if (nextVideo && nextCardId && currentCardId) {
+        const wasUnmuted = unmutedId === currentCardId;
+        setTimeout(() => {
+          if (wasUnmuted) {
+            toggleMute(nextCardId, nextVideo);
+          }
+        }, 500);
+      }
+    }
+  };
 
   React.useEffect(() => {
     const fetchVideoReviews = async () => {
@@ -3418,6 +3703,38 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
             display: none;
           }
         }
+
+        .vidya-story-mute-btn {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1.5px solid rgba(255, 255, 255, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          z-index: 15;
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .vidya-story-mute-btn:hover {
+          background: rgba(0, 0, 0, 0.7);
+          transform: scale(1.1);
+          border-color: rgba(255, 255, 255, 0.45);
+        }
+        .vidya-story-mute-btn svg {
+          transition: transform 0.2s ease;
+        }
+        .vidya-story-mute-btn:active svg {
+          transform: scale(0.9);
+        }
       `}</style>
       <div className="vidya-stories-container">
         <h2 className="vidya-stories-heading">Our Devotees' Most Loved Blessings</h2>
@@ -3445,24 +3762,42 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
 
                 const displayImg = p.images?.[0] || p.image || rev.thumbnail_url || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80";
                 const discountPercent = p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+                const cardId = `rev-${rev.id}`;
 
                 return (
                   <div 
                     key={rev.id} 
                     className="vidya-story-card"
+                    data-card-id={cardId}
                     onClick={() => {
                       onViewDetails(p);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   >
-                    <video 
+                    <LazyVideo 
                       className="vidya-story-video"
                       src={rev.video_url}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
+                      muted={unmutedId !== cardId}
+                      isActive={activeCardId === cardId}
+                      poster={rev.thumbnail_url}
+                      onEnded={handleVideoEnded}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute(cardId, e.currentTarget);
+                      }}
                     />
+                    <button 
+                      className="vidya-story-mute-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const card = e.currentTarget.closest('.vidya-story-card');
+                        const videoEl = card?.querySelector('video');
+                        toggleMute(cardId, videoEl);
+                      }}
+                      aria-label={unmutedId === cardId ? "Mute video" : "Unmute video"}
+                    >
+                      {unmutedId === cardId ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    </button>
                     <div className="vidya-story-product-overlay">
                       <img src={displayImg} alt={p.name} className="vidya-story-prod-img" />
                       <div className="vidya-story-prod-info">
@@ -3493,24 +3828,42 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
                 const videoSrc = p.videoUrl || fallbackVideos[idx % fallbackVideos.length];
                 const displayImg = p.images?.[0] || p.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=250&h=250&q=80";
                 const discountPercent = p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+                const cardId = `prod-${p.id}`;
 
                 return (
                   <div 
                     key={p.id} 
                     className="vidya-story-card"
+                    data-card-id={cardId}
                     onClick={() => {
                       onViewDetails(p);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   >
-                    <video 
+                    <LazyVideo 
                       className="vidya-story-video"
                       src={videoSrc}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
+                      muted={unmutedId !== cardId}
+                      isActive={activeCardId === cardId}
+                      poster={displayImg}
+                      onEnded={handleVideoEnded}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute(cardId, e.currentTarget);
+                      }}
                     />
+                    <button 
+                      className="vidya-story-mute-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const card = e.currentTarget.closest('.vidya-story-card');
+                        const videoEl = card?.querySelector('video');
+                        toggleMute(cardId, videoEl);
+                      }}
+                      aria-label={unmutedId === cardId ? "Mute video" : "Unmute video"}
+                    >
+                      {unmutedId === cardId ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    </button>
                     <div className="vidya-story-product-overlay">
                       <img src={displayImg} alt={p.name} className="vidya-story-prod-img" />
                       <div className="vidya-story-prod-info">
@@ -3797,14 +4150,24 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const resolvedGallery = React.useMemo(() => {
     let list: Array<{ url: string; alt: string; isEmoji: boolean; gradient: string; isVideo?: boolean; thumbnail?: string }> = [];
     if (pooja.galleryImages && pooja.galleryImages.length > 0) {
-      list = pooja.galleryImages.map(img => ({
-        url: resolveMediaUrlLocal(img.url),
-        alt: img.alt || pooja.name,
-        isEmoji: false,
-        gradient: 'none',
-        isVideo: (img as any).isVideo || false,
-        thumbnail: resolveMediaUrlLocal((img as any).thumbnail)
-      }));
+      list = pooja.galleryImages.map(img => {
+        let thumb = (img as any).thumbnail;
+        if (!thumb && img.url && img.url.includes('cloudflarestream.com')) {
+          const match = img.url.match(/https:\/\/customer-([a-f0-9]+)\.cloudflarestream\.com\/([a-f0-9]+)\/iframe/);
+          if (match) {
+            const [, accountId, videoId] = match;
+            thumb = `https://customer-${accountId}.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg?height=120`;
+          }
+        }
+        return {
+          url: resolveMediaUrlLocal(img.url),
+          alt: img.alt || pooja.name,
+          isEmoji: false,
+          gradient: 'none',
+          isVideo: (img as any).isVideo || false,
+          thumbnail: thumb ? resolveMediaUrlLocal(thumb) : undefined
+        };
+      });
     } else {
       list = [
         { url: resolveMediaUrlLocal(product.image), alt: product.name, isEmoji: !isRealUrl(product.image), gradient: selectedGradient, isVideo: false },
@@ -3816,13 +4179,21 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     // Auto-append legacy video if present
     const poojaProd = product as PoojaProduct;
     if (poojaProd.videoUrl) {
+      let legacyThumb = poojaProd.uiLabels?.videoThumbnail;
+      if (!legacyThumb && poojaProd.videoUrl.includes('cloudflarestream.com')) {
+        const match = poojaProd.videoUrl.match(/https:\/\/customer-([a-f0-9]+)\.cloudflarestream\.com\/([a-f0-9]+)\/iframe/);
+        if (match) {
+          const [, accountId, videoId] = match;
+          legacyThumb = `https://customer-${accountId}.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg?height=120`;
+        }
+      }
       list.push({
         url: resolveMediaUrlLocal(poojaProd.videoUrl),
         alt: 'Product Video',
         isEmoji: false,
         gradient: 'none',
         isVideo: true,
-        thumbnail: resolveMediaUrlLocal(poojaProd.uiLabels?.videoThumbnail)
+        thumbnail: legacyThumb ? resolveMediaUrlLocal(legacyThumb) : undefined
       });
     }
     return list;
@@ -3871,11 +4242,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Auto-scroll images every 3 seconds, resetting timer on active index transition
   React.useEffect(() => {
     if (resolvedGallery.length <= 1) return;
+    
+    // Do not auto-scroll if the current active item is a video
+    const currentItem = resolvedGallery[activeImageIndex];
+    if (currentItem?.isVideo) return;
+
     const interval = setInterval(() => {
       setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, [activeImageIndex, resolvedGallery.length]);
+  }, [activeImageIndex, resolvedGallery.length, resolvedGallery]);
 
   // Resolve explicit related products first, then fallback to automatic ones
   const resolvedRelated = React.useMemo(() => {
@@ -3962,6 +4338,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       const urls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        if (file.type.startsWith('video/') && file.size > 5 * 1024 * 1024) {
+          alert(`Warning: The video "${file.name}" is large (${(file.size / (1024 * 1024)).toFixed(1)} MB). For a smooth experience for devotees on slower internet connections, please compress it to under 3-5 MB before uploading.`);
+        }
         const url = await uploadToR2(file, 'reviews/videos');
         urls.push(url);
       }
@@ -4851,18 +5230,30 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               )}
               {resolvedGallery[activeImageIndex] ? (
                 resolvedGallery[activeImageIndex].isVideo ? (
-                  <video
-                    id="pooja-product-video-player"
-                    src={resolvedGallery[activeImageIndex].url}
-                    poster={resolvedGallery[activeImageIndex].thumbnail || undefined}
-                    controls
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    crossOrigin="anonymous"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                  resolvedGallery[activeImageIndex].url.includes('cloudflarestream.com') ? (
+                    <iframe
+                      src={`${resolvedGallery[activeImageIndex].url}?autoplay=true&loop=true&muted=true`}
+                      style={{ border: 'none', backgroundColor: '#000000', width: '100%', height: '100%' }}
+                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      id="pooja-product-video-player"
+                      src={resolvedGallery[activeImageIndex].url}
+                      poster={resolvedGallery[activeImageIndex].thumbnail || undefined}
+                      controls
+                      autoPlay
+                      muted
+                      loop={false}
+                      playsInline
+                      crossOrigin="anonymous"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onEnded={() => {
+                        setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
+                      }}
+                    />
+                  )
                 ) : resolvedGallery[activeImageIndex].isEmoji ? (
                   <span style={{ fontSize: '8rem', userSelect: 'none', filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.15))' }}>
                     {resolvedGallery[activeImageIndex].url}
@@ -5212,7 +5603,21 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                               opacity: 0.7
                             }}
                           />
-                        ) : null}
+                        ) : (
+                          <img
+                            src={getDisplayImageUrl(product.image)}
+                            alt="Video Placeholder"
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              opacity: 0.5
+                            }}
+                          />
+                        )}
                         <Play size={20} fill="currentColor" style={{ zIndex: 2 }} />
                       </div>
                     ) : img.isEmoji ? (
@@ -5350,15 +5755,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     style={{ display: 'none' }}
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file && onUpdate) {
-                        try {
-                          const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/videos') : await uploadToR2(file, 'products/videos');
-                          const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
-                          onUpdate({
-                            galleryImages: [...currentGallery, { url: cdnUrl, alt: 'Product Video', isVideo: true } as any]
-                          });
-                        } catch (err) {
-                          alert('Upload failed: ' + (err as Error).message);
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert(`Warning: This video is large (${(file.size / (1024 * 1024)).toFixed(1)} MB). For a smooth experience for devotees on slower internet connections, please compress it to under 3-5 MB before uploading.`);
+                        }
+                        if (onUpdate) {
+                          try {
+                            const cdnUrl = onFileSelect ? await onFileSelect(file, 'products/videos') : await uploadToR2(file, 'products/videos');
+                            const currentGallery = pooja.galleryImages || [{ url: product.image, alt: product.name }];
+                            onUpdate({
+                              galleryImages: [...currentGallery, { url: cdnUrl, alt: 'Product Video', isVideo: true } as any]
+                            });
+                          } catch (err) {
+                            alert('Upload failed: ' + (err as Error).message);
+                          }
                         }
                       }
                     }}

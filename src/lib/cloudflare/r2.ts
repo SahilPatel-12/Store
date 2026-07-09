@@ -167,16 +167,26 @@ export async function uploadToR2(file: File, pathPrefix: string = 'products', sk
       throw new Error(errData.error || `Server responded with status ${sigResponse.status}`);
     }
 
-    const { presignedUrl, publicUrl } = await sigResponse.json();
+    const { presignedUrl, publicUrl, isCloudflareStream } = await sigResponse.json();
 
-    // 2. Perform direct PUT upload to R2
-    const uploadResponse = await fetch(presignedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': processedFile.type
-      },
-      body: processedFile
-    });
+    // 2. Perform direct upload to R2 or Cloudflare Stream
+    let uploadResponse;
+    if (isCloudflareStream) {
+      const formData = new FormData();
+      formData.append('file', processedFile);
+      uploadResponse = await fetch(presignedUrl, {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      uploadResponse = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': processedFile.type
+        },
+        body: processedFile
+      });
+    }
 
     if (!uploadResponse.ok) {
       throw new Error(`Direct upload failed with status ${uploadResponse.status}`);
