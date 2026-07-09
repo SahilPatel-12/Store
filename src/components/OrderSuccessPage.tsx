@@ -430,7 +430,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
 
       // Construct sharing message with thank you text from Mantra Puja team
-      const text = `🙏 Thank you for shopping with Mantra Puja! May these sacred items bring peace, prosperity, and divine blessings to your home. ✨\n\nDownload Order Invoice: ${pdfUrl}`;
+      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
       const encoded = encodeURIComponent(text);
 
       const urls: Record<string, string> = {
@@ -462,7 +462,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
         await navigator.share({
           files: [file],
           title: `Invoice #${order.orderId}`,
-          text: `🙏 Thank you for shopping with Mantra Puja! May these sacred items bring peace, prosperity, and divine blessings to your home. ✨`
+          text: `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your invoice: 📿🔱`
         });
         return;
       }
