@@ -455,14 +455,19 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     try {
       const doc = await generateInvoiceDoc(order);
       const pdfBlob = doc.output('blob');
-      const file = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
+      const pdfFile = new File([pdfBlob], `Invoice-${order.orderId}.pdf`, { type: 'application/pdf' });
 
-      // Try native share API with actual PDF file
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Upload public invoice PDF to Cloudflare R2
+      const pdfUrl = await uploadToR2(pdfFile, 'invoices', true);
+
+      // Construct sharing message with thank you text from Mantra Puja team
+      const text = `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your order invoice: ${pdfUrl} 📿🔱`;
+
+      // Try native share API with text & link (which ensures the message is not stripped by apps like WhatsApp)
+      if (navigator.share) {
         await navigator.share({
-          files: [file],
           title: `Invoice #${order.orderId}`,
-          text: `🕉️ Dear ${order.fullName}, thank you for purchasing from the Mantra Puja team! 🙏✨ May these sacred items bring peace, prosperity, and divine energy to your home. Here is your invoice: 📿🔱`
+          text: text
         });
         return;
       }
