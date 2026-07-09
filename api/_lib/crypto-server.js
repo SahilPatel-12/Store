@@ -41,3 +41,36 @@ export function decryptTextServer(ciphertext, ivHex, authTagHex) {
   decrypted += decipher.final('utf8');
   return decrypted;
 }
+
+/**
+ * Encrypts a string server-side using AES-256-GCM with a dynamic key (e.g. ESG_91)
+ */
+export function encryptTextWithCustomKey(text, keyString) {
+  const iv = crypto.randomBytes(12);
+  const keyHash = crypto.createHash('sha256').update(keyString).digest();
+  const cipher = crypto.createCipheriv(ALGORITHM, keyHash, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return {
+    ciphertext: encrypted,
+    iv: iv.toString('hex'),
+    authTag: authTag
+  };
+}
+
+/**
+ * Decrypts a ciphertext server-side using AES-256-GCM with a dynamic key (e.g. ESG_91)
+ */
+export function decryptTextWithCustomKey(ciphertext, ivHex, authTagHex, keyString) {
+  const keyHash = crypto.createHash('sha256').update(keyString).digest();
+  const decipher = crypto.createDecipheriv(
+    ALGORITHM,
+    keyHash,
+    Buffer.from(ivHex, 'hex')
+  );
+  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+  let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}

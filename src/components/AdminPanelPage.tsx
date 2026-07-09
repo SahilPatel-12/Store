@@ -523,6 +523,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
 
+  // MSG91 settings state
+  const [msg91AuthKey, setMsg91AuthKey] = React.useState('');
+  const [msg91TemplateId, setMsg91TemplateId] = React.useState('');
+  const [msg91SenderId, setMsg91SenderId] = React.useState('');
+  const [msg91IsConfigured, setMsg91IsConfigured] = React.useState(false);
+  const [isSavingMsg91, setIsSavingMsg91] = React.useState(false);
+
   // Razorpay settings state (Phase 2 Server-side)
   const [razorpayMode, setRazorpayMode] = React.useState<'test' | 'live'>('test');
   const [razorpayKeyId, setRazorpayKeyId] = React.useState('');
@@ -996,6 +1003,26 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           console.error('Failed to fetch WhatsApp config via API:', waErr);
         }
 
+        // Fetch MSG91 settings
+        try {
+          const token = adminSession?.token || localStorage.getItem('session_token') || '';
+          const response = await fetch(`/api/admin?action=msg91-config&adminToken=${encodeURIComponent(token)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setMsg91IsConfigured(data.isConfigured || false);
+            setMsg91SenderId(data.senderId || '');
+            if (data.isConfigured) {
+              setMsg91AuthKey('••••••••••••••••');
+              setMsg91TemplateId('••••••••••••••••');
+            } else {
+              setMsg91AuthKey('');
+              setMsg91TemplateId('');
+            }
+          }
+        } catch (msgErr) {
+          console.error('Failed to fetch MSG91 config:', msgErr);
+        }
+
         // 2. Fetch Razorpay settings - Migrated to server config API (Phase 2)
 
         // 3. Fetch Tax & Delivery settings
@@ -1084,6 +1111,57 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       alert('Failed to save settings: ' + (err as Error).message);
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveMsg91Settings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msg91AuthKey || !msg91TemplateId || !msg91SenderId) {
+      alert('Please fill out Auth Key, Template ID, and Sender ID.');
+      return;
+    }
+    setIsSavingMsg91(true);
+    try {
+      const token = adminSession?.token || localStorage.getItem('session_token') || '';
+      const submitAuthKey = msg91AuthKey === '••••••••••••••••' ? '' : msg91AuthKey;
+      const submitTemplateId = msg91TemplateId === '••••••••••••••••' ? '' : msg91TemplateId;
+
+      const response = await fetch(`/api/admin?action=msg91-config&adminToken=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        },
+        body: JSON.stringify({
+          authKey: submitAuthKey,
+          templateId: submitTemplateId,
+          senderId: msg91SenderId
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = `Server error (Status ${response.status})`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          if (errorText) {
+            errorMsg += `: ${errorText.substring(0, 150)}`;
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      setMsg91IsConfigured(true);
+      setMsg91AuthKey('••••••••••••••••');
+      setMsg91TemplateId('••••••••••••••••');
+      triggerToast('MSG91 OTP configurations stored & encrypted successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save MSG91 settings: ' + (err as Error).message);
+    } finally {
+      setIsSavingMsg91(false);
     }
   };
 
@@ -6167,6 +6245,170 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
                 </form>
               )}
+
+              {/* MSG91 OTP Gateway Card */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1.5px solid var(--border-light)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-sm)',
+                marginTop: '32px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                        MSG91 OTP Gateway
+                      </h3>
+                      {msg91IsConfigured && (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          color: '#065f46',
+                          backgroundColor: '#d1fae5',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          textTransform: 'uppercase'
+                        }}>
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Secure user authentication using MSG91 OTP infrastructure. (Takes precedence if configured).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Encryption Banner */}
+                <div style={{
+                  backgroundColor: 'rgba(234, 88, 12, 0.04)',
+                   border: '1px solid rgba(234, 88, 12, 0.15)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  marginBottom: '28px',
+                  display: 'flex',
+                  gap: '12px'
+                }}>
+                  <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>🔒</span>
+                  <div>
+                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Server-Side Encryption with ESG_91 Key
+                    </h4>
+                    <p style={{ fontSize: '0.78rem', color: '#9a3412', marginTop: '4px', lineHeight: '1.4' }}>
+                      Your Auth Key and Template ID are encrypted on the server using your secret <strong>ENCRYPTION_STRING_KEY_ESG_91</strong>. Only cipher values are stored, and credentials are never exposed back to the client.
+                    </p>
+                  </div>
+                </div>
+
+                {isLoadingSettings ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Retrieving settings...</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveMsg91Settings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    {/* MSG91 Auth Key */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        MSG91 Auth Key *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Enter MSG91 Auth Key..."
+                        value={msg91AuthKey}
+                        onChange={(e) => setMsg91AuthKey(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* MSG91 Template ID */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        MSG91 OTP Template ID / Flow ID *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter template ID or Flow ID (e.g. 60d5ec...)"
+                        value={msg91TemplateId}
+                        onChange={(e) => setMsg91TemplateId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* MSG91 Sender ID */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        MSG91 Sender ID / Header *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter Sender ID / Header (e.g. SENDER)"
+                        value={msg91SenderId}
+                        onChange={(e) => setMsg91SenderId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={isSavingMsg91}
+                      className="btn-lime"
+                      style={{
+                        padding: '14px 28px',
+                        fontSize: '0.9rem',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-md)',
+                        width: '100%',
+                        marginTop: '8px',
+                        cursor: isSavingMsg91 ? 'not-allowed' : 'pointer',
+                        opacity: isSavingMsg91 ? 0.75 : 1
+                      }}
+                    >
+                      {isSavingMsg91 ? 'Encrypting & Saving MSG91 Credentials...' : 'Save & Encrypt MSG91 settings'}
+                    </button>
+
+                  </form>
+                )}
+              </div>
 
             </div>
 

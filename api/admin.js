@@ -5,6 +5,7 @@ import ordersUpdate from './_lib/admin/orders-update.js';
 import ordersConfirm from './_lib/admin/orders-confirm.js';
 import ordersDecline from './_lib/admin/orders-decline.js';
 import ordersList from './_lib/admin/orders-list.js';
+import msg91Config from './_lib/admin/msg91-config.js';
 
 export default async function handler(req, res) {
   const action = req.query.action;
@@ -12,6 +13,8 @@ export default async function handler(req, res) {
   switch (action) {
     case 'whatsapp-config':
       return whatsappConfig(req, res);
+    case 'msg91-config':
+      return msg91Config(req, res);
     case 'razorpay-config':
       return razorpayConfig(req, res);
     case 'razorpay-test':
