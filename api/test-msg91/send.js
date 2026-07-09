@@ -161,8 +161,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database failed to store temporary test OTP state.' });
     }
 
-    // 7. Invoke MSG91 Flow API
-    console.log('[test-msg91] SMS/WhatsApp OTP test requested (Flow API)');
+    // 7. Invoke MSG91 Flow API (Send SMS)
+    console.log('[test-msg91] MSG91 SMS template test requested.');
+    console.log('Preparing MSG91 SMS template request.');
+    console.log('Request contract: template_id + recipients[] + mobiles + VAR1.');
     
     let response;
     try {
@@ -170,13 +172,17 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: {
           'authkey': decryptedAuthKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
         },
         body: JSON.stringify({
-          flow_id: decryptedTemplateId,
-          sender: val.senderId || val.sender_id || 'MisCRM',
-          mobiles: formattedPhone,
-          var1: otp
+          template_id: decryptedTemplateId,
+          recipients: [
+            {
+              mobiles: formattedPhone,
+              VAR1: otp
+            }
+          ]
         })
       });
     } catch (fetchErr) {
@@ -229,6 +235,8 @@ export default async function handler(req, res) {
         providerType: parsedResponse?.type || 'error'
       });
     }
+
+    console.log('[test-msg91] MSG91 gateway request accepted.');
 
     // 8. Log rate-limiting success log
     try {

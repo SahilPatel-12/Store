@@ -306,6 +306,8 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
     const fullPhone = phoneNumber.replace(/[^\d]/g, '');
     const maskedPhone = fullPhone.length > 4 ? `${fullPhone.substring(0, 2)}******${fullPhone.slice(-4)}` : fullPhone;
     addLog(`Initiating MSG91 Flow OTP dispatch request for phone: +${countryCode} ${maskedPhone}`);
+    addLog('Preparing MSG91 SMS template request.');
+    addLog('Request contract: template_id + recipients[] + mobiles + VAR1.');
 
     try {
       const res = await fetch('/api/test-msg91/send', {
@@ -332,7 +334,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
 
       setSendResult('ACCEPTED');
       setTransactionIdMasked(data.transactionIdMasked || '******');
-      addLog(`✔ MSG91 Flow request accepted by gateway. Transaction: ${data.transactionIdMasked || '******'}`);
+      addLog('✔ MSG91 gateway request accepted.');
     } catch (err: any) {
       setSendResult('FAILED');
       setDeliveryChannel('NOT TESTED');
