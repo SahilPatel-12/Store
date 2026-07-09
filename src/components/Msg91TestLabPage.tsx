@@ -226,6 +226,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+  const [transactionIdMasked, setTransactionIdMasked] = useState<string>('None');
 
   // Check admin session and load status on mount
   useEffect(() => {
@@ -300,6 +301,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
     setVerificationState('NOT TESTED');
     setDeliveryChannel('AWAITING CONFIRMATION');
     setAttemptsRemaining(null);
+    setTransactionIdMasked('None');
 
     const fullPhone = phoneNumber.replace(/[^\d]/g, '');
     const maskedPhone = fullPhone.length > 4 ? `${fullPhone.substring(0, 2)}******${fullPhone.slice(-4)}` : fullPhone;
@@ -322,16 +324,19 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       if (!res.ok) {
         setSendResult('FAILED');
         setDeliveryChannel('NOT TESTED');
+        setTransactionIdMasked('None');
         setErrorDetail(data.error || 'Failed to send OTP.');
         addLog(`✘ MSG91 Flow send rejected: ${data.error || 'Unknown error'}`);
         return;
       }
 
       setSendResult('ACCEPTED');
-      addLog(`✔ MSG91 Flow request accepted by gateway. Response: ${data.gatewayResponse || ''}`);
+      setTransactionIdMasked(data.transactionIdMasked || '******');
+      addLog(`✔ MSG91 Flow request accepted by gateway. Transaction: ${data.transactionIdMasked || '******'}`);
     } catch (err: any) {
       setSendResult('FAILED');
       setDeliveryChannel('NOT TESTED');
+      setTransactionIdMasked('None');
       setErrorDetail(err.message || 'Fetch failed.');
       addLog(`✘ Connection error dispatching Flow request: ${err.message}`);
     } finally {
@@ -404,6 +409,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
     setVerificationState('NOT TESTED');
     setErrorDetail(null);
     setAttemptsRemaining(null);
+    setTransactionIdMasked('None');
     addLog('Test lab state cleared.');
   };
 
@@ -519,11 +525,18 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
 
         {/* Center Column: Interactive Lab Board */}
         <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* CARD 1: MSG91 SMS FLOW TEST */}
           <div style={styles.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '12px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>
-                OTP Dispatch & Verification
-              </h2>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>
+                  MSG91 SMS FLOW TEST
+                </h2>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                  Product: SMS | Template Variable: var1
+                </div>
+              </div>
               <button onClick={handleClearTest} style={styles.buttonSecondary}>
                 Clear Test
               </button>
@@ -664,22 +677,27 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid #1e293b' }}>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>SEND REQUEST</span>
+                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>GATEWAY STATUS</span>
                   <span style={{ fontSize: '14px', fontWeight: '800', color: sendResult === 'ACCEPTED' ? '#34d399' : sendResult === 'FAILED' ? '#f87171' : '#64748b' }}>
                     {sendResult}
                   </span>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid #1e293b' }}>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>DELIVERY CHANNEL</span>
-                  <span style={{ fontSize: '14px', fontWeight: '800', color: deliveryChannel === 'SMS' || deliveryChannel === 'WHATSAPP' ? '#34d399' : deliveryChannel === 'NOT RECEIVED' ? '#f87171' : '#64748b' }}>
-                    {deliveryChannel === 'AWAITING CONFIRMATION' ? 'AWAITING CONFIRMATION' : deliveryChannel}
+                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>PHYSICAL DELIVERY</span>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: deliveryChannel === 'SMS' ? '#34d399' : deliveryChannel === 'NOT RECEIVED' ? '#f87171' : '#64748b' }}>
+                    {deliveryChannel === 'SMS' ? 'CONFIRMED' : deliveryChannel === 'NOT RECEIVED' ? 'NOT CONFIRMED' : 'NOT TESTED'}
                   </span>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid #1e293b' }}>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>OTP VERIFICATION</span>
-                  <span style={{ fontSize: '14px', fontWeight: '800', color: verificationState === 'VERIFIED LOCALLY' ? '#34d399' : verificationState === 'FAILED' || verificationState === 'ATTEMPT LIMIT REACHED' ? '#f87171' : '#64748b' }}>
-                    {verificationState}
+                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: '600', marginBottom: '4px' }}>TRANSACTION ID</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#e2e8f0', fontFamily: 'monospace', display: 'block' }}>
+                    {transactionIdMasked}
                   </span>
+                  {sendResult === 'ACCEPTED' && (
+                    <span style={{ display: 'block', fontSize: '10px', color: '#64748b', marginTop: '4px', fontWeight: 'bold' }}>
+                      CHECK MSG91 DELIVERY REPORT
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -687,10 +705,43 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
                 <div style={{ marginTop: '20px', padding: '16px', backgroundColor: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.25)', borderRadius: '12px', color: '#34d399' }}>
                   <strong style={{ fontSize: '14px' }}>✔ OTP MATCH VERIFIED LOCALLY</strong>
                   <p style={{ margin: '6px 0 0 0', color: '#94a3b8', fontSize: '13px', lineHeight: '1.5' }}>
-                    The OTP delivered through the configured MSG91 Flow matches the OTP securely generated by our backend.
+                    The OTP delivered through the configured MSG91 SMS template matches the OTP securely generated by our backend.
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* CARD 2: MSG91 WHATSAPP TEST */}
+          <div style={styles.card}>
+            <div style={{ marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '12px', textAlign: 'left' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>
+                MSG91 WHATSAPP TEST
+              </h2>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                Product: WhatsApp
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+              <div style={{ padding: '12px 16px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: '8px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block' }}>STATUS: NOT CONFIGURED</strong>
+                  <span style={{ fontSize: '12px', color: '#cbd5e1' }}>WhatsApp template configurations are missing in msg91_settings.</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', marginBottom: '8px' }}>Missing Configuration Categories:</h4>
+                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px', lineHeight: '1.4' }}>
+                  <li><strong>Integrated WhatsApp Number:</strong> MISSING (Meta-verified number associated with your MSG91 project)</li>
+                  <li><strong>Approved WhatsApp Template:</strong> MISSING (Outbound template registered with Meta)</li>
+                  <li><strong>WhatsApp Authentication/OTP Template:</strong> MISSING (Template mapped with a <code>##OTP##</code> token placeholder)</li>
+                  <li><strong>Template Language:</strong> MISSING (Default locale fallback, e.g. <code>en</code>)</li>
+                  <li><strong>Template Variables:</strong> MISSING (Component variable mapping)</li>
+                </ul>
+              </div>
             </div>
           </div>
 
