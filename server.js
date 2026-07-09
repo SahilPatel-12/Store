@@ -91,6 +91,7 @@ function parseQueryParams(url) {
 // Path map to translate Vercel rewrites to consolidated API endpoints on GCP/Coolify
 const PATH_MAP = {
   '/api/admin/whatsapp/config': { file: 'admin.js', action: 'whatsapp-config' },
+  '/api/admin/msg91/config': { file: 'admin.js', action: 'msg91-config' },
   '/api/admin/razorpay/config': { file: 'admin.js', action: 'razorpay-config' },
   '/api/admin/razorpay/test-connection': { file: 'admin.js', action: 'razorpay-test' },
   '/api/admin/orders/update-delivery-status': { file: 'admin.js', action: 'orders-update' },

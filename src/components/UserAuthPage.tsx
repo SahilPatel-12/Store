@@ -139,7 +139,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
 
       setVerificationStep('otp');
       setOtpCountdown(60);
-      triggerToast(`Verification code sent to ${formatted} via WhatsApp!`);
+      triggerToast(`Verification code sent to ${formatted}!`);
     } catch (err) {
       console.error(err);
       setOtpError((err as Error).message);
@@ -164,7 +164,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       }
 
       setOtpCountdown(60);
-      triggerToast('A fresh verification code has been dispatched via WhatsApp!');
+      triggerToast('A fresh verification code has been dispatched!');
     } catch (err) {
       console.error(err);
       setOtpError((err as Error).message);
@@ -176,7 +176,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529' && userEnteredOtp !== '111111') { // Backdoor bypass in case sandbox lacks live network
-      setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
+      setOtpError('Invalid OTP code. Please check your messages or resend.');
       return;
     }
 
@@ -391,7 +391,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               <form onSubmit={handleSendOtpTrigger} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    WhatsApp Phone Number *
+                    Phone Number *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
@@ -416,7 +416,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
                     <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
                   </div>
                   <span style={{ fontSize: '0.7rem', color: '#6b7280', display: 'block', marginTop: '6px' }}>
-                    We will send a secure 6-digit OTP code to this number via WhatsApp.
+                    We will send a secure 6-digit OTP code to this number.
                   </span>
                 </div>
 
@@ -479,10 +479,10 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               </div>
 
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary, #111827)', fontFamily: 'var(--font-serif, serif)' }}>
-                WhatsApp Verification
+                OTP Verification
               </h3>
               <p style={{ fontSize: '0.84rem', color: '#6b7280', marginTop: '6px', lineHeight: '1.4' }}>
-                We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via WhatsApp.
+                We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong>.
               </p>
 
               {otpError && (
@@ -574,7 +574,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
                         cursor: 'pointer'
                       }}
                     >
-                      Resend via WhatsApp
+                      Resend OTP Code
                     </button>
                   )}
                 </div>

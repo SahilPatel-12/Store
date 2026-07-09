@@ -398,7 +398,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     e.preventDefault();
     setAuthError('');
     if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529') {
-      setAuthError('Invalid verification code. Please check WhatsApp or resend.');
+      setAuthError('Invalid verification code. Please check your messages or resend.');
       return;
     }
 
@@ -1204,10 +1204,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           {step === 'otp' && (
             <div>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 850, color: '#1f2937', margin: '0 auto 6px auto' }}>
-                WhatsApp Verification
+                OTP Verification
               </h3>
               <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                We've sent a 6-digit verification code to <strong style={{ color: '#111827' }}>+91 {otpTargetPhone}</strong> via WhatsApp.
+                We've sent a 6-digit verification code to <strong style={{ color: '#111827' }}>+91 {otpTargetPhone}</strong>.
               </p>
 
               {authError && (
