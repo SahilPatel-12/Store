@@ -1,5 +1,4 @@
 import whatsappConfig from './_lib/admin/whatsapp-config.js';
-import msg91Config from './_lib/admin/msg91-config.js';
 import razorpayConfig from './_lib/admin/razorpay-config.js';
 import razorpayTest from './_lib/admin/razorpay-test.js';
 import ordersUpdate from './_lib/admin/orders-update.js';
@@ -13,8 +12,6 @@ export default async function handler(req, res) {
   switch (action) {
     case 'whatsapp-config':
       return whatsappConfig(req, res);
-    case 'msg91-config':
-      return msg91Config(req, res);
     case 'razorpay-config':
       return razorpayConfig(req, res);
     case 'razorpay-test':

@@ -219,7 +219,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
       setVerificationStep('otp');
       setOtpCountdown(60);
-      triggerToast(`OTP code sent to ${formatted}!`);
+      triggerToast(`OTP code sent to ${formatted} via WhatsApp!`);
     } catch (err) {
       setOtpError((err as Error).message);
     } finally {
@@ -242,7 +242,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       }
 
       setOtpCountdown(60);
-      triggerToast('OTP code resent successfully!');
+      triggerToast('OTP code resent successfully via WhatsApp!');
     } catch (err) {
       setOtpError((err as Error).message);
     }
@@ -251,7 +251,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529' && userEnteredOtp !== '111111') {
-      setOtpError('Invalid OTP code. Please check your messages or resend.');
+      setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
       return;
     }
 
@@ -845,7 +845,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 <form onSubmit={handleSendOtpTrigger} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div>
                     <label htmlFor="phoneNumber" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#4c1d11' }}>
-                    Mobile Number
+                      WhatsApp Mobile Number
                     </label>
                     <div style={{ position: 'relative' }}>
                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#6b5a55' }}>
@@ -862,7 +862,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       />
                     </div>
                     <span style={{ fontSize: '0.78rem', color: '#8c7670', display: 'block', marginTop: '6px' }}>
-                      We will send a one-time verification code to this number.
+                      We will send a one-time verification code to this number via WhatsApp.
                     </span>
                   </div>
 
