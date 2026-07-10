@@ -655,16 +655,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
           </button>
         </div>
 
-        {/* Estimated delivery chip */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
-          marginTop: '16px',
-        }}>
-          <Clock size={14} style={{ color: '#fbbf24' }} />
-          <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-            Estimated Delivery by <strong style={{ color: '#fbbf24' }}>{estimatedDelivery}</strong>
-          </span>
-        </div>
+
       </div>
 
       {/* ═══════════════════════════════════════

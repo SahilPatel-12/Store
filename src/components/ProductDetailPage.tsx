@@ -3923,6 +3923,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
   const activeProducts = productsProp || [];
   const isVidyaRudraksh = product.name?.toLowerCase().includes('vidya') && (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha');
+  const isOneRupeeProd = product.price === 1 || isVidyaRudraksh;
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
   const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
@@ -6359,6 +6360,28 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 const cartItem = cart.find(item => item.product.id === product.id);
                 const qty = cartItem ? cartItem.quantity : 0;
                 if (qty > 0) {
+                  if (isOneRupeeProd) {
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '12px',
+                        height: '54px',
+                        boxSizing: 'border-box',
+                        color: 'var(--text-muted)',
+                        width: '100%',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        gap: '8px'
+                      }}>
+                        <span>1 Item in Cart (Limit 1)</span>
+                      </div>
+                    );
+                  }
                   return (
                     <div style={{
                       display: 'flex',

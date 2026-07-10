@@ -244,84 +244,103 @@ export const CartPage: React.FC<CartPageProps> = ({
                 overflow: 'hidden',
                 boxShadow: 'var(--shadow-sm)'
               }}>
-                {cart.map((item, idx) => (
-                  <div
-                    key={item.product.id + '-' + idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '16px',
-                      padding: '20px',
-                      borderBottom: idx < cart.length - 1 ? '1px solid var(--border-light)' : 'none',
-                      textAlign: 'left'
-                    }}
-                  >
-                    {/* Emoji Card */}
-                    <div style={{
-                      width: '72px',
-                      height: '72px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      overflow: 'hidden'
-                    }}>
-                      {isImageUrl(item.product.image) ? (
-                        <img
-                          src={getDisplayImageUrl(item.product.image)}
-                          alt={item.product.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <span style={{ fontSize: '2.5rem' }}>{item.product.image}</span>
-                      )}
-                    </div>
+                {cart.map((item, idx) => {
+                  const isOneRupeeProd = item.product.price === 1 || 
+                    (item.product.name?.toLowerCase().includes('vidya') && 
+                     (item.product.name?.toLowerCase().includes('rudraksh') || item.product.category?.toLowerCase() === 'rudraksha'));
 
-                    {/* Metadata */}
-                    <div style={{ flexGrow: 1 }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>
-                        {item.product.spiritualType}
-                      </span>
-                      <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', margin: '2px 0' }}>
-                        {item.product.name}
-                      </h3>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-forest)' }}>
-                        ₹{item.product.price}
-                      </span>
-                    </div>
-
-                    {/* Quantity controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                      <button
-                        onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                        style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
-                      >
-                        <Minus size={14} strokeWidth={2.5} />
-                      </button>
-                      <span style={{ padding: '0 6px', fontSize: '0.85rem', fontWeight: 800, minWidth: '18px', textAlign: 'center' }}>
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                        style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
-                      >
-                        <Plus size={14} strokeWidth={2.5} />
-                      </button>
-                    </div>
-
-                    {/* Delete Bin */}
-                    <button
-                      onClick={() => onRemoveItem(item.product.id)}
-                      style={{ color: 'var(--text-muted)', padding: '6px' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                  return (
+                    <div
+                      key={item.product.id + '-' + idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
+                        padding: '20px',
+                        borderBottom: idx < cart.length - 1 ? '1px solid var(--border-light)' : 'none',
+                        textAlign: 'left'
+                      }}
                     >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                      {/* Emoji Card */}
+                      <div style={{
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        overflow: 'hidden'
+                      }}>
+                        {isImageUrl(item.product.image) ? (
+                          <img
+                            src={getDisplayImageUrl(item.product.image)}
+                            alt={item.product.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '2.5rem' }}>{item.product.image}</span>
+                        )}
+                      </div>
+
+                      {/* Metadata */}
+                      <div style={{ flexGrow: 1 }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>
+                          {item.product.spiritualType}
+                        </span>
+                        <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', margin: '2px 0' }}>
+                          {item.product.name}
+                        </h3>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-forest)' }}>
+                          ₹{item.product.price}
+                        </span>
+                      </div>
+
+                      {/* Quantity controls */}
+                      {isOneRupeeProd ? (
+                        <div style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
+                          color: 'var(--text-muted)'
+                        }}>
+                          Qty: 1 (Limit 1)
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                          <button
+                            onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                            style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
+                          >
+                            <Minus size={14} strokeWidth={2.5} />
+                          </button>
+                          <span style={{ padding: '0 6px', fontSize: '0.85rem', fontWeight: 800, minWidth: '18px', textAlign: 'center' }}>
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                            style={{ padding: '4px 10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
+                          >
+                            <Plus size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Delete Bin */}
+                      <button
+                        onClick={() => onRemoveItem(item.product.id)}
+                        style={{ color: 'var(--text-muted)', padding: '6px' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Coupon Form Card */}

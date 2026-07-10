@@ -1721,7 +1721,9 @@ function App() {
           certificates: item.certificates || [],
           iconImage: item.icon_image,
           promoCreatives: item.promo_creatives || [],
-          purchaseLimit: item.purchase_limit ? Number(item.purchase_limit) : undefined,
+          purchaseLimit: (parseFloat(item.price?.toString()) === 1 || (item.name?.toLowerCase().includes('vidya') && (item.name?.toLowerCase().includes('rudraksh') || item.category?.toLowerCase() === 'rudraksha')))
+            ? 1
+            : (item.purchase_limit ? Number(item.purchase_limit) : undefined),
           gstOverrideEnabled: item.gst_override_enabled || false,
           customGst: item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined,
           deliveryOverrideEnabled: item.delivery_override_enabled || false,
@@ -2396,7 +2398,10 @@ function App() {
       setPendingAddToCart({ product, qty: quantity });
     }
 
-    const limit = product.purchaseLimit;
+    const isOneRupeeProd = product.price === 1 || 
+      (product.name?.toLowerCase().includes('vidya') && 
+       (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha'));
+    const limit = isOneRupeeProd ? 1 : product.purchaseLimit;
     let allowedQty = quantity;
     let limitReached = false;
 
@@ -2455,7 +2460,10 @@ function App() {
     }
 
     const product = productsState.find(p => p.id === productId);
-    const limit = product?.purchaseLimit;
+    const isOneRupeeProd = product ? (product.price === 1 || 
+      (product.name?.toLowerCase().includes('vidya') && 
+       (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha'))) : false;
+    const limit = isOneRupeeProd ? 1 : product?.purchaseLimit;
     let targetQty = quantity;
 
     if (limit !== undefined && limit !== null && limit > 0 && quantity > limit) {

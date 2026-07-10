@@ -616,6 +616,9 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                             (() => {
                               const cartItem = cart.find(item => item.product.id === product.id);
                               const qty = cartItem ? cartItem.quantity : 0;
+                              const isOneRupeeProd = product.price === 1 || 
+                                (product.name?.toLowerCase().includes('vidya') && 
+                                 (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha'));
                               if (qty > 0) {
                                 return (
                                   <div style={{
@@ -660,30 +663,34 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                                     }}>
                                       {qty} in Cart
                                     </span>
-                                    <button
-                                      className="qty-plus-btn"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onUpdateQuantity(product.id, qty + 1);
-                                      }}
-                                      style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '6px',
-                                        backgroundColor: 'rgba(255,255,255,0.15)',
-                                        color: '#ffffff',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        border: 'none',
-                                        transition: 'background-color 0.15s'
-                                      }}
-                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
-                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
-                                    >
-                                      <Plus size={14} strokeWidth={2.5} />
-                                    </button>
+                                    {!isOneRupeeProd ? (
+                                      <button
+                                        className="qty-plus-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onUpdateQuantity(product.id, qty + 1);
+                                        }}
+                                        style={{
+                                          width: '32px',
+                                          height: '32px',
+                                          borderRadius: '6px',
+                                          backgroundColor: 'rgba(255,255,255,0.15)',
+                                          color: '#ffffff',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'pointer',
+                                          border: 'none',
+                                          transition: 'background-color 0.15s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+                                      >
+                                        <Plus size={14} strokeWidth={2.5} />
+                                      </button>
+                                    ) : (
+                                      <div style={{ width: '32px' }}></div>
+                                    )}
                                   </div>
                                 );
                               }
