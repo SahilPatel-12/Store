@@ -373,7 +373,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       if (!res.ok) {
         addLog(`✘ Verification failed: ${data.error || 'Incorrect OTP'}`);
         setErrorDetail(data.error || 'Invalid OTP.');
-        
+
         if (data.error?.toLowerCase().includes('attempt') || data.attemptsRemaining === 0) {
           setVerificationState('ATTEMPT LIMIT REACHED');
         } else {
@@ -527,7 +527,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
 
         {/* Center Column: Interactive Lab Board */}
         <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+
           {/* CARD 1: MSG91 SMS FLOW TEST */}
           <div style={styles.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '12px' }}>
@@ -724,7 +724,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
                 Product: WhatsApp
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
               <div style={{ padding: '12px 16px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: '8px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '16px' }}>⚠️</span>
