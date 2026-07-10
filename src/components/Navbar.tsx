@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, ShoppingBag, Menu, X } from 'lucide-react';
 import logo from '../assets/My_logo/Frame 16.png';
+import { useLanguage } from '../lib/i18n';
 
 interface NavbarProps {
   cartCount: number;
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCategorySelect,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const { language, setLanguage } = useLanguage();
 
   const categories = [
     { id: 'all', label: 'All Divine Items' },
@@ -98,6 +100,78 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Premium Sliding Language Toggle */}
+            <div
+              onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+              style={{
+                display: 'flex',
+                position: 'relative',
+                width: '100px',
+                height: '34px',
+                backgroundColor: 'rgba(243, 244, 246, 0.8)',
+                borderRadius: '17px',
+                padding: '2px',
+                cursor: 'pointer',
+                border: '1px solid var(--border-color, #e5e7eb)',
+                userSelect: 'none',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontFamily: 'system-ui, sans-serif',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary-gold, #d97706)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color, #e5e7eb)';
+              }}
+            >
+              {/* Sliding Background Indicator */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  bottom: '2px',
+                  left: language === 'en' ? '2px' : 'calc(50% + 1px)',
+                  width: 'calc(50% - 3px)',
+                  borderRadius: '15px',
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 5px rgba(217, 119, 6, 0.4)',
+                }}
+              />
+              
+              {/* Left Label: EN */}
+              <span
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  zIndex: 2,
+                  color: language === 'en' ? '#ffffff' : '#4b5563',
+                  transition: 'color 0.2s',
+                }}
+              >
+                EN
+              </span>
+
+              {/* Right Label: HI */}
+              <span
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  zIndex: 2,
+                  color: language === 'hi' ? '#ffffff' : '#4b5563',
+                  transition: 'color 0.2s',
+                }}
+              >
+                हिं
+              </span>
+            </div>
+
             {/* Shopping Cart */}
             <button
               onClick={onCartClick}

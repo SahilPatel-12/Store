@@ -1,0 +1,42 @@
+{
+  "title": "Your Cart",
+  "titleCount_one": "Your Cart ({{count}} item)",
+  "titleCount_other": "Your Cart ({{count}} items)",
+  "empty": {
+    "title": "Your cart is empty",
+    "description": "Add some divine items to begin your spiritual journey."
+  },
+  "item": {
+    "qty": "Qty: 1",
+    "limit": "(Limit 1)",
+    "free": "FREE"
+  },
+  "upsell": {
+    "title": "Explore More",
+    "add": "+ Add",
+    "off": "{{percent}}% off"
+  },
+  "coupon": {
+    "applied": "Coupon applied: {{coupon}}",
+    "applyPlaceholder": "Enter Coupon Code",
+    "title": "Apply Coupon Code",
+    "viewOffers": "View Offers",
+    "remove": "Remove",
+    "apply": "Apply",
+    "productError": "This coupon is only valid for: {{productName}}.",
+    "appliedSuccess": "Coupon {{code}} applied successfully!",
+    "appliedPercent": "Coupon {{code}} applied! ({{percent}}% OFF)",
+    "error": "Error occurred applying coupon."
+  },
+  "footer": {
+    "saved": "₹{{amount}} Saved so far!",
+    "estimatedTotal": "Estimated Total",
+    "itemsSubtotal": "Items Subtotal",
+    "couponDiscount": "Coupon Discount ({{percent}}%)",
+    "freeGift": "🎁 Free Gift Value",
+    "deliveryCharges": "Delivery Charges",
+    "freeDelivery": "FREE",
+    "checkout": "CHECKOUT NOW",
+    "percentOff": "({{percent}}% OFF)"
+  }
+}

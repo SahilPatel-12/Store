@@ -3,6 +3,8 @@ import { X, ShoppingBag, Sparkles, Plus, Minus, Trash2, Ticket, ChevronDown, Gif
 import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
+import { useTranslation } from 'react-i18next';
 
 const formatPrice = (val: any): string => {
   if (val === undefined || val === null) return '0.00';
@@ -53,6 +55,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [couponSuccess, setCouponSuccess] = React.useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
   const [isCouponSectionExpanded, setIsCouponSectionExpanded] = React.useState(false);
+  const { language } = useLanguage();
+  const { t } = useTranslation('cartDrawer');
 
 
 
@@ -60,12 +64,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   React.useEffect(() => {
     setCouponCodeInput(appliedCouponCode);
     if (appliedCouponCode) {
-      setCouponSuccess(`Coupon ${appliedCouponCode} applied! (${discountPercent}% OFF)`);
+      setCouponSuccess(t('coupon.appliedPercent', { code: appliedCouponCode, percent: discountPercent }));
       setCouponError('');
     } else {
       setCouponSuccess('');
     }
-  }, [appliedCouponCode, discountPercent]);
+  }, [appliedCouponCode, discountPercent, t]);
 
 
 
@@ -183,22 +187,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         const hasProduct = items.some(item => item?.product?.id === coupon.product_id);
         if (!hasProduct) {
           const { data: productData } = await supabase
-            .from('website_pooja_products')
+            .from('localized_website_pooja_products')
             .select('name')
             .eq('id', coupon.product_id)
+            .eq('locale', language)
             .maybeSingle();
-          const productName = productData?.name || 'a specific product';
-          setCouponError(`This coupon is only valid for: ${productName}.`);
+          const productName = productData?.name || (language === 'hi' ? 'एक विशेष उत्पाद' : 'a specific product');
+          setCouponError(t('coupon.productError', { productName }));
           onApplyCoupon('', 0, null);
           return;
         }
       }
 
       onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
-      setCouponSuccess(`Coupon ${formattedCode} applied successfully!`);
+      setCouponSuccess(t('coupon.appliedSuccess', { code: formattedCode }));
     } catch (err) {
       console.error('Error applying coupon:', err);
-      setCouponError('Error occurred applying coupon.');
+      setCouponError(t('coupon.error'));
       onApplyCoupon('', 0, null);
     } finally {
       setIsValidatingCoupon(false);
@@ -265,7 +270,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           backgroundColor: '#ffffff'
         }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-            Your Cart ({items.length} {items.length === 1 ? 'item' : 'items'})
+            {t('titleCount', { count: items.length })}
           </h2>
           <button
             onClick={onClose}
@@ -309,8 +314,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               flexGrow: 1
             }}>
               <ShoppingBag size={48} strokeWidth={1} style={{ marginBottom: '12px', color: '#cbd5e1' }} />
-              <p style={{ fontSize: '0.95rem', fontWeight: 600 }}>Your cart is empty</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Add some divine items to begin your spiritual journey.</p>
+              <p style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('empty.title')}</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>{t('empty.description')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -365,7 +370,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <div>
                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dark)', lineHeight: 1.2 }}>
                           {isGift && <Gift size={13} style={{ display: 'inline-block', color: 'var(--primary-lime, #f97316)', marginRight: '4px', verticalAlign: 'text-bottom' }} />}
-                          {item.product.name}
+                          {products.find(p => p.id === item.product.id)?.name || item.product.name}
                         </h4>
                         
                         {/* Price details */}
@@ -373,7 +378,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           {isGift ? (
                             <>
                               <span style={{ textDecoration: 'line-through', fontSize: '0.8rem', color: '#9ca3af' }}>₹{formatPrice(giftValue)}</span>
-                              <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.82rem' }}>FREE</span>
+                              <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.82rem' }}>{t('item.free')}</span>
                             </>
                           ) : (
                             <>
@@ -382,7 +387,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               )}
                               <span style={{ fontWeight: 800, fontSize: '0.82rem', color: '#111827' }}>₹{formatPrice(item.product.price)}</span>
                               {hasDiscount && (
-                                <span style={{ color: '#16a34a', fontSize: '0.72rem', fontWeight: 700 }}>({discountPct}% OFF)</span>
+                                <span style={{ color: '#16a34a', fontSize: '0.72rem', fontWeight: 700 }}>{t('footer.percentOff', { percent: discountPct })}</span>
                               )}
                             </>
                           )}
@@ -400,7 +405,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             fontWeight: 700,
                             color: '#4b5563'
                           }}>
-                            Qty: 1 {isOneRupeeProd && '(Limit 1)'}
+                            {t('item.qty')} {isOneRupeeProd && t('item.limit')}
                           </div>
                         ) : (
                           <div style={{
@@ -451,7 +456,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {items.length > 0 && crossSellProducts.length > 0 && (
             <div style={{ textAlign: 'left' }}>
               <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
-                Explore More
+                {t('upsell.title')}
               </h3>
               
               <div
@@ -542,7 +547,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             borderRadius: '4px',
                             fontWeight: 700
                           }}>
-                            {discountPct}% off
+                            {t('upsell.off', { percent: discountPct })}
                           </span>
                         ) : (
                           <div />
@@ -570,7 +575,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             e.currentTarget.style.color = 'var(--primary-lime, #f97316)';
                           }}
                         >
-                          + Add
+                          {t('upsell.add')}
                         </button>
                       </div>
                     </div>
@@ -609,17 +614,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
                   <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                    {appliedCouponCode ? `Coupon applied: ${appliedCouponCode}` : 'Apply Coupon Code'}
+                    {appliedCouponCode ? t('coupon.applied', { coupon: appliedCouponCode }) : t('coupon.title')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   {appliedCouponCode ? (
                     <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 700 }}>
-                      {discountPercent}% OFF
+                      {t('footer.percentOff', { percent: discountPercent })}
                     </span>
                   ) : (
                     <span style={{ fontSize: '0.74rem', color: 'var(--primary-lime, #f97316)', fontWeight: 700 }}>
-                      View Offers
+                      {t('coupon.viewOffers')}
                     </span>
                   )}
                   <ChevronDown size={14} style={{ color: '#9ca3af', transform: isCouponSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -638,7 +643,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type="text"
-                      placeholder="Enter Coupon Code"
+                      placeholder={t('coupon.applyPlaceholder')}
                       value={couponCodeInput}
                       onChange={(e) => setCouponCodeInput(e.target.value)}
                       style={{
@@ -667,7 +672,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           fontWeight: 700
                         }}
                       >
-                        Remove
+                        {t('coupon.remove')}
                       </button>
                     ) : (
                       <button
@@ -683,7 +688,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           opacity: isValidatingCoupon ? 0.7 : 1
                         }}
                       >
-                        Apply
+                        {t('coupon.apply')}
                       </button>
                     )}
                   </div>
@@ -722,7 +727,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 marginBottom: '12px'
               }}>
                 <Sparkles size={14} fill="#137333" />
-                <span>₹{formatPrice(totalSaved)} Saved so far!</span>
+                <span>{t('footer.saved', { amount: formatPrice(totalSaved) })}</span>
               </div>
             )}
 
@@ -737,7 +742,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                  <span>Estimated Total</span>
+                  <span>{t('footer.estimatedTotal')}</span>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
@@ -749,7 +754,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                   {originalTotal > estimatedTotal && (
                     <span style={{ color: '#16a34a', fontSize: '0.74rem', fontWeight: 700 }}>
-                      ({Math.round(((originalTotal - estimatedTotal) / originalTotal) * 100)}% OFF)
+                      {t('footer.percentOff', { percent: Math.round(((originalTotal - estimatedTotal) / originalTotal) * 100) })}
                     </span>
                   )}
                 </div>
@@ -770,24 +775,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 textAlign: 'left'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Items Subtotal</span>
+                  <span>{t('footer.itemsSubtotal')}</span>
                   <span>₹{formatPrice(subtotal)}</span>
                 </div>
                 {couponDiscount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#b91c1c' }}>
-                    <span>Coupon Discount ({discountPercent}%)</span>
+                    <span>{t('footer.couponDiscount', { percent: discountPercent })}</span>
                     <span>-₹{formatPrice(couponDiscount)}</span>
                   </div>
                 )}
                 {hasGift && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
-                    <span>🎁 Free Gift Value</span>
+                    <span>{t('footer.freeGift')}</span>
                     <span>-₹{formatPrice(giftValue)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Delivery Charges</span>
-                  <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>FREE</strong> : `₹${formatPrice(shippingCost)}`}</span>
+                  <span>{t('footer.deliveryCharges')}</span>
+                  <span>{shippingCost === 0 ? <strong style={{ color: '#16a34a' }}>{t('footer.freeDelivery')}</strong> : `₹${formatPrice(shippingCost)}`}</span>
                 </div>
               </div>
             </div>
@@ -820,7 +825,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 e.currentTarget.style.boxShadow = '0 6px 20px rgba(234, 88, 12, 0.25)';
               }}
             >
-              <span style={{ letterSpacing: '0.5px' }}>CHECKOUT NOW</span>
+              <span style={{ letterSpacing: '0.5px' }}>{t('footer.checkout')}</span>
               <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>
                 ₹{formatPrice(estimatedTotal)}
               </span>

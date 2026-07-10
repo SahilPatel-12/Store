@@ -1,0 +1,15 @@
+{
+  "brandName": "MantraPuja",
+  "currencySymbol": "₹",
+  "actions": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "loading": "Loading..."
+  },
+  "inlineEdit": {
+    "placeholder": "Click to edit...",
+    "title": "Click to edit inline"
+  }
+}

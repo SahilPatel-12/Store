@@ -1,0 +1,34 @@
+{
+  "trust": {
+    "directFromVaranasiTitle": "सीधे वाराणसी से",
+    "directFromVaranasiDesc": "गंगा नदी के पवित्र तटों पर प्राण-प्रतिष्ठित।",
+    "certifiedVedicTitle": "प्रमाणित वैदिक वस्तुएं",
+    "certifiedVedicDesc": "100% प्राकृतिक पत्थर और प्रयोगशाला-प्रमाणित रुद्राक्ष।",
+    "spiritualGuaranteeTitle": "आध्यात्मिक गारंटी",
+    "spiritualGuaranteeDesc": "मंदिर के कारीगरों की सहायता हेतु स्थायी रूप से प्राप्त।"
+  },
+  "brandDescription": "प्रामाणिक, प्रयोगशाला-प्रमाणित हिमालयी रुद्राक्ष, शुद्ध जैविक कपूर और पीतल की देवी-देवताओं की मूर्तियों का संग्रह। वाराणसी के प्रसिद्ध घाटों पर जागृत कर आपके घर सकारात्मक ऊर्जा पहुँचाना।",
+  "columns": {
+    "navigation": "पवित्र नेविगेशन",
+    "essence": "हमारा सार",
+    "policies": "दिव्य नीतियां"
+  },
+  "links": {
+    "homeAltar": "गृह वेदी",
+    "spiritualShop": "आध्यात्मिक दुकान",
+    "searchCatalog": "सूची खोजें",
+    "shoppingCart": "शॉपिंग कार्ट",
+    "altarSiteMap": "साइट मानचित्र",
+    "panditPortal": "पंडित पोर्टल",
+    "astrologerPortal": "ज्योतिषी पोर्टल",
+    "brandStory": "हमारी कहानी",
+    "contactSupport": "संपर्क एवं सहायता",
+    "myWishlist": "मेरी विशलिस्ट",
+    "devoteeDashboard": "भक्त डैशबोर्ड",
+    "privacyData": "गोपनीयता और डेटा दिशानिर्देश",
+    "refundsExchanges": "वापसी और विनिमय नीति",
+    "sacredDispatches": "पवित्र शिपिंग और वितरण",
+    "termsDevotion": "भक्ति की शर्तें"
+  },
+  "copyright": "© {{year}} मंत्र पूजा ट्रस्ट। सभी पवित्र अधिकार सुरक्षित हैं।"
+}

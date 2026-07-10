@@ -1,0 +1,34 @@
+{
+  "trust": {
+    "directFromVaranasiTitle": "Directly From Varanasi",
+    "directFromVaranasiDesc": "Energized on the holy banks of the Ganges River.",
+    "certifiedVedicTitle": "Certified Vedic Items",
+    "certifiedVedicDesc": "100% natural stones & lab-certified Rudrakshas.",
+    "spiritualGuaranteeTitle": "Spiritual Guarantee",
+    "spiritualGuaranteeDesc": "Sourced sustainably supporting temple karigars."
+  },
+  "brandDescription": "Curating authentic, lab-certified Himalayan Rudrakshas, pure organic camphor, and deity brass idols. Energized at the legendary ghats of Varanasi to bring healing vibrations home.",
+  "columns": {
+    "navigation": "Sacred Navigation",
+    "essence": "Our Essence",
+    "policies": "Divine Policies"
+  },
+  "links": {
+    "homeAltar": "Home Altar",
+    "spiritualShop": "Spiritual Shop",
+    "searchCatalog": "Search Catalog",
+    "shoppingCart": "Shopping Cart",
+    "altarSiteMap": "Altar Site Map",
+    "panditPortal": "Pandit Portal",
+    "astrologerPortal": "Astrologer Portal",
+    "brandStory": "Brand Story",
+    "contactSupport": "Contact Support",
+    "myWishlist": "My Wishlist",
+    "devoteeDashboard": "Devotee Dashboard",
+    "privacyData": "Privacy & Data Guidelines",
+    "refundsExchanges": "Refunds & Exchanges",
+    "sacredDispatches": "Sacred Dispatches Shipping",
+    "termsDevotion": "Terms of Devotion"
+  },
+  "copyright": "© {{year}} Mantra Puja Trust. All Sacred Rights Reserved."
+}
