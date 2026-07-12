@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Package, MapPin, Landmark, Volume2, VolumeX } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Share2, ShieldCheck, Check, Clock, ChevronRight, MessageSquare, Info, User, Award, Calendar, ChevronDown, BookOpen, Upload, Plus, Minus, Trash2, Eye, EyeOff, X, ChevronLeft, ZoomIn, Play, Pencil, Users, Package, MapPin, Landmark, Volume2, VolumeX, Tv, ChevronsRight } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { uploadToR2 } from '../lib/cloudflare/r2';
@@ -3932,6 +3932,79 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [expandedFaqIndex, setExpandedFaqIndex] = React.useState<number | null>(null);
   const [isCapturingThumbnail, setIsCapturingThumbnail] = React.useState<boolean>(false);
 
+  const [zoomLevel, setZoomLevel] = React.useState<number>(1);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [currentTime, setCurrentTime] = React.useState<number>(0);
+  const [duration, setDuration] = React.useState<number>(0);
+  const [isPlaying, setIsPlaying] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    setZoomLevel(1);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(true);
+  }, [activeImageIndex]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    setCurrentTime(newTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+  };
+
+  const handlePipOrFullscreen = async () => {
+    if (videoRef.current) {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else if (videoRef.current.requestPictureInPicture) {
+          await videoRef.current.requestPictureInPicture();
+        } else if ((videoRef.current as any).webkitEnterFullscreen) {
+          (videoRef.current as any).webkitEnterFullscreen();
+        } else {
+          if (document.fullscreenElement) {
+            await document.exitFullscreen();
+          } else {
+            await videoRef.current.parentElement?.requestFullscreen();
+          }
+        }
+      } catch (err) {
+        console.error("Error handling PiP or fullscreen:", err);
+      }
+    }
+  };
+
+  const formatVideoTime = (seconds: number) => {
+    if (isNaN(seconds)) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Dynamic live viewers and countdown timer state hooks
   const [viewersCount, setViewersCount] = React.useState(47);
   const [timeLeft, setTimeLeft] = React.useState('');
@@ -4240,7 +4313,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     touchStartX.current = null;
   };
 
-  // Auto-scroll images every 3 seconds, resetting timer on active index transition
+  // Auto-scroll images every 7 seconds, resetting timer on active index transition
   React.useEffect(() => {
     if (resolvedGallery.length <= 1) return;
     
@@ -4250,7 +4323,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
     const interval = setInterval(() => {
       setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
-    }, 3000);
+    }, 7000);
     return () => clearInterval(interval);
   }, [activeImageIndex, resolvedGallery.length, resolvedGallery]);
 
@@ -4555,6 +4628,55 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
       {/* Embedded badge keyframe styles & marquee styles */}
       <style>{`
+        /* Custom input range styling */
+        .zoom-slider-range, .video-progress-range {
+          -webkit-appearance: none;
+          appearance: none;
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 2px;
+          outline: none;
+        }
+        .zoom-slider-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          border: 1px solid rgba(0,0,0,0.15);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .zoom-slider-range::-moz-range-thumb {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          border: 1px solid rgba(0,0,0,0.15);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .video-progress-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+          border: none;
+        }
+        .video-progress-range::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+          border: none;
+        }
+
         /* Marquee scrolling animation */
         .announcement-marquee-wrapper {
           display: flex;
@@ -5197,12 +5319,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <Share2 size={18} />
               </button>
               {!resolvedGallery[activeImageIndex]?.isEmoji && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLightboxIndex(activeImageIndex);
-                  }}
+                <div
+                  onClick={(e) => e.stopPropagation()} // Prevent trigger light-box toggle on track clicks
                   style={{
                     position: 'absolute',
                     top: '16px',
@@ -5210,60 +5328,95 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     backdropFilter: 'blur(4px)',
                     border: '1px solid var(--border-light)',
-                    borderRadius: '50%',
-                    width: '36px',
-                    height: '36px',
+                    borderRadius: '20px',
+                    padding: '4px 8px 4px 12px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
+                    gap: '8px',
                     boxShadow: 'var(--shadow-sm)',
                     zIndex: 25,
                     color: 'var(--text-dark)',
-                    transition: 'all 0.2s',
                   }}
-                  title="View full screen"
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <ZoomIn size={18} />
-                </button>
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.1"
+                    value={zoomLevel}
+                    onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                    className="zoom-slider-range"
+                    style={{
+                      width: '80px',
+                      height: '4px',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxIndex(activeImageIndex);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                      color: 'var(--text-dark)',
+                      transition: 'background-color 0.2s',
+                    }}
+                    title="View full screen"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                </div>
               )}
               {resolvedGallery[activeImageIndex] ? (
                 resolvedGallery[activeImageIndex].isVideo ? (
                   resolvedGallery[activeImageIndex].url.includes('cloudflarestream.com') ? (
                     <iframe
                       src={`${resolvedGallery[activeImageIndex].url}?autoplay=true&loop=true&muted=true`}
-                      style={{ border: 'none', backgroundColor: '#000000', width: '100%', height: '100%' }}
+                      style={{ border: 'none', backgroundColor: '#000000', width: '100%', height: '100%', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out' }}
                       allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
                       allowFullScreen
                     />
                   ) : (
                     <video
+                      ref={videoRef}
                       id="pooja-product-video-player"
                       src={resolvedGallery[activeImageIndex].url}
                       poster={resolvedGallery[activeImageIndex].thumbnail || undefined}
-                      controls
                       autoPlay
                       muted
                       loop={false}
                       playsInline
                       crossOrigin="anonymous"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out', cursor: 'pointer' }}
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onClick={togglePlay}
                       onEnded={() => {
                         setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
                       }}
                     />
                   )
                 ) : resolvedGallery[activeImageIndex].isEmoji ? (
-                  <span style={{ fontSize: '8rem', userSelect: 'none', filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.15))' }}>
+                  <span style={{ fontSize: '8rem', userSelect: 'none', filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.15))', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out', display: 'inline-block' }}>
                     {resolvedGallery[activeImageIndex].url}
                   </span>
                 ) : (
                   <img
                     src={getDisplayImageUrl(resolvedGallery[activeImageIndex].url)}
                     alt={resolvedGallery[activeImageIndex].alt}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out' }}
                   />
                 )
               ) : (
@@ -5328,25 +5481,144 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </>
               )}
 
-              {/* Authenticity Badge */}
-              <div style={{
-                position: 'absolute',
-                bottom: '16px',
-                left: '16px',
-                backgroundColor: 'rgba(45, 20, 14, 0.95)',
-                color: '#ffffff',
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: 'var(--shadow-md)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                zIndex: 10
-              }}>
-                <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>100% Temple Blessed & Energized</span>
-              </div>
+              {/* Authenticity Badge or Custom Video Controls */}
+              {resolvedGallery[activeImageIndex]?.isVideo ? (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  left: '16px',
+                  right: '16px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: '30px',
+                  padding: '8px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  zIndex: 25,
+                }}>
+                  {/* Embedded Authenticity Badge */}
+                  <div style={{
+                    backgroundColor: 'rgba(45, 20, 14, 0.95)',
+                    color: '#ffffff',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    flexShrink: 0,
+                  }}>
+                    <ShieldCheck size={14} style={{ color: 'var(--primary-lime)' }} />
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                      100% Temple Blessed & Energized
+                    </span>
+                  </div>
+
+                  {/* Video Timeline / Progress Scrubber */}
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 100}
+                    step="0.1"
+                    value={currentTime}
+                    onChange={handleSliderChange}
+                    className="video-progress-range"
+                    style={{
+                      flexGrow: 1,
+                      height: '4px',
+                      cursor: 'pointer',
+                      background: `linear-gradient(to right, #ffffff ${duration ? (currentTime / duration) * 100 : 0}%, rgba(255,255,255,0.2) ${duration ? (currentTime / duration) * 100 : 0}%)`,
+                    }}
+                  />
+
+                  {/* Time Display */}
+                  <span style={{
+                    color: '#ffffff',
+                    fontSize: '0.75rem',
+                    fontFamily: 'monospace',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}>
+                    {duration ? `${formatVideoTime(currentTime)} / ${formatVideoTime(duration)}` : '--:--'}
+                  </span>
+
+                  {/* Action Buttons: Fullscreen & Next */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePipOrFullscreen();
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        borderRadius: '50%',
+                        transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      title="Toggle Fullscreen / PiP"
+                    >
+                      <Tv size={16} />
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImageIndex((prev) => (prev + 1) % resolvedGallery.length);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        borderRadius: '50%',
+                        transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      title="Next slide"
+                    >
+                      <ChevronsRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  left: '16px',
+                  backgroundColor: 'rgba(45, 20, 14, 0.95)',
+                  color: '#ffffff',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: 'var(--shadow-md)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  zIndex: 10
+                }}>
+                  <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>100% Temple Blessed & Energized</span>
+                </div>
+              )}
             </div>
 
             {/* Global Compressor Widget for active gallery item */}
