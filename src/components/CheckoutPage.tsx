@@ -14,12 +14,14 @@ import {
   Upload,
   Copy,
 } from 'lucide-react';
-import type { CartItem } from '../types';
+import type { CartItem, Product } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
+import { useLanguage } from '../lib/i18n';
+import { useTranslation } from 'react-i18next';
 
 
 interface Address {
@@ -54,6 +56,7 @@ interface CheckoutPageProps {
     razorpayMode: 'test' | 'live';
     legacyManualUpiEnabled: boolean;
   };
+  products?: Product[];
 }
 
 type Step = 'address' | 'payment' | 'confirmation';
@@ -71,9 +74,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   discountPercent,
   taxDeliverySettings,
   paymentActivation,
+  products = [],
 }) => {
   const [step, setStep] = React.useState<Step>('address');
   const [paymentMethod] = React.useState<PaymentMethod>('upi');
+  const { language } = useLanguage();
+  const { t } = useTranslation('checkout');
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['checkout']).then(() => setIsReady(true));
+    });
+  }, [language]);
 
   // Barcode / UPI QR direct payment states
   const [barcodeSettings, setBarcodeSettings] = React.useState<{ upiId?: string; barcodeUrl?: string } | null>(null);
@@ -136,14 +149,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
 
   React.useEffect(() => {
-    if (appliedCouponCode) {
-      setCouponMessage({ text: `✓ Coupon applied! ${discountPercent}% off`, type: 'success' });
+    if (appliedCouponCode && isReady) {
+      setCouponMessage({ text: t('summary.coupon.success', { percent: discountPercent }), type: 'success' });
       setCouponCode(appliedCouponCode);
     } else {
       setCouponMessage({ text: '', type: '' });
       setCouponCode('');
     }
-  }, [appliedCouponCode, discountPercent]);
+  }, [appliedCouponCode, discountPercent, isReady, t]);
 
   // Order ID generated once for confirmation
   const [orderId] = React.useState(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
@@ -287,7 +300,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
 
     if (!loggedInUser) {
-      setCouponMessage({ text: 'Please log in to apply devotional coupons.', type: 'error' });
+      setCouponMessage({ text: t('summary.coupon.error.login'), type: 'error' });
       onApplyCoupon('', 0, null);
       return;
     }
@@ -304,14 +317,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (fetchError) throw fetchError;
 
       if (!coupon) {
-        setCouponMessage({ text: 'Invalid coupon code.', type: 'error' });
+        setCouponMessage({ text: t('summary.coupon.error.invalid'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
 
       // 2. Validate usage limit
       if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
-        setCouponMessage({ text: 'This coupon has reached its total usage limit.', type: 'error' });
+        setCouponMessage({ text: t('summary.coupon.error.limit'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
@@ -327,7 +340,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (redemptionError) throw redemptionError;
 
       if (existingRedemption) {
-        setCouponMessage({ text: 'You have already used this coupon code.', type: 'error' });
+        setCouponMessage({ text: t('summary.coupon.error.used'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
@@ -337,13 +350,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         const hasProduct = cart.some(item => item.product.id === coupon.product_id);
         if (!hasProduct) {
           const { data: productData } = await supabase
-            .from('website_pooja_products')
+            .from('localized_website_pooja_products')
             .select('name')
             .eq('id', coupon.product_id)
+            .eq('locale', language)
             .maybeSingle();
           
           const productName = productData?.name || 'a specific product';
-          setCouponMessage({ text: `This coupon is only valid for product: ${productName}.`, type: 'error' });
+          setCouponMessage({ text: t('summary.coupon.error.product', { productName }), type: 'error' });
           onApplyCoupon('', 0, null);
           return;
         }
@@ -351,11 +365,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       // 5. Apply coupon
       onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
-      setCouponMessage({ text: `✓ Coupon applied! ${coupon.discount_percent}% off`, type: 'success' });
+      setCouponMessage({ text: t('summary.coupon.success', { percent: coupon.discount_percent }), type: 'success' });
 
     } catch (err) {
       console.error('Error applying coupon:', err);
-      setCouponMessage({ text: 'An error occurred while applying coupon. Please try again.', type: 'error' });
+      setCouponMessage({ text: t('summary.coupon.error.generic'), type: 'error' });
       onApplyCoupon('', 0, null);
     } finally {
       setIsValidatingCoupon(false);
@@ -364,13 +378,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   const validateAddress = () => {
     const errs: Record<string, string> = {};
-    if (!fullName.trim()) errs.fullName = 'Full name is required';
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = 'Valid phone number required';
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Valid email required';
-    if (!addressLine1.trim()) errs.addressLine1 = 'Address is required';
-    if (!city.trim()) errs.city = 'City is required';
-    if (!state.trim()) errs.state = 'State is required';
-    if (!pincode.trim() || pincode.replace(/\D/g, '').length < 5) errs.pincode = 'Valid pincode required';
+    if (!fullName.trim()) errs.fullName = t('address.validation.fullName');
+    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = t('address.validation.phone');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = t('address.validation.email');
+    if (!addressLine1.trim()) errs.addressLine1 = t('address.validation.addressLine1');
+    if (!city.trim()) errs.city = t('address.validation.city');
+    if (!state.trim()) errs.state = t('address.validation.state');
+    if (!pincode.trim() || pincode.replace(/\D/g, '').length < 5) errs.pincode = t('address.validation.pincode');
     setAddressErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -423,7 +437,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     if (isMobile) {
       window.location.href = uri;
     } else {
-      alert("UPI App direct launching is only supported on mobile devices. Please scan the QR code above with your mobile UPI app to pay ₹" + finalTotal.toFixed(2) + "!");
+      alert(t('payment.upi.mobileAlert', { amount: finalTotal.toFixed(2) }));
     }
   };
 
@@ -443,7 +457,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setPaymentScreenshotUrl(url);
     } catch (err) {
       console.error('Failed to upload proof of payment:', err);
-      alert('Failed to upload screenshot. Please verify connection and try again.');
+      alert(t('payment.upi.uploadError'));
     } finally {
       setIsUploadingScreenshot(false);
     }
@@ -453,7 +467,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     const errs: Record<string, string> = {};
     if (paymentMethod === 'upi') {
       if (!paymentScreenshotUrl) {
-        errs.screenshot = 'Please scan the QR code and upload your payment confirmation screenshot';
+        errs.screenshot = t('payment.upi.validationError');
       }
     }
     setPaymentErrors(errs);
@@ -575,6 +589,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     display: 'block',
   };
 
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>{language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', paddingBottom: '80px' }}>
 
@@ -586,7 +608,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               if (step === 'address') {
                 handleBackToCart();
               } else if (step === 'payment') {
-                if (window.confirm('Are you sure you want to go back? Your payment will be cancelled.')) {
+                if (window.confirm(t('payment.cancelConfirm'))) {
                   setStep('address');
                 }
               } else {
@@ -601,7 +623,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
             <ArrowLeft size={16} />
-            {step === 'address' ? 'Back to Cart' : 'Back to Address'}
+            {step === 'address' ? t('backNav.cart') : t('backNav.address')}
           </button>
         </div>
       )}
@@ -613,7 +635,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           fontSize: '2rem', fontWeight: 900, color: 'var(--text-dark)',
           marginBottom: '28px', textAlign: 'left'
         }}>
-          Secure Checkout
+          {t('title')}
         </h1>
 
         {/* ── Step Indicator ── */}
@@ -627,7 +649,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             border: '1px solid var(--border-light)',
             boxShadow: 'var(--shadow-sm)',
           }}>
-            {['Shipping Address', 'Payment', 'Confirmation'].map((label, idx) => (
+            {[t('steps.address'), t('steps.payment'), t('steps.confirmation')].map((label, idx) => (
               <React.Fragment key={label}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: idx < 2 ? undefined : undefined }}>
                   <div style={{
@@ -686,7 +708,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               }}>
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <MapPin size={18} style={{ color: 'var(--primary-lime)' }} />
-                  Shipping Address
+                  {t('address.title')}
                 </h2>
 
                 {savedAddresses.length > 0 && (
@@ -698,7 +720,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     border: '1px solid var(--primary-lime)',
                   }}>
                     <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
-                      Select a Saved Delivery Address:
+                      {t('address.saved')}
                     </p>
                     <div style={{
                       display: 'flex',
@@ -727,7 +749,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             <span style={{ fontSize: '0.72rem', fontWeight: 800, backgroundColor: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
                               {addr.type}
                             </span>
-                            {addr.isDefault && <span style={{ fontSize: '0.65rem', color: 'var(--primary-lime)', fontWeight: 800 }}>Default</span>}
+                            {addr.isDefault && <span style={{ fontSize: '0.65rem', color: 'var(--primary-lime)', fontWeight: 800 }}>{t('address.default')}</span>}
                           </div>
                           <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {addr.name}
@@ -765,7 +787,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         }}
                       >
                         <Plus size={16} />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Custom Address</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t('address.custom')}</span>
                       </button>
                     </div>
                   </div>
@@ -774,11 +796,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="form-grid-2col">
                   {/* Full Name */}
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Full Name *</label>
+                    <label style={labelStyle}>{t('address.form.fullName')}</label>
                     <input
                       id="checkout-fullname"
                       style={{ ...inputStyle, borderColor: addressErrors.fullName ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="e.g. Rahul Sharma"
+                      placeholder={t('address.form.fullNamePlaceholder')}
                       value={fullName}
                       onChange={e => setFullName(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -789,11 +811,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* Phone */}
                   <div>
-                    <label style={labelStyle}>Phone Number *</label>
+                    <label style={labelStyle}>{t('address.form.phone')}</label>
                     <input
                       id="checkout-phone"
                       style={{ ...inputStyle, borderColor: addressErrors.phone ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="+91 98765 43210"
+                      placeholder={t('address.form.phonePlaceholder')}
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -804,12 +826,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* Email */}
                   <div>
-                    <label style={labelStyle}>Email Address *</label>
+                    <label style={labelStyle}>{t('address.form.email')}</label>
                     <input
                       id="checkout-email"
                       type="email"
                       style={{ ...inputStyle, borderColor: addressErrors.email ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="you@example.com"
+                      placeholder={t('address.form.emailPlaceholder')}
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -820,11 +842,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* Address Line 1 */}
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Address Line 1 *</label>
+                    <label style={labelStyle}>{t('address.form.addr1')}</label>
                     <input
                       id="checkout-addr1"
                       style={{ ...inputStyle, borderColor: addressErrors.addressLine1 ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="House/Flat No., Street Name"
+                      placeholder={t('address.form.addr1Placeholder')}
                       value={addressLine1}
                       onChange={e => setAddressLine1(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -835,11 +857,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* Address Line 2 */}
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Address Line 2 <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>(optional)</span></label>
+                    <label style={labelStyle}>{t('address.form.addr2')} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{t('address.form.addr2Optional')}</span></label>
                     <input
                       id="checkout-addr2"
                       style={inputStyle}
-                      placeholder="Landmark, Colony, etc."
+                      placeholder={t('address.form.addr2Placeholder')}
                       value={addressLine2}
                       onChange={e => setAddressLine2(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -849,11 +871,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* City */}
                   <div>
-                    <label style={labelStyle}>City *</label>
+                    <label style={labelStyle}>{t('address.form.city')}</label>
                     <input
                       id="checkout-city"
                       style={{ ...inputStyle, borderColor: addressErrors.city ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="e.g. Varanasi"
+                      placeholder={t('address.form.cityPlaceholder')}
                       value={city}
                       onChange={e => setCity(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -864,7 +886,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* State */}
                   <div>
-                    <label style={labelStyle}>State *</label>
+                    <label style={labelStyle}>{t('address.form.state')}</label>
                     <select
                       id="checkout-state"
                       style={{ ...inputStyle, borderColor: addressErrors.state ? '#ef4444' : 'var(--border-light)', cursor: 'pointer' }}
@@ -873,7 +895,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
                       onBlur={e => (e.target.style.borderColor = addressErrors.state ? '#ef4444' : 'var(--border-light)')}
                     >
-                      <option value="">Select State</option>
+                      <option value="">{t('address.form.stateSelect')}</option>
                       {['Andhra Pradesh','Assam','Bihar','Delhi','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Odisha','Punjab','Rajasthan','Tamil Nadu','Telangana','Uttar Pradesh','Uttarakhand','West Bengal'].map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -883,11 +905,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   {/* Pincode */}
                   <div>
-                    <label style={labelStyle}>Pincode *</label>
+                    <label style={labelStyle}>{t('address.form.pincode')}</label>
                     <input
                       id="checkout-pincode"
                       style={{ ...inputStyle, borderColor: addressErrors.pincode ? '#ef4444' : 'var(--border-light)' }}
-                      placeholder="e.g. 221001"
+                      placeholder={t('address.form.pincodePlaceholder')}
                       maxLength={6}
                       value={pincode}
                       onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}
@@ -903,7 +925,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="btn-lime"
                   style={{ width: '100%', padding: '15px', marginTop: '24px', justifyContent: 'center', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800 }}
                 >
-                  Continue to Payment <ChevronRight size={18} />
+                  {t('address.continue')} <ChevronRight size={18} />
                 </button>
               </div>
             )}
@@ -919,7 +941,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               }}>
                 <h2 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Lock size={18} style={{ color: 'var(--primary-lime)' }} />
-                  {selectedPaymentOption === 'razorpay' ? 'Secure Online Payment' : 'Direct Payment Details (UPI)'}
+                  {selectedPaymentOption === 'razorpay' ? t('payment.titleOnline') : t('payment.titleUpi')}
                 </h2>
 
 
@@ -939,7 +961,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         border: '1px solid var(--primary-lime)',
                         textAlign: 'center'
                       }}>
-                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
                         <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
                           ₹{finalTotal.toFixed(2)}
                         </span>
@@ -970,9 +992,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           <ShieldCheck size={28} />
                         </div>
                         <div>
-                          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111827', margin: '0 0 4px 0' }}>Razorpay Secure Checkout</h3>
+                          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111827', margin: '0 0 4px 0' }}>{t('payment.razorpay.title')}</h3>
                           <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: 0, lineHeight: 1.4 }}>
-                            Supports UPI, Credit/Debit Cards, Net Banking, and popular Wallets.
+                            {t('payment.razorpay.description')}
                           </p>
                         </div>
                       </div>
@@ -990,7 +1012,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         border: '1px solid var(--primary-lime)',
                         textAlign: 'center'
                       }}>
-                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                        <span style={{ fontSize: '0.8rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
                         <span style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
                           ₹{finalTotal.toFixed(2)}
                         </span>
@@ -1010,7 +1032,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       }}>
                         <img 
                           src={getQrCodeUrl()} 
-                          alt="UPI QR Code Barcode" 
+                          alt={t('payment.upi.scanToPay')} 
                           style={{
                             width: '180px',
                             height: '180px',
@@ -1040,7 +1062,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             }}
                           >
                             <Copy size={14} />
-                            {copiedUpi ? 'Copied ID!' : 'Copy UPI ID'}
+                            {copiedUpi ? t('payment.upi.copied') : t('payment.upi.copy')}
                           </button>
                         </div>
 
@@ -1060,7 +1082,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             margin: 0,
                             lineHeight: 1.2
                           }}>
-                            * Scan this QR code using any UPI app (PhonePe, GPay, Paytm, BHIM, etc.) to complete the transaction.
+                            {t('payment.upi.instructions')}
                           </p>
                         </div>
                       </div>
@@ -1083,7 +1105,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             cursor: 'pointer'
                           }}
                         >
-                          Open in UPI App
+                          {t('payment.upi.openApp')}
                         </button>
                         <p style={{
                           fontSize: '0.7rem',
@@ -1093,14 +1115,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           margin: 0,
                           lineHeight: 1.2
                         }}>
-                          * Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.
+                          {t('payment.upi.openAppHelp')}
                         </p>
                       </div>
 
                       {/* Screenshot Uploader Area */}
                       <div>
                         <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
-                          Upload Payment Screenshot *
+                          {t('payment.upi.uploadLabel')}
                         </label>
                         
                         <div style={{
@@ -1134,7 +1156,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                                 borderRadius: '50%'
                               }} />
                               <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 700 }}>
-                                Uploading proof...
+                                {t('payment.upi.uploading')}
                               </span>
                             </div>
                           ) : paymentScreenshotUrl ? (
@@ -1151,20 +1173,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                                 <Check size={18} />
                               </div>
                               <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 800 }}>
-                                Screenshot Uploaded Successfully!
+                                {t('payment.upi.uploaded')}
                               </span>
                               <span style={{ fontSize: '0.68rem', color: '#6b7280', textDecoration: 'underline' }}>
-                                Click to change image
+                                {t('payment.upi.changeImage')}
                               </span>
                             </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                               <Upload size={26} style={{ color: '#9ca3af', marginBottom: '2px' }} />
                               <span style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 800 }}>
-                                Click to select screenshot
+                                {t('payment.upi.selectScreenshot')}
                               </span>
                               <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>
-                                PNG, JPG, or WEBP confirmation image
+                                {t('payment.upi.formats')}
                               </span>
                             </div>
                           )}
@@ -1184,12 +1206,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="btn-lime"
                   style={{ width: '100%', padding: '15px', marginTop: '28px', justifyContent: 'center', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800 }}
                 >
-                  <Lock size={16} /> {isPlacingOrder ? 'Processing...' : (selectedPaymentOption === 'razorpay' ? `Pay Securely — ₹${finalTotal.toFixed(2)}` : `Place Order — ₹${finalTotal.toFixed(2)}`)}
+                  <Lock size={16} /> {isPlacingOrder ? t('payment.processing') : (selectedPaymentOption === 'razorpay' ? t('payment.placeOrderOnline', { amount: finalTotal.toFixed(2) }) : t('payment.placeOrderUpi', { amount: finalTotal.toFixed(2) }))}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
                   <ShieldCheck size={14} style={{ color: '#10b981' }} />
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Secured by 256-bit SSL encryption</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('payment.secureShield')}</span>
                 </div>
               </div>
             )}
@@ -1218,10 +1240,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🙏</div>
                   <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    Blessings on Your Order!
+                    {t('confirmation.cardTitle')}
                   </h2>
                   <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginTop: '8px', maxWidth: '420px', margin: '8px auto 0' }}>
-                    Your sacred order has been placed. Your items will be packed with care and delivered with temple blessings.
+                    {t('confirmation.cardDescription')}
                   </p>
                 </div>
 
@@ -1244,10 +1266,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Package size={18} />
-                      <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Order Confirmation</span>
+                      <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t('confirmation.confirmTitle')}</span>
                     </div>
                     <span style={{ fontSize: '0.82rem', fontWeight: 700, opacity: 0.85 }}>
-                      {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {new Date().toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
                   </div>
 
@@ -1255,10 +1277,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     {/* Order Meta */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       {[
-                        { label: 'Order ID', value: orderId },
-                        { label: 'Payment', value: paymentMethod === 'upi' ? 'UPI' : 'UPI' },
-                        { label: 'Delivery To', value: `${city}, ${state}` },
-                        { label: 'Estimated Delivery', value: '3–5 Business Days' },
+                        { label: language === 'hi' ? 'ऑर्डर आईडी' : 'Order ID', value: orderId },
+                        { label: t('steps.payment'), value: paymentMethod === 'upi' ? 'UPI' : 'UPI' },
+                        { label: t('confirmation.confirmDeliveryTo'), value: `${city}, ${state}` },
+                        { label: t('confirmation.confirmDeliveryEst'), value: t('confirmation.confirmDeliveryEstValue') },
                       ].map(item => (
                         <div key={item.label} style={{ padding: '12px', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb', border: '1px solid var(--border-light)' }}>
                           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</p>
@@ -1269,7 +1291,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     {/* Items */}
                     <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
-                      <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Items</p>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('confirmation.orderItems')}</p>
                       {cart.map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: idx < cart.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
                           <div style={{
@@ -1286,8 +1308,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             )}
                           </div>
                           <div style={{ flexGrow: 1 }}>
-                            <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{item.product.name}</p>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Qty: {item.quantity}</p>
+                            <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{products.find(p => p.id === item.product.id)?.name || item.product.name}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('confirmation.qty', { count: item.quantity })}</p>
                           </div>
                           <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
                             ₹{(item.product.price * item.quantity).toFixed(2)}
@@ -1299,21 +1321,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     {/* Price Breakdown */}
                     <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('confirmation.subtotal')}</span>
                         <span style={{ fontWeight: 700 }}>₹{subtotal.toFixed(2)}</span>
                       </div>
                       {discountAmount > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#10b981' }}>
-                          <span>Discount ({discountPercent}%)</span>
+                          <span>{t('confirmation.discount', { percent: discountPercent })}</span>
                           <span style={{ fontWeight: 700 }}>−₹{discountAmount.toFixed(2)}</span>
                         </div>
                       )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Shipping</span>
-                        <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('confirmation.shipping')}</span>
+                        <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? t('confirmation.free') : `₹${shippingCost.toFixed(2)}`}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '14px 0 0', borderTop: '2px solid var(--border-light)' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>Total Charged</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>{t('confirmation.total')}</span>
                         <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{finalTotal.toFixed(2)}</span>
                       </div>
                     </div>
@@ -1323,9 +1345,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 {/* Trust Badges */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '28px' }}>
                   {[
-                    { icon: <Truck size={20} style={{ color: 'var(--primary-lime)' }} />, text: 'Sacred Express Shipping' },
-                    { icon: <ShieldCheck size={20} style={{ color: '#10b981' }} />, text: '100% Authentic Products' },
-                    { icon: <Star size={20} style={{ color: '#f59e0b' }} />, text: 'Temple-Grade Quality' },
+                    { icon: <Truck size={20} style={{ color: 'var(--primary-lime)' }} />, text: t('confirmation.sacredExpress') },
+                    { icon: <ShieldCheck size={20} style={{ color: '#10b981' }} />, text: t('confirmation.authentic') },
+                    { icon: <Star size={20} style={{ color: '#f59e0b' }} />, text: t('confirmation.templeGrade') },
                   ].map(b => (
                     <div key={b.text} style={{
                       padding: '16px 12px', borderRadius: 'var(--radius-md)',
@@ -1345,7 +1367,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="btn-lime"
                   style={{ padding: '15px 48px', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <Sparkles size={18} /> Continue Shopping
+                  <Sparkles size={18} /> {t('confirmation.continueShopping')}
                 </button>
               </div>
             )}
@@ -1371,7 +1393,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   display: 'flex', alignItems: 'center', gap: '8px',
                 }}>
                   <Package size={16} />
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Order Summary ({cart.reduce((t, i) => t + i.quantity, 0)} items)</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{t('summary.header', { count: cart.reduce((t, i) => t + i.quantity, 0) })}</span>
                 </div>
 
                 {/* Items List */}
@@ -1396,7 +1418,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         )}
                       </div>
                       <div style={{ flexGrow: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</p>
+                         <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{products.find(p => p.id === item.product.id)?.name || item.product.name}</p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>× {item.quantity}</p>
                       </div>
                       <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-forest)', flexShrink: 0 }}>
@@ -1412,7 +1434,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <input
                       id="checkout-coupon"
                       style={{ ...inputStyle, flex: 1, padding: '10px 12px', fontSize: '0.82rem' }}
-                      placeholder="Coupon code"
+                      placeholder={t('summary.coupon.placeholder')}
                       value={couponCode}
                       onChange={e => setCouponCode(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
@@ -1424,7 +1446,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       disabled={isValidatingCoupon}
                       style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: isValidatingCoupon ? 0.7 : 1 }}
                     >
-                      {isValidatingCoupon ? '...' : 'Apply'}
+                      {isValidatingCoupon ? '...' : t('summary.coupon.apply')}
                     </button>
                   </div>
                   {couponMessage.text && (
@@ -1437,30 +1459,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 {/* Price Breakdown */}
                 <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('summary.subtotal')}</span>
                     <span style={{ fontWeight: 700 }}>₹{subtotal.toFixed(2)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981' }}>
-                      <span>Discount ({discountPercent}%)</span>
+                      <span>{t('summary.discount', { percent: discountPercent })}</span>
                       <span style={{ fontWeight: 700 }}>−₹{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Shipping</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('summary.shipping')}</span>
                     <span style={{ fontWeight: 700, color: shippingCost === 0 ? '#10b981' : 'var(--text-dark)' }}>
-                      {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
+                      {shippingCost === 0 ? t('summary.free') : `₹${shippingCost.toFixed(2)}`}
                     </span>
                   </div>
 
                   <div style={{ borderTop: '2px solid var(--border-light)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Total</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>{t('summary.total')}</span>
                     <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{finalTotal.toFixed(2)}</span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                     <ShieldCheck size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Secure SSL Encrypted Checkout</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('summary.secure')}</span>
                   </div>
                 </div>
               </div>

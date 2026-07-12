@@ -23,6 +23,8 @@ import { jsPDF } from 'jspdf';
 import logo from '../assets/My_logo/Frame 16.png';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { createProductShareCard } from '../lib/shareHelper';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../lib/i18n';
 
 const getAssetAsDataUrl = async (url: string): Promise<string> => {
   try {
@@ -301,6 +303,15 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   const [invoiceDownloaded, setInvoiceDownloaded] = React.useState(false);
   const [shareExpanded, setShareExpanded] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
+  const { language } = useLanguage();
+  const { t } = useTranslation('orderSuccess');
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['orderSuccess']).then(() => setIsReady(true));
+    });
+  }, [language]);
 
   const suggestedProducts = React.useMemo(() => {
     if (!products || products.length === 0) {
@@ -364,43 +375,44 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
   }, [order.orderId, order.paymentMethod, livePaymentStatus, liveStatus]);
 
   const dynamicSteps = React.useMemo(() => {
+    if (!isReady) return [];
     const isUpi = order.paymentMethod === 'Scan & Pay (UPI)';
     const isConfirmed = livePaymentStatus === 'Confirmed';
 
     if (isUpi && !isConfirmed) {
       return [
-        { icon: <Clock size={16} />, label: 'Payment Verification', desc: 'Verifying your screenshot proof', done: false, inProgress: true, time: 'Pending Admin Approval' },
-        { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Awaiting payment verification', done: false, inProgress: false, time: 'Pending' },
-        { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: false, inProgress: false, time: 'Awaiting' },
-        { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: false, inProgress: false, time: 'Awaiting' },
-        { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: false, inProgress: false, time: 'Awaiting' },
+        { icon: <Clock size={16} />, label: t('tracking.verification.title'), desc: t('tracking.verification.description'), done: false, inProgress: true, time: t('tracking.verification.time') },
+        { icon: <Check size={16} />, label: t('tracking.confirmed.title'), desc: t('tracking.confirmedAwaiting.description'), done: false, inProgress: false, time: t('tracking.confirmedAwaiting.time') },
+        { icon: <Package size={16} />, label: t('tracking.packing.title'), desc: t('tracking.packing.description'), done: false, inProgress: false, time: t('tracking.packing.timeAwaiting') },
+        { icon: <Truck size={16} />, label: t('tracking.delivery.title'), desc: t('tracking.delivery.description'), done: false, inProgress: false, time: t('tracking.delivery.timeAwaiting') },
+        { icon: <MapPin size={16} />, label: t('tracking.delivered.title'), desc: t('tracking.delivered.description'), done: false, inProgress: false, time: t('tracking.delivered.timeAwaiting') },
       ];
     }
 
     if (isUpi && isConfirmed) {
       return [
-        { icon: <Check size={16} />, label: 'Payment Confirmed', desc: 'Payment successfully verified', done: true, inProgress: false, time: 'Verified' },
-        { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received and confirmed', done: true, inProgress: false, time: 'Confirmed' },
-        { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? 'Expected: Today' : 'Completed' },
-        { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? 'Expected: 3–5 days' : liveStatus === 'Delivered' ? 'Completed' : 'Awaiting' },
-        { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? 'Delivered' : 'Estimated' },
+        { icon: <Check size={16} />, label: t('tracking.confirmedPayment.title'), desc: t('tracking.confirmedPayment.description'), done: true, inProgress: false, time: t('tracking.confirmedPayment.time') },
+        { icon: <Check size={16} />, label: t('tracking.confirmed.title'), desc: t('tracking.confirmed.description'), done: true, inProgress: false, time: t('tracking.confirmed.time') },
+        { icon: <Package size={16} />, label: t('tracking.packing.title'), desc: t('tracking.packing.description'), done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : t('tracking.packing.timeCompleted') },
+        { icon: <Truck size={16} />, label: t('tracking.delivery.title'), desc: t('tracking.delivery.description'), done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? t('tracking.delivery.timeExpected') : liveStatus === 'Delivered' ? t('tracking.delivery.timeCompleted') : t('tracking.delivery.timeAwaiting') },
+        { icon: <MapPin size={16} />, label: t('tracking.delivered.title'), desc: t('tracking.delivered.description'), done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? t('tracking.delivered.timeCompleted') : t('tracking.delivered.timeEstimated') },
       ];
     }
 
     // Default flow (e.g. COD)
     return [
-      { icon: <Check size={16} />, label: 'Order Confirmed', desc: 'Your order has been received', done: true, inProgress: false, time: 'Confirmed' },
-      { icon: <Package size={16} />, label: 'Being Packed', desc: 'Sacred items being prepared', done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? 'Expected: Today' : 'Completed' },
-      { icon: <Truck size={16} />, label: 'Out for Delivery', desc: 'On the way to you', done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? 'Expected: 3–5 days' : liveStatus === 'Delivered' ? 'Completed' : 'Awaiting' },
-      { icon: <MapPin size={16} />, label: 'Delivered', desc: 'Blessings at your doorstep', done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? 'Delivered' : 'Estimated' },
+      { icon: <Check size={16} />, label: t('tracking.confirmed.title'), desc: t('tracking.confirmed.description'), done: true, inProgress: false, time: t('tracking.confirmed.time') },
+      { icon: <Package size={16} />, label: t('tracking.packing.title'), desc: t('tracking.packing.description'), done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : t('tracking.packing.timeCompleted') },
+      { icon: <Truck size={16} />, label: t('tracking.delivery.title'), desc: t('tracking.delivery.description'), done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? t('tracking.delivery.timeExpected') : liveStatus === 'Delivered' ? t('tracking.delivery.timeCompleted') : t('tracking.delivery.timeAwaiting') },
+      { icon: <MapPin size={16} />, label: t('tracking.delivered.title'), desc: t('tracking.delivered.description'), done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? t('tracking.delivered.timeCompleted') : t('tracking.delivered.timeEstimated') },
     ];
-  }, [order.paymentMethod, liveStatus, livePaymentStatus]);
+  }, [order.paymentMethod, liveStatus, livePaymentStatus, isReady, t]);
 
   const estimatedDelivery = React.useMemo(() => {
     const d = new Date(order.placedAt);
     d.setDate(d.getDate() + 5);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-  }, [order.placedAt]);
+    return d.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  }, [order.placedAt, language]);
 
   const handleCopyOrderId = () => {
     navigator.clipboard.writeText(order.orderId).catch(() => {});
@@ -528,6 +540,14 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
     }
   };
 
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>{language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#fafafa', paddingBottom: '80px', position: 'relative', overflow: 'hidden' }}>
 
@@ -615,13 +635,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
           letterSpacing: '-0.5px', marginBottom: '12px',
           textShadow: '0 2px 8px rgba(0,0,0,0.3)',
         }}>
-          Order Placed Successfully!
+          {t('title')}
         </h1>
         <p style={{
           fontSize: '1rem', color: 'rgba(255,255,255,0.75)', fontWeight: 500,
           maxWidth: '480px', margin: '0 auto 28px auto', lineHeight: 1.6,
         }}>
-          Your sacred items are confirmed and will be packed with divine care. May these bring peace and blessings to your home.
+          {t('description')}
         </p>
 
         {/* ── Order ID pill ── */}
@@ -635,12 +655,12 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
         }}>
           <Package size={16} style={{ color: 'rgba(255,255,255,0.8)' }} />
           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', letterSpacing: '0.02em' }}>
-            Order ID: {order.orderId}
+            {t('orderId', { orderId: order.orderId })}
           </span>
           <button
             id="success-copy-order-id"
             onClick={handleCopyOrderId}
-            title="Copy order ID"
+            title={t('copy')}
             style={{
               display: 'flex', alignItems: 'center', gap: '4px',
               padding: '4px 10px', borderRadius: 'var(--radius-full)',
@@ -651,7 +671,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = copied ? '#10b981' : 'rgba(255,255,255,0.3)')}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = copied ? '#10b981' : 'rgba(255,255,255,0.18)')}
           >
-            {copied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Copy</>}
+            {copied ? <><Check size={11} /> {t('copied')}</> : <><Copy size={11} /> {t('copy')}</>}
           </button>
         </div>
 
@@ -681,7 +701,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             }}
           >
             <Sparkles size={20} />
-            Continue Shopping
+            {t('continueShopping')}
           </button>
 
           {/* Download Invoice */}
@@ -700,7 +720,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             className="card-hover"
           >
             <Download size={20} style={{ color: invoiceDownloaded ? '#10b981' : 'var(--primary-lime)' }} />
-            {invoiceDownloaded ? 'Downloaded!' : 'Download Invoice'}
+            {invoiceDownloaded ? t('downloaded') : t('downloadInvoice')}
           </button>
 
           {/* Share Order */}
@@ -720,7 +740,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             className="card-hover"
           >
             <Share2 size={20} style={{ color: shareExpanded || isSharing ? 'var(--primary-lime)' : 'var(--text-muted)' }} />
-            {isSharing ? 'Preparing...' : 'Share Order'}
+            {isSharing ? t('preparing') : t('shareOrder')}
           </button>
         </div>
 
@@ -732,13 +752,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             marginBottom: '24px', boxShadow: 'var(--shadow-sm)',
           }}>
             <p style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '14px' }}>
-              Share your order invoice PDF with a thank you message 🙏
+              {t('sharePanel.title')}
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {[
-                { id: 'whatsapp', label: '💬 WhatsApp', color: '#25d366' },
-                { id: 'twitter', label: '🐦 X (Twitter)', color: '#1d9bf0' },
-                { id: 'telegram', label: '✈️ Telegram', color: '#0088cc' },
+                { id: 'whatsapp', label: t('sharePanel.whatsapp'), color: '#25d366' },
+                { id: 'twitter', label: t('sharePanel.twitter'), color: '#1d9bf0' },
+                { id: 'telegram', label: t('sharePanel.telegram'), color: '#0088cc' },
               ].map(p => (
                 <button
                   key={p.id}
@@ -783,11 +803,11 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Package size={16} />
                   <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                    Your Order ({order.items.reduce((t, i) => t + i.quantity, 0)} items)
+                    {t('yourOrder', { count: order.items.reduce((t, i) => t + i.quantity, 0) })}
                   </span>
                 </div>
                 <span style={{ fontSize: '0.78rem', opacity: 0.75, fontWeight: 600 }}>
-                  {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {order.placedAt.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
               </div>
 
@@ -819,7 +839,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                       <p style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '1px' }}>
                         {item.product.name}
                       </p>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>Qty: {item.quantity}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>{t('qty', { count: item.quantity })}</p>
                     </div>
                     <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
                       ₹{(item.product.price * item.quantity).toFixed(2)}
@@ -836,10 +856,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 backgroundColor: '#fafafa',
               }}>
                 {[
-                  { label: 'Subtotal', value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
-                  ...(order.discount > 0 ? [{ label: `Discount (${order.discountPercent}%)`, value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
-                  { label: 'Shipping', value: order.shipping === 0 ? 'FREE' : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
-                  { label: `Tax (${order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8}%)`, value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' },
+                  { label: t('price.subtotal'), value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
+                  ...(order.discount > 0 ? [{ label: t('price.discount', { percent: order.discountPercent }), value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
+                  { label: t('price.shipping'), value: order.shipping === 0 ? t('price.free') : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
+                  { label: t('price.tax', { percent: order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8 }), value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
@@ -850,7 +870,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                   display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
                   borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px',
                 }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 900 }}>Total Charged</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 900 }}>{t('price.total')}</span>
                   <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
                     ₹{order.total.toFixed(2)}
                   </span>
@@ -869,7 +889,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px',
               }}>
                 <Truck size={17} style={{ color: 'var(--primary-lime)' }} />
-                Order Tracking
+                {t('tracking.title')}
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
@@ -910,13 +930,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           <span style={{
                             fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px',
                             borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#166534',
-                          }}>✓ DONE</span>
+                          }}>{t('tracking.done')}</span>
                         )}
                         {ts.inProgress && !ts.done && (
                           <span style={{
                             fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px',
                             borderRadius: 'var(--radius-full)', backgroundColor: '#fff7ed', color: 'var(--primary-lime)',
-                          }}>IN PROGRESS</span>
+                          }}>{t('tracking.inProgress')}</span>
                         )}
                       </div>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{ts.desc}</p>
@@ -943,17 +963,17 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 display: 'flex', alignItems: 'center', gap: '8px',
               }}>
                 <MapPin size={16} style={{ color: 'var(--primary-lime)' }} />
-                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-dark)' }}>Delivery Details</span>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-dark)' }}>{t('delivery.title')}</span>
               </div>
               <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {[
-                  { label: 'Name', value: order.fullName },
-                  { label: 'Email', value: order.email },
-                  { label: 'Address', value: `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}` },
-                  { label: 'City', value: `${order.deliveryCity}, ${order.deliveryState}` },
-                  { label: 'Pincode', value: order.pincode },
-                  { label: 'Payment', value: order.paymentMethod },
-                  { label: 'Est. Delivery', value: estimatedDelivery },
+                  { label: t('delivery.name'), value: order.fullName },
+                  { label: t('delivery.email'), value: order.email },
+                  { label: t('delivery.address'), value: `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}` },
+                  { label: t('delivery.city'), value: `${order.deliveryCity}, ${order.deliveryState}` },
+                  { label: t('delivery.pincode'), value: order.pincode },
+                  { label: t('delivery.payment'), value: order.paymentMethod },
+                  { label: t('delivery.estDelivery'), value: estimatedDelivery },
                 ].map(row => (
                   <div key={row.label}>
                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{row.label}</p>
@@ -970,14 +990,14 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               boxShadow: 'var(--shadow-sm)',
             }}>
               <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Bell size={16} style={{ color: 'var(--primary-lime)' }} /> What Happens Next?
+                <Bell size={16} style={{ color: 'var(--primary-lime)' }} /> {t('whatsNext.title')}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
-                  { icon: '📧', text: 'Order confirmation sent to your email' },
-                  { icon: '📦', text: 'Items packed with sacred care within 24hrs' },
-                  { icon: '🚚', text: 'Shipped via Sacred Express courier' },
-                  { icon: '🏠', text: 'Delivered to your doorstep in 3–5 days' },
+                  { icon: '📧', text: t('whatsNext.steps.email') },
+                  { icon: '📦', text: t('whatsNext.steps.packed') },
+                  { icon: '🚚', text: t('whatsNext.steps.shipped') },
+                  { icon: '🏠', text: t('whatsNext.steps.doorstep') },
                 ].map(s => (
                   <div key={s.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <span style={{ fontSize: '1.1rem', flexShrink: 0, lineHeight: 1.3 }}>{s.icon}</span>
@@ -992,10 +1012,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px',
             }}>
               {[
-                { icon: <ShieldCheck size={18} style={{ color: '#10b981' }} />, text: '100% Authentic', bg: '#f0fdf4', border: '#bbf7d0' },
-                { icon: <Star size={18} style={{ color: '#f59e0b' }} />, text: 'Temple Quality', bg: '#fffbeb', border: '#fde68a' },
-                { icon: <Truck size={18} style={{ color: 'var(--primary-lime)' }} />, text: 'Fast Delivery', bg: '#fff7ed', border: '#fed7aa' },
-                { icon: <ArrowRight size={18} style={{ color: '#8b5cf6' }} />, text: 'Easy Returns', bg: '#faf5ff', border: '#e9d5ff' },
+                { icon: <ShieldCheck size={18} style={{ color: '#10b981' }} />, text: t('badges.authentic'), bg: '#f0fdf4', border: '#bbf7d0' },
+                { icon: <Star size={18} style={{ color: '#f59e0b' }} />, text: t('badges.templeQuality'), bg: '#fffbeb', border: '#fde68a' },
+                { icon: <Truck size={18} style={{ color: 'var(--primary-lime)' }} />, text: t('badges.fastDelivery'), bg: '#fff7ed', border: '#fed7aa' },
+                { icon: <ArrowRight size={18} style={{ color: '#8b5cf6' }} />, text: t('badges.easyReturns'), bg: '#faf5ff', border: '#e9d5ff' },
               ].map(b => (
                 <div key={b.text} style={{
                   padding: '14px 10px', borderRadius: 'var(--radius-md)',
@@ -1029,7 +1049,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 e.currentTarget.style.color = 'var(--primary-lime)';
               }}
             >
-              <Package size={16} /> View & Track Order
+              <Package size={16} /> {t('viewAndTrack')}
             </button>
 
             {/* Home button */}
@@ -1054,7 +1074,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 e.currentTarget.style.color = 'var(--text-dark)';
               }}
             >
-              <Home size={16} /> Go to Home
+              <Home size={16} /> {t('goToHome')}
             </button>
 
           </div>
@@ -1068,12 +1088,12 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             <span style={{
               fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary-lime)',
               textTransform: 'uppercase', letterSpacing: '0.1em',
-            }}>Discover More</span>
+            }}>{t('upsell.subtitle')}</span>
             <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '4px' }}>
-              You May Also Like
+              {t('upsell.title')}
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Curated divine items to complement your order
+              {t('upsell.description')}
             </p>
           </div>
 
@@ -1139,7 +1159,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         cursor: 'pointer', border: 'none',
                       }}
                     >
-                      View <ChevronRight size={12} />
+                      {t('upsell.view')} <ChevronRight size={12} />
                     </button>
                   </div>
                 </div>
@@ -1168,7 +1188,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 e.currentTarget.style.color = 'var(--primary-lime)';
               }}
             >
-              Browse All Sacred Items <ArrowRight size={16} />
+              {t('upsell.browseAll')} <ArrowRight size={16} />
             </button>
           </div>
         </div>

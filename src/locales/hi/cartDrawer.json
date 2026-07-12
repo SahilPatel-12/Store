@@ -1,0 +1,42 @@
+{
+  "title": "आपका कार्ट",
+  "titleCount_one": "आपका कार्ट ({{count}} सामग्री)",
+  "titleCount_other": "आपका कार्ट ({{count}} सामग्रियां)",
+  "empty": {
+    "title": "आपका कार्ट खाली है",
+    "description": "अपनी आध्यात्मिक यात्रा शुरू करने के लिए कुछ दिव्य वस्तुएं जोड़ें।"
+  },
+  "item": {
+    "qty": "मात्रा: 1",
+    "limit": "(सीमा 1)",
+    "free": "मुफ़्त"
+  },
+  "upsell": {
+    "title": "और अन्वेषण करें",
+    "add": "+ जोड़ें",
+    "off": "{{percent}}% छूट"
+  },
+  "coupon": {
+    "applied": "कूपन लागू: {{coupon}}",
+    "applyPlaceholder": "कूपन कोड दर्ज करें",
+    "title": "कूपन कोड लागू करें",
+    "viewOffers": "ऑफ़र देखें",
+    "remove": "हटाएं",
+    "apply": "लागू करें",
+    "productError": "यह कूपन केवल इसके लिए मान्य है: {{productName}}।",
+    "appliedSuccess": "कूपन {{code}} सफलतापूर्वक लागू किया गया!",
+    "appliedPercent": "कूपन {{code}} लागू! ({{percent}}% छूट)",
+    "error": "कूपन लागू करने में त्रुटि हुई।"
+  },
+  "footer": {
+    "saved": "अब तक ₹{{amount}} की बचत!",
+    "estimatedTotal": "अनुमानित कुल",
+    "itemsSubtotal": "सामग्रियों का योग",
+    "couponDiscount": "कूपन छूट ({{percent}}%)",
+    "freeGift": "🎁 मुफ़्त उपहार मूल्य",
+    "deliveryCharges": "वितरण शुल्क",
+    "freeDelivery": "मुफ़्त",
+    "checkout": "चेकआउट करें",
+    "percentOff": "({{percent}}% छूट)"
+  }
+}

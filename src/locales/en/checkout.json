@@ -1,0 +1,116 @@
+{
+  "backNav": {
+    "cart": "Back to Cart",
+    "address": "Back to Address"
+  },
+  "title": "Secure Checkout",
+  "steps": {
+    "address": "Shipping Address",
+    "payment": "Payment",
+    "confirmation": "Confirmation"
+  },
+  "address": {
+    "title": "Shipping Address",
+    "saved": "Select a Saved Delivery Address:",
+    "default": "Default",
+    "custom": "Custom Address",
+    "form": {
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "e.g. Rahul Sharma",
+      "phone": "Phone Number *",
+      "phonePlaceholder": "+91 98765 43210",
+      "email": "Email Address *",
+      "emailPlaceholder": "you@example.com",
+      "addr1": "Address Line 1 *",
+      "addr1Placeholder": "House/Flat No., Street Name",
+      "addr2": "Address Line 2",
+      "addr2Optional": "(optional)",
+      "addr2Placeholder": "Landmark, Colony, etc.",
+      "city": "City *",
+      "cityPlaceholder": "e.g. Varanasi",
+      "state": "State *",
+      "stateSelect": "Select State",
+      "pincode": "Pincode *",
+      "pincodePlaceholder": "e.g. 221001"
+    },
+    "continue": "Continue to Payment",
+    "validation": {
+      "fullName": "Full name is required",
+      "phone": "Valid phone number required",
+      "email": "Valid email required",
+      "addressLine1": "Address is required",
+      "city": "City is required",
+      "state": "State is required",
+      "pincode": "Valid pincode required"
+    }
+  },
+  "payment": {
+    "titleOnline": "Secure Online Payment",
+    "titleUpi": "Direct Payment Details (UPI)",
+    "amountToPay": "Amount to Pay",
+    "razorpay": {
+      "title": "Razorpay Secure Checkout",
+      "description": "Supports UPI, Credit/Debit Cards, Net Banking, and popular Wallets."
+    },
+    "upi": {
+      "copy": "Copy UPI ID",
+      "copied": "Copied ID!",
+      "instructions": "* Scan this QR code using any UPI app (PhonePe, GPay, Paytm, BHIM, etc.) to complete the transaction.",
+      "openApp": "Open in UPI App",
+      "openAppHelp": "* Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.",
+      "mobileAlert": "UPI App direct launching is only supported on mobile devices. Please scan the QR code above with your mobile UPI app to pay ₹{{amount}}!",
+      "uploadLabel": "Upload Payment Screenshot *",
+      "uploading": "Uploading proof...",
+      "uploaded": "Screenshot Uploaded Successfully!",
+      "uploadedChange": "Click to change image",
+      "uploadSelect": "Click to select screenshot",
+      "uploadFormats": "PNG, JPG, or WEBP confirmation image",
+      "validationError": "Please scan the QR code and upload your payment confirmation screenshot"
+    },
+    "placeOrderOnline": "Pay Securely — ₹{{amount}}",
+    "placeOrderUpi": "Place Order — ₹{{amount}}",
+    "processing": "Processing...",
+    "secureShield": "Secured by 256-bit SSL encryption"
+  },
+  "confirmation": {
+    "cardTitle": "Blessings on Your Order!",
+    "cardDescription": "Your sacred order has been placed. Your items will be packed with care and delivered with temple blessings.",
+    "confirmTitle": "Order Confirmation",
+    "confirmDeliveryTo": "Delivery To",
+    "confirmDeliveryEst": "Estimated Delivery",
+    "confirmDeliveryEstValue": "3–5 Business Days",
+    "orderItems": "Order Items",
+    "qty": "Qty: {{count}}",
+    "subtotal": "Subtotal",
+    "discount": "Discount ({{percent}}%)",
+    "shipping": "Shipping",
+    "free": "FREE",
+    "total": "Total Charged",
+    "sacredExpress": "Sacred Express Shipping",
+    "authentic": "100% Authentic Products",
+    "templeGrade": "Temple-Grade Quality",
+    "continueShopping": "Continue Shopping"
+  },
+  "summary": {
+    "header": "Order Summary ({{count}} items)",
+    "coupon": {
+      "placeholder": "Coupon code",
+      "apply": "Apply",
+      "success": "✓ Coupon applied! {{percent}}% off",
+      "error": {
+        "login": "Please log in to apply devotional coupons.",
+        "invalid": "Invalid coupon code.",
+        "limit": "This coupon has reached its total usage limit.",
+        "used": "You have already used this coupon code.",
+        "product": "This coupon is only valid for product: {{productName}}.",
+        "generic": "An error occurred while applying coupon. Please try again."
+      }
+    },
+    "subtotal": "Subtotal",
+    "discount": "Discount ({{percent}}%)",
+    "shipping": "Shipping",
+    "free": "FREE",
+    "total": "Total",
+    "secure": "Secure SSL Encrypted Checkout"
+  }
+}

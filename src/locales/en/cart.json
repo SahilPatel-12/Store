@@ -1,0 +1,46 @@
+{
+  "continueShopping": "Continue Shopping",
+  "title": "Your Spiritual Cart",
+  "empty": {
+    "emoji": "🛒",
+    "title": "Your cart is empty",
+    "description": "Add some blessed items to begin your spiritual journey.",
+    "browse": "Browse divine items"
+  },
+  "item": {
+    "qty": "Qty: 1",
+    "limit": "(Limit 1)"
+  },
+  "coupon": {
+    "title": "Have a Devotional Coupon?",
+    "placeholder": "Enter coupon (e.g. DEVOTION10)",
+    "apply": "Apply",
+    "validating": "Validating...",
+    "error": {
+      "login": "Please log in to apply devotional coupons.",
+      "invalid": "Invalid coupon code.",
+      "limit": "This coupon has reached its total usage limit.",
+      "used": "You have already used this coupon code.",
+      "product": "This coupon is only valid for product: {{productName}}.",
+      "generic": "An error occurred while applying coupon. Please try again."
+    },
+    "success": "Coupon {{code}} applied! {{percent}}% discount subtracted."
+  },
+  "shipping": {
+    "title": "Calculate Delivery Estimate",
+    "placeholder": "Enter Zip / Postal Code",
+    "estimate": "Estimate",
+    "error": "Please enter a valid zip code.",
+    "success": "Estimated Delivery: Arrives in 3 business days via Sacred Express."
+  },
+  "summary": {
+    "title": "Order Summary",
+    "subtotal": "Subtotal",
+    "discount": "Discount ({{percent}}%)",
+    "shipping": "Estimated Shipping",
+    "free": "FREE",
+    "total": "Total Cost",
+    "checkout": "PROCEED TO CHECKOUT",
+    "secure": "Secure Checkout: SSL Encrypted Transaction Gateways."
+  }
+}

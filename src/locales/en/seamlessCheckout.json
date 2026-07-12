@@ -1,0 +1,127 @@
+{
+  "header": {
+    "secured": "100% Secured",
+    "title": "Mantra Puja Store"
+  },
+  "promo": {
+    "extraDiscount": "Extra Discount Available at Payment Step"
+  },
+  "summary": {
+    "header": "Order Summary ({{count}} items)",
+    "subtotal": "Subtotal",
+    "discount": "Discount ({{percent}}%)",
+    "shipping": "Shipping",
+    "free": "FREE",
+    "tax": "Tax (8%)",
+    "freeShippingActive": "Free Shipping Active",
+    "freeShippingThreshold": "Add items worth ₹{{amount}} more for FREE shipping!"
+  },
+  "coupon": {
+    "label": "Enter coupon code",
+    "placeholder": "COUPONCODE",
+    "apply": "Apply",
+    "remove": "Remove",
+    "success": "✓ Coupon applied! {{percent}}% off",
+    "error": {
+      "login": "Please complete verification before applying coupons.",
+      "invalid": "Invalid coupon code.",
+      "limit": "Coupon limit has been exceeded.",
+      "used": "You have already redeemed this coupon code.",
+      "product": "Valid only for product: {{productName}}.",
+      "generic": "Error applying coupon."
+    }
+  },
+  "login": {
+    "title": "Login to continue",
+    "enterMobile": "Enter Mobile Number",
+    "updates": "Send me order updates & offers - (no spam)",
+    "continue": "Continue",
+    "sending": "Sending verification...",
+    "error": {
+      "invalidPhone": "Please enter a valid phone number."
+    }
+  },
+  "otp": {
+    "title": "WhatsApp Verification",
+    "info": "We've sent a 6-digit verification code to +91 {{phone}} via WhatsApp.",
+    "enterOtp": "Enter 6-Digit OTP",
+    "changeNumber": "Change Number",
+    "resendCountdown": "Resend in {{seconds}}s",
+    "resendBtn": "Resend OTP",
+    "verify": "Verify & Continue",
+    "verifying": "Verifying code...",
+    "error": {
+      "invalidOtp": "Invalid verification code. Please check WhatsApp or resend.",
+      "sessionFailed": "Authentication succeeded but session failed to start."
+    }
+  },
+  "address": {
+    "title": "Shipping Details",
+    "savedList": "Saved Address List:",
+    "default": "Default",
+    "custom": "Custom",
+    "form": {
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "Rahul Sharma",
+      "phone": "Phone *",
+      "phonePlaceholder": "9876543210",
+      "email": "Email *",
+      "emailPlaceholder": "you@email.com",
+      "addr1": "Street Address *",
+      "addr1Placeholder": "House No, Street, Landmark",
+      "city": "City *",
+      "cityPlaceholder": "City",
+      "pincode": "Pincode *",
+      "pincodePlaceholder": "Pincode",
+      "state": "State *",
+      "stateSelect": "Select State"
+    },
+    "continue": "Continue to Payment",
+    "validation": {
+      "fullName": "Full name is required",
+      "phone": "Valid phone required",
+      "email": "Valid email required",
+      "addressLine1": "Address is required",
+      "city": "City is required",
+      "state": "State is required",
+      "pincode": "Valid pincode required"
+    }
+  },
+  "payment": {
+    "titleOnline": "Secure Online Payment",
+    "titleUpi": "Direct Payment Details (UPI)",
+    "amountToPay": "Amount to Pay",
+    "razorpay": {
+      "title": "Razorpay Secure Checkout",
+      "description": "Supports UPI, Cards, Net Banking, and popular Wallets."
+    },
+    "upi": {
+      "scanToPay": "Scan to Pay",
+      "upiIdLabel": "UPI ID / VPA (Click to Pay)",
+      "copy": "Copy",
+      "copied": "Copied",
+      "payViaApp": "⚡ Pay via Mobile UPI App",
+      "helpText": "* Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.",
+      "mobileAlert": "UPI App direct launching is only supported on mobile devices. Please scan the QR code above with your mobile UPI app to pay ₹{{amount}}!",
+      "uploadLabel": "Upload Payment Screenshot *",
+      "uploading": "Uploading proof...",
+      "uploaded": "Screenshot Uploaded Successfully!",
+      "changeImage": "Click to change image",
+      "selectScreenshot": "Click to select screenshot",
+      "formats": "PNG, JPG, or WEBP confirmation image",
+      "validationError": "Please scan the QR code and upload your payment confirmation screenshot",
+      "uploadError": "Failed to upload screenshot. Please verify your connection and try again."
+    },
+    "sslSecure": "Secured by 256-bit SSL encryption",
+    "placeOrderOnline": "Pay Securely — ₹{{amount}}",
+    "placeOrderUpi": "Pay & Confirm — ₹{{amount}}",
+    "processing": "Processing...",
+    "cancelConfirm": "Are you sure you want to cancel checkout? Your payment will be cancelled.",
+    "errorPlaceOrder": "An error occurred placing the order. Please verify inputs and try again."
+  },
+  "footer": {
+    "pci": "🔒 PCI DSS COMPLIANT",
+    "ssl": "🛡️ SSL SECURE CHECKOUT",
+    "agreement": "By proceeding, I agree to Mantra Puja's Privacy Policy and Terms & Conditions."
+  }
+}

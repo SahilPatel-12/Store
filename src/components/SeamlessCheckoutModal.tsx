@@ -17,12 +17,14 @@ import {
   Copy,
   Upload
 } from 'lucide-react';
-import type { CartItem } from '../types';
+import type { CartItem, Product } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
+import { useLanguage } from '../lib/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface Address {
   id: string;
@@ -60,6 +62,7 @@ interface SeamlessCheckoutModalProps {
     razorpayMode: 'test' | 'live';
     legacyManualUpiEnabled: boolean;
   };
+  products?: Product[];
 }
 
 type Step = 'login' | 'otp' | 'address' | 'payment';
@@ -78,10 +81,24 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   onOrderComplete,
   taxDeliverySettings,
   paymentActivation,
+  products = [],
 }) => {
   // Modal Navigation & active step state
   const [step, setStep] = React.useState<Step>('login');
   const [paymentMethod] = React.useState<PaymentMethod>('upi');
+  const { language } = useLanguage();
+  const { t } = useTranslation('seamlessCheckout');
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      import('../lib/i18next').then(({ loadNamespaces }) => {
+        loadNamespaces(language, ['seamlessCheckout']).then(() => setIsReady(true));
+      });
+    } else {
+      setIsReady(false);
+    }
+  }, [language, isOpen]);
 
   // Barcode / UPI QR direct payment states
   const [barcodeSettings, setBarcodeSettings] = React.useState<{ upiId?: string; barcodeUrl?: string } | null>(null);
@@ -187,14 +204,14 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
   // Toast auto-clearing for coupon messages
   React.useEffect(() => {
-    if (appliedCouponCode) {
-      setCouponMsg({ text: `Coupon applied: ${appliedCouponCode} (${discountPercent}% off)`, type: 'success' });
+    if (appliedCouponCode && isReady) {
+      setCouponMsg({ text: t('coupon.success', { percent: discountPercent }), type: 'success' });
       setCouponInput(appliedCouponCode);
     } else {
       setCouponMsg({ text: '', type: '' });
       setCouponInput('');
     }
-  }, [appliedCouponCode, discountPercent]);
+  }, [appliedCouponCode, discountPercent, isReady, t]);
 
   // OTP Countdown countdown timer
   React.useEffect(() => {
@@ -309,6 +326,31 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
+  if (!isReady) {
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 1100,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '16px'
+        }}
+      >
+        <div style={{ padding: '24px', backgroundColor: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '24px', height: '24px', border: '3px solid #ea580c', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#374151' }}>
+            {language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // Clean numbers for international sending compatibility
   const formatPhoneNumber = (num: string) => {
     let cleaned = num.replace(/[^\d]/g, '');
@@ -358,7 +400,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     try {
       const formatted = formatPhoneNumber(phoneNumber);
       if (!formatted || formatted.length < 9) {
-        throw new Error('Please enter a valid phone number.');
+        throw new Error(t('login.error.invalidPhone'));
       }
 
       // Check if user exists
@@ -398,7 +440,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     e.preventDefault();
     setAuthError('');
     if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529') {
-      setAuthError('Invalid verification code. Please check WhatsApp or resend.');
+      setAuthError(t('otp.error.invalidOtp'));
       return;
     }
 
@@ -461,7 +503,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         // State changes to address filling automatically
         setStep('address');
       } else {
-        throw new Error('Authentication succeeded but session failed to start.');
+        throw new Error(t('otp.error.sessionFailed'));
       }
     } catch (err) {
       console.error(err);
@@ -503,7 +545,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
 
     if (!loggedInUser) {
-      setCouponMsg({ text: 'Please complete verification before applying coupons.', type: 'error' });
+      setCouponMsg({ text: t('coupon.error.login'), type: 'error' });
       return;
     }
 
@@ -517,13 +559,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
       if (error) throw error;
       if (!coupon) {
-        setCouponMsg({ text: 'Invalid coupon code.', type: 'error' });
+        setCouponMsg({ text: t('coupon.error.invalid'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
 
       if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
-        setCouponMsg({ text: 'Coupon limit has been exceeded.', type: 'error' });
+        setCouponMsg({ text: t('coupon.error.limit'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
@@ -536,7 +578,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         .maybeSingle();
 
       if (redeemed) {
-        setCouponMsg({ text: 'You have already redeemed this coupon code.', type: 'error' });
+        setCouponMsg({ text: t('coupon.error.used'), type: 'error' });
         onApplyCoupon('', 0, null);
         return;
       }
@@ -545,21 +587,22 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         const hasProduct = cart.some(item => item.product.id === coupon.product_id);
         if (!hasProduct) {
           const { data: pData } = await supabase
-            .from('website_pooja_products')
+            .from('localized_website_pooja_products')
             .select('name')
             .eq('id', coupon.product_id)
+            .eq('locale', language)
             .maybeSingle();
-          setCouponMsg({ text: `Valid only for product: ${pData?.name || 'specific item'}.`, type: 'error' });
+          setCouponMsg({ text: t('coupon.error.product', { productName: pData?.name || 'specific item' }), type: 'error' });
           onApplyCoupon('', 0, null);
           return;
         }
       }
 
       onApplyCoupon(formatted, coupon.discount_percent, coupon.product_id || null);
-      setCouponMsg({ text: `✓ Coupon applied! ${coupon.discount_percent}% off`, type: 'success' });
+      setCouponMsg({ text: t('coupon.success', { percent: coupon.discount_percent }), type: 'success' });
     } catch (err) {
       console.error(err);
-      setCouponMsg({ text: 'Error applying coupon.', type: 'error' });
+      setCouponMsg({ text: t('coupon.error.generic'), type: 'error' });
       onApplyCoupon('', 0, null);
     } finally {
       setIsValidatingCoupon(false);
@@ -615,13 +658,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
   const validateAddressFields = () => {
     const errs: Record<string, string> = {};
-    if (!fullName.trim()) errs.fullName = 'Full name is required';
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = 'Valid phone required';
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Valid email required';
-    if (!addressLine1.trim()) errs.addressLine1 = 'Address is required';
-    if (!city.trim()) errs.city = 'City is required';
-    if (!state.trim()) errs.state = 'State is required';
-    if (!pincode.trim() || pincode.replace(/\D/g, '').length < 5) errs.pincode = 'Valid pincode required';
+    if (!fullName.trim()) errs.fullName = t('address.validation.fullName');
+    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = t('address.validation.phone');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = t('address.validation.email');
+    if (!addressLine1.trim()) errs.addressLine1 = t('address.validation.addressLine1');
+    if (!city.trim()) errs.city = t('address.validation.city');
+    if (!state.trim()) errs.state = t('address.validation.state');
+    if (!pincode.trim() || pincode.replace(/\D/g, '').length < 5) errs.pincode = t('address.validation.pincode');
     setAddressErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -657,7 +700,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     if (isMobile) {
       window.location.href = uri;
     } else {
-      alert("UPI App direct launching is only supported on mobile devices. Please scan the QR code above with your mobile UPI app to pay ₹" + finalTotal.toFixed(2) + "!");
+      alert(t('payment.upi.mobileAlert', { amount: finalTotal.toFixed(2) }));
     }
   };
 
@@ -677,7 +720,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       setPaymentScreenshotUrl(url);
     } catch (err) {
       console.error('Failed to upload proof of payment:', err);
-      alert('Failed to upload screenshot. Please verify your connection and try again.');
+      alert(t('payment.upi.uploadError'));
     } finally {
       setIsUploadingScreenshot(false);
     }
@@ -688,7 +731,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     const errs: Record<string, string> = {};
     if (paymentMethod === 'upi') {
       if (!paymentScreenshotUrl) {
-        errs.screenshot = 'Please scan the QR code and upload your payment confirmation screenshot';
+        errs.screenshot = t('payment.upi.validationError');
       }
     }
     setPaymentErrors(errs);
@@ -697,7 +740,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
   const handleCloseModal = () => {
     if (step === 'payment') {
-      if (!window.confirm('Are you sure you want to cancel checkout? Your payment will be cancelled.')) {
+      if (!window.confirm(t('payment.cancelConfirm'))) {
         return;
       }
     }
@@ -768,7 +811,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         }
       } catch (err) {
         console.error(err);
-        alert('An error occurred placing the order. Please verify inputs and try again.');
+        alert(t('payment.errorPlaceOrder'));
       } finally {
         setIsPlacingOrder(false);
       }
@@ -801,7 +844,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       return (
         <button 
           onClick={() => {
-            if (window.confirm('Are you sure you want to go back? Your payment will be cancelled.')) {
+            if (window.confirm(t('payment.cancelConfirm'))) {
               setStep('address');
             }
           }} 
@@ -889,7 +932,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '1.4rem' }}>🕉️</span>
               <span style={{ fontWeight: 900, fontSize: '0.95rem', color: '#1f2937', letterSpacing: '-0.3px' }}>
-                Mantra Puja Store
+                {t('header.title')}
               </span>
             </div>
           </div>
@@ -897,7 +940,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#6b7280', fontWeight: 650 }}>
               <Lock size={12} style={{ color: '#10b981' }} />
-              <span>100% Secured</span>
+              <span>{t('header.secured')}</span>
             </div>
             
             <button 
@@ -928,7 +971,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           textTransform: 'uppercase',
           letterSpacing: '0.5px'
         }}>
-          Extra Discount Available at Payment Step
+          {t('promo.extraDiscount')}
         </div>
 
         {/* Scrollable Container Body */}
@@ -955,7 +998,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShoppingBag size={18} style={{ color: '#4b5563' }} />
                 <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151' }}>
-                  Order Summary ({cart.reduce((s, i) => s + i.quantity, 0)} items)
+                  {t('summary.header', { count: cart.reduce((s, i) => s + i.quantity, 0) })}
                 </span>
               </div>
               
@@ -1005,9 +1048,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                       </div>
                       <div style={{ flexGrow: 1, minWidth: 0 }}>
                         <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
-                          {item.product.name}
+                           {products.find(p => p.id === item.product.id)?.name || item.product.name}
                         </p>
-                        <p style={{ fontSize: '0.7rem', color: '#6b7280', margin: 0 }}>Qty: {item.quantity}</p>
+                        <p style={{ fontSize: '0.7rem', color: '#6b7280', margin: 0 }}>{language === 'hi' ? 'मात्रा' : 'Qty'}: {item.quantity}</p>
                       </div>
                       <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-forest)', flexShrink: 0 }}>
                         ₹{(item.product.price * item.quantity).toFixed(2)}
@@ -1019,21 +1062,21 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 {/* Subtotals breakdown */}
                 <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
-                    <span>Subtotal</span>
+                    <span>{t('summary.subtotal')}</span>
                     <span style={{ fontWeight: 700 }}>₹{subtotal.toFixed(2)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
-                      <span>Discount ({discountPercent}%)</span>
+                      <span>{t('summary.discount', { percent: discountPercent })}</span>
                       <span style={{ fontWeight: 700 }}>−₹{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
-                    <span>Shipping</span>
-                    <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}</span>
+                    <span>{t('summary.shipping')}</span>
+                    <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? t('summary.free') : `₹${shippingCost.toFixed(2)}`}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
-                    <span>Tax (8%)</span>
+                    <span>{t('summary.tax')}</span>
                     <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1054,7 +1097,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               gap: '4px'
             }}>
               <Gift size={12} style={{ color: '#10b981' }} />
-              <span>{shippingCost === 0 ? 'Free Shipping Active' : `Add items worth ₹${(500 - (subtotal - discountAmount)).toFixed(0)} more for FREE shipping!`}</span>
+              <span>{shippingCost === 0 ? t('summary.freeShippingActive') : t('summary.freeShippingThreshold', { amount: (500 - (subtotal - discountAmount)).toFixed(0) })}</span>
             </div>
           </div>
 
@@ -1070,12 +1113,12 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                 <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
-                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151' }}>Enter coupon code</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151' }}>{t('coupon.label')}</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
-                  placeholder="COUPONCODE"
+                  placeholder={t('coupon.placeholder')}
                   value={couponInput}
                   onChange={e => setCouponInput(e.target.value.toUpperCase())}
                   style={{
@@ -1089,11 +1132,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 />
                 {appliedCouponCode ? (
                   <button onClick={handleRemoveCouponCode} style={{ padding: '8px 12px', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                    Remove
+                    {t('coupon.remove')}
                   </button>
                 ) : (
                   <button onClick={handleApplyCouponCode} disabled={isValidatingCoupon} style={{ padding: '8px 12px', backgroundColor: 'var(--primary-lime, #f97316)', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', opacity: isValidatingCoupon ? 0.7 : 1 }}>
-                    {isValidatingCoupon ? '...' : 'Apply'}
+                    {isValidatingCoupon ? '...' : t('coupon.apply')}
                   </button>
                 )}
               </div>
@@ -1115,7 +1158,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Phone size={18} style={{ color: '#ea580c' }} />
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 850, color: '#1f2937', margin: 0 }}>
-                  Login to continue
+                  {t('login.title')}
                 </h3>
               </div>
 
@@ -1127,7 +1170,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
               <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={labelStyle}>Enter Mobile Number</label>
+                  <label style={labelStyle}>{t('login.enterMobile')}</label>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1166,7 +1209,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     style={{ marginTop: '2px', accentColor: '#ea580c' }}
                   />
                   <span style={{ fontSize: '0.74rem', color: '#4b5563', fontWeight: 600, lineHeight: 1.3 }}>
-                    Send me order updates & offers - (no spam)
+                    {t('login.updates')}
                   </span>
                 </label>
 
@@ -1191,7 +1234,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     transition: 'all 0.15s'
                   }}
                 >
-                  {isAuthLoading ? 'Sending verification...' : 'Continue'}
+                  {isAuthLoading ? t('login.sending') : t('login.continue')}
                   {!isAuthLoading && <ArrowRight size={16} />}
                 </button>
               </form>
@@ -1204,10 +1247,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           {step === 'otp' && (
             <div>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 850, color: '#1f2937', margin: '0 auto 6px auto' }}>
-                WhatsApp Verification
+                {t('otp.title')}
               </h3>
               <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                We've sent a 6-digit verification code to <strong style={{ color: '#111827' }}>+91 {otpTargetPhone}</strong> via WhatsApp.
+                {t('otp.info', { phone: otpTargetPhone })}
               </p>
 
               {authError && (
@@ -1218,7 +1261,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
               <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={labelStyle}>Enter 6-Digit OTP</label>
+                  <label style={labelStyle}>{t('otp.enterOtp')}</label>
                   <input
                     type="text"
                     required
@@ -1243,18 +1286,18 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     onClick={() => { setStep('login'); setAuthError(''); }}
                     style={{ background: 'none', border: 'none', color: '#4b5563', fontWeight: 700, cursor: 'pointer' }}
                   >
-                    Change Number
+                    {t('otp.changeNumber')}
                   </button>
 
                   {otpCountdown > 0 ? (
-                    <span style={{ color: '#9ca3af', fontWeight: 650 }}>Resend in {otpCountdown}s</span>
+                    <span style={{ color: '#9ca3af', fontWeight: 650 }}>{t('otp.resendCountdown', { seconds: otpCountdown })}</span>
                   ) : (
                     <button 
                       type="button" 
                       onClick={handleResendOtp}
                       style={{ background: 'none', border: 'none', color: '#ea580c', fontWeight: 800, cursor: 'pointer' }}
                     >
-                      Resend OTP
+                      {t('otp.resendBtn')}
                     </button>
                   )}
                 </div>
@@ -1277,7 +1320,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     fontSize: '0.92rem'
                   }}
                 >
-                  {isAuthLoading ? 'Verifying code...' : 'Verify & Continue'}
+                  {isAuthLoading ? t('otp.verifying') : t('otp.verify')}
                 </button>
               </form>
             </div>
@@ -1291,7 +1334,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
                 <MapPin size={18} style={{ color: 'var(--primary-lime)' }} />
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 950, color: '#1f2937', margin: 0 }}>
-                  Shipping Details
+                  {t('address.title')}
                 </h3>
               </div>
 
@@ -1310,7 +1353,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                       marginBottom: '14px'
                     }}>
                       <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
-                        Saved Address List:
+                        {t('address.savedList')}
                       </p>
                       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
                         {savedAddresses.map((a) => (
@@ -1331,7 +1374,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                               <span style={{ fontSize: '0.62rem', fontWeight: 800, backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '3px' }}>{a.type}</span>
-                              {a.isDefault && <span style={{ fontSize: '0.6rem', color: 'var(--primary-lime)', fontWeight: 800 }}>Default</span>}
+                              {a.isDefault && <span style={{ fontSize: '0.6rem', color: 'var(--primary-lime)', fontWeight: 800 }}>{t('address.default')}</span>}
                             </div>
                             <p style={{ fontSize: '0.74rem', fontWeight: 700, color: '#1f2937', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</p>
                             <p style={{ fontSize: '0.68rem', color: '#6b7280', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.street}, {a.city}</p>
@@ -1365,7 +1408,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           }}
                         >
                           <Plus size={14} />
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>Custom</span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{t('address.custom')}</span>
                         </button>
                       </div>
                     </div>
@@ -1373,10 +1416,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div>
-                      <label style={labelStyle}>Full Name *</label>
+                      <label style={labelStyle}>{t('address.form.fullName')}</label>
                       <input 
                         style={{ ...inputStyle, borderColor: addressErrors.fullName ? '#ef4444' : '#e5e7eb' }}
-                        placeholder="Rahul Sharma"
+                        placeholder={t('address.form.fullNamePlaceholder')}
                         value={fullName}
                         onChange={e => setFullName(e.target.value)}
                       />
@@ -1385,21 +1428,21 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={labelStyle}>Phone *</label>
+                        <label style={labelStyle}>{t('address.form.phone')}</label>
                         <input 
                           style={{ ...inputStyle, borderColor: addressErrors.phone ? '#ef4444' : '#e5e7eb' }}
-                          placeholder="9876543210"
+                          placeholder={t('address.form.phonePlaceholder')}
                           value={phone}
                           onChange={e => setPhone(e.target.value)}
                         />
                         {addressErrors.phone && <p style={errorTextStyle}>{addressErrors.phone}</p>}
                       </div>
                       <div>
-                        <label style={labelStyle}>Email *</label>
+                        <label style={labelStyle}>{t('address.form.email')}</label>
                         <input 
                           type="email"
                           style={{ ...inputStyle, borderColor: addressErrors.email ? '#ef4444' : '#e5e7eb' }}
-                          placeholder="you@email.com"
+                          placeholder={t('address.form.emailPlaceholder')}
                           value={email}
                           onChange={e => setEmail(e.target.value)}
                         />
@@ -1408,10 +1451,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     </div>
 
                     <div>
-                      <label style={labelStyle}>Street Address *</label>
+                      <label style={labelStyle}>{t('address.form.addr1')}</label>
                       <input 
                         style={{ ...inputStyle, borderColor: addressErrors.addressLine1 ? '#ef4444' : '#e5e7eb' }}
-                        placeholder="House No, Street, Landmark"
+                        placeholder={t('address.form.addr1Placeholder')}
                         value={addressLine1}
                         onChange={e => setAddressLine1(e.target.value)}
                       />
@@ -1420,20 +1463,20 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                       <div style={{ gridColumn: 'span 2' }}>
-                        <label style={labelStyle}>City *</label>
+                        <label style={labelStyle}>{t('address.form.city')}</label>
                         <input 
                           style={{ ...inputStyle, borderColor: addressErrors.city ? '#ef4444' : '#e5e7eb' }}
-                          placeholder="City"
+                          placeholder={t('address.form.cityPlaceholder')}
                           value={city}
                           onChange={e => setCity(e.target.value)}
                         />
                         {addressErrors.city && <p style={errorTextStyle}>{addressErrors.city}</p>}
                       </div>
                       <div>
-                        <label style={labelStyle}>Pincode *</label>
+                        <label style={labelStyle}>{t('address.form.pincode')}</label>
                         <input 
                           style={{ ...inputStyle, borderColor: addressErrors.pincode ? '#ef4444' : '#e5e7eb' }}
-                          placeholder="Pincode"
+                          placeholder={t('address.form.pincodePlaceholder')}
                           maxLength={6}
                           value={pincode}
                           onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}
@@ -1443,13 +1486,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     </div>
 
                     <div>
-                      <label style={labelStyle}>State *</label>
+                      <label style={labelStyle}>{t('address.form.state')}</label>
                       <select
                         style={{ ...inputStyle, borderColor: addressErrors.state ? '#ef4444' : '#e5e7eb', cursor: 'pointer' }}
                         value={state}
                         onChange={e => setState(e.target.value)}
                       >
-                        <option value="">Select State</option>
+                        <option value="">{t('address.form.stateSelect')}</option>
                         {['Andhra Pradesh','Assam','Bihar','Delhi','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Odisha','Punjab','Rajasthan','Tamil Nadu','Telangana','Uttar Pradesh','Uttarakhand','West Bengal'].map(s => (
                           <option key={s} value={s}>{s}</option>
                         ))}
@@ -1462,7 +1505,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                       className="btn-lime"
                       style={{ width: '100%', padding: '14px', marginTop: '10px', justifyContent: 'center', borderRadius: '8px', fontSize: '0.92rem', fontWeight: 800 }}
                     >
-                      Continue to Payment
+                      {t('address.continue')}
                     </button>
                   </div>
                 </>
@@ -1478,7 +1521,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
                 <Lock size={18} style={{ color: 'var(--primary-lime)' }} />
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 950, color: '#1f2937', margin: 0 }}>
-                  {selectedPaymentOption === 'razorpay' ? 'Secure Online Payment' : 'Direct Payment Details (UPI)'}
+                  {selectedPaymentOption === 'razorpay' ? t('payment.titleOnline') : t('payment.titleUpi')}
                 </h3>
               </div>
 
@@ -1530,9 +1573,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                         <ShieldCheck size={24} />
                       </div>
                       <div>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111827', margin: '0 0 2px 0' }}>Razorpay Secure Checkout</h4>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111827', margin: '0 0 2px 0' }}>{t('payment.razorpay.title')}</h4>
                         <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0, lineHeight: 1.4 }}>
-                          Supports UPI, Cards, Net Banking, and popular Wallets.
+                          {t('payment.razorpay.description')}
                         </p>
                       </div>
                     </div>
@@ -1570,7 +1613,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     }}>
                       <img 
                         src={getQrCodeUrl()} 
-                        alt="UPI QR Code Barcode" 
+                        alt={t('payment.upi.scanToPay')} 
                         style={{
                           width: '170px',
                           height: '170px',
@@ -1593,7 +1636,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                         letterSpacing: '0.5px',
                         marginBottom: '10px'
                       }}>
-                        Scan to Pay
+                        {t('payment.upi.scanToPay')}
                       </span>
 
                       {/* UPI ID display & copy button */}
@@ -1609,7 +1652,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                         justifyContent: 'space-between'
                       }}>
                         <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                          <span style={{ fontSize: '0.6rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
+                          <span style={{ fontSize: '0.6rem', color: '#9ca3af', fontWeight: 700 }}>{t('payment.upi.upiIdLabel')}</span>
                           <a
                             href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`}
                             style={{
@@ -1642,7 +1685,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           }}
                         >
                           {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
-                          {copiedUpi ? 'Copied' : 'Copy'}
+                          {copiedUpi ? t('payment.upi.copied') : t('payment.upi.copy')}
                         </button>
                       </div>
 
@@ -1676,7 +1719,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                         >
-                          ⚡ Pay via Mobile UPI App
+                          {t('payment.upi.payViaApp')}
                         </button>
                         <p style={{
                           fontSize: '0.62rem',
@@ -1685,7 +1728,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           margin: 0,
                           lineHeight: 1.2
                         }}>
-                          * Clicking above will open your preferred UPI application (PhonePe, GPay, Paytm, BHIM, etc.) with the correct amount pre-filled.
+                          {t('payment.upi.helpText')}
                         </p>
                       </div>
                     </div>
@@ -1693,7 +1736,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     {/* Screenshot Uploader Area */}
                     <div>
                       <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
-                        Upload Payment Screenshot *
+                        {t('payment.upi.uploadLabel')}
                       </label>
                       
                       <div style={{
@@ -1727,7 +1770,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                               borderRadius: '50%'
                             }} />
                             <span style={{ fontSize: '0.74rem', color: '#6b7280', fontWeight: 700 }}>
-                              Uploading proof...
+                              {t('payment.upi.uploading')}
                             </span>
                           </div>
                         ) : paymentScreenshotUrl ? (
@@ -1744,17 +1787,17 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                               <Check size={18} />
                             </div>
                             <span style={{ fontSize: '0.76rem', color: '#166534', fontWeight: 800 }}>
-                              Screenshot Uploaded Successfully!
+                              {t('payment.upi.uploaded')}
                             </span>
                             <span style={{ fontSize: '0.64rem', color: '#6b7280', textDecoration: 'underline' }}>
-                              Click to change image
+                              {t('payment.upi.changeImage')}
                             </span>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                             <Upload size={24} style={{ color: '#9ca3af', marginBottom: '2px' }} />
                             <span style={{ fontSize: '0.78rem', color: '#374151', fontWeight: 800 }}>
-                              Click to select screenshot
+                              {t('payment.upi.selectScreenshot')}
                             </span>
                             <span style={{ fontSize: '0.64rem', color: '#9ca3af' }}>
                               PNG, JPG, or WEBP confirmation image
@@ -1773,7 +1816,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               {/* Secure strip */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '16px', justifyContent: 'center' }}>
                 <ShieldCheck size={14} style={{ color: '#10b981' }} />
-                <span style={{ fontSize: '0.72rem', color: '#6b7280', fontWeight: 600 }}>Secured by 256-bit SSL encryption</span>
+                <span style={{ fontSize: '0.72rem', color: '#6b7280', fontWeight: 600 }}>{t('payment.sslSecure')}</span>
               </div>
 
               {/* Place Order CTA */}
@@ -1783,7 +1826,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 className="btn-lime"
                 style={{ width: '100%', padding: '14px', marginTop: '16px', justifyContent: 'center', borderRadius: '8px', fontSize: '1rem', fontWeight: 900 }}
               >
-                {isPlacingOrder ? 'Processing...' : (selectedPaymentOption === 'razorpay' ? `Pay Securely — ₹${finalTotal.toFixed(2)}` : `Pay & Confirm — ₹${finalTotal.toFixed(2)}`)}
+                {isPlacingOrder ? t('payment.processing') : (selectedPaymentOption === 'razorpay' ? t('payment.placeOrderOnline', { amount: finalTotal.toFixed(2) }) : t('payment.placeOrderUpi', { amount: finalTotal.toFixed(2) }))}
               </button>
             </div>
           )}
@@ -1799,13 +1842,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         }}>
           {/* Secure checkout trust badges */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', flexWrap: 'wrap', opacity: 0.8, marginBottom: '6px' }}>
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🔒 PCI DSS COMPLIANT</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>{t('footer.pci')}</span>
             <span style={{ width: '1px', height: '10px', backgroundColor: '#d1d5db' }} />
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>🛡️ SSL SECURE CHECKOUT</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#4b5563' }}>{t('footer.ssl')}</span>
           </div>
 
           <p style={{ fontSize: '0.64rem', color: '#9ca3af', margin: 0, lineHeight: 1.3 }}>
-            By proceeding, I agree to Mantra Puja's <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Privacy Policy</span> and <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Terms & Conditions</span>.
+            {t('footer.agreement')}
           </p>
         </div>
 

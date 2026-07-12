@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SHA-256 Calculator</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; background: #0f172a; color: white; text-align: center; }
+    #dropzone { border: 3px dashed #3b82f6; padding: 50px; border-radius: 10px; margin: 20px auto; max-width: 500px; cursor: pointer; }
+    #result { font-size: 1.5rem; font-weight: bold; margin-top: 30px; word-break: break-all; color: #10b981; }
+  </style>
+</head>
+<body>
+  <h1>SHA-256 Calculator</h1>
+  <input type="file" id="fileinput" style="display: none;" />
+  <div id="dropzone">Click here to select file</div>
+  <div id="result">Select a file to see the hash</div>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileinput = document.getElementById('fileinput');
+    const result = document.getElementById('result');
+
+    dropzone.addEventListener('click', () => fileinput.click());
+    fileinput.addEventListener('change', handleFile);
+
+    async function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      result.textContent = 'Calculating...';
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      result.textContent = hashHex;
+      result.setAttribute('data-hash', hashHex);
+    }
+  </script>
+</body>
+</html>

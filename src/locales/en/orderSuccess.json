@@ -1,0 +1,108 @@
+{
+  "title": "Order Placed Successfully!",
+  "description": "Your sacred items are confirmed and will be packed with divine care. May these bring peace and blessings to your home.",
+  "orderId": "Order ID: {{orderId}}",
+  "copied": "Copied!",
+  "copy": "Copy",
+  "continueShopping": "Continue Shopping",
+  "downloadInvoice": "Download Invoice",
+  "downloaded": "Downloaded!",
+  "preparing": "Preparing...",
+  "shareOrder": "Share Order",
+  "sharePanel": {
+    "title": "Share your order invoice PDF with a thank you message 🙏",
+    "whatsapp": "💬 WhatsApp",
+    "twitter": "🐦 X (Twitter)",
+    "telegram": "✈️ Telegram"
+  },
+  "yourOrder": "Your Order ({{count}} items)",
+  "orderItems": "Order Items",
+  "price": {
+    "subtotal": "Subtotal",
+    "discount": "Discount ({{percent}}%)",
+    "shipping": "Shipping",
+    "free": "FREE",
+    "tax": "Tax ({{percent}}%)",
+    "total": "Total Charged"
+  },
+  "tracking": {
+    "title": "Order Tracking",
+    "verification": {
+      "title": "Payment Verification",
+      "description": "Verifying your screenshot proof",
+      "time": "Pending Admin Approval"
+    },
+    "confirmed": {
+      "title": "Order Confirmed",
+      "description": "Your order has been received and confirmed",
+      "time": "Confirmed"
+    },
+    "confirmedAwaiting": {
+      "title": "Order Confirmed",
+      "description": "Awaiting payment verification",
+      "time": "Pending"
+    },
+    "confirmedPayment": {
+      "title": "Payment Confirmed",
+      "description": "Payment successfully verified",
+      "time": "Verified"
+    },
+    "packing": {
+      "title": "Being Packed",
+      "description": "Sacred items being prepared",
+      "timeToday": "Expected: Today",
+      "timeCompleted": "Completed",
+      "timeAwaiting": "Awaiting"
+    },
+    "delivery": {
+      "title": "Out for Delivery",
+      "description": "On the way to you",
+      "timeExpected": "Expected: 3–5 days",
+      "timeCompleted": "Completed",
+      "timeAwaiting": "Awaiting"
+    },
+    "delivered": {
+      "title": "Delivered",
+      "description": "Blessings at your doorstep",
+      "timeCompleted": "Completed",
+      "timeEstimated": "Estimated",
+      "timeAwaiting": "Awaiting"
+    },
+    "done": "✓ DONE",
+    "inProgress": "IN PROGRESS"
+  },
+  "delivery": {
+    "title": "Delivery Details",
+    "name": "Name",
+    "email": "Email",
+    "address": "Address",
+    "city": "City",
+    "pincode": "Pincode",
+    "payment": "Payment",
+    "estDelivery": "Est. Delivery"
+  },
+  "whatsNext": {
+    "title": "What Happens Next?",
+    "steps": {
+      "email": "Order confirmation sent to your email",
+      "packed": "Items packed with sacred care within 24hrs",
+      "shipped": "Shipped via Sacred Express courier",
+      "doorstep": "Delivered to your doorstep in 3–5 days"
+    }
+  },
+  "badges": {
+    "authentic": "100% Authentic",
+    "templeQuality": "Temple Quality",
+    "fastDelivery": "Fast Delivery",
+    "easyReturns": "Easy Returns"
+  },
+  "viewAndTrack": "View & Track Order",
+  "goToHome": "Go to Home",
+  "upsell": {
+    "subtitle": "Discover More",
+    "title": "You May Also Like",
+    "description": "Curated divine items to complement your order",
+    "view": "View",
+    "browseAll": "Browse All Sacred Items"
+  }
+}

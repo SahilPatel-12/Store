@@ -11,6 +11,9 @@ import logo from './assets/My_logo/Frame 16.png';
 import { getSpiritualTypeForProduct } from './lib/spiritualTypeHelper';
 import { useSEO } from './seo/seo-manager';
 import { uploadToR2 } from './lib/cloudflare/r2';
+import { useLanguage } from './lib/i18n';
+import { useTranslation } from 'react-i18next';
+import { LanguageSelectorModal } from './components/LanguageSelectorModal';
 
 
 // Dynamically imported page components for optimal compilation and load performance
@@ -239,6 +242,9 @@ const initialOrders: LocalOrder[] = [
 ];
 
 function App() {
+  const { language, setLanguage, isLanguageReady } = useLanguage();
+  const { t: tNavbar } = useTranslation('navbar');
+  const { t: tFooter } = useTranslation('footer');
   const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard' | 'sitemap' | 'style-login'>('shop');
   
   // Dynamic client-side pundit migration runner
@@ -1652,8 +1658,9 @@ function App() {
   const loadPublishedProducts = async () => {
     try {
       const { data, error } = await supabase
-        .from('website_pooja_products')
+        .from('localized_website_pooja_products')
         .select('*')
+        .eq('locale', language)
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
@@ -2013,7 +2020,7 @@ function App() {
       }
     };
     initializeAppData();
-  }, [currentPageState]);  // Lifted stateful orders
+  }, [currentPageState, language]);  // Lifted stateful orders
   const [ordersState, setOrdersState] = React.useState<LocalOrder[]>(() => {
     try {
       const stored = localStorage.getItem('ridae_orders');
@@ -2510,8 +2517,23 @@ function App() {
     setWishlist(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  if (!isLanguageReady) {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#ffffff'
+      }}>
+        <span style={{ fontSize: '3rem', display: 'block' }}>🕉️</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <LanguageSelectorModal />
       {migrationStatus && (
         <div style={{
           position: 'fixed',
@@ -2605,14 +2627,14 @@ function App() {
                 onClick={(e) => { e.preventDefault(); setCurrentPage('home'); }}
                 style={{ fontWeight: currentPage === 'home' ? 800 : 500, color: currentPage === 'home' ? 'var(--text-dark)' : 'var(--text-muted)' }}
               >
-                Home
+                {tNavbar('home')}
               </a>
               <a
                 href="#shop"
                 onClick={(e) => { e.preventDefault(); setCurrentPage('shop'); }}
                 style={{ fontWeight: currentPage === 'shop' ? 800 : 500, color: currentPage === 'shop' ? 'var(--text-dark)' : 'var(--text-muted)' }}
               >
-                Shop
+                {tNavbar('shop')}
               </a>
 
               <div 
@@ -2636,7 +2658,7 @@ function App() {
                     padding: '8px 0'
                   }}
                 >
-                  Categories <ChevronDown size={14} style={{ transform: categoriesDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  {tNavbar('categories')} <ChevronDown size={14} style={{ transform: categoriesDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
                 {categoriesDropdownOpen && (
                   <div style={{
@@ -2698,7 +2720,7 @@ function App() {
             }}>
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder={tNavbar('searchPlaceholder')}
                 value={searchQueryTerm}
                 onChange={(e) => setSearchQueryTerm(e.target.value)}
                 onKeyDown={(e) => {
@@ -2731,6 +2753,78 @@ function App() {
 
           {/* Profile & Cart actions (Right side) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} className="nav-actions">
+            {/* Premium Sliding Language Toggle */}
+            <div
+              onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+              style={{
+                display: 'flex',
+                position: 'relative',
+                width: '100px',
+                height: '34px',
+                backgroundColor: 'rgba(243, 244, 246, 0.8)',
+                borderRadius: '17px',
+                padding: '2px',
+                cursor: 'pointer',
+                border: '1px solid var(--border-light, #e5e7eb)',
+                userSelect: 'none',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontFamily: 'system-ui, sans-serif',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                marginRight: '8px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary-gold, #d97706)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-light, #e5e7eb)';
+              }}
+            >
+              {/* Sliding Background Indicator */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  bottom: '2px',
+                  left: language === 'en' ? '2px' : 'calc(50% + 1px)',
+                  width: 'calc(50% - 3px)',
+                  borderRadius: '15px',
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 5px rgba(217, 119, 6, 0.4)',
+                }}
+              />
+              
+              {/* Left Label: EN */}
+              <span
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  zIndex: 2,
+                  color: language === 'en' ? '#ffffff' : '#4b5563',
+                  transition: 'color 0.2s',
+                }}
+              >
+                EN
+              </span>
+
+              {/* Right Label: HI */}
+              <span
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  zIndex: 2,
+                  color: language === 'hi' ? '#ffffff' : '#4b5563',
+                  transition: 'color 0.2s',
+                }}
+              >
+                हिं
+              </span>
+            </div>
 
             {!isAdminAuthenticated && (
               <button
@@ -2741,7 +2835,7 @@ function App() {
                   color: currentPageState === 'notifications' ? 'var(--primary-lime)' : 'var(--text-dark)',
                   transition: 'color 0.2s'
                 }}
-                title="Sacred Alerts"
+                title={tNavbar('alertsTitle')}
               >
                 <Bell size={20} fill={currentPageState === 'notifications' ? 'var(--primary-lime)' : 'none'} />
                 {unreadNotificationsCount > 0 && (
@@ -2774,7 +2868,7 @@ function App() {
                 color: loggedInUser ? 'var(--primary-gold, #d97706)' : (currentPageState === 'profile' || currentPageState === 'user-auth' ? 'var(--primary-lime)' : 'var(--text-dark)'),
                 transition: 'color 0.2s'
               }}
-              title={loggedInUser ? `Logged in as ${loggedInUser.fullName || loggedInUser.phoneNumber || 'Devotee'}` : "Spiritual Dashboard"}
+              title={loggedInUser ? (language === 'hi' ? `लॉग इन: ${loggedInUser.fullName || loggedInUser.phoneNumber || 'भक्त'}` : `Logged in as ${loggedInUser.fullName || loggedInUser.phoneNumber || 'Devotee'}`) : tNavbar('dashboardTitle')}
             >
               <User size={20} style={{ fill: loggedInUser ? 'var(--primary-gold, #d97706)' : 'none' }} />
             </button>
@@ -2786,7 +2880,7 @@ function App() {
                 color: currentPage === 'wishlist' ? 'var(--primary-lime)' : 'var(--text-dark)',
                 transition: 'color 0.2s'
               }}
-              title="Sacred Wishlist"
+              title={tNavbar('wishlistTitle')}
             >
               <Heart size={20} fill={currentPage === 'wishlist' ? 'var(--primary-lime)' : 'none'} />
               {wishlistCount > 0 && (
@@ -2875,14 +2969,14 @@ function App() {
               onClick={(e) => { e.preventDefault(); setCurrentPage('home'); }}
               style={{ padding: '8px 0', fontWeight: currentPage === 'home' ? 800 : 500, color: currentPage === 'home' ? 'var(--primary-lime)' : 'var(--text-dark)', borderBottom: '1px solid #f3f4f6' }}
             >
-              🏠 Home
+              {tNavbar('mobileHome')}
             </a>
             <a
               href="#shop"
               onClick={(e) => { e.preventDefault(); setCurrentPage('shop'); }}
               style={{ padding: '8px 0', fontWeight: currentPage === 'shop' ? 800 : 500, color: currentPage === 'shop' ? 'var(--primary-lime)' : 'var(--text-dark)', borderBottom: '1px solid #f3f4f6' }}
             >
-              🛍️ Shop Sacred Items
+              {tNavbar('mobileShop')}
             </a>
 
 
@@ -2901,7 +2995,7 @@ function App() {
                 }}
               >
                 <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-                  Browse Categories
+                  {tNavbar('mobileBrowseCategories')}
                 </span>
                 <div style={{
                   display: 'flex',
@@ -2915,7 +3009,7 @@ function App() {
                   borderRadius: 'var(--radius-full)',
                   transition: 'all 0.2s ease'
                 }}>
-                  <span>{mobileCategoriesExpanded ? 'Show Less' : 'Show All'}</span>
+                  <span>{mobileCategoriesExpanded ? tNavbar('showLess') : tNavbar('showAll')}</span>
                   <ChevronDown 
                     size={14} 
                     style={{ 
@@ -4557,6 +4651,7 @@ function App() {
           }}
           discountPercent={discountPercent}
           taxDeliverySettings={taxDeliverySettings}
+          products={productsState}
         />
       ) : currentPage === 'checkout' ? (
         <CheckoutPage
@@ -4574,6 +4669,7 @@ function App() {
           discountPercent={discountPercent}
           taxDeliverySettings={taxDeliverySettings}
           paymentActivation={paymentActivation}
+          products={productsState}
           onOrderSuccess={async (details) => {
             const checkoutAttemptId = details.orderId;
             const sessionToken = localStorage.getItem('session_token') || '';
@@ -5121,8 +5217,8 @@ function App() {
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 3l1.912 4.113 4.5 1.012-3.037 3.325.962 4.663-4.337-2.125-4.337 2.125.962-4.663-3.037-3.325 4.5-1.012z"/></svg>
                 </div>
                 <div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Directly From Varanasi</h5>
-                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>Energized on the holy banks of the Ganges River.</p>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tFooter('trust.directFromVaranasiTitle')}</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>{tFooter('trust.directFromVaranasiDesc')}</p>
                 </div>
               </div>
 
@@ -5131,8 +5227,8 @@ function App() {
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 </div>
                 <div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Certified Vedic Items</h5>
-                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>100% natural stones & lab-certified Rudrakshas.</p>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tFooter('trust.certifiedVedicTitle')}</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>{tFooter('trust.certifiedVedicDesc')}</p>
                 </div>
               </div>
 
@@ -5141,8 +5237,8 @@ function App() {
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
                 <div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Spiritual Guarantee</h5>
-                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>Sourced sustainably supporting temple karigars.</p>
+                  <h5 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, color: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tFooter('trust.spiritualGuaranteeTitle')}</h5>
+                  <p style={{ fontSize: '0.76rem', color: '#9ca3af', margin: '2px 0 0 0' }}>{tFooter('trust.spiritualGuaranteeDesc')}</p>
                 </div>
               </div>
             </div>
@@ -5168,7 +5264,7 @@ function App() {
                   />
                 </div>
                 <p style={{ fontSize: '0.86rem', color: '#9ca3af', lineHeight: 1.6 }}>
-                  Curating authentic, lab-certified Himalayan Rudrakshas, pure organic camphor, and deity brass idols. Energized at the legendary ghats of Varanasi to bring healing vibrations home.
+                  {tFooter('brandDescription')}
                 </p>
               </div>
 
@@ -5184,42 +5280,42 @@ function App() {
                   marginBottom: '20px',
                   letterSpacing: '1px'
                 }}>
-                  Sacred Navigation
+                  {tFooter('columns.navigation')}
                 </h4>
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
                   <li>
                     <button onClick={() => setCurrentPage('home')} className="footer-nav-btn">
-                      Home Altar
+                      {tFooter('links.homeAltar')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('shop')} className="footer-nav-btn">
-                      Spiritual Shop
+                      {tFooter('links.spiritualShop')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('search')} className="footer-nav-btn">
-                      Search Catalog
+                      {tFooter('links.searchCatalog')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setIsCartDrawerOpen(true)} className="footer-nav-btn">
-                      Shopping Cart
+                      {tFooter('links.shoppingCart')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('sitemap')} className="footer-nav-btn">
-                      Altar Site Map
+                      {tFooter('links.altarSiteMap')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('pundit-login')} className="footer-nav-btn">
-                      Pandit Portal
+                      {tFooter('links.panditPortal')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('astrologer-login')} className="footer-nav-btn">
-                      Astrologer Portal
+                      {tFooter('links.astrologerPortal')}
                     </button>
                   </li>
                 </ul>
@@ -5237,27 +5333,27 @@ function App() {
                   marginBottom: '20px',
                   letterSpacing: '1px'
                 }}>
-                  Our Essence
+                  {tFooter('columns.essence')}
                 </h4>
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
                   <li>
                     <button onClick={() => setCurrentPage('about')} className="footer-nav-btn">
-                      Brand Story
+                      {tFooter('links.brandStory')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('contact')} className="footer-nav-btn">
-                      Contact Support
+                      {tFooter('links.contactSupport')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('wishlist')} className="footer-nav-btn">
-                      My Wishlist
+                      {tFooter('links.myWishlist')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('profile')} className="footer-nav-btn">
-                      Devotee Dashboard
+                      {tFooter('links.devoteeDashboard')}
                     </button>
                   </li>
                 </ul>
@@ -5275,27 +5371,27 @@ function App() {
                   marginBottom: '20px',
                   letterSpacing: '1px'
                 }}>
-                  Divine Policies
+                  {tFooter('columns.policies')}
                 </h4>
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', padding: 0, margin: 0 }}>
                   <li>
                     <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
-                      Privacy & Data Guidelines
+                      {tFooter('links.privacyData')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
-                      Refunds & Exchanges
+                      {tFooter('links.refundsExchanges')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
-                      Sacred Dispatches Shipping
+                      {tFooter('links.sacredDispatches')}
                     </button>
                   </li>
                   <li>
                     <button onClick={() => setCurrentPage('policies')} className="footer-nav-btn">
-                      Terms of Devotion
+                      {tFooter('links.termsDevotion')}
                     </button>
                   </li>
                 </ul>
@@ -5311,7 +5407,7 @@ function App() {
               fontSize: '0.78rem',
               color: '#9ca3af'
             }}>
-              <span>© {new Date().getFullYear()} Mantra Puja Trust. All Sacred Rights Reserved.</span>
+              <span>{tFooter('copyright', { year: new Date().getFullYear() })}</span>
             </div>
 
           </div>
@@ -5375,6 +5471,7 @@ function App() {
         discountPercent={discountPercent}
         taxDeliverySettings={taxDeliverySettings}
         paymentActivation={paymentActivation}
+        products={productsState}
         onOrderSuccess={async (details) => {
           const checkoutAttemptId = details.orderId;
           const sessionToken = localStorage.getItem('session_token') || '';

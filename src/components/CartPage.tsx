@@ -1,8 +1,10 @@
 import React from 'react';
 import { Trash2, ArrowLeft, Ticket, ShieldCheck, Truck, Plus, Minus } from 'lucide-react';
-import type { CartItem } from '../types';
+import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
+import { useTranslation } from 'react-i18next';
 
 interface CartPageProps {
   cart: CartItem[];
@@ -20,6 +22,7 @@ interface CartPageProps {
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
   };
+  products?: Product[];
 }
 
 export const CartPage: React.FC<CartPageProps> = ({
@@ -34,6 +37,7 @@ export const CartPage: React.FC<CartPageProps> = ({
   onApplyCoupon,
   discountPercent,
   taxDeliverySettings,
+  products = [],
 }) => {
   const [couponCode, setCouponCode] = React.useState(appliedCouponCode);
   const [couponError, setCouponError] = React.useState('');
@@ -41,15 +45,24 @@ export const CartPage: React.FC<CartPageProps> = ({
   const [postalCode, setPostalCode] = React.useState('');
   const [deliveryInfo, setDeliveryInfo] = React.useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+  const { language } = useLanguage();
+  const { t } = useTranslation('cart');
+  const [isReady, setIsReady] = React.useState(false);
 
   React.useEffect(() => {
-    if (appliedCouponCode) {
-      setCouponSuccess(`Coupon ${appliedCouponCode} applied! ${discountPercent}% discount subtracted.`);
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['cart']).then(() => setIsReady(true));
+    });
+  }, [language]);
+
+  React.useEffect(() => {
+    if (appliedCouponCode && isReady) {
+      setCouponSuccess(t('coupon.success', { code: appliedCouponCode, percent: discountPercent }));
       setCouponCode(appliedCouponCode);
     } else {
       setCouponSuccess('');
     }
-  }, [appliedCouponCode, discountPercent]);
+  }, [appliedCouponCode, discountPercent, isReady, t]);
 
   // Dynamic calculations
   const subtotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
@@ -89,7 +102,7 @@ export const CartPage: React.FC<CartPageProps> = ({
     }
 
     if (!loggedInUser) {
-      setCouponError('Please log in to apply devotional coupons.');
+      setCouponError(t('coupon.error.login'));
       onApplyCoupon('', 0, null);
       return;
     }
@@ -106,14 +119,14 @@ export const CartPage: React.FC<CartPageProps> = ({
       if (fetchError) throw fetchError;
 
       if (!coupon) {
-        setCouponError('Invalid coupon code.');
+        setCouponError(t('coupon.error.invalid'));
         onApplyCoupon('', 0, null);
         return;
       }
 
       // 2. Validate usage limit
       if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
-        setCouponError('This coupon has reached its total usage limit.');
+        setCouponError(t('coupon.error.limit'));
         onApplyCoupon('', 0, null);
         return;
       }
@@ -129,7 +142,7 @@ export const CartPage: React.FC<CartPageProps> = ({
       if (redemptionError) throw redemptionError;
 
       if (existingRedemption) {
-        setCouponError('You have already used this coupon code.');
+        setCouponError(t('coupon.error.used'));
         onApplyCoupon('', 0, null);
         return;
       }
@@ -139,13 +152,14 @@ export const CartPage: React.FC<CartPageProps> = ({
         const hasProduct = cart.some(item => item.product.id === coupon.product_id);
         if (!hasProduct) {
           const { data: productData } = await supabase
-            .from('website_pooja_products')
+            .from('localized_website_pooja_products')
             .select('name')
             .eq('id', coupon.product_id)
+            .eq('locale', language)
             .maybeSingle();
           
           const productName = productData?.name || 'a specific product';
-          setCouponError(`This coupon is only valid for product: ${productName}.`);
+          setCouponError(t('coupon.error.product', { productName }));
           onApplyCoupon('', 0, null);
           return;
         }
@@ -153,11 +167,11 @@ export const CartPage: React.FC<CartPageProps> = ({
 
       // 5. Apply coupon
       onApplyCoupon(formattedCode, coupon.discount_percent, coupon.product_id || null);
-      setCouponSuccess(`Coupon ${formattedCode} applied! ${coupon.discount_percent}% discount subtracted.`);
+      setCouponSuccess(t('coupon.success', { code: formattedCode, percent: coupon.discount_percent }));
 
     } catch (err) {
       console.error('Error applying coupon:', err);
-      setCouponError('An error occurred while applying coupon. Please try again.');
+      setCouponError(t('coupon.error.generic'));
       onApplyCoupon('', 0, null);
     } finally {
       setIsValidatingCoupon(false);
@@ -167,15 +181,23 @@ export const CartPage: React.FC<CartPageProps> = ({
   const handlePostalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (postalCode.trim().length < 3) {
-      setDeliveryInfo('Please enter a valid zip code.');
+      setDeliveryInfo(t('shipping.error'));
       return;
     }
-    setDeliveryInfo('Estimated Delivery: Arrives in 3 business days via Sacred Express.');
+    setDeliveryInfo(t('shipping.success'));
   };
 
   const handleCheckoutSubmit = () => {
     onCheckout();
   };
+
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>{language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingBottom: '80px', backgroundColor: '#fafafa' }}>
@@ -196,13 +218,13 @@ export const CartPage: React.FC<CartPageProps> = ({
           onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
         >
-          <ArrowLeft size={16} /> Continue Shopping
+          <ArrowLeft size={16} /> {t('continueShopping')}
         </button>
       </div>
 
       <section className="container">
         <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '32px', textAlign: 'left' }}>
-          Your Spiritual Cart
+          {t('title')}
         </h1>
 
         {cart.length === 0 ? (
@@ -215,13 +237,13 @@ export const CartPage: React.FC<CartPageProps> = ({
             border: '1px solid var(--border-light)',
             boxShadow: 'var(--shadow-sm)'
           }}>
-            <span style={{ fontSize: '4rem' }}>🛒</span>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '16px' }}>Your cart is empty</h3>
+            <span style={{ fontSize: '4rem' }}>{t('empty.emoji')}</span>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '16px' }}>{t('empty.title')}</h3>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '24px' }}>
-              Add some blessed items to begin your spiritual journey.
+              {t('empty.description')}
             </p>
             <button onClick={onBackToShop} className="btn-lime" style={{ padding: '12px 32px' }}>
-              Browse divine items
+              {t('empty.browse')}
             </button>
           </div>
         ) : (
@@ -290,7 +312,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                           {item.product.spiritualType}
                         </span>
                         <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', margin: '2px 0' }}>
-                          {item.product.name}
+                           {products.find(p => p.id === item.product.id)?.name || item.product.name}
                         </h3>
                         <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-forest)' }}>
                           ₹{item.product.price}
@@ -307,7 +329,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                           fontWeight: 800,
                           color: 'var(--text-muted)'
                         }}>
-                          Qty: 1 (Limit 1)
+                          {t('item.qty')} {t('item.limit')}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
@@ -353,12 +375,12 @@ export const CartPage: React.FC<CartPageProps> = ({
                 textAlign: 'left'
               }}>
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Ticket size={16} style={{ color: 'var(--primary-lime)' }} /> Have a Devotional Coupon?
+                  <Ticket size={16} style={{ color: 'var(--primary-lime)' }} /> {t('coupon.title')}
                 </h3>
                 <form onSubmit={handleApplyCoupon} style={{ display: 'flex', gap: '12px' }}>
                   <input
                     type="text"
-                    placeholder="Enter coupon (e.g. DEVOTION10)"
+                    placeholder={t('coupon.placeholder')}
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
                     style={{
@@ -371,7 +393,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                     }}
                   />
                   <button type="submit" className="btn-lime" disabled={isValidatingCoupon} style={{ padding: '10px 24px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', opacity: isValidatingCoupon ? 0.7 : 1 }}>
-                    {isValidatingCoupon ? 'Validating...' : 'Apply'}
+                    {isValidatingCoupon ? t('coupon.validating') : t('coupon.apply')}
                   </button>
                 </form>
                 {couponError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '6px', fontWeight: 600 }}>{couponError}</p>}
@@ -388,12 +410,12 @@ export const CartPage: React.FC<CartPageProps> = ({
                 textAlign: 'left'
               }}>
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Truck size={16} style={{ color: 'var(--primary-lime)' }} /> Calculate Delivery Estimate
+                  <Truck size={16} style={{ color: 'var(--primary-lime)' }} /> {t('shipping.title')}
                 </h3>
                 <form onSubmit={handlePostalSubmit} style={{ display: 'flex', gap: '12px' }}>
                   <input
                     type="text"
-                    placeholder="Enter Zip / Postal Code"
+                    placeholder={t('shipping.placeholder')}
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
                     style={{
@@ -406,7 +428,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                     }}
                   />
                   <button type="submit" className="btn-lime" style={{ padding: '10px 24px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem' }}>
-                    Estimate
+                    {t('shipping.estimate')}
                   </button>
                 </form>
                 {deliveryInfo && <p style={{ color: 'var(--text-dark)', fontSize: '0.8rem', marginTop: '8px', fontWeight: 700 }}>{deliveryInfo}</p>}
@@ -426,33 +448,33 @@ export const CartPage: React.FC<CartPageProps> = ({
               top: '100px'
             }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px' }}>
-                Order Summary
+                {t('summary.title')}
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('summary.subtotal')}</span>
                   <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{subtotal.toFixed(2)}</span>
                 </div>
                 
                 {discountAmount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem', color: '#ef4444' }}>
-                    <span>Discount ({discountPercent}%)</span>
+                    <span>{t('summary.discount', { percent: discountPercent })}</span>
                     <span style={{ fontWeight: 700 }}>-₹{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Estimated Shipping</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('summary.shipping')}</span>
                   <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                    {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
+                    {shippingCost === 0 ? t('summary.free') : `₹${shippingCost.toFixed(2)}`}
                   </span>
                 </div>
               </div>
 
               {/* Grand Total */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '20px 0' }}>
-                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)' }}>Total Cost</span>
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('summary.total')}</span>
                 <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
                   ₹{finalTotal.toFixed(2)}
                 </span>
@@ -475,13 +497,13 @@ export const CartPage: React.FC<CartPageProps> = ({
                   boxShadow: '0 6px 20px rgba(132, 204, 22, 0.25)'
                 }}
               >
-                <span style={{ letterSpacing: '0.5px' }}>PROCEED TO CHECKOUT</span>
+                <span style={{ letterSpacing: '0.5px' }}>{t('summary.checkout')}</span>
                 <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>₹{finalTotal.toFixed(2)}</span>
               </button>
 
               <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                 <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
-                <span>Secure Checkout: SSL Encrypted Transaction Gateways.</span>
+                <span>{t('summary.secure')}</span>
               </div>
             </div>
 
