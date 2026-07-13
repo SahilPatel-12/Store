@@ -80,6 +80,8 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
   handleDeleteReview,
   isVidyaRudraksh = false
 }) => {
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
   if (false) console.log(handleWriteReviewClick);
   const [activeDetailReview, setActiveDetailReview] = React.useState<any | null>(null);
   const [activeModalImageIndex, setActiveModalImageIndex] = React.useState<number>(0);
@@ -266,7 +268,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
       paddingTop: isVidyaRudraksh ? '0px' : '40px'
     }}>
       <h2 className="vidya-reviews-title">
-        Ratings and reviews
+        {isHindi ? "रेटिंग्स और समीक्षाएं" : "Ratings and reviews"}
       </h2>
 
       <div className="vidya-reviews-grid">
@@ -693,7 +695,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                   <Star key={s} size={16} fill="#111827" color="#111827" />
                 ))}
               </div>
-              <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>(145 reviews)</span>
+              <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>{isHindi ? "(145 समीक्षाएं)" : "(145 reviews)"}</span>
             </div>
           </div>
 
@@ -740,7 +742,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
         {/* Right Column (Photos & Recommend) */}
         <div className="recommendation-col">
           <span style={{ fontSize: '0.98rem', fontWeight: 800, color: '#111827' }}>
-            98% <span style={{ color: '#4b5563', fontWeight: 500 }}>Would recommend this product to a friend</span>
+            98% <span style={{ color: '#4b5563', fontWeight: 500 }}>{isHindi ? "मित्रों को इस उत्पाद की अनुशंसा करेंगे" : "Would recommend this product to a friend"}</span>
           </span>
 
           {/* Customer Scrollable Photos */}
@@ -789,7 +791,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                       </svg>
-                      Verified buyer
+                      {isHindi ? "सत्यापित खरीदार" : "Verified buyer"}
                     </span>
                   )}
                 </div>
@@ -832,7 +834,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
               )}
 
               <div className="helpful-row">
-                <span>Was this helpful?</span>
+                <span>{isHindi ? "क्या यह मददगार था?" : "Was this helpful?"}</span>
                 <button
                   className="helpful-btn"
                   onClick={(e) => {
@@ -850,7 +852,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                   className="helpful-btn" 
                   onClick={(e) => {
                     e.stopPropagation();
-                    alert("Thank you for your feedback.");
+                    alert(isHindi ? "आपकी प्रतिक्रिया के लिए धन्यवाद।" : "Thank you for your feedback.");
                   }}
                 >
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'translateY(1px)' }}>
@@ -876,7 +878,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                       cursor: 'pointer'
                     }}
                   >
-                    Delete (Admin)
+                    {isHindi ? "हटाएं (एडमिन)" : "Delete (Admin)"}
                   </button>
                 )}
               </div>
@@ -987,7 +989,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                 <div className="spiritual-placeholder-content">
                   <span style={{ fontSize: '3rem' }}>📿</span>
                   <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary-forest)', marginTop: '8px' }}>
-                    Sandipani Ashram Blessing
+                    {isHindi ? "सांदीपनी आश्रम का आशीर्वाद" : "Sandipani Ashram Blessing"}
                   </span>
                 </div>
               </div>
@@ -1000,7 +1002,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                   <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#111827', margin: 0 }}>{activeDetailReview.author}</h3>
                   {activeDetailReview.verified !== false && (
                     <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '2px', marginTop: '2px' }}>
-                      ✓ Verified buyer
+                      ✓ {isHindi ? "सत्यापित खरीदार" : "Verified buyer"}
                     </span>
                   )}
                 </div>
@@ -1022,7 +1024,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
               </p>
 
               <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>Was this review helpful?</span>
+                <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 700 }}>{isHindi ? "क्या यह समीक्षा मददगार थी?" : "Was this helpful?"}</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => {
@@ -1046,7 +1048,7 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: 'translateY(-1px)' }}>
                       <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
                     </svg>
-                    Yes ({ (activeDetailReview.defaultHelpful || 0) + (helpfulCounts[activeDetailReview.id] || 0) })
+                    {isHindi ? "हाँ" : "Yes"} ({ (activeDetailReview.defaultHelpful || 0) + (helpfulCounts[activeDetailReview.id] || 0) })
                   </button>
                   <button
                     onClick={() => alert("Thank you for your feedback.")}
@@ -1081,6 +1083,9 @@ const VidyaReviewsSection: React.FC<VidyaReviewsSectionProps> = ({
 };
 
 const VidyaEmotionalHookSection: React.FC = () => {
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+
   return (
     <section className="vidya-emotional-section" style={{
       padding: '36px 0',
@@ -1301,8 +1306,12 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="floating-blessing-tag">
                 <span style={{ fontSize: '1.1rem' }}>🕉️</span>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>Blessed Environment</span>
-                  <span style={{ fontSize: '0.66rem', color: '#ea580c', fontWeight: 700 }}>Sandipani Ashram</span>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
+                    {isHindi ? "अभिमंत्रित वातावरण" : "Blessed Environment"}
+                  </span>
+                  <span style={{ fontSize: '0.66rem', color: '#ea580c', fontWeight: 700 }}>
+                    {isHindi ? "सांदीपनी आश्रम" : "Sandipani Ashram"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1311,10 +1320,10 @@ const VidyaEmotionalHookSection: React.FC = () => {
           {/* Right Column: Title and interactive dream cards */}
           <div className="emotional-right-col">
             <div className="dream-header-accent">
-              ❤️ Family Dreams
+              {isHindi ? "❤️ माता-पिता के सपने" : "❤️ Family Dreams"}
             </div>
             <h2 className="dream-title-main">
-              Har Maa-Baap Ka Sapna Hota Hai...
+              {isHindi ? "हर माता-पिता का सपना होता है..." : "Har Maa-Baap Ka Sapna Hota Hai..."}
             </h2>
             
             <div className="dream-cards-grid">
@@ -1322,8 +1331,14 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="dream-card-item">
                 <div className="dream-card-icon">📚</div>
                 <div className="dream-card-info">
-                  <span className="dream-card-title">Padhai Mein Accha Kare</span>
-                  <span className="dream-card-desc">Subject parameters easily understand ho aur padhai mein natural interest develop ho.</span>
+                  <span className="dream-card-title">
+                    {isHindi ? "पढ़ाई में अच्छा करे" : "Padhai Mein Accha Kare"}
+                  </span>
+                  <span className="dream-card-desc">
+                    {isHindi 
+                      ? "विषय आसानी से समझ में आएं और पढ़ाई में स्वाभाविक रुचि विकसित हो।" 
+                      : "Subject parameters easily understand ho aur padhai mein natural interest develop ho."}
+                  </span>
                 </div>
               </div>
 
@@ -1331,8 +1346,14 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="dream-card-item">
                 <div className="dream-card-icon">🎯</div>
                 <div className="dream-card-info">
-                  <span className="dream-card-title">Focus Rahe</span>
-                  <span className="dream-card-desc">Bina kisi distraction ke concentrated study karne ki lagan bani rahe.</span>
+                  <span className="dream-card-title">
+                    {isHindi ? "फोकस रहे" : "Focus Rahe"}
+                  </span>
+                  <span className="dream-card-desc">
+                    {isHindi 
+                      ? "बिना किसी भटकाव के एकाग्रचित्त होकर पढ़ने की लगन बनी रहे।" 
+                      : "Bina kisi distraction ke concentrated study karne ki lagan bani rahe."}
+                  </span>
                 </div>
               </div>
 
@@ -1340,8 +1361,14 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="dream-card-item">
                 <div className="dream-card-icon">🧠</div>
                 <div className="dream-card-info">
-                  <span className="dream-card-title">Jaldi Yaad Rakhe</span>
-                  <span className="dream-card-desc">Syllabus jaldi brain retention mein fit ho jaye aur revision time save ho.</span>
+                  <span className="dream-card-title">
+                    {isHindi ? "जल्दी याद रखे" : "Jaldi Yaad Rakhe"}
+                  </span>
+                  <span className="dream-card-desc">
+                    {isHindi 
+                      ? "पाठ्यक्रम जल्दी दिमाग में बैठ जाए और रिवीज़न का समय बचे।" 
+                      : "Syllabus jaldi brain retention mein fit ho jaye aur revision time save ho."}
+                  </span>
                 </div>
               </div>
 
@@ -1349,8 +1376,14 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="dream-card-item">
                 <div className="dream-card-icon">🏆</div>
                 <div className="dream-card-info">
-                  <span className="dream-card-title">Achhe Marks Laye</span>
-                  <span className="dream-card-desc">Vedic concentration aura exams time anxiety reduce kare taaki top score achieve ho.</span>
+                  <span className="dream-card-title">
+                    {isHindi ? "अच्छे मार्क्स लाए" : "Achhe Marks Laye"}
+                  </span>
+                  <span className="dream-card-desc">
+                    {isHindi 
+                      ? "वैदिक एकाग्रता आभामंडल परीक्षाओं के तनाव को कम करे ताकि टॉप स्कोर प्राप्त हो।" 
+                      : "Vedic concentration aura exams time anxiety reduce kare taaki top score achieve ho."}
+                  </span>
                 </div>
               </div>
 
@@ -1358,18 +1391,26 @@ const VidyaEmotionalHookSection: React.FC = () => {
               <div className="dream-card-item span-2">
                 <div className="dream-card-icon">😊</div>
                 <div className="dream-card-info">
-                  <span className="dream-card-title">Atmavishwas Se Bhara Rahe</span>
-                  <span className="dream-card-desc">Negative feelings aur failure stress se calm brain and high self-belief develop ho.</span>
+                  <span className="dream-card-title">
+                    {isHindi ? "आत्मविश्वास से भरा रहे" : "Atmavishwas Se Bhara Rahe"}
+                  </span>
+                  <span className="dream-card-desc">
+                    {isHindi 
+                      ? "नकारात्मक विचारों और असफलता के तनाव से मुक्त रहकर शांत दिमाग और दृढ़ आत्मविश्वास विकसित हो।" 
+                      : "Negative feelings aur failure stress se calm brain and high self-belief develop ho."}
+                  </span>
                 </div>
               </div>
 
               {/* Lekin Pivot Banner Row */}
               <div className="lekin-pivot-banner-row">
                 <h4 className="lekin-heading">
-                  ⚠️ Lekin...
+                  {isHindi ? "⚠️ लेकिन..." : "⚠️ Lekin..."}
                 </h4>
                 <p className="lekin-desc">
-                  Har bachche ka safar aasaan nahi hota. Screens distraction and high pressure study life unke sapno par heavy mental stress ban chuke hain.
+                  {isHindi 
+                    ? "हर बच्चे का सफर आसान नहीं होता। स्क्रीन का भटकाव और पढ़ाई का भारी दबाव उनके सपनों पर मानसिक तनाव बन चुका है।" 
+                    : "Har bachche ka safar aasaan nahi hota. Screens distraction and high pressure study life unke sapno par heavy mental stress ban chuke hain."}
                 </p>
               </div>
             </div>
@@ -1385,7 +1426,18 @@ interface VidyaParentPainSectionProps {
 }
 
 const VidyaParentPainSection: React.FC<VidyaParentPainSectionProps> = ({ onBuyNow }) => {
-  const painPoints = [
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+  const painPoints = isHindi ? [
+    "होमवर्क करने से बचता है",
+    "शिक्षक शिकायत करते हैं कि ध्यान नहीं देता",
+    "हर समय मोबाइल ही चलाता रहता है",
+    "परीक्षा के समय घबरा जाता है",
+    "बार-बार याद करने पर भी भूल जाता है",
+    "मार्क्स में सुधार नहीं हो रहा है",
+    "पढ़ाई में कोई रुचि नहीं है",
+    "आत्मविश्वास की कमी है"
+  ] : [
     "Homework se bachta hai",
     "Teacher bolte hain dhyan nahi deta",
     "Mobile hi chalata rehta hai",
@@ -1668,11 +1720,11 @@ const VidyaParentPainSection: React.FC<VidyaParentPainSectionProps> = ({ onBuyNo
       `}</style>
       <div className="vidya-pain-container">
         <div className="vidya-pain-header">
-          <span className="vidya-pain-tag">Self-Assessment Quiz</span>
+          <span className="vidya-pain-tag">{isHindi ? "स्व-मूल्यांकन प्रश्नोत्तरी" : "Self-Assessment Quiz"}</span>
           <h2 className="vidya-pain-title">
-            Kya Aap Bhi Inmein Se Kisi Pareshani Ka Samna Kar Rahe Hain?
+            {isHindi ? "क्या आप भी इनमें से किसी परेशानी का सामना कर रहे हैं?" : "Kya Aap Bhi Inmein Se Kisi Pareshani Ka Samna Kar Rahe Hain?"}
           </h2>
-          <p className="vidya-pain-subtitle">Apne bachche mein dikhne wale lakshano par tap karein (Select all that apply):</p>
+          <p className="vidya-pain-subtitle">{isHindi ? "अपने बच्चे में दिखने वाले लक्षणों पर टैप करें (जो लागू हों उन्हें चुनें):" : "Apne bachche mein dikhne wale lakshano par tap karein (Select all that apply):"}</p>
         </div>
         <div className="vidya-pain-grid">
           {painPoints.map((point, index) => {
@@ -1695,14 +1747,14 @@ const VidyaParentPainSection: React.FC<VidyaParentPainSectionProps> = ({ onBuyNo
             <span className="vidya-pain-callout-icon">👉</span>
             <div className="vidya-pain-callout-content">
               <div className="vidya-pain-callout-text">
-                Agar aapne inmein se <strong>ek bhi</strong> pareshani select ki hai... to niche di gayi jankari ko dhyan se padhiye.
+                {isHindi ? <>यदि आपने इनमें से <strong>एक भी</strong> परेशानी चुनी है... तो नीचे दी गई जानकारी को ध्यान से पढ़ें।</> : <>Agar aapne inmein se <strong>ek bhi</strong> pareshani select ki hai... to niche di gayi jankari ko dhyan se padhiye.</>}
               </div>
               <div className="vidya-pain-cta-box">
                 <span className="vidya-pain-cta-text">
-                  Apne bachche ki in pareshaniyon ko door karne ke liye <strong>Vidya Rudraksh</strong> aaj hi order karein!
+                  {isHindi ? <>अपने बच्चे की इन परेशानियों को दूर करने के लिए <strong>विद्या रुद्राक्ष</strong> आज ही ऑर्डर करें!</> : <>Apne bachche ki in pareshaniyon ko door karne ke liye <strong>Vidya Rudraksh</strong> aaj hi order karein!</>}
                 </span>
                 <button className="vidya-pain-buy-btn" onClick={onBuyNow}>
-                  <span>Buy Now (₹1)</span>
+                  <span>{isHindi ? "अभी खरीदें (₹1)" : "Buy Now (₹1)"}</span>
                   <ShoppingBag size={16} />
                 </button>
               </div>
@@ -1715,7 +1767,14 @@ const VidyaParentPainSection: React.FC<VidyaParentPainSectionProps> = ({ onBuyNo
 };
 
 const VidyaEmotionalStorySection: React.FC = () => {
-  const messages = [
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+  const messages = isHindi ? [
+    { sender: "माता", text: "मैंने स्कूल बदला...", time: "8:01 PM", color: "#fef3c7", textColor: "#92400e" },
+    { sender: "पिता", text: "मैंने ट्यूशन लगवाई...", time: "8:02 PM", color: "#e0f2fe", textColor: "#075985" },
+    { sender: "माता", text: "मैंने कोचिंग भी करवाई...", time: "8:03 PM", color: "#fef3c7", textColor: "#92400e" },
+    { sender: "पिता", text: "लेकिन... फिर भी पढ़ाई में मन नहीं लगता! 😔", time: "8:04 PM", color: "#fee2e2", textColor: "#991b1b", isCritical: true }
+  ] : [
     { sender: "Mother", text: "Maine School Badla...", time: "8:01 PM", color: "#fef3c7", textColor: "#92400e" },
     { sender: "Father", text: "Maine Tuition Lagwayi...", time: "8:02 PM", color: "#e0f2fe", textColor: "#075985" },
     { sender: "Mother", text: "Maine Coaching Bhi Karwayi...", time: "8:03 PM", color: "#fef3c7", textColor: "#92400e" },
@@ -1996,9 +2055,9 @@ const VidyaEmotionalStorySection: React.FC = () => {
       `}</style>
       <div className="vidya-chat-container">
         <div className="vidya-chat-header">
-          <span className="vidya-chat-tag">Parent Story</span>
-          <h2 className="vidya-chat-title">Har Parent Yehi Sochta Hai...</h2>
-          <p className="vidya-chat-desc">School badalne se lekar coaching tak, maa-baap sab karke thak chuke hain.</p>
+          <span className="vidya-chat-tag">{isHindi ? "माता-पिता की कहानी" : "Parent Story"}</span>
+          <h2 className="vidya-chat-title">{isHindi ? "हर माता-पिता यही सोचते हैं..." : "Har Parent Yehi Sochta Hai..."}</h2>
+          <p className="vidya-chat-desc">{isHindi ? "स्कूल बदलने से लेकर कोचिंग तक, माता-पिता सब करके थक चुके हैं।" : "School badalne se lekar coaching tak, maa-baap sab karke thak chuke hain."}</p>
         </div>
 
         <div className="vidya-chat-grid">
@@ -2020,16 +2079,16 @@ const VidyaEmotionalStorySection: React.FC = () => {
               <div className="vidya-chat-topbar">
                 <div className="vidya-chat-avatar">🏡</div>
                 <div className="vidya-chat-status-info">
-                  <span className="vidya-chat-group-name">Parents Discussion</span>
+                  <span className="vidya-chat-group-name">{isHindi ? "माता-पिता की चर्चा" : "Parents Discussion"}</span>
                   <span className="vidya-chat-status">
-                    {isTyping ? "typing..." : "online"}
+                    {isTyping ? (isHindi ? "टाइपिंग..." : "typing...") : (isHindi ? "ऑनलाइन" : "online")}
                   </span>
                 </div>
               </div>
               
               <div className="vidya-chat-body">
                 {messages.slice(0, visibleCount).map((msg, idx) => {
-                  const isMother = msg.sender === "Mother";
+                  const isMother = msg.sender === (isHindi ? "माता" : "Mother");
                   return (
                     <div key={idx} className={`vidya-chat-bubble-wrap ${isMother ? 'mother' : 'father'} ${msg.isCritical ? 'critical' : ''}`}>
                       <span className="vidya-chat-bubble-sender">{msg.sender}</span>
@@ -2054,13 +2113,13 @@ const VidyaEmotionalStorySection: React.FC = () => {
             <div style={{ marginTop: '16px' }}>
               {visibleCount < messages.length ? (
                 <button className="vidya-chat-action-btn" onClick={handleNextMessage} disabled={isTyping}>
-                  {isTyping ? "Aage Padh rahe hain..." : "Aage Kya Hua? Padhye 👉"}
+                  {isTyping ? (isHindi ? "आगे पढ़ रहे हैं..." : "Aage Padh rahe hain...") : (isHindi ? "आगे क्या हुआ? पढ़ें 👉" : "Aage Kya Hua? Padhye 👉")}
                 </button>
               ) : (
                 <div className="vidya-chat-pivot-banner">
-                  <span className="vidya-chat-pivot-text">The Solution</span>
+                  <span className="vidya-chat-pivot-text">{isHindi ? "समाधान" : "The Solution"}</span>
                   <h3 className="vidya-chat-pivot-headline">
-                    Yahi soch <span style={{ color: '#fbbf24', fontWeight: 900 }}>Vidya Rudraksh</span> ki prerna bani.
+                    {isHindi ? <>यही सोच <span style={{ color: '#fbbf24', fontWeight: 900 }}>विद्या रुद्राक्ष</span> की प्रेरणा बनी।</> : <>Yahi soch <span style={{ color: '#fbbf24', fontWeight: 900 }}>Vidya Rudraksh</span> ki prerna bani.</>}
                   </h3>
                 </div>
               )}
@@ -2308,7 +2367,15 @@ export const VidyaVideoSection: React.FC<VidyaVideoSectionProps> = ({ videoUrl, 
 };
 
 const VidyaSandipaniAshramSection: React.FC = () => {
-  const steps = [
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+  const steps = isHindi ? [
+    { title: "श्री कृष्ण", subtitle: "भगवान श्री कृष्ण", desc: "भगवान श्री कृष्ण ने इसी सांदीपनी आश्रम में गुरु सांदीपनि से 64 विद्याओं और 16 कलाओं का ज्ञान प्राप्त किया था।", icon: "🪈", bg: "#fef3c7" },
+    { title: "गुरु सांदीपनि", subtitle: "गुरु शिक्षा स्थली", desc: "महर्षि सांदीपनि ने यहाँ श्री कृष्ण और सुदामा को शिक्षा दी। उनकी तपस्या से यह भूमि अत्यंत पवित्र हुई।", icon: "🧘", bg: "#ffedd5" },
+    { title: "आश्रम", subtitle: "ऐतिहासिक आश्रम स्थली", desc: "उज्जैन का ऐतिहासिक सांदीपनी आश्रम जहाँ आज भी शिक्षा-सिद्धि और पवित्रता का वास है।", icon: "🛕", bg: "#ffe4e6" },
+    { title: "पंडित", subtitle: "वैदिक पंडित जी", desc: "आश्रम के परंपरा-शुद्ध वैदिक पंडित जी की देख-रेख में पूजन का आयोजन किया जाता है।", icon: "📿", bg: "#dcfce7" },
+    { title: "अनुष्ठान", subtitle: "विद्या सिद्धि अनुष्ठान", desc: "पवित्र मंत्रों और शास्त्रोक्त विधि से अनुष्ठान करके प्रत्येक विद्या रुद्राक्ष को अभिमंत्रित किया जाता है।", icon: "🔥", bg: "#dbeafe" }
+  ] : [
     { title: "Krishna", subtitle: "Bhagwan Shri Krishna", desc: "Bhagwan Shri Krishna ne isi Sandipani Ashram mein Guru Sandipani se 64 vidyaon aur 16 kalaon ka gyan prapt kiya tha.", icon: "🪈", bg: "#fef3c7" },
     { title: "Guru Sandipani", subtitle: "Guru Shiksha Sthali", desc: "Maharishi Sandipani ne yahan Shri Krishna aur Sudama ko shiksha di. Unki tapasya se bhoomi pavitra hui.", icon: "🧘", bg: "#ffedd5" },
     { title: "Ashram", subtitle: "Aitihasik Ashram Sthali", desc: "Ujjain ka aitihasik Sandipani Ashram jahan aaj bhi shiksha-siddhi aur pavitrata ka vaas hai.", icon: "🛕", bg: "#ffe4e6" },
@@ -2520,8 +2587,8 @@ const VidyaSandipaniAshramSection: React.FC = () => {
         }
       `}</style>
       <div className="vidya-ashram-container">
-        <span className="vidya-ashram-tag">Sandipani Ashram</span>
-        <h2 className="vidya-ashram-title">Bhagwan Shri Krishna Ki Shiksha Sthali Se...</h2>
+        <span className="vidya-ashram-tag">{isHindi ? "सांदीपनी आश्रम" : "Sandipani Ashram"}</span>
+        <h2 className="vidya-ashram-title">{isHindi ? "भगवान श्री कृष्ण की शिक्षा स्थली से..." : "Bhagwan Shri Krishna Ki Shiksha Sthali Se..."}</h2>
         
         {/* Interactive Timeline Tabs */}
         <div className="vidya-ashram-tabs">
@@ -2553,7 +2620,7 @@ const VidyaSandipaniAshramSection: React.FC = () => {
         {/* Detailed description panel for active step */}
         <div className="vidya-ashram-detail-card" key={activeStep}>
           <span className="vidya-ashram-detail-badge" style={{ backgroundColor: `${steps[activeStep].bg}bb`, color: '#2d140e' }}>
-            Step {activeStep + 1} of 5
+            {isHindi ? `चरण ${activeStep + 1} (कुल 5 में से)` : `Step ${activeStep + 1} of 5`}
           </span>
           <h3 className="vidya-ashram-detail-title">{steps[activeStep].subtitle}</h3>
           <p className="vidya-ashram-detail-desc">{steps[activeStep].desc}</p>
@@ -2563,7 +2630,9 @@ const VidyaSandipaniAshramSection: React.FC = () => {
         <div className="vidya-ashram-bottom-card">
           <span style={{ fontSize: '2rem', flexShrink: 0 }}>✨</span>
           <p className="vidya-ashram-bottom-text">
-            Isi pavitra bhoomi par <strong>Vidya Siddhi Anushthan</strong> ke baad <strong>Vidya Rudraksh</strong> abhimantrit kiya jata hai.
+            {isHindi 
+              ? <>इसी पवित्र भूमि पर <strong>विद्या सिद्धि अनुष्ठान</strong> के बाद <strong>विद्या रुद्राक्ष</strong> अभिमंत्रित किया जाता है।</> 
+              : <>Isi pavitra bhoomi par <strong>Vidya Siddhi Anushthan</strong> ke baad <strong>Vidya Rudraksh</strong> abhimantrit kiya jata hai.</>}
           </p>
         </div>
       </div>
@@ -2572,7 +2641,94 @@ const VidyaSandipaniAshramSection: React.FC = () => {
 };
 
 const VidyaWhyParentsTrustSection: React.FC = () => {
-  const trustPoints = [
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+  const trustPoints = isHindi ? [
+    { 
+      title: "पढ़ाई में मन लगाने में सहायक", 
+      desc: "चंचल मन शांत होता है, जिससे पढ़ाई में रुचि बढ़ती है।", 
+      howItWorks: "रुद्राक्ष की इलेक्ट्रोमैग्नेटिक तरंगें मस्तिष्क कोशिकाओं के रिसेप्टर्स को सक्रिय करती हैं, जिससे पढ़ाई पर ध्यान केंद्रित करना आसान हो जाता है।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+          <path d="M6 6h10" />
+          <path d="M6 10h10" />
+          <path d="M13 14h3" />
+        </svg>
+      ), 
+      color: "#f59e0b" 
+    },
+    { 
+      title: "एकाग्रता को मजबूत बनाने में सहायक", 
+      desc: "कंसंट्रेशन स्पैन बढ़ता है, जिससे ध्यान इधर-उधर नहीं भटकता।", 
+      howItWorks: "यह अल्फा ब्रेन वेव्स की आवृत्ति को सहायता देकर ध्यान की अवधि और निरंतरता को स्थिर रखने में मदद करता है।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="6" />
+          <circle cx="12" cy="12" r="2" />
+        </svg>
+      ), 
+      color: "#3b82f6" 
+    },
+    { 
+      title: "सकारात्मक अध्ययन आदत विकसित करने में मददगार", 
+      desc: "बैठकर पढ़ने की आदत और लगातार सीखने की प्रक्रिया आसान होती है।", 
+      howItWorks: "शरीर और मन की स्थिरता बढ़ने से भटकाव की थकान कम होती है, जिससे पढ़ाई के उत्पादक सत्र लंबे समय तक चलते हैं।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+          <path d="M17 14h-6" />
+          <path d="M13 18H7" />
+          <path d="M7 14h.01" />
+          <path d="M17 18h.01" />
+        </svg>
+      ), 
+      color: "#10b981" 
+    },
+    { 
+      title: "आत्मविश्वास बढ़ाने में सहायक", 
+      desc: "परीक्षा के डर और तनाव से मुक्ति मिलती है, जिससे आत्मविश्वास मजबूत होता है।", 
+      howItWorks: "एड्रिनेलिन के अत्यधिक स्राव को नियंत्रित करके यह घबराहट को कम करता है और सार्वजनिक प्रदर्शन के आत्मविश्वास को बढ़ाता है।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+          <path d="M12 2a5 5 0 0 0-5 5v5h10V7a5 5 0 0 0-5-5z" />
+        </svg>
+      ), 
+      color: "#ec4899" 
+    },
+    { 
+      title: "सकारात्मक सीखने का वातावरण", 
+      desc: "आभामंडल (Aura) सकारात्मक होता है, जिससे घर में पढ़ाई का अनुकूल वातावरण बनता है।", 
+      howItWorks: "उज्जैन के सिद्ध आश्रम द्वारा प्राप्त ऊर्जावान आवृत्ति घर के नकारात्मक प्रभाव और तनाव कारकों को समाप्त करती है।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <path d="M9 22V12h6v10" />
+        </svg>
+      ), 
+      color: "#ef4444" 
+    },
+    { 
+      title: "विद्या के प्रति दृढ़ संकल्प", 
+      desc: "ज्ञान और शिक्षा के प्रति आदर और लगन का संकल्प जाग्रत होता है।", 
+      howItWorks: "वैदिक अनुष्ठान से प्राप्त प्रेरणा से बच्चा पढ़ाई को बोझ नहीं, बल्कि एक सिद्धि और ज्ञान का मार्ग समझने लगता है।",
+      icon: (color: string) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+      ), 
+      color: "#8b5cf6" 
+    }
+  ] : [
     { 
       title: "Padhai Mein Man Lagane Mein Sahayak", 
       desc: "Chanchal mann shant hota hai, jisse padhai mein ruchi badhti hai.", 
@@ -2860,11 +3016,11 @@ const VidyaWhyParentsTrustSection: React.FC = () => {
         }
       `}</style>
       <div className="vidya-trust-container">
-        <span className="vidya-trust-tag">Devotee Trust</span>
+        <span className="vidya-trust-tag">{isHindi ? "श्रद्धालुओं का विश्वास" : "Devotee Trust"}</span>
         <h2 className="vidya-trust-heading">
-          Mata-Pita Vidya Rudraksh Par Vishwas Kyon Karte Hain?
+          {isHindi ? "माता-पिता विद्या रुद्राक्ष पर विश्वास क्यों करते हैं?" : "Mata-Pita Vidya Rudraksh Par Vishwas Kyon Karte Hain?"}
         </h2>
-        <p className="vidya-trust-subtext">Click card to reveal spiritual & scientific reason:</p>
+        <p className="vidya-trust-subtext">{isHindi ? "आध्यात्मिक और वैज्ञानिक कारण जानने के लिए कार्ड पर क्लिक करें:" : "Click card to reveal spiritual & scientific reason:"}</p>
         
         <div className="vidya-trust-grid">
           {visiblePoints.map((item) => {
@@ -2883,7 +3039,7 @@ const VidyaWhyParentsTrustSection: React.FC = () => {
                 <p className="vidya-trust-card-desc">{item.desc}</p>
                 
                 <span className="vidya-trust-expand-trigger">
-                  {isExpanded ? "Hide Details ✕" : "How it works? +"}
+                  {isExpanded ? (isHindi ? "विवरण छुपाएं ✕" : "Hide Details ✕") : (isHindi ? "यह कैसे काम करता है? +" : "How it works? +")}
                 </span>
 
                 <div className="vidya-trust-details-drawer">
@@ -2901,7 +3057,7 @@ const VidyaWhyParentsTrustSection: React.FC = () => {
             className="vidya-trust-show-more-btn"
             onClick={() => setShowAll(!showAll)}
           >
-            <span>{showAll ? "Show Less Reasons" : "Show All Reasons"}</span>
+            <span>{showAll ? (isHindi ? "कम कारण दिखाएं" : "Show Less Reasons") : (isHindi ? "सभी कारण दिखाएं" : "Show All Reasons")}</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showAll ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s ease' }}>
               <path d="m6 9 6 6 6-6"/>
             </svg>
@@ -2913,7 +3069,13 @@ const VidyaWhyParentsTrustSection: React.FC = () => {
 };
 
 const VidyaWhyOneRupeeSection: React.FC = () => {
-  const chargesBreakdown = [
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+  const chargesBreakdown = isHindi ? [
+    { title: "अनुष्ठान शुल्क (Ritual Charges)", desc: "आश्रम के वैदिक पंडितों की सिद्धि पूजन सामग्री और अनुष्ठान क्रिया की मूल लागत।", icon: "🕉️", color: "#f59e0b" },
+    { title: "पैकिंग शुल्क (Packing Charges)", desc: "रुद्राक्ष को सुरक्षित रखने के लिए गंगाजल से धोए गए बॉक्स और पवित्र धागे की पैकेजिंग लागत।", icon: "📦", color: "#3b82f6" },
+    { title: "शिपिंग शुल्क (Shipping Charges)", desc: "उज्जैन से सीधे आपके घर तक सुरक्षित पहुँचाने के लॉजिस्टिक्स और डिलीवरी पार्टनर शुल्क।", icon: "🚚", color: "#10b981" }
+  ] : [
     { title: "Ritual Charges", desc: "Ashram ke vedic panditon ki siddhi pujan samagri aur anushthan kriya ki mool cost.", icon: "🕉️", color: "#f59e0b" },
     { title: "Packing Charges", desc: "Rudraksh ko surakshit rakhne ke liye gangajal se dhule box aur sacred thread ki packaging.", icon: "📦", color: "#3b82f6" },
     { title: "Shipping Charges", desc: "Ujjain se seedhe aapke ghar tak surakshit pahunchane ke logistics aur delivery partner charges.", icon: "🚚", color: "#10b981" }
@@ -3126,8 +3288,8 @@ const VidyaWhyOneRupeeSection: React.FC = () => {
         }
       `}</style>
       <div className="vidya-onerupee-container">
-        <span className="vidya-onerupee-tag">₹1 Spirit</span>
-        <h2 className="vidya-onerupee-heading">Hum Sirf ₹1 Mein Kyu De Rahe Hain?</h2>
+        <span className="vidya-onerupee-tag">{isHindi ? "₹1 भावना" : "₹1 Spirit"}</span>
+        <h2 className="vidya-onerupee-heading">{isHindi ? "हम सिर्फ ₹1 में क्यों दे रहे हैं?" : "Hum Sirf ₹1 Mein Kyu De Rahe Hain?"}</h2>
         
         {/* Glowing floating coin */}
         <div className="vidya-onerupee-coin-wrap">
@@ -3137,11 +3299,12 @@ const VidyaWhyOneRupeeSection: React.FC = () => {
         </div>
 
         <p className="vidya-onerupee-story">
-          Har Bachcha <span style={{ color: '#ea580c', fontWeight: 900 }}>Vidya Ka Adhikari</span> Hai.<br />
-          Isliye Rudraksh Ka Moolya <span className="vidya-onerupee-highlight">Matra ₹1 Rakha Gaya Hai.</span>
+          {isHindi 
+            ? <>हर बच्चा <span style={{ color: '#ea580c', fontWeight: 900 }}>विद्या का अधिकारी</span> है।<br />इसलिए रुद्राक्ष का मूल्य <span className="vidya-onerupee-highlight">मात्र ₹1 रखा गया है।</span></>
+            : <>Har Bachcha <span style={{ color: '#ea580c', fontWeight: 900 }}>Vidya Ka Adhikari</span> Hai.<br />Isliye Rudraksh Ka Moolya <span className="vidya-onerupee-highlight">Matra ₹1 Rakha Gaya Hai.</span></>}
         </p>
 
-        <span className="vidya-onerupee-charges-label">Aap Sirf Niche Diye Charges Dete Hain (Tap for details):</span>
+        <span className="vidya-onerupee-charges-label">{isHindi ? "आप केवल नीचे दिए गए शुल्क देते हैं (विवरण के लिए टैप करें):" : "Aap Sirf Niche Diye Charges Dete Hain (Tap for details):"}</span>
         
         <div className="vidya-onerupee-charges-grid">
           {chargesBreakdown.map((item, idx) => {
@@ -4074,7 +4237,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     return url || '';
   };
   const activeProducts = productsProp || [];
-  const isVidyaRudraksh = product.name?.toLowerCase().includes('vidya') && (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha');
+  const isVidyaRudraksh = (product.name?.toLowerCase().includes('vidya') || product.name?.includes('विद्या')) && (product.name?.toLowerCase().includes('rudraksh') || product.name?.includes('रुद्राक्ष') || product.category?.toLowerCase() === 'rudraksha' || product.category === 'रुद्राक्ष');
   const isOneRupeeProd = product.price === 1 || isVidyaRudraksh;
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
@@ -5666,7 +5829,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   }}>
                     <ShieldCheck size={14} style={{ color: 'var(--primary-lime)' }} />
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                      {isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं प्राण प्रतिष्ठित" : "100% Temple Blessed & Energized"}
+                      {isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं सिद्ध" : "100% Temple Blessed & Energized"}
                     </span>
                   </div>
 
@@ -5768,7 +5931,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   zIndex: 10
                 }}>
                   <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>{isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं प्राण प्रतिष्ठित" : "100% Temple Blessed & Energized"}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>{isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं सिद्ध" : "100% Temple Blessed & Energized"}</span>
                 </div>
               )}
             </div>
@@ -6683,7 +6846,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     discountPct === 100 || singleItemPrice === 1 ? (
                       <span className="limited-offer-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={12} style={{ animation: 'clock-vibrate 3s infinite ease-in-out' }} />
-                        Limited Offer
+                        {isHindi ? "सीमित समय का ऑफर" : "Limited Offer"}
                       </span>
                     ) : (
                       <span style={{
@@ -6726,7 +6889,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   borderRadius: '50%',
                   backgroundColor: '#dc2626'
                 }}></span>
-                <span>Only 309/500 items left!</span>
+                <span>{isHindi ? "केवल 309/500 उत्पाद बचे हैं!" : "Only 309/500 items left!"}</span>
               </div>
             )}
 
@@ -6931,7 +7094,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             {/* Temple Blessing & Process Steps (Only for Vidya Rudraksh) */}
             {isVidyaRudraksh && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '10px' }}>
-                {/* Temple Blessed Banner */}
+                {/* {isHindi ? "मंदिर द्वारा अभिमंत्रित" : "Temple Blessed"} Banner */}
                 <div style={{
                   background: 'linear-gradient(135deg, #fffbeb 0%, #fff7ed 50%, #ffedd5 100%)',
                   border: '1.5px solid #fed7aa',
@@ -7021,7 +7184,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       fontFamily: 'var(--font-sans)',
                       letterSpacing: '-0.3px'
                     }}>
-                      Temple Blessed
+                      {isHindi ? "मंदिर द्वारा अभिमंत्रित" : "Temple Blessed"}
                     </span>
                     <span style={{
                       fontSize: '0.94rem',
@@ -7031,7 +7194,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       alignItems: 'center',
                       gap: '4px'
                     }}>
-                      Sandipani Ashram Ujjain
+                      {isHindi ? "सांदीपनी आश्रम उज्जैन" : "Sandipani Ashram Ujjain"}
                     </span>
                   </div>
                 </div>
@@ -7063,7 +7226,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     margin: 0,
                     letterSpacing: '-0.3px'
                   }}>
-                    How a product becomes siddh
+                    {isHindi ? "उत्पाद सिद्ध कैसे बनता है?" : "How a product becomes siddh"}
                   </h3>
 
                   {/* Steps row */}
@@ -7175,7 +7338,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         <Package size={22} strokeWidth={2.5} />
                       </div>
                       <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
-                        Product is Selected
+                        {isHindi ? "उत्पाद का चयन" : "Product is Selected"}
                       </span>
                     </div>
 
@@ -7204,7 +7367,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         </svg>
                       </div>
                       <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
-                        Taken to Temple
+                        {isHindi ? "मंदिर ले जाना" : "Taken to Temple"}
                       </span>
                     </div>
 
@@ -7228,7 +7391,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         </svg>
                       </div>
                       <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
-                        Puja & Sankalp
+                        {isHindi ? "पूजा एवं संकल्प" : "Puja & Sankalp"}
                       </span>
                     </div>
 
@@ -7254,7 +7417,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         </svg>
                       </div>
                       <span className="siddh-step-text" style={{ fontWeight: 800, color: 'var(--text-dark)', lineHeight: '1.2', textAlign: 'center' }}>
-                        Delivered to You
+                        {isHindi ? "आपको डिलीवरी" : "Delivered to You"}
                       </span>
                     </div>
                   </div>
@@ -7288,7 +7451,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Buy Now
+                    {isHindi ? "अभी खरीदें" : "Buy Now"}
                   </button>
                 </div>
               </div>
