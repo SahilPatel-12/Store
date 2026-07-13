@@ -5315,8 +5315,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         }}>
           {isVidyaRudraksh ? (
             isHindi 
-              ? ("सांदीपनि आश्रम से सिद्ध विद्या रुद्राक्ष" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " विशेष" : ""))
-              : ("Sandipani Ashram Se Siddh Vidya Rudraksh" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " Special" : ""))
+              ? ("सांदीपनि आश्रम से सिद्ध विद्या रुद्राक्ष" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " विशेष" : (((product as any).slug || '') === "vidya-rudraksh-1001" ? " प्रीमियम" : "")))
+              : ("Sandipani Ashram Se Siddh Vidya Rudraksh" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " Special" : (((product as any).slug || '') === "vidya-rudraksh-1001" ? " Premium" : "")))
           ) : editable ? (
             <InlineEdit
               value={product.name}
