@@ -37,49 +37,45 @@ export default async function handler(req, res) {
     const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-    // 1. Strict 60s cooldown limit on same phone
-    const { data: recentPhone } = await supabaseAdmin
-      .from('website_store_otp_logs')
-      .select('id')
-      .eq('phone_number', formattedPhone)
-      .gt('requested_at', oneMinAgo)
-      .limit(1);
+    // Run rate-limiting queries in parallel to minimize latency
+    const [recentPhoneRes, recentIpRes, hourlyPhoneRes, hourlyIpRes] = await Promise.all([
+      supabaseAdmin
+        .from('website_store_otp_logs')
+        .select('id')
+        .eq('phone_number', formattedPhone)
+        .gt('requested_at', oneMinAgo)
+        .limit(1),
+      supabaseAdmin
+        .from('website_store_otp_logs')
+        .select('id')
+        .eq('ip_address', ipAddress)
+        .gt('requested_at', oneMinAgo)
+        .limit(1),
+      supabaseAdmin
+        .from('website_store_otp_logs')
+        .select('id')
+        .eq('phone_number', formattedPhone)
+        .gt('requested_at', oneHourAgo),
+      supabaseAdmin
+        .from('website_store_otp_logs')
+        .select('id')
+        .eq('ip_address', ipAddress)
+        .gt('requested_at', oneHourAgo)
+    ]);
 
-    if (recentPhone && recentPhone.length > 0) {
+    if (recentPhoneRes.data && recentPhoneRes.data.length > 0) {
       return res.status(429).json({ error: 'Please wait at least 60 seconds before requesting another OTP.' });
     }
 
-    // 2. Strict 60s cooldown limit on same IP
-    const { data: recentIp } = await supabaseAdmin
-      .from('website_store_otp_logs')
-      .select('id')
-      .eq('ip_address', ipAddress)
-      .gt('requested_at', oneMinAgo)
-      .limit(1);
-
-    if (recentIp && recentIp.length > 0) {
+    if (recentIpRes.data && recentIpRes.data.length > 0) {
       return res.status(429).json({ error: 'Too many requests from this IP. Please wait 60 seconds.' });
     }
 
-    // 3. Hourly limit: max 99 requests per phone number (increased for testing)
-    const { data: hourlyPhone } = await supabaseAdmin
-      .from('website_store_otp_logs')
-      .select('id')
-      .eq('phone_number', formattedPhone)
-      .gt('requested_at', oneHourAgo);
-
-    if (hourlyPhone && hourlyPhone.length >= 99) {
+    if (hourlyPhoneRes.data && hourlyPhoneRes.data.length >= 99) {
       return res.status(429).json({ error: 'You have reached the hourly limit of OTP requests for this phone number.' });
     }
 
-    // 4. Hourly limit: max 99 requests per IP address (increased for testing)
-    const { data: hourlyIp } = await supabaseAdmin
-      .from('website_store_otp_logs')
-      .select('id')
-      .eq('ip_address', ipAddress)
-      .gt('requested_at', oneHourAgo);
-
-    if (hourlyIp && hourlyIp.length >= 99) {
+    if (hourlyIpRes.data && hourlyIpRes.data.length >= 99) {
       return res.status(429).json({ error: 'Too many OTP requests from your connection. Please try again in an hour.' });
     }
 
@@ -90,77 +86,7 @@ export default async function handler(req, res) {
 
   try {
     // ==========================================
-    // 1. Try MSG91 Gateway (Takes precedence if configured)
-    // ==========================================
-    const { data: msg91Data } = await supabaseAdmin
-      .from('website_settings')
-      .select('value')
-      .eq('key', 'msg91_settings')
-      .maybeSingle();
-
-    if (msg91Data?.value && msg91Data.value.encrypted_auth_key && msg91Data.value.encrypted_template_id) {
-      const msg91Val = msg91Data.value;
-      const rawKey = process.env.ENCRYPTION_STRING_KEY_ESG_91 || 'gk4ukWKg78THpQ170x0XY0aPl9';
-      let decryptedAuthKey, decryptedTemplateId;
-      try {
-        decryptedAuthKey = decryptTextWithCustomKey(msg91Val.encrypted_auth_key, msg91Val.auth_key_iv, msg91Val.auth_key_tag, rawKey);
-        decryptedTemplateId = decryptTextWithCustomKey(msg91Val.encrypted_template_id, msg91Val.template_id_iv, msg91Val.template_id_tag, rawKey);
-      } catch (decErr) {
-        console.error('[send-otp] MSG91 Decryption failed:', decErr);
-        return res.status(500).json({ error: 'Internal failure decrypting MSG91 configurations.' });
-      }
-
-      console.log('[send-otp] Firing MSG91 flow gateway request');
-      let gatewayStatus = 200;
-      let gatewayResponseText = '';
-      try {
-        const resGateway = await fetch('https://control.msg91.com/api/v5/flow/', {
-          method: 'POST',
-          headers: {
-            'authkey': decryptedAuthKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            template_id: decryptedTemplateId,
-            sender: msg91Val.senderId,
-            recipients: [
-              {
-                mobiles: formattedPhone,
-                VAR1: otp
-              }
-            ]
-          })
-        });
-        gatewayStatus = resGateway.status;
-        gatewayResponseText = await resGateway.text();
-      } catch (fetchErr) {
-        console.warn('[send-otp] MSG91 gateway request failed:', fetchErr.message);
-        const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development';
-        if (isDev) {
-          console.log('\n========================================');
-          console.log(`[DEV MODE OTP BYPASS (MSG91)]`);
-          console.log(`Phone: ${phone}`);
-          console.log(`Generated OTP: ${otp}`);
-          console.log('========================================\n');
-          gatewayStatus = 200;
-          gatewayResponseText = 'mock_dev_success';
-        } else {
-          throw fetchErr;
-        }
-      }
-
-      await logOtpRequest(formattedPhone, ipAddress);
-
-      return res.status(200).json({
-        success: true,
-        gatewayStatus,
-        message: 'OTP request processed via MSG91 SMS gateway.',
-        detail: gatewayResponseText
-      });
-    }
-
-    // ==========================================
-    // 2. Fallback: WhatsApp Settings Config
+    // 1. WhatsApp Settings Config (Primary & Exclusive Gateway)
     // ==========================================
     const { data: waData } = await supabaseAdmin
       .from('website_settings')
@@ -221,7 +147,13 @@ export default async function handler(req, res) {
       if (val.endpoint.includes('bhashsms.com')) {
         const urlObj = new URL(val.endpoint);
         urlObj.searchParams.set('pass', decryptedToken);
-        urlObj.searchParams.set('phone', formattedPhone);
+        
+        // Strip 91 prefix for BhashSMS (expects 10 digit number) to prevent routing delay
+        let bhashPhone = formattedPhone;
+        if (bhashPhone.startsWith('91') && bhashPhone.length === 12) {
+          bhashPhone = bhashPhone.substring(2);
+        }
+        urlObj.searchParams.set('phone', bhashPhone);
         urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
 
         console.log('[send-otp] Firing BhashSMS gateway request');
@@ -272,8 +204,10 @@ export default async function handler(req, res) {
       }
     }
     
-    // Log request in rate limiting logs
-    await logOtpRequest(formattedPhone, ipAddress);
+    // Log request asynchronously in background to speed up HTTP response time
+    logOtpRequest(formattedPhone, ipAddress).catch(err => {
+      console.warn('[send-otp] Background log update failed:', err.message);
+    });
 
     return res.status(200).json({
       success: true,
