@@ -135,6 +135,39 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const [state, setState] = React.useState('');
   const [pincode, setPincode] = React.useState('');
   const [addressErrors, setAddressErrors] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    const formattedPincode = pincode.replace(/\D/g, '');
+    if (formattedPincode.length === 6) {
+      const fetchCityState = async () => {
+        try {
+          const res = await fetch(`https://api.postalpincode.in/pincode/${formattedPincode}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice[0]) {
+              const first = data[0].PostOffice[0];
+              const resolvedCity = first.District || first.Division || first.Name;
+              let resolvedState = first.State;
+
+              if (resolvedState === 'National Capital Territory of Delhi') {
+                resolvedState = 'Delhi';
+              }
+
+              if (resolvedCity) {
+                setCity(resolvedCity.trim());
+              }
+              if (resolvedState) {
+                setState(resolvedState.trim());
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to auto-fetch city/state from pincode:', err);
+        }
+      };
+      fetchCityState();
+    }
+  }, [pincode]);
   const [savedAddresses, setSavedAddresses] = React.useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
   const [isAddressLoading, setIsAddressLoading] = React.useState(false);
@@ -1491,7 +1524,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                         onChange={e => setState(e.target.value)}
                       >
                         <option value="">{t('address.form.stateSelect')}</option>
-                        {['Andhra Pradesh','Assam','Bihar','Delhi','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Odisha','Punjab','Rajasthan','Tamil Nadu','Telangana','Uttar Pradesh','Uttarakhand','West Bengal'].map(s => (
+                         {['Andaman and Nicobar Islands','Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chandigarh','Chhattisgarh','Dadra and Nagar Haveli and Daman and Diu','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jammu and Kashmir','Jharkhand','Karnataka','Kerala','Ladakh','Lakshadweep','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Puducherry','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal'].map(s => (
                           <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
