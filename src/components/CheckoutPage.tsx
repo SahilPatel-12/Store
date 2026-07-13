@@ -93,14 +93,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = React.useState('');
   const [isUploadingScreenshot, setIsUploadingScreenshot] = React.useState(false);
   const [copiedUpi, setCopiedUpi] = React.useState(false);
-  const [selectedPaymentOption, setSelectedPaymentOption] = React.useState<'razorpay' | 'manual_upi'>('manual_upi');
+  const [selectedPaymentOption, setSelectedPaymentOption] = React.useState<'razorpay' | 'manual_upi'>('razorpay');
 
   React.useEffect(() => {
-    if (paymentActivation?.activePaymentProvider === 'razorpay') {
-      setSelectedPaymentOption('razorpay');
-    } else {
-      setSelectedPaymentOption('manual_upi');
-    }
+    setSelectedPaymentOption('razorpay');
   }, [paymentActivation]);
 
   // Address fields

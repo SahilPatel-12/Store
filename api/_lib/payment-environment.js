@@ -7,6 +7,11 @@
  * @returns {'test' | 'live'}
  */
 export function getPaymentEnvironment(fallbackDbMode) {
+  // Force 'live' mode in production / deployed versions
+  if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+    return 'live';
+  }
+
   const envValue = process.env.PAYMENT_ENV;
 
   if (envValue === undefined || envValue === null || envValue === '') {
