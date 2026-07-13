@@ -179,7 +179,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <img
                   src={getDisplayImageUrl(product.image)}
                   alt={product.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                 />
                 <div
                   style={{

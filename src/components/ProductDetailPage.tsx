@@ -5568,7 +5568,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <img
                     src={getDisplayImageUrl(resolvedGallery[activeImageIndex].url)}
                     alt={resolvedGallery[activeImageIndex].alt}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', transform: `scale(${zoomLevel})`, transition: 'transform 0.1s ease-out' }}
                   />
                 )
               ) : (
