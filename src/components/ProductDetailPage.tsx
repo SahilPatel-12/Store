@@ -5314,7 +5314,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           marginBottom: '4px'
         }}>
           {isVidyaRudraksh ? (
-            "Sandipani Ashram Se Siddh Vidya Rudraksh"
+            isHindi 
+              ? ("सांदीपनि आश्रम से सिद्ध विद्या रुद्राक्ष" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " विशेष" : ""))
+              : ("Sandipani Ashram Se Siddh Vidya Rudraksh" + (((product as any).slug || '') === "vidya-rudraksh-101" ? " Special" : ""))
           ) : editable ? (
             <InlineEdit
               value={product.name}
@@ -6526,7 +6528,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   lineHeight: '1.4'
                 }}>
                   {isVidyaRudraksh ? (
-                    "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
+                    isHindi
+                      ? "पढ़ाई में मन लगाने, एकाग्रता, याद रखने की क्षमता और सकारात्मक अध्ययन की आदत के लिए एक पवित्र आध्यात्मिक सहायक"
+                      : "Padhai Mein Man Lagane, Ekagrata, Yaad Rakhne Ki Kshamata Aur Positive Study Habit Ke Liye Ek Pavitra Adhyatmik Sahayak"
                   ) : editable ? (
                     <InlineEdit
                       value={pooja.subtitle || ''}
@@ -6559,7 +6563,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     <MapPin size={15} strokeWidth={2.5} />
                   </span>
                   <span className="location-badge-text">
-                    Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddh Anushthan Ke Baad Abhimantrit
+                    {isHindi 
+                      ? "उज्जैन के पवित्र सांदीपनि आश्रम में विद्या सिद्ध अनुष्ठान के बाद अभिमंत्रित"
+                      : "Ujjain Ke Pavitra Sandipani Ashram Mein Vidya Siddh Anushthan Ke Baad Abhimantrit"}
                   </span>
                 </div>
               )}
