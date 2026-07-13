@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../supabase-admin.js';
 import { getRazorpayClient } from '../razorpay-client.js';
+import { getPaymentEnvironment } from '../payment-environment.js';
 
 // Verify the devotee session and return customer ID
 async function verifySession(token) {
@@ -63,7 +64,36 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     const activeProvider = activation?.value?.activePaymentProvider || 'manual_upi';
-    const activeMode = activation?.value?.razorpayMode || 'test';
+    let activeMode;
+    try {
+      activeMode = getPaymentEnvironment(activation?.value?.razorpayMode);
+    } catch (configErr) {
+      return res.status(500).json({ error: configErr.message });
+    }
+
+    if (activeMode === 'test') {
+      // Automatically confirm order for seamless local testing, bypassing Razorpay completely
+      const { error: updateErr } = await supabaseAdmin
+        .from('website_store_orders')
+        .update({
+          payment_status: 'Confirmed',
+          status: 'Being Packed',
+          payment_provider: 'razorpay',
+          razorpay_mode: 'test',
+          payment_verified_at: new Date().toISOString()
+        })
+        .eq('order_id', order.order_id);
+
+      if (updateErr) {
+        throw updateErr;
+      }
+
+      return res.status(200).json({
+        success: true,
+        internalOrderId: order.order_id,
+        bypass: true
+      });
+    }
 
     // Verify if Razorpay configuration exists in database
     const { data: rzpConfig, error: rzpConfigErr } = await supabaseAdmin

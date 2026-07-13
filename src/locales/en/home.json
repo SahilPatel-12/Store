@@ -1,0 +1,35 @@
+{
+  "hero": {
+    "bannerAlt": "Banner slide {{index}}"
+  },
+  "featured": {
+    "titleFallback": "Our Featured Collection",
+    "subtitleFallback": "Get 30% off when you purchase our featured bundle",
+    "showcaseAlt": "Featured Collection Showcase",
+    "altarAlt": "Featured Altar"
+  },
+  "sale": {
+    "exclusiveOffersWeek": "EXCLUSIVE OFFERS WEEK",
+    "titleFallback": "Exceptional Discounts up to 30%",
+    "hours": "Hours",
+    "mins": "Mins",
+    "secs": "Secs",
+    "dealOfTheDay": "🔥 DEAL OF THE DAY",
+    "refreshesDaily": "⏳ REFRESHES DAILY",
+    "off": "OFF"
+  },
+  "newArrivals": {
+    "titleFallback": "Discover Our New Arrivals",
+    "discoverMore": "Discover More"
+  },
+  "bundle": {
+    "total": "Bundle Total",
+    "addToCart": "Add Bundle to Cart"
+  },
+  "product": {
+    "addToCart": "Add To Cart",
+    "outOfStock": "Out of Stock",
+    "inCart": "{{count}} in Cart",
+    "viewAll": "View All Products"
+  }
+}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Heart, Star, ArrowUpDown, Clock, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 interface ShopPageProps {
@@ -34,6 +35,16 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   productsOrder,
   onBannerClick,
 }) => {
+  const { t, i18n } = useTranslation(['shop', 'category']);
+  const language = i18n.language;
+  const [isReady, setIsReady] = React.useState(false);
+  
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['shop']).then(() => setIsReady(true));
+    });
+  }, [language]);
+
   const activeProducts = productsProp || [];
   // Filter and Sort states
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -115,8 +126,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     }
 
     const allCategories = [
-      { id: 'all', label: 'All Items' },
-      ...uniqueCats.map(cat => ({ id: cat, label: cat }))
+      { id: 'all', label: t('shop:toolbar.categories.allItems') },
+      ...uniqueCats.map(cat => ({ id: cat, label: t('category:names.' + cat, { defaultValue: cat }) }))
     ];
 
     if (categoriesOrder && categoriesOrder.length > 0) {
@@ -196,6 +207,19 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
   };
 
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: 'var(--text-muted)' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid var(--border-light)', borderTopColor: 'var(--primary-forest)', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={{ paddingBottom: '60px' }}>
 
@@ -239,7 +263,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                   >
                     <img
                       src={imageUrl}
-                      alt={`Shop banner ${idx + 1}`}
+                      alt={t('banner.alt', { index: idx + 1 })}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -368,10 +392,10 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                     fontSize: '2.4rem', fontWeight: 800, lineHeight: 1.2,
                     marginBottom: '12px', fontFamily: 'var(--font-sans)', color: '#ffffff'
                   }}>
-                    The Divine Shop
+                    {t('banner.title')}
                   </h1>
                   <p style={{ fontSize: '0.95rem', opacity: 0.8, lineHeight: 1.5, maxWidth: '480px' }}>
-                    Explore our curated collections of authentic, priest-energized spiritual items designed to invite divine energy, focus, and peace into your sacred space.
+                    {t('banner.description')}
                   </p>
                 </div>
 
@@ -430,7 +454,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
             }}>
               <input
                 type="text"
-                placeholder="Search by product name, benefits, or type..."
+                placeholder={t('toolbar.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -478,10 +502,10 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                   color: 'var(--text-dark)'
                 }}
               >
-                <option value="popularity">Popularity</option>
-                <option value="rating">Top Rated</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
+                <option value="popularity">{t('toolbar.sortOptions.popularity')}</option>
+                <option value="rating">{t('toolbar.sortOptions.rating')}</option>
+                <option value="price-asc">{t('toolbar.sortOptions.priceAsc')}</option>
+                <option value="price-desc">{t('toolbar.sortOptions.priceDesc')}</option>
               </select>
             </div>
 
@@ -537,17 +561,17 @@ export const ShopPage: React.FC<ShopPageProps> = ({
               color: 'var(--text-muted)'
             }}>
               <p style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-dark)' }}>
-                No divine items found
+                {t('emptyState.title')}
               </p>
               <p style={{ fontSize: '0.9rem', marginTop: '6px' }}>
-                No items match your selected criteria. Try broadening your search or choosing another category.
+                {t('emptyState.description')}
               </p>
               <button
                 onClick={resetFilters}
                 className="btn-lime"
                 style={{ marginTop: '20px' }}
               >
-                Reset Search & Categories
+                {t('emptyState.resetButton')}
               </button>
             </div>
           ) : (
@@ -639,7 +663,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                           zIndex: 10,
                           boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                         }}>
-                          {discount}%<br/>OFF
+                          {discount}%<br/>{t('product.off')}
                         </div>
                       )}
 
@@ -660,7 +684,12 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                           clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%)',
                           zIndex: 10
                         }}>
-                          SOLD<br/>OUT
+                          {t('product.soldOut').includes(' ') ? (
+                            (() => {
+                              const parts = t('product.soldOut').split(' ');
+                              return <>{parts[0]}<br/>{parts[1]}</>;
+                            })()
+                          ) : t('product.soldOut')}
                         </div>
                       )}
 
@@ -807,7 +836,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                                     fontSize: '0.85rem',
                                     userSelect: 'none'
                                   }}>
-                                    {qty} in Cart
+                                    {t('product.inCart', { count: qty })}
                                   </span>
                                   {!isOneRupeeProd ? (
                                     <button
@@ -863,7 +892,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                               >
-                                Add To Cart
+                                {t('product.addToCart')}
                               </button>
                             );
                           })()
@@ -883,7 +912,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                               cursor: 'not-allowed'
                             }}
                           >
-                            Out of Stock
+                            {t('product.outOfStock')}
                           </button>
                         )}
                       </div>
@@ -906,7 +935,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
           <div className="container" style={{ textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
               <Clock size={18} style={{ color: 'var(--primary-lime)' }} />
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Recently Viewed</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('recentlyViewed.title')}</h3>
             </div>
             
             <div style={{

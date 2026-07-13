@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Phone, 
   ArrowLeft, 
@@ -59,6 +60,16 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   onLoginSuccess,
   onNavigateToProfile,
 }) => {
+  const { t, i18n } = useTranslation(['affiliation', 'common']);
+  const language = i18n.language || 'en';
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['affiliation', 'common']).then(() => setIsReady(true));
+    });
+  }, [language]);
+
   // Navigation / Onboarding state
   const [affiliateCode, setAffiliateCode] = React.useState('');
   const [affiliateStatus, setAffiliateStatus] = React.useState<'none' | 'pending' | 'active' | 'suspended'>('none');
@@ -138,6 +149,19 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       setAffiliateCode('');
     }
   }, [loggedInUser, fetchAffiliateDetails]);
+
+  if (!isReady) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fcf8f5' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid #ffedd5', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <span style={{ fontSize: '0.9rem', color: '#8c7670', fontWeight: 600 }}>
+            {t('status.retrieving', { defaultValue: 'Retrieving profile settings...' })}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // Clean numbers for international sending compatibility
   const formatPhoneNumber = (num: string) => {
@@ -250,7 +274,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529' && userEnteredOtp !== '111111') {
+    const isBypassAllowed = !import.meta.env.PROD;
+    const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
+    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
       setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
       return;
     }
@@ -721,19 +747,19 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
         <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(234, 88, 12, 0.2)', padding: '6px 16px', borderRadius: '50px', fontSize: '0.88rem', fontWeight: 800, color: '#fdbb2d', border: '1px solid rgba(253, 187, 45, 0.3)', marginBottom: '16px' }}>
             <Sparkles size={14} />
-            <span>MANTRA PUJA PARTNERSHIP PROGRAM</span>
+            <span>{t('heroBadge')}</span>
           </div>
           <h1 
             className="affiliate-hero-title"
             style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.025em', margin: '0 0 12px 0', color: '#fff9f5', lineHeight: 1.2 }}
           >
-            Become a Partner, Share the Divine & Earn
+            {t('heroTitle')}
           </h1>
           <p 
             className="affiliate-hero-desc"
             style={{ fontSize: '1.1rem', color: '#ffedd5', maxWidth: '600px', margin: '0 auto', lineHeight: 1.5 }}
           >
-            Help others connect with authenticated spiritual offerings and earn rewards for every devotee you introduce to Mantra Puja.
+            {t('heroDesc')}
           </p>
         </div>
       </div>
@@ -759,9 +785,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <Gift size={24} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>10% Instant Commission</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>{t('promo.commissionTitle')}</h3>
               <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, lineHeight: 1.5 }}>
-                Earn a flat 10% commission on every single purchase made by the users you refer. Real-time logging on dispatch.
+                {t('promo.commissionDesc')}
               </p>
             </div>
           </div>
@@ -778,9 +804,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <Users size={24} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>Unlimited Devotees</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>{t('promo.unlimitedTitle')}</h3>
               <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, lineHeight: 1.5 }}>
-                Share with as many friends, family members, or followers as you like. There are no caps or ceilings on your rewards.
+                {t('promo.unlimitedDesc')}
               </p>
             </div>
           </div>
@@ -797,9 +823,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <Award size={24} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>Lifetime Earnings</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: '0 0 8px 0', color: '#2d140e' }}>{t('promo.lifetimeTitle')}</h3>
               <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, lineHeight: 1.5 }}>
-                Refer one or multiple devotees. Get a flat 10% commission on their first purchase and lifetime rewards whenever they buy again.
+                {t('promo.lifetimeDesc')}
               </p>
             </div>
           </div>
@@ -815,7 +841,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               style={{ backgroundColor: '#ffffff', border: '1.5px solid #ffedd5', borderRadius: '24px', padding: '40px', textAlign: 'center', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}
             >
               <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid #ffedd5', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-              <p style={{ margin: 0, color: '#6b5a55', fontWeight: 600 }}>Retrieving profile settings...</p>
+              <p style={{ margin: 0, color: '#6b5a55', fontWeight: 600 }}>{t('status.retrieving')}</p>
             </div>
           ) : !loggedInUser ? (
             
@@ -828,9 +854,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fff7ed', color: '#ea580c', marginBottom: '12px' }}>
                   <ShieldCheck size={28} />
                 </div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>Partner Onboarding</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>{t('auth.title')}</h2>
                 <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0 }}>
-                  Enter your phone number to login or register and apply to the program.
+                  {t('auth.desc')}
                 </p>
               </div>
 
@@ -845,7 +871,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 <form onSubmit={handleSendOtpTrigger} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div>
                     <label htmlFor="phoneNumber" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#4c1d11' }}>
-                      WhatsApp Mobile Number
+                      {t('auth.phoneLabel')}
                     </label>
                     <div style={{ position: 'relative' }}>
                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#6b5a55' }}>
@@ -862,7 +888,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       />
                     </div>
                     <span style={{ fontSize: '0.78rem', color: '#8c7670', display: 'block', marginTop: '6px' }}>
-                      We will send a one-time verification code to this number via WhatsApp.
+                      {t('auth.phoneHelp')}
                     </span>
                   </div>
 
@@ -888,26 +914,26 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       transition: 'opacity 0.2s'
                     }}
                   >
-                    {isLoadingAuth ? 'Sending Code...' : 'Send Verification Code'}
+                    {isLoadingAuth ? t('auth.sendingCode') : t('auth.sendCode')}
                     {!isLoadingAuth && <ArrowRight size={18} />}
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', borderBottom: '1px solid #f2e7e3', paddingBottom: '12px' }}>
-                    <span style={{ color: '#6b5a55' }}>Sent to: <strong>{otpTargetPhone}</strong></span>
+                    <span style={{ color: '#6b5a55' }}>{t('auth.sentTo')} <strong>{otpTargetPhone}</strong></span>
                     <button
                       type="button"
                       onClick={() => setVerificationStep('form')}
                       style={{ background: 'none', border: 'none', color: '#ea580c', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
-                      <ArrowLeft size={14} /> Change Number
+                      <ArrowLeft size={14} /> {t('auth.changeNumber')}
                     </button>
                   </div>
 
                   <div>
                     <label htmlFor="otpCode" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#4c1d11' }}>
-                      6-Digit OTP Code
+                      {t('auth.otpLabel')}
                     </label>
                     <input
                       id="otpCode"
@@ -915,7 +941,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       maxLength={6}
                       value={userEnteredOtp}
                       onChange={(e) => setUserEnteredOtp(e.target.value.replace(/[^\d]/g, ''))}
-                      placeholder="Enter verification code"
+                      placeholder={t('auth.otpPlaceholder')}
                       style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #ffedd5', borderRadius: '12px', fontSize: '1.1rem', letterSpacing: '4px', textAlign: 'center', outline: 'none', color: '#2d140e', backgroundColor: '#fffdfb', boxSizing: 'border-box' }}
                       required
                     />
@@ -923,17 +949,17 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
                   <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem' }}>
                     <span style={{ color: '#6b5a55', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={14} /> Code valid for 5 min
+                      <Clock size={14} /> {t('auth.otpValidity')}
                     </span>
                     {otpCountdown > 0 ? (
-                      <span style={{ color: '#8c7670', fontWeight: 600 }}>Resend in {otpCountdown}s</span>
+                      <span style={{ color: '#8c7670', fontWeight: 600 }}>{t('auth.resendIn', { seconds: otpCountdown })}</span>
                     ) : (
                       <button
                         type="button"
                         onClick={handleResendOtp}
                         style={{ background: 'none', border: 'none', color: '#ea580c', cursor: 'pointer', fontWeight: 800 }}
                       >
-                        Resend OTP Code
+                        {t('auth.resendCode')}
                       </button>
                     )}
                   </div>
@@ -958,7 +984,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.2)'
                     }}
                   >
-                    {isLoadingAuth ? 'Verifying OTP...' : 'Verify Code & Continue'}
+                    {isLoadingAuth ? t('auth.verifyingOtp') : t('auth.verifyCode')}
                     {!isLoadingAuth && <CheckCircle size={18} />}
                   </button>
                 </form>
@@ -974,9 +1000,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#dcfce7', color: '#16a34a', marginBottom: '16px' }}>
                 <CheckCircle size={32} />
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>You are an Active Partner!</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>{t('active.title')}</h2>
               <p style={{ fontSize: '0.95rem', color: '#6b5a55', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                Your partner account is active. Share your referral link, scan barcode, and Mantra Puja logo with devotees across social media!
+                {t('active.desc')}
               </p>
 
               {/* Referral Info Box with Link and Barcode */}
@@ -993,7 +1019,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                     className="affiliate-referral-sharing-link-container"
                     style={{ flex: '1 1 280px' }}
                   >
-                    <span style={{ fontSize: '0.8rem', color: '#8c7670', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Your Referral Sharing Link</span>
+                    <span style={{ fontSize: '0.8rem', color: '#8c7670', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>{t('active.linkTitle')}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '12px 14px', borderRadius: '12px', border: '1px solid #ffedd5' }}>
                       <input
                         type="text"
@@ -1004,7 +1030,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}?ref=${affiliateCode}`);
-                          triggerToast('Referral link copied to clipboard!');
+                          triggerToast(t('toasts.copied'));
                         }}
                         style={{ background: 'none', border: 'none', color: '#ea580c', cursor: 'pointer', display: 'flex', padding: '4px' }}
                         title="Copy Link"
@@ -1048,7 +1074,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                         fontWeight: 800
                       }}
                     >
-                      Download Barcode (QR)
+                      {t('active.downloadBarcode')}
                     </button>
                   </div>
                 </div>
@@ -1059,7 +1085,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 <div>
                   <h3 style={{ fontSize: '1rem', fontWeight: 900, color: '#4c1d11', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Sparkles size={16} style={{ color: '#ea580c' }} />
-                    🌸 Divine Blessings Share Console
+                    {t('active.consoleTitle')}
                   </h3>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1255,7 +1281,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  Go to Partner Dashboard
+                  {t('active.goDashboard')}
                 </button>
               </div>
             </div>
@@ -1269,26 +1295,26 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', marginBottom: '16px' }}>
                 <Clock size={32} />
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>Application Under Review</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>{t('pending.title')}</h2>
               <p style={{ fontSize: '0.95rem', color: '#6b5a55', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-                Thank you for applying! Your application has been registered and is pending administrator review. 
+                {t('pending.desc')}
               </p>
 
               <div style={{ textAlign: 'left', backgroundColor: '#fcf8f5', border: '1px solid #ffedd5', borderRadius: '16px', padding: '16px 20px', marginBottom: '24px', fontSize: '0.9rem' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#4c1d11', fontWeight: 800 }}>Submitted Information:</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: '#4c1d11', fontWeight: 800 }}>{t('pending.infoTitle')}</h4>
                 <div 
                   className="affiliate-info-display-grid"
                   style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '8px 12px', color: '#6b5a55' }}
                 >
-                  <span>Name:</span><strong style={{ color: '#2d140e' }}>{fullName || loggedInUser.fullName || '—'}</strong>
-                  <span>Email:</span><strong style={{ color: '#2d140e' }}>{email || loggedInUser.email || '—'}</strong>
-                  <span>Phone:</span><strong style={{ color: '#2d140e' }}>{loggedInUser.phoneNumber || '—'}</strong>
-                  <span>Status:</span><strong style={{ color: '#d97706' }}>Pending Approval</strong>
+                  <span>{t('pending.name')}</span><strong style={{ color: '#2d140e' }}>{fullName || loggedInUser.fullName || '—'}</strong>
+                  <span>{t('pending.email')}</span><strong style={{ color: '#2d140e' }}>{email || loggedInUser.email || '—'}</strong>
+                  <span>{t('pending.phone')}</span><strong style={{ color: '#2d140e' }}>{loggedInUser.phoneNumber || '—'}</strong>
+                  <span>{t('pending.status')}</span><strong style={{ color: '#d97706' }}>{t('pending.statusVal')}</strong>
                 </div>
               </div>
 
               <p style={{ fontSize: '0.85rem', color: '#8c7670', margin: '0 0 24px 0', lineHeight: 1.4 }}>
-                Once our administrator approves your account, your custom referral links and earnings dashboard will automatically unlock.
+                {t('pending.footer')}
               </p>
 
               <button
@@ -1305,7 +1331,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                   boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.2)'
                 }}
               >
-                Go to Profile
+                {t('pending.goProfile')}
               </button>
             </div>
           ) : affiliateStatus === 'suspended' ? (
@@ -1318,9 +1344,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626', marginBottom: '16px' }}>
                 <span>🚫</span>
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>Account Suspended</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>{t('suspended.title')}</h2>
               <p style={{ fontSize: '0.95rem', color: '#6b5a55', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                Your partner partnership account has been suspended by the store administrator. Please contact support.
+                {t('suspended.desc')}
               </p>
               <button
                 onClick={() => onNavigateToProfile()}
@@ -1335,7 +1361,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                   cursor: 'pointer'
                 }}
               >
-                Go to Profile
+                {t('suspended.goProfile')}
               </button>
             </div>
           ) : (
@@ -1349,9 +1375,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fff7ed', color: '#ea580c', marginBottom: '12px' }}>
                   <Users size={28} />
                 </div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>Partner Profile details</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 8px 0', color: '#2d140e' }}>{t('enroll.title')}</h2>
                 <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0 }}>
-                  Enter your details to register and join the program.
+                  {t('enroll.desc')}
                 </p>
               </div>
 
@@ -1365,14 +1391,14 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               <form onSubmit={handleEnrollSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
                   <label htmlFor="fullName" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#4c1d11' }}>
-                    Full Name
+                    {t('enroll.nameLabel')}
                   </label>
                   <input
                     id="fullName"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Enter your name"
+                    placeholder={t('enroll.namePlaceholder')}
                     style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #ffedd5', borderRadius: '12px', fontSize: '1rem', outline: 'none', color: '#2d140e', backgroundColor: '#fffdfb', boxSizing: 'border-box' }}
                     required
                   />
@@ -1380,14 +1406,14 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
                 <div>
                   <label htmlFor="emailAddress" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#4c1d11' }}>
-                    Email Address
+                    {t('enroll.emailLabel')}
                   </label>
                   <input
                     id="emailAddress"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="devotee@example.com"
+                    placeholder={t('enroll.emailPlaceholder')}
                     style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #ffedd5', borderRadius: '12px', fontSize: '1rem', outline: 'none', color: '#2d140e', backgroundColor: '#fffdfb', boxSizing: 'border-box' }}
                     required
                   />
@@ -1403,7 +1429,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                     required
                   />
                   <label htmlFor="termsBox" style={{ fontSize: '0.88rem', color: '#6b5a55', lineHeight: 1.4, cursor: 'pointer' }}>
-                    I agree to the <strong style={{ color: '#ea580c' }}>Terms and Conditions</strong> of the Mantra Puja Partner/Affiliate program.
+                    {t('enroll.termsCheck')}
                   </label>
                 </div>
 
@@ -1427,7 +1453,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                     boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.2)'
                   }}
                 >
-                  {isSubmittingEnrollment ? 'Submitting Application...' : 'Register & Join Program'}
+                  {isSubmittingEnrollment ? t('enroll.submitting') : t('enroll.submit')}
                   {!isSubmittingEnrollment && <ArrowRight size={18} />}
                 </button>
               </form>
@@ -1462,23 +1488,23 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
             >
               <h3 style={{ fontSize: '1.25rem', fontWeight: 900, margin: '0 0 16px 0', color: '#2d140e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <InstagramIcon size={24} color="#e1306c" />
-                Share on Instagram Stories
+                {t('instagram.title')}
               </h3>
               <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-                Instagram does not support direct links or file transfers from web browsers. We have automatically uploaded your unified **Blessings Card** image to Cloudflare CDN and copied the share message containing your referral link and card preview link to your clipboard.
+                {t('instagram.desc')}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#fcf8f5', borderRadius: '16px', padding: '16px', border: '1px solid #ffedd5', marginBottom: '24px', fontSize: '0.85rem', color: '#4c1d11', textAlign: 'left' }}>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <span style={{ fontWeight: 800, color: '#ea580c' }}>1.</span>
-                  <span>Open your Instagram App and swipe right to create a new **Story**.</span>
+                  <span>{t('instagram.step1')}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <span style={{ fontWeight: 800, color: '#ea580c' }}>2.</span>
-                  <span>Use the **Link Sticker** to add your copied referral link.</span>
+                  <span>{t('instagram.step2')}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <span style={{ fontWeight: 800, color: '#ea580c' }}>3.</span>
-                  <span>Paste the full spiritual message and dynamic barcode link directly on your story and publish!</span>
+                  <span>{t('instagram.step3')}</span>
                 </div>
               </div>
               <button
@@ -1496,7 +1522,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
                   boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.2)'
                 }}
               >
-                Got It, Open Instagram
+                {t('instagram.close')}
               </button>
             </div>
           </div>

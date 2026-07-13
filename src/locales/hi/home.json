@@ -1,0 +1,35 @@
+{
+  "hero": {
+    "bannerAlt": "बैनर स्लाइड {{index}}"
+  },
+  "featured": {
+    "titleFallback": "हमारा विशेष संग्रह",
+    "subtitleFallback": "हमारे विशेष बंडल को खरीदने पर 30% की छूट पाएं",
+    "showcaseAlt": "विशेष संग्रह प्रदर्शन",
+    "altarAlt": "विशेष वेदी"
+  },
+  "sale": {
+    "exclusiveOffersWeek": "विशेष ऑफर सप्ताह",
+    "titleFallback": "30% तक की असाधारण छूट",
+    "hours": "घंटे",
+    "mins": "मिनट",
+    "secs": "सेकंड",
+    "dealOfTheDay": "🔥 आज की डील",
+    "refreshesDaily": "⏳ दैनिक अपडेट",
+    "off": "छूट"
+  },
+  "newArrivals": {
+    "titleFallback": "हमारे नए आगमन देखें",
+    "discoverMore": "और अधिक जानें"
+  },
+  "bundle": {
+    "total": "बंडल कुल",
+    "addToCart": "बंडल कार्ट में जोड़ें"
+  },
+  "product": {
+    "addToCart": "कार्ट में जोड़ें",
+    "outOfStock": "आउट ऑफ स्टॉक",
+    "inCart": "कार्ट में {{count}}",
+    "viewAll": "सभी उत्पाद देखें"
+  }
+}

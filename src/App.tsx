@@ -245,6 +245,8 @@ function App() {
   const { language, setLanguage, isLanguageReady } = useLanguage();
   const { t: tNavbar } = useTranslation('navbar');
   const { t: tFooter } = useTranslation('footer');
+  const { t: tHome } = useTranslation('home');
+  const { t: tCategory } = useTranslation('category');
   const [currentPageState, setCurrentPageState] = React.useState<'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'astrologer-login' | 'astrologer-dashboard' | 'sitemap' | 'style-login'>('shop');
   
   // Dynamic client-side pundit migration runner
@@ -1463,10 +1465,12 @@ function App() {
         title = "Spiritual Shop Catalog | Mantra Puja Store";
         description = "Browse all collections of sacred Vedic idols, organic dhoop cups, certified Himalayan Rudrakshas, and pure camphor blessings.";
         break;
-      case 'category':
-        title = `${selectedCategoryName} Collection | Mantra Puja Store`;
-        description = `Find high-quality, priest-energized ${selectedCategoryName} items to invite auspiciousness, luck, and positive energy home.`;
+      case 'category': {
+        const localizedCatName = tCategory(`names.${selectedCategoryName}`, { defaultValue: selectedCategoryName });
+        title = tCategory('seo.title', { category: localizedCatName, defaultValue: `${selectedCategoryName} Collection | Mantra Puja Store` });
+        description = tCategory('seo.description', { category: localizedCatName, defaultValue: `Find high-quality, priest-energized ${selectedCategoryName} items to invite auspiciousness, luck, and positive energy home.` });
         break;
+      }
       case 'detail':
         if (selectedProduct) {
           title = (selectedProduct as any).seoTitle || `${selectedProduct.name} | Mantra Puja Store`;
@@ -1728,7 +1732,15 @@ function App() {
           certificates: item.certificates || [],
           iconImage: item.icon_image,
           promoCreatives: item.promo_creatives || [],
-          purchaseLimit: (parseFloat(item.price?.toString()) === 1 || (item.name?.toLowerCase().includes('vidya') && (item.name?.toLowerCase().includes('rudraksh') || item.category?.toLowerCase() === 'rudraksha')))
+          purchaseLimit: (parseFloat(item.price?.toString()) === 1 || 
+            item.id === 'vidya-rudraksh' || 
+            (item.slug || '').toLowerCase() === 'vidya-rudraksh' || 
+            (item.slug || '').toLowerCase() === 'vidya-rudraksha' || 
+            (item.slug || '').toLowerCase() === 'विद्या-रुद्राक्ष' || 
+            (
+              (item.name?.toLowerCase().includes('vidya') || item.name?.includes('विद्या')) && 
+              (item.name?.toLowerCase().includes('rudraksh') || item.name?.includes('रुद्राक्ष') || item.category?.toLowerCase() === 'rudraksha' || item.category === 'रुद्राक्ष')
+            ))
             ? 1
             : (item.purchase_limit ? Number(item.purchase_limit) : undefined),
           gstOverrideEnabled: item.gst_override_enabled || false,
@@ -1999,6 +2011,31 @@ function App() {
     }
     return productsState.slice(7, 11);
   };
+
+  // Localized homepage configuration text headers to support fallback values in Hindi mode
+  const localizedFeaturedTitle = (language === 'hi' && (!homepageConfig?.featuredTitle || homepageConfig.featuredTitle === "Our Featured Collection"))
+    ? tHome('featured.titleFallback')
+    : (homepageConfig?.featuredTitle || tHome('featured.titleFallback'));
+
+  const localizedFeaturedSubtitle = (language === 'hi' && (!homepageConfig?.featuredSubtitle || homepageConfig.featuredSubtitle === "Get 30% off when you purchase our featured bundle"))
+    ? tHome('featured.subtitleFallback')
+    : (homepageConfig?.featuredSubtitle || tHome('featured.subtitleFallback'));
+
+  const localizedSaleTitle = (language === 'hi' && (!homepageConfig?.saleTitle || homepageConfig.saleTitle === "Exceptional Discounts up to 30%"))
+    ? tHome('sale.titleFallback')
+    : (homepageConfig?.saleTitle || tHome('sale.titleFallback'));
+
+  const localizedSaleSubtitle = (language === 'hi' && (!homepageConfig?.saleSubtitle || homepageConfig.saleSubtitle === "EXCLUSIVE OFFERS WEEK"))
+    ? tHome('sale.exclusiveOffersWeek')
+    : (homepageConfig?.saleSubtitle || tHome('sale.exclusiveOffersWeek'));
+
+  const localizedNewArrivalsTitle = (language === 'hi' && (!homepageConfig?.newArrivalsTitle || homepageConfig.newArrivalsTitle === "Discover Our New Arrivals"))
+    ? tHome('newArrivals.titleFallback')
+    : (homepageConfig?.newArrivalsTitle || tHome('newArrivals.titleFallback'));
+
+  const localizedNewArrivalsSubtitle = (language === 'hi' && (!homepageConfig?.newArrivalsSubtitle || homepageConfig.newArrivalsSubtitle === "Discover More"))
+    ? tHome('newArrivals.discoverMore')
+    : (homepageConfig?.newArrivalsSubtitle || tHome('newArrivals.discoverMore'));
 
   // Fetch published products on mount and page transition
   React.useEffect(() => {
@@ -2406,8 +2443,14 @@ function App() {
     }
 
     const isOneRupeeProd = product.price === 1 || 
-      (product.name?.toLowerCase().includes('vidya') && 
-       (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha'));
+      product.id === 'vidya-rudraksh' || 
+      ((product as any).slug || '').toLowerCase() === 'vidya-rudraksh' || 
+      ((product as any).slug || '').toLowerCase() === 'vidya-rudraksha' || 
+      ((product as any).slug || '').toLowerCase() === 'विद्या-रुद्राक्ष' || 
+      (
+        (product.name?.toLowerCase().includes('vidya') || product.name?.includes('विद्या')) && 
+        (product.name?.toLowerCase().includes('rudraksh') || product.name?.includes('रुद्राक्ष') || product.category?.toLowerCase() === 'rudraksha' || product.category === 'रुद्राक्ष')
+      );
     const limit = isOneRupeeProd ? 1 : product.purchaseLimit;
     let allowedQty = quantity;
     let limitReached = false;
@@ -2468,8 +2511,14 @@ function App() {
 
     const product = productsState.find(p => p.id === productId);
     const isOneRupeeProd = product ? (product.price === 1 || 
-      (product.name?.toLowerCase().includes('vidya') && 
-       (product.name?.toLowerCase().includes('rudraksh') || product.category?.toLowerCase() === 'rudraksha'))) : false;
+      product.id === 'vidya-rudraksh' || 
+      ((product as any).slug || '').toLowerCase() === 'vidya-rudraksh' || 
+      ((product as any).slug || '').toLowerCase() === 'vidya-rudraksha' || 
+      ((product as any).slug || '').toLowerCase() === 'विद्या-रुद्राक्ष' || 
+      (
+        (product.name?.toLowerCase().includes('vidya') || product.name?.includes('विद्या')) && 
+        (product.name?.toLowerCase().includes('rudraksh') || product.name?.includes('रुद्राक्ष') || product.category?.toLowerCase() === 'rudraksha' || product.category === 'रुद्राक्ष')
+      )) : false;
     const limit = isOneRupeeProd ? 1 : product?.purchaseLimit;
     let targetQty = quantity;
 
@@ -2703,7 +2752,7 @@ function App() {
                           e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                       >
-                        {cat}
+                        {tCategory(`names.${cat}`, { defaultValue: cat })}
                       </button>
                     ))}
                   </div>
@@ -3051,7 +3100,7 @@ function App() {
                       textOverflow: 'ellipsis',
                       overflow: 'hidden',
                       whiteSpace: 'nowrap'
-                    }}>{cat}</span>
+                    }}>{tCategory(`names.${cat}`, { defaultValue: cat })}</span>
                   </button>
                 ))}
               </div>
@@ -3151,7 +3200,7 @@ function App() {
                     >
                       <img
                         src={imageUrl}
-                        alt={`Banner slide ${idx + 1}`}
+                        alt={tHome('hero.bannerAlt', { index: idx + 1 })}
                         style={{
                           width: '100%',
                           height: '100%',
@@ -3256,8 +3305,8 @@ function App() {
       <section id="featured" style={{ padding: '48px 0' }}>
         <div className="container">
           {/* Header */}
-          <h2 className="section-title">{homepageConfig?.featuredTitle || "Our Featured Collection"}</h2>
-          <p className="section-subtitle">{homepageConfig?.featuredSubtitle || "Get 30% off when you purchase our featured bundle"}</p>
+          <h2 className="section-title">{localizedFeaturedTitle}</h2>
+          <p className="section-subtitle">{localizedFeaturedSubtitle}</p>
 
           {/* Grid Layout split */}
           <div style={{
@@ -3282,13 +3331,13 @@ function App() {
               {homepageConfig?.showcaseImage ? (
                 <img 
                   src={homepageConfig.showcaseImage} 
-                  alt="Featured Collection Showcase" 
+                  alt={tHome('featured.showcaseAlt')} 
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} 
                 />
               ) : (
                 <img 
                   src="https://images.unsplash.com/photo-1609137144814-8742ca716b67?auto=format&fit=crop&w=1000&q=80" 
-                  alt="Featured Altar" 
+                  alt={tHome('featured.altarAlt')} 
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} 
                 />
               )}
@@ -3388,7 +3437,7 @@ function App() {
                             zIndex: 10,
                             boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                           }}>
-                            {discountPercent}%<br/>OFF
+                            {discountPercent}%<br/>{tHome('sale.off')}
                           </div>
                         )}
 
@@ -3490,7 +3539,7 @@ function App() {
                               const cartItem = cart.find(item => item?.product?.id === product.id);
                               const qty = cartItem ? cartItem.quantity : 0;
                               if (qty > 0) {
-                                return (
+                                  return (
                                   <div className="qty-selector-wrap" style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -3531,7 +3580,7 @@ function App() {
                                       fontSize: '0.85rem',
                                       userSelect: 'none'
                                     }}>
-                                      {qty} in Cart
+                                      {tHome('product.inCart', { count: qty })}
                                     </span>
                                     <button
                                       className="qty-plus-btn"
@@ -3584,7 +3633,7 @@ function App() {
                                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                                 >
-                                  Add To Cart
+                                  {tHome('product.addToCart')}
                                 </button>
                               );
                             })()
@@ -3604,7 +3653,7 @@ function App() {
                                 cursor: 'not-allowed'
                               }}
                             >
-                              Out of Stock
+                              {tHome('product.outOfStock')}
                             </button>
                           )}
                         </div>
@@ -3628,7 +3677,7 @@ function App() {
                 boxShadow: 'var(--shadow-sm)'
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bundle Total</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tHome('bundle.total')}</span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
                     ₹{Math.round(getFeaturedProducts().reduce((sum, p) => sum + p.price, 0))}
                   </span>
@@ -3647,7 +3696,7 @@ function App() {
                     boxShadow: '0 4px 12px rgba(234, 88, 12, 0.2)'
                   }}
                 >
-                  Add Bundle to Cart
+                  {tHome('bundle.addToCart')}
                 </button>
               </div>
             </div>
@@ -3695,7 +3744,7 @@ function App() {
               boxShadow: '0 2px 10px rgba(239, 68, 68, 0.3)'
             }}
           >
-            {homepageConfig?.saleSubtitle || "EXCLUSIVE OFFERS WEEK"}
+            {localizedSaleSubtitle}
           </span>
 
           {/* Heading */}
@@ -3707,7 +3756,7 @@ function App() {
             margin: 0,
             letterSpacing: '-0.01em'
           }} className="sale-heading">
-            {homepageConfig?.saleTitle || "Exceptional Discounts up to 30%"}
+            {localizedSaleTitle}
           </h2>
 
           {(() => {
@@ -3811,7 +3860,7 @@ function App() {
                         letterSpacing: '0.5px',
                         marginTop: '6px',
                         opacity: 0.85
-                      }}>Hours</span>
+                      }}>{tHome('sale.hours')}</span>
                     </div>
                     <span className="countdown-colon">:</span>
                     <div className="flex-center" style={{ flexDirection: 'column' }}>
@@ -3824,7 +3873,7 @@ function App() {
                         letterSpacing: '0.5px',
                         marginTop: '6px',
                         opacity: 0.85
-                      }}>Mins</span>
+                      }}>{tHome('sale.mins')}</span>
                     </div>
                     <span className="countdown-colon">:</span>
                     <div className="flex-center" style={{ flexDirection: 'column' }}>
@@ -3837,7 +3886,7 @@ function App() {
                         letterSpacing: '0.5px',
                         marginTop: '6px',
                         opacity: 0.85
-                      }}>Secs</span>
+                      }}>{tHome('sale.secs')}</span>
                     </div>
                   </div>
 
@@ -3887,8 +3936,8 @@ function App() {
                       color: 'var(--text-dark)',
                       opacity: 0.85
                     }}>
-                      <span>🔥 DEAL OF THE DAY</span>
-                      <span>⏳ REFRESHES DAILY</span>
+                      <span>{tHome('sale.dealOfTheDay')}</span>
+                      <span>{tHome('sale.refreshesDaily')}</span>
                     </div>
                   </div>
                 </div>
@@ -3994,7 +4043,7 @@ function App() {
                         zIndex: 10,
                         boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                       }}>
-                        {discountPercent}%<br/>OFF
+                        {discountPercent}%<br/>{tHome('sale.off')}
                       </div>
                     )}
 
@@ -4138,7 +4187,7 @@ function App() {
                                   fontSize: '0.85rem',
                                   userSelect: 'none'
                                 }}>
-                                  {qty} in Cart
+                                  {tHome('product.inCart', { count: qty })}
                                 </span>
                                 <button
                                   className="qty-plus-btn"
@@ -4191,7 +4240,7 @@ function App() {
                               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                             >
-                              Add To Cart
+                              {tHome('product.addToCart')}
                             </button>
                           );
                         })()
@@ -4211,7 +4260,7 @@ function App() {
                             cursor: 'not-allowed'
                           }}
                         >
-                          Out of Stock
+                          {tHome('product.outOfStock')}
                         </button>
                       )}
                     </div>
@@ -4246,7 +4295,7 @@ function App() {
               e.currentTarget.style.boxShadow = '0 4px 12px rgba(45, 20, 14, 0.15)';
             }}
           >
-            View All Products
+            {tHome('product.viewAll')}
           </button>
         </div>
       </section>
@@ -4263,14 +4312,14 @@ function App() {
             marginBottom: '32px'
           }}>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-              {homepageConfig?.newArrivalsTitle || "Discover Our New Arrivals"}
+              {localizedNewArrivalsTitle}
             </h2>
             <button 
               onClick={() => setCurrentPage('shop')}
               className="btn-outline"
               style={{ cursor: 'pointer' }}
             >
-              {homepageConfig?.newArrivalsSubtitle || "Discover More"}
+              {localizedNewArrivalsSubtitle}
             </button>
           </div>
 
@@ -4366,7 +4415,7 @@ function App() {
                         zIndex: 10,
                         boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                       }}>
-                        {discountPercent}%<br/>OFF
+                        {discountPercent}%<br/>{tHome('sale.off')}
                       </div>
                     )}
 
@@ -4509,7 +4558,7 @@ function App() {
                                   fontSize: '0.85rem',
                                   userSelect: 'none'
                                 }}>
-                                  {qty} in Cart
+                                  {tHome('product.inCart', { count: qty })}
                                 </span>
                                 <button
                                   className="qty-plus-btn"
@@ -4561,7 +4610,7 @@ function App() {
                               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                             >
-                              Add To Cart
+                              {tHome('product.addToCart')}
                             </button>
                           );
                         })()
@@ -4581,7 +4630,7 @@ function App() {
                             cursor: 'not-allowed'
                           }}
                         >
-                          Out of Stock
+                          {tHome('product.outOfStock')}
                         </button>
                       )}
                     </div>

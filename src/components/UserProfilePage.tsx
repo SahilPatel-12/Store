@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../lib/i18n';
 import {
   User,
   MapPin,
@@ -303,6 +305,15 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   onProfileUpdate,
   onNavigateToAffiliation,
 }) => {
+  const { language } = useLanguage();
+  const { t } = useTranslation(['profile', 'wishlist', 'notifications']);
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['profile', 'wishlist', 'notifications']).then(() => setIsReady(true));
+    });
+  }, [language]);
   const [activeTab, setActiveTab] = React.useState<
     'info' | 'orders' | 'addresses' | 'wishlist' | 'notifications' | 'logout' | 'affiliate'
   >(initialTab || 'info');
@@ -1428,7 +1439,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
 
   // Notification Preference Save
   const handleSaveNotifications = () => {
-    setNotifSuccessMessage('Devotional communication channels updated!');
+    setNotifSuccessMessage(t('notifications:saveSuccess', { defaultValue: 'Devotional communication channels updated!' }));
   };
 
   // Secure Logout simulation
@@ -1476,6 +1487,14 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
         return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
     }
   };
+
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: '#fafafa', minHeight: '80vh', paddingBottom: '80px' }}>
@@ -1677,16 +1696,16 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
           /* Mobile Menu Index View */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 8px' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '8px', textAlign: 'left' }}>
-              Account Settings
+              {t('tabs.accountSettings')}
             </h2>
             
             {[
-              { tab: 'info', label: 'Edit Profile', desc: 'Update contact info and puja goals', icon: <User size={20} color="var(--primary-lime)" />, badge: null },
-              { tab: 'orders', label: 'My Devotional Orders', desc: 'Track historical and active orders', icon: <Package size={20} color="#3b82f6" />, badge: allOrders.length > 0 ? allOrders.length : null },
-              { tab: 'addresses', label: 'Saved Delivery Addresses', desc: 'Manage shipping destinations', icon: <MapPin size={20} color="#10b981" />, badge: null },
-              { tab: 'wishlist', label: 'Sacred Wishlist', desc: 'Items saved for auspicious days', icon: <Heart size={20} color="#ec4899" />, badge: wishlistedProducts.length > 0 ? wishlistedProducts.length : null },
-              { tab: 'notifications', label: 'Notification Settings', desc: 'Manage email and blessing alerts', icon: <Bell size={20} color="#f59e0b" />, badge: null },
-              { tab: 'affiliate', label: 'Affiliate Partnership', desc: 'Earn commissions and check dashboard', icon: <Sparkles size={20} color="#8b5cf6" />, badge: affiliateProfile && affiliateProfile.affiliate_status === 'active' ? 'Active' : null },
+              { tab: 'info', label: t('tabs.info'), desc: t('tabs.infoDesc'), icon: <User size={20} color="var(--primary-lime)" />, badge: null },
+              { tab: 'orders', label: t('tabs.orders'), desc: t('tabs.ordersDesc'), icon: <Package size={20} color="#3b82f6" />, badge: allOrders.length > 0 ? allOrders.length : null },
+              { tab: 'addresses', label: t('tabs.addresses'), desc: t('tabs.addressesDesc'), icon: <MapPin size={20} color="#10b981" />, badge: null },
+              { tab: 'wishlist', label: t('tabs.wishlist'), desc: t('tabs.wishlistDesc'), icon: <Heart size={20} color="#ec4899" />, badge: wishlistedProducts.length > 0 ? wishlistedProducts.length : null },
+              { tab: 'notifications', label: t('tabs.notifications'), desc: t('tabs.notificationsDesc'), icon: <Bell size={20} color="#f59e0b" />, badge: null },
+              { tab: 'affiliate', label: t('tabs.affiliate'), desc: t('tabs.affiliateDesc'), icon: <Sparkles size={20} color="#8b5cf6" />, badge: affiliateProfile && affiliateProfile.affiliate_status === 'active' ? t('affiliate.status.active') : null },
             ].map((item) => (
               <button
                 key={item.tab}
@@ -1838,7 +1857,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <User size={18} />
-                    <span>Edit Profile</span>
+                    <span>{t('tabs.info')}</span>
                   </button>
 
                   <button
@@ -1860,7 +1879,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <Package size={18} />
-                    <span>My Devotional Orders</span>
+                    <span>{t('tabs.orders')}</span>
                     {allOrders.length > 0 && (
                       <span style={{
                         marginLeft: 'auto',
@@ -1895,7 +1914,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <MapPin size={18} />
-                    <span>Saved Delivery Addresses</span>
+                    <span>{t('tabs.addresses')}</span>
                   </button>
 
                   <button
@@ -1917,7 +1936,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <Heart size={18} />
-                    <span>Sacred Wishlist</span>
+                    <span>{t('tabs.wishlist')}</span>
                     {wishlistedProducts.length > 0 && (
                       <span style={{
                         marginLeft: 'auto',
@@ -1952,7 +1971,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <Bell size={18} />
-                    <span>Notification Settings</span>
+                    <span>{t('tabs.notifications')}</span>
                   </button>
 
                   <button
@@ -1982,7 +2001,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <Sparkles size={18} />
-                    <span>Affiliate Partnership</span>
+                    <span>{t('tabs.affiliate')}</span>
                     {affiliateProfile && affiliateProfile.affiliate_status === 'active' && (
                       <span style={{
                         marginLeft: 'auto',
@@ -1994,7 +2013,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         borderRadius: 'var(--radius-full)',
                         border: '1.5px solid #fde68a'
                       }}>
-                        Active
+                        {t('affiliate.status.active')}
                       </span>
                     )}
                   </button>
@@ -2020,7 +2039,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }}
                   >
                     <LogOut size={18} />
-                    <span>Secure Logout</span>
+                    <span>{t('tabs.logout')}</span>
                   </button>
 
                 </nav>
@@ -3211,18 +3230,18 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 ============================================== */}
             <div className={`profile-carousel-slide ${activeTab === 'wishlist' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>My Sacred Wishlist</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Items saved for special pujas, auspicious days, or gifting. Synced in real-time.</p>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>{t('wishlist:tabTitle', { defaultValue: 'My Sacred Wishlist' })}</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>{t('wishlist:tabDesc', { defaultValue: 'Items saved for special pujas, auspicious days, or gifting. Synced in real-time.' })}</p>
 
                 {wishlistedProducts.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
                     <span style={{ fontSize: '3rem' }}>❤️</span>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: '16px' }}>Your Wishlist is empty</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: '16px' }}>{t('wishlist:emptyTitle', { defaultValue: 'Your Wishlist is empty' })}</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '20px' }}>
-                      Tap the heart icon on any product in the shop to add it to your wishlist.
+                      {t('wishlist:emptyDesc', { defaultValue: 'Tap the heart icon on any product in the shop to add it to your wishlist.' })}
                     </p>
                     <button onClick={onNavigateToShop} className="btn-lime" style={{ fontSize: '0.85rem', padding: '10px 24px' }}>
-                      Explore Products
+                      {t('wishlist:exploreBtn', { defaultValue: 'Explore Products' })}
                     </button>
                   </div>
                 ) : (
@@ -3256,7 +3275,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                             height: '24px'
                           }}
                           className="flex-center"
-                          title="Remove from Wishlist"
+                          title={t('wishlist:removeFromWishlist', { defaultValue: 'Remove from Wishlist' })}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -3303,7 +3322,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                             <button
                               onClick={() => {
                                 onAddToCart(p, 1);
-                                alert(`${p.name} added to cart from Wishlist!`);
+                                alert(t('wishlist:addedAlert', { name: p.name, defaultValue: `"${p.name}" added to cart from Wishlist!` }));
                               }}
                               style={{
                                 display: 'inline-flex',
@@ -3314,7 +3333,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 color: 'var(--primary-lime)'
                               }}
                             >
-                              <ShoppingBag size={12} /> Add to Cart
+                              <ShoppingBag size={12} /> {t('wishlist:addToCart', { defaultValue: 'Add to Cart' })}
                             </button>
                           </div>
                         </div>
@@ -3332,8 +3351,8 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 ============================================== */}
             <div className={`profile-carousel-slide ${activeTab === 'notifications' ? 'active' : ''}`} style={{ width: '100%', flexShrink: 0 }}>
               <div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Communication Channels</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Choose how you wish to receive order reports, daily blessings, and spiritual reminders.</p>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>{t('notifications:tabTitle', { defaultValue: 'Communication Channels' })}</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>{t('notifications:tabDesc', { defaultValue: 'Choose how you wish to receive order reports, daily blessings, and spiritual reminders.' })}</p>
 
                 {notifSuccessMessage && (
                   <div style={{
@@ -3366,9 +3385,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     borderRadius: 'var(--radius-lg)'
                   }}>
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>WhatsApp Dispatch Alerts</h4>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('notifications:whatsappTitle', { defaultValue: 'WhatsApp Dispatch Alerts' })}</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Receive real-time tracking links, invoice downloads, and puja blessing photos directly on WhatsApp.
+                        {t('notifications:whatsappDesc', { defaultValue: 'Receive real-time tracking links, invoice downloads, and puja blessing photos directly on WhatsApp.' })}
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -3409,9 +3428,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     borderRadius: 'var(--radius-lg)'
                   }}>
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Sacred Intention & Festival Newsletters</h4>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('notifications:newsletterTitle', { defaultValue: 'Sacred Intention & Festival Newsletters' })}</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Curated monthly suggestions from Vedic experts on upcoming astrological transits, festival pujas, and rituals.
+                        {t('notifications:newsletterDesc', { defaultValue: 'Curated monthly suggestions from Vedic experts on upcoming astrological transits, festival pujas, and rituals.' })}
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -3452,9 +3471,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     borderRadius: 'var(--radius-lg)'
                   }}>
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Transactional Email Receipts</h4>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('notifications:receiptsTitle', { defaultValue: 'Transactional Email Receipts' })}</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Receive digital receipts and secure payment invoice PDFs instantly upon checkout.
+                        {t('notifications:receiptsDesc', { defaultValue: 'Receive digital receipts and secure payment invoice PDFs instantly upon checkout.' })}
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -3495,9 +3514,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     borderRadius: 'var(--radius-lg)'
                   }}>
                     <div style={{ flexGrow: 1, paddingRight: '16px' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>Daily Mantra & Chanting Reminder</h4>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('notifications:mantraTitle', { defaultValue: 'Daily Mantra & Chanting Reminder' })}</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Begin every morning with an encouraging spiritual quote or ritual recommendation based on current lunar phase (Tithi).
+                        {t('notifications:mantraDesc', { defaultValue: 'Begin every morning with an encouraging spiritual quote or ritual recommendation based on current lunar phase (Tithi).' })}
                       </p>
                     </div>
                     <label style={{ display: 'inline-flex', cursor: 'pointer', position: 'relative' }}>
@@ -3532,7 +3551,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
 
                 <div style={{ marginTop: '28px' }}>
                   <button onClick={handleSaveNotifications} className="btn-lime" style={{ padding: '12px 28px', fontSize: '0.88rem' }}>
-                    Save Preferences
+                    {t('notifications:saveBtn', { defaultValue: 'Save Preferences' })}
                   </button>
                 </div>
 
@@ -3812,7 +3831,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 }}
                               >
                                 {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                                <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+                                <span>{copiedLink ? t('affiliate.copied') : t('affiliate.copy')}</span>
                               </button>
                             </div>
                           </div>
@@ -3823,7 +3842,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           className="btn-lime"
                           style={{ padding: '12px 28px', fontSize: '0.88rem', fontWeight: 700 }}
                         >
-                          Go To Affiliate Dashboard
+                          {t('affiliate.goDashboard')}
                         </button>
                       </div>
                     )}
@@ -3833,9 +3852,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
                       <div>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>Affiliate Devotee Dashboard</h2>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('affiliate.dashboardTitle')}</h2>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Track your referral links and commission earnings.
+                          {t('affiliate.dashboardDesc')}
                         </p>
                       </div>
                       
@@ -3867,7 +3886,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                             gap: '6px'
                           }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: text }} />
-                            Status: {status.toUpperCase()}
+                            {t('affiliate.statusLabel')}: {status.toUpperCase()}
                           </span>
                         );
                       })()}
@@ -3890,11 +3909,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                       }}>
                         <span style={{ fontSize: '3.5rem', display: 'block' }}>⏳</span>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b45309', margin: 0 }}>
-                          Application Pending Approval
+                          {t('affiliate.pendingApprovalTitle')}
                         </h3>
                         <p style={{ fontSize: '0.9rem', color: '#6b5a55', margin: 0, maxWidth: '480px', lineHeight: 1.6 }}>
-                          Your application to the Mantra Puja Devotee Partner Program is currently under review by our temple administrators. 
-                          Once approved, your unique sharing link, barcode scanner, and commission console will be unlocked here. Thank you for your patience!
+                          {t('affiliate.pendingApprovalDesc')}
                         </p>
                       </div>
                     ) : (
@@ -3917,9 +3935,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                       }}>
                         <span style={{ fontSize: '1.2rem' }}>⚠️</span>
                         <div>
-                          <p style={{ fontWeight: 800 }}>Affiliate Partnership Suspended</p>
+                          <p style={{ fontWeight: 800 }}>{t('affiliate.suspendedTitle')}</p>
                           <p style={{ fontSize: '0.8rem', color: '#b91c1c', marginTop: '2px', fontWeight: 500 }}>
-                            Your affiliate account has been suspended. Please contact support for assistance.
+                            {t('affiliate.suspendedDesc')}
                           </p>
                         </div>
                       </div>
@@ -3934,27 +3952,27 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                     }} className="hero-grid-split">
                       
                       <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Earned</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('affiliate.statsLabel.totalEarned')}</span>
                         <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '4px' }}>₹{affiliateProfile.total_earned.toFixed(2)}</div>
                       </div>
 
                       <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Available Balance</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('affiliate.statsLabel.availableBalance')}</span>
                         <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary-forest)', marginTop: '4px' }}>₹{affiliateProfile.available_balance.toFixed(2)}</div>
                       </div>
 
                       <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending Earnings</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('affiliate.statsLabel.pendingEarnings')}</span>
                         <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>₹{affiliateProfile.pending_earnings.toFixed(2)}</div>
                       </div>
 
                       <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Referrals</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('affiliate.statsLabel.totalReferrals')}</span>
                         <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary-lime)', marginTop: '4px' }}>
-                          {filteredReferralTree.filter(n => n.level === 1).length} Devotees
+                          {filteredReferralTree.filter(n => n.level === 1).length} {t('affiliate.statsLabel.devotees')}
                         </div>
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                          Devotees referred by you
+                          {t('affiliate.statsLabel.referredDesc')}
                         </span>
                       </div>
 
@@ -4245,7 +4263,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        🌿 Referred Devotees
+                        🌿 {t('affiliate.tabs.tree')}
                       </button>
                       <button
                         onClick={() => setDevoteeSubTab('earnings')}
@@ -4261,7 +4279,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        📊 Earnings Ledger
+                        📊 {t('affiliate.tabs.commissions')}
                       </button>
                       <button
                         onClick={() => setDevoteeSubTab('payout')}
@@ -4277,7 +4295,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        💰 Cashout & History
+                        💰 {t('affiliate.tabs.payouts')}
                       </button>
                     </div>
 
@@ -4297,7 +4315,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                           <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span>🌿</span>
-                            Searchable Referrals List
+                            {t('affiliate.network.listTitle')}
                             <button
                               onClick={() => {
                                 fetchReferralTree();
@@ -4320,7 +4338,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           </h3>
                           <input
                             type="text"
-                            placeholder="Search devotee name..."
+                            placeholder={t('affiliate.network.searchPlaceholder')}
                             value={referralSearch}
                             onChange={(e) => setReferralSearch(e.target.value)}
                             style={{
@@ -4336,7 +4354,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         
                         {treeLoading ? (
                           <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                            Loading referrals...
+                            {t('affiliate.network.loading')}
                           </div>
                         ) : filteredReferralTree.filter(n => n.level === 1).length === 0 ? (
                           <div style={{
@@ -4349,8 +4367,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                             color: 'var(--text-muted)',
                             lineHeight: 1.5
                           }}>
-                            You do not have any devotee referrals yet.<br />
-                            Share your link to start earning rewards!
+                            {t('affiliate.network.emptyDesc')}
                           </div>
                         ) : (
                           <div style={{
@@ -4382,12 +4399,12 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                         {highlightText(displayName, referralSearch)}
                                       </h4>
                                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                        Joined: {new Date(node.joined_at).toLocaleDateString()}
+                                        {t('affiliate.network.joined')}: {new Date(node.joined_at).toLocaleDateString()}
                                       </span>
                                     </div>
                                   </div>
                                   <span style={{ fontSize: '0.78rem', fontWeight: 700, backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
-                                    Referred Devotee
+                                    {t('affiliate.network.referredBadge')}
                                   </span>
                                 </div>
                               );
@@ -4411,36 +4428,36 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         gap: '20px'
                       }}>
                         <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                          📊 Commissions Ledger
+                          📊 {t('affiliate.ledger.title')}
                         </h3>
 
                         {/* Commissions Table */}
                         {isLoadingCommissions ? (
                           <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>
-                            Loading commissions ledger...
+                            {t('affiliate.ledger.loading')}
                           </div>
                         ) : commissions.length === 0 ? (
                           <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#f9fafb', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                            No commissions transactions have been recorded.
+                            {t('affiliate.ledger.emptyDesc')}
                           </div>
                         ) : (
                           <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
                               <thead>
                                 <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Buyer Devotee</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order ID</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order Total</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Rate (%)</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Earnings</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Status</th>
-                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>Date Placed</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thBuyer')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thOrderId')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thOrderTotal')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thRate')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thEarnings')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thStatus')}</th>
+                                  <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.ledger.thDatePlaced')}</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {commissions.map((comm) => (
                                   <tr key={comm.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                                    <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>{comm.buyer_name || 'Anonymous Devotee'}</td>
+                                    <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>{comm.buyer_name || t('affiliate.ledger.anonymous')}</td>
                                     <td style={{ padding: '10px 14px', fontFamily: 'monospace' }}>#{comm.order_id}</td>
                                     <td style={{ padding: '10px 14px' }}>₹{parseFloat(comm.order_total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td style={{ padding: '10px 14px' }}>{comm.commission_percent}%</td>
@@ -4467,7 +4484,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                           comm.status === 'delivered_pending_hold' ? '#bfdbfe' : '#fde68a'
                                         )
                                       }}>
-                                        {comm.status === 'delivered_pending_hold' ? 'HOLD WINDOW' : comm.status.toUpperCase()}
+                                        {comm.status === 'delivered_pending_hold' ? t('affiliate.ledger.holdWindow') : comm.status.toUpperCase()}
                                       </span>
                                     </td>
                                     <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
@@ -4499,27 +4516,27 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           gap: '16px'
                         }}>
                           <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                            💰 Cashout History Log
+                            💰 {t('affiliate.payouts.historyTitle')}
                           </h3>
 
                           {isLoadingPayoutHistory ? (
                             <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>
-                              Loading payout log...
+                              {t('affiliate.payouts.loading')}
                             </div>
                           ) : payoutHistory.length === 0 ? (
                             <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#f9fafb', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                              No payout withdrawal requests found.
+                              {t('affiliate.payouts.emptyDesc')}
                             </div>
                           ) : (
                             <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
                                 <thead>
                                   <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>Date Requested</th>
-                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>Method</th>
-                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>Requested Amount</th>
-                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>Status</th>
-                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>Reference Details</th>
+                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.payouts.thDate')}</th>
+                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.payouts.thMethod')}</th>
+                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.payouts.thAmount')}</th>
+                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.payouts.thStatus')}</th>
+                                    <th style={{ padding: '10px 14px', fontWeight: 700 }}>{t('affiliate.payouts.thRef')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -4528,7 +4545,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                       <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
                                         {new Date(h.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                       </td>
-                                      <td style={{ padding: '10px 14px', fontWeight: 700, textTransform: 'uppercase' }}>{h.payment_method}</td>
+                                      <td style={{ padding: '10px 14px', fontWeight: 700, textTransform: 'uppercase' }}>{h.payment_method === 'upi' ? t('affiliate.payouts.upiLabel') : t('affiliate.payouts.bankLabel')}</td>
                                       <td style={{ padding: '10px 14px', fontWeight: 800 }}>₹{parseFloat(h.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                       <td style={{ padding: '10px 14px' }}>
                                         <span style={{
@@ -4553,16 +4570,16 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                           {h.status.toUpperCase()}
                                         </span>
                                         {h.status === 'rejected' && h.admin_notes && (
-                                          <p style={{ margin: '3px 0 0 0', fontSize: '0.68rem', color: '#b91c1c' }}>Reason: {h.admin_notes}</p>
+                                          <p style={{ margin: '3px 0 0 0', fontSize: '0.68rem', color: '#b91c1c' }}>{t('affiliate.payouts.reasonLabel')}: {h.admin_notes}</p>
                                         )}
                                       </td>
                                       <td style={{ padding: '10px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                         {h.status === 'paid' && h.txn_id ? (
-                                          <span style={{ color: '#16a34a', fontWeight: 700, fontFamily: 'monospace' }}>Txn Ref: {h.txn_id}</span>
+                                          <span style={{ color: '#16a34a', fontWeight: 700, fontFamily: 'monospace' }}>{t('affiliate.payouts.txnRef')}: {h.txn_id}</span>
                                         ) : h.payment_method === 'upi' ? (
-                                          <span>UPI: {h.payment_details?.upi_id}</span>
+                                          <span>{t('affiliate.payouts.upiLabel')}: {h.payment_details?.upi_id}</span>
                                         ) : (
-                                          <span>Bank: {h.payment_details?.bank_name} - *{h.payment_details?.account_number?.slice(-4)}</span>
+                                          <span>{t('affiliate.payouts.bankLabel')}: {h.payment_details?.bank_name} - *{h.payment_details?.account_number?.slice(-4)}</span>
                                         )}
                                       </td>
                                     </tr>
@@ -4584,7 +4601,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           height: 'fit-content'
                         }}>
                           <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px' }}>
-                            Request Balance Payout
+                            {t('affiliate.payouts.reqTitle')}
                           </h3>
 
                           {affiliateProfile.affiliate_status === 'suspended' ? (
@@ -4597,7 +4614,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                               fontSize: '0.82rem',
                               lineHeight: 1.5
                             }}>
-                              <strong>Payouts Blocked:</strong> Your affiliate account has been suspended. Please contact support for assistance.
+                              <strong>{t('affiliate.payouts.suspendedError')}</strong>
                             </div>
                           ) : affiliateProfile.available_balance < minWithdrawalLimit ? (
                             <div style={{
@@ -4609,20 +4626,20 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                               fontSize: '0.8rem',
                               lineHeight: 1.5
                             }}>
-                              <strong>Payout Threshold Lock:</strong> Your available balance must be ₹{minWithdrawalLimit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} or higher to request payout.<br />
-                              Current balance available: <strong>₹{affiliateProfile.available_balance.toFixed(2)}</strong>.
+                              <strong>{t('affiliate.payouts.thresholdError', { limit: minWithdrawalLimit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) })}</strong><br />
+                              {t('affiliate.payouts.currentBalance', { balance: affiliateProfile.available_balance.toFixed(2) })}
                             </div>
                           ) : (
                             <form onSubmit={handleRequestPayout} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                               <div style={{ padding: '12px', backgroundColor: 'var(--primary-lime-light)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-lime)' }}>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Amount to withdraw</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>{t('affiliate.payouts.withdrawAmountLabel')}</span>
                                 <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
                                   ₹{affiliateProfile.available_balance.toFixed(2)}
                                 </span>
                               </div>
 
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Payment Channel</label>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.channelLabel')}</label>
                                 <div style={{ display: 'flex', gap: '10px' }}>
                                   <button
                                     type="button"
@@ -4639,7 +4656,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                       color: payoutMethod === 'upi' ? 'var(--primary-lime)' : 'var(--text-muted)'
                                     }}
                                   >
-                                    UPI Transfer
+                                    {t('affiliate.payouts.upiTransfer')}
                                   </button>
                                   <button
                                     type="button"
@@ -4656,7 +4673,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                       color: payoutMethod === 'bank' ? 'var(--primary-lime)' : 'var(--text-muted)'
                                     }}
                                   >
-                                    Bank Transfer
+                                    {t('affiliate.payouts.bankTransfer')}
                                   </button>
                                 </div>
                               </div>
@@ -4664,10 +4681,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                               {payoutMethod === 'upi' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>UPI Address ID</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.upiAddressLabel')}</label>
                                     <input
                                       type="text"
-                                      placeholder="e.g. name@upi or phone@paytm"
+                                      placeholder={t('affiliate.payouts.upiAddressPlaceholder')}
                                       required
                                       value={upiId}
                                       onChange={(e) => setUpiId(e.target.value)}
@@ -4675,10 +4692,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     />
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Account Holder Name</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.holderNameLabel')}</label>
                                     <input
                                       type="text"
-                                      placeholder="As registered in bank account"
+                                      placeholder={t('affiliate.payouts.holderNamePlaceholder')}
                                       required
                                       value={upiHolderName}
                                       onChange={(e) => setUpiHolderName(e.target.value)}
@@ -4689,10 +4706,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>Account Holder Name</label>
+                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.holderNameLabel')}</label>
                                     <input
                                       type="text"
-                                      placeholder="Full Name"
+                                      placeholder={t('affiliate.payouts.fullNamePlaceholder')}
                                       required
                                       value={bankHolderName}
                                       onChange={(e) => setBankHolderName(e.target.value)}
@@ -4700,10 +4717,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     />
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>Account Number</label>
+                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.accNumLabel')}</label>
                                     <input
                                       type="text"
-                                      placeholder="9 to 18 digits"
+                                      placeholder={t('affiliate.payouts.accNumPlaceholder')}
                                       required
                                       value={bankAccountNumber}
                                       onChange={(e) => setBankAccountNumber(e.target.value)}
@@ -4711,11 +4728,11 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     />
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>Bank IFSC Code</label>
+                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.ifscLabel')}</label>
                                     <input
                                       type="text"
                                       maxLength={11}
-                                      placeholder="11-digit alphanumeric"
+                                      placeholder={t('affiliate.payouts.ifscPlaceholder')}
                                       required
                                       value={bankIfsc}
                                       onChange={(e) => setBankIfsc(e.target.value)}
@@ -4723,10 +4740,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     />
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>Bank Name</label>
+                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t('affiliate.payouts.bankNameLabel')}</label>
                                     <input
                                       type="text"
-                                      placeholder="e.g. State Bank of India, HDFC"
+                                      placeholder={t('affiliate.payouts.bankNamePlaceholder')}
                                       required
                                       value={bankName}
                                       onChange={(e) => setBankName(e.target.value)}
@@ -4751,7 +4768,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                   marginTop: '8px'
                                 }}
                               >
-                                {isSubmittingPayout ? 'Submitting request...' : 'Request Balance Payout'}
+                                {isSubmittingPayout ? t('affiliate.payouts.submitting') : t('affiliate.payouts.submitBtn')}
                               </button>
                             </form>
                           )}
@@ -4775,16 +4792,16 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 
                 {logoutConfirmed ? (
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-dark)' }}>Safely logging out...</h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('logout.loggingOut')}</h3>
                     <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                      May peace and divine blessings be with you always. Returning home.
+                      {t('logout.returningHome')}
                     </p>
                   </div>
                 ) : (
                   <div>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>Confirm Secure Logout</h2>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('logout.title')}</h2>
                     <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '6px', maxWidth: '440px', margin: '6px auto 32px auto', lineHeight: 1.5 }}>
-                      Are you sure you want to log out of your spiritual dashboard? Your saved addresses, puja orders, and synchronized wishlist will remain safely stored.
+                      {t('logout.confirmDesc')}
                     </p>
 
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
@@ -4803,7 +4820,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         }}
                       >
                         <LogOut size={16} />
-                        <span>Confirm Logout</span>
+                        <span>{t('logout.confirm')}</span>
                       </button>
 
                       <button
@@ -4816,7 +4833,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           border: '1px solid var(--border-light)'
                         }}
                       >
-                        Cancel
+                        {t('logout.cancel')}
                       </button>
                     </div>
                   </div>

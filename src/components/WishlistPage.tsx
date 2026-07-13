@@ -1,5 +1,7 @@
 import React from 'react';
 import { Heart, ArrowRight, Star, ShoppingCart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../lib/i18n';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 
@@ -20,6 +22,16 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   onNavigateToShop,
   products: productsProp,
 }) => {
+  const { language } = useLanguage();
+  const { t } = useTranslation('wishlist');
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['wishlist']).then(() => setIsReady(true));
+    });
+  }, [language]);
+
   const activeProducts = productsProp || [];
   // Sync wishlisted products list
   const wishlistedItems = activeProducts.filter((p) => wishlist[p.id]);
@@ -36,7 +48,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   const handleMoveToCart = (product: Product) => {
     onAddToCart(product, 1);
     onToggleWishlist(product.id); // Remove from wishlist on move to cart
-    setToastMessage(`"${product.name}" moved to cart successfully!`);
+    setToastMessage(t('movedToCartSuccess', { name: product.name, defaultValue: `"${product.name}" moved to cart successfully!` }));
   };
 
   const getCategoryGradient = (cat?: string) => {
@@ -58,6 +70,14 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
         return 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
     }
   };
+
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>{t('loading', { defaultValue: 'Loading...' })}</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: '#fafafa', minHeight: '80vh', paddingBottom: '100px' }}>
@@ -99,11 +119,11 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
             <Heart size={28} fill="var(--primary-lime)" style={{ color: 'var(--primary-lime)' }} />
             <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.5px' }}>
-              My Sacred Wishlist
+              {t('pageTitle', { defaultValue: 'My Sacred Wishlist' })}
             </h1>
           </div>
           <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.88rem', maxWidth: '500px', margin: '0 auto' }}>
-            Your personal collection of energetic beads, hand-selected idols, and pure aromatics awaiting your puja altars.
+            {t('pageDesc', { defaultValue: 'Your personal collection of energetic beads, hand-selected idols, and pure aromatics awaiting your puja altars.' })}
           </p>
         </div>
       </section>
@@ -121,19 +141,19 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
             boxShadow: 'var(--shadow-sm)'
           }}>
             <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '16px' }}>❤️</span>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)' }}>Your Wishlist is empty</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)' }}>{t('emptyTitle', { defaultValue: 'Your Wishlist is empty' })}</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '24px' }}>
-              Tap the heart icon on any sacred items as you browse our spiritual shop collections.
+              {t('emptyDesc', { defaultValue: 'Tap the heart icon on any sacred items as you browse our spiritual shop collections.' })}
             </p>
             <button onClick={onNavigateToShop} className="btn-lime" style={{ fontSize: '0.88rem', padding: '12px 28px' }}>
-              Browse Sacred Store
+              {t('browseBtn', { defaultValue: 'Browse Sacred Store' })}
             </button>
           </div>
         ) : (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                Saved Spiritual Items ({wishlistedItems.length})
+                {t('savedItemsCount', { count: wishlistedItems.length, defaultValue: 'Saved Spiritual Items ({{count}})' })}
               </h2>
               <button
                 onClick={onNavigateToShop}
@@ -146,7 +166,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                   color: 'var(--primary-lime)'
                 }}
               >
-                Back to Shop <ArrowRight size={14} />
+                {t('backToShop', { defaultValue: 'Back to Shop' })} <ArrowRight size={14} />
               </button>
             </div>
 
@@ -259,7 +279,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                             cursor: 'pointer'
                           }}
                           className="flex-center"
-                          title="Remove from Wishlist"
+                          title={t('removeFromWishlist', { defaultValue: 'Remove from Wishlist' })}
                         >
                           <Heart size={15} fill="#ef4444" />
                         </button>
@@ -353,7 +373,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                             >
-                              Move To Cart
+                              {t('moveToCart', { defaultValue: 'Move To Cart' })}
                             </button>
                           ) : (
                             <button
@@ -371,7 +391,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                                 cursor: 'not-allowed'
                               }}
                             >
-                              Out of Stock
+                              {t('outOfStock', { defaultValue: 'Out of Stock' })}
                             </button>
                           )}
                         </div>

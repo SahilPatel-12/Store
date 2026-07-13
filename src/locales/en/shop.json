@@ -1,0 +1,34 @@
+{
+  "banner": {
+    "alt": "Shop banner {{index}}",
+    "title": "The Divine Shop",
+    "description": "Explore our curated collections of authentic, priest-energized spiritual items designed to invite divine energy, focus, and peace into your sacred space."
+  },
+  "toolbar": {
+    "searchPlaceholder": "Search by product name, benefits, or type...",
+    "sortOptions": {
+      "popularity": "Popularity",
+      "rating": "Top Rated",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low"
+    },
+    "categories": {
+      "allItems": "All Items"
+    }
+  },
+  "emptyState": {
+    "title": "No divine items found",
+    "description": "No items match your selected criteria. Try broadening your search or choosing another category.",
+    "resetButton": "Reset Search & Categories"
+  },
+  "product": {
+    "off": "OFF",
+    "soldOut": "SOLD OUT",
+    "inCart": "{{count}} in Cart",
+    "addToCart": "Add To Cart",
+    "outOfStock": "Out of Stock"
+  },
+  "recentlyViewed": {
+    "title": "Recently Viewed"
+  }
+}

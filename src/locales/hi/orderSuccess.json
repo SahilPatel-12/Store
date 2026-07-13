@@ -104,5 +104,50 @@
     "description": "आपके ऑर्डर के पूरक के लिए चुनी गई दिव्य वस्तुएं",
     "view": "देखें",
     "browseAll": "सभी पवित्र सामग्रियां ब्राउज़ करें"
-  }
+  },
+  "pdf": {
+    "title": "मन्त्रपूजा",
+    "subtitle": "आध्यात्मिक एवं मंदिर की सामग्रियां",
+    "email": "ईमेल: support@mantrapuja.com",
+    "web": "वेबसाइट: www.mantrapuja.com",
+    "invoice": "इनवॉइस",
+    "invoiceId": "इनवॉइस आईडी: {{orderId}}",
+    "date": "दिनांक: {{date}}",
+    "billTo": "बिल का विवरण:",
+    "phone": "फ़ोन: {{phone}}",
+    "emailLabel": "ईमेल: {{email}}",
+    "paymentDetails": "भुगतान का विवरण:",
+    "method": "माध्यम: {{method}}",
+    "status": "स्थिति: {{status}}",
+    "sacredItemDetails": "पवित्र सामग्री का विवरण",
+    "qty": "मात्रा",
+    "price": "मूल्य",
+    "amount": "कुल राशि",
+    "subtotal": "सामग्रियों का योग:",
+    "discount": "छूट ({{percent}}%):",
+    "shipping": "शिपिंग:",
+    "free": "मुफ़्त",
+    "tax": "कर ({{percent}}%):",
+    "totalCharged": "कुल भुगतान राशि:",
+    "blessingsText": "भगवान आपके घर में शांति, समृद्धि और दिव्य आशीर्वाद प्रदान करें।",
+    "thankYou": "मन्त्रपूजा से खरीदारी करने के लिए आपका धन्यवाद!",
+    "currency": "रुपये"
+  },
+  "mock": {
+    "product1": "पंचमुखी रुद्राक्ष",
+    "product2": "पीतल दीया सेट",
+    "badgePopular": "लोकप्रिय",
+    "badgeNew": "नया"
+  },
+  "alerts": {
+    "shareError": "साझाकरण लिंक जनरेट नहीं किया जा सका। कृपया पुनः प्रयास करें।",
+    "shareFailed": "साझाकरण विफल रहा: {{error}}",
+    "downloadError": "इनवॉइस डाउनलोड नहीं किया जा सका। कृपया पुनः प्रयास करें।"
+  },
+  "share": {
+    "title": "मन्त्रपूजा आशीर्वाद",
+    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}/shop\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "fileName": "VidyaRudraksh-Blessings.jpg"
+  },
+  "loading": "विवरण लोड हो रहा है..."
 }

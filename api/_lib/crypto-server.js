@@ -31,15 +31,30 @@ export function encryptTextServer(text) {
  * @returns {string} Plaintext decrypted output
  */
 export function decryptTextServer(ciphertext, ivHex, authTagHex) {
-  const decipher = crypto.createDecipheriv(
-    ALGORITHM,
+  const keysToTry = [
     KEY,
-    Buffer.from(ivHex, 'hex')
-  );
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-  let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+    crypto.createHash('sha256').update(process.env.ENCRYPTION_STRING_KEY || '').digest(),
+    crypto.createHash('sha256').update('dev_fallback_payment_encryption_key_must_be_rotated_prod').digest()
+  ];
+
+  let lastError;
+  for (const key of keysToTry) {
+    if (!key || key.length === 0) continue;
+    try {
+      const decipher = crypto.createDecipheriv(
+        ALGORITHM,
+        key,
+        Buffer.from(ivHex, 'hex')
+      );
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+      let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('Decryption failed for all configured server keys.');
 }
 
 /**

@@ -1,0 +1,82 @@
+{
+  "heroBadge": "MANTRA PUJA PARTNERSHIP PROGRAM",
+  "heroTitle": "Become a Partner, Share the Divine & Earn",
+  "heroDesc": "Help others connect with authenticated spiritual offerings and earn rewards for every devotee you introduce to Mantra Puja.",
+  "promo": {
+    "commissionTitle": "10% Instant Commission",
+    "commissionDesc": "Earn a flat 10% commission on every single purchase made by the users you refer. Real-time logging on dispatch.",
+    "unlimitedTitle": "Unlimited Devotees",
+    "unlimitedDesc": "Share with as many friends, family members, or followers as you like. There are no caps or ceilings on your rewards.",
+    "lifetimeTitle": "Lifetime Earnings",
+    "lifetimeDesc": "Refer one or multiple devotees. Get a flat 10% commission on their first purchase and lifetime rewards whenever they buy again."
+  },
+  "status": {
+    "retrieving": "Retrieving profile settings..."
+  },
+  "auth": {
+    "title": "Partner Onboarding",
+    "desc": "Enter your phone number to login or register and apply to the program.",
+    "phoneLabel": "WhatsApp Mobile Number",
+    "phoneHelp": "We will send a one-time verification code to this number via WhatsApp.",
+    "sendingCode": "Sending Code...",
+    "sendCode": "Send Verification Code",
+    "sentTo": "Sent to:",
+    "changeNumber": "Change Number",
+    "otpLabel": "6-Digit OTP Code",
+    "otpPlaceholder": "Enter verification code",
+    "otpValidity": "Code valid for 5 min",
+    "resendIn": "Resend in {{seconds}}s",
+    "resendCode": "Resend OTP Code",
+    "verifyingOtp": "Verifying OTP...",
+    "verifyCode": "Verify Code & Continue"
+  },
+  "active": {
+    "title": "You are an Active Partner!",
+    "desc": "Your partner account is active. Share your referral link, scan barcode, and Mantra Puja logo with devotees across social media!",
+    "linkTitle": "Your Referral Sharing Link",
+    "downloadBarcode": "Download Barcode (QR)",
+    "consoleTitle": "Divine Blessings Share Console",
+    "shareThis": "Share This",
+    "goDashboard": "Go to Partner Dashboard"
+  },
+  "pending": {
+    "title": "Application Under Review",
+    "desc": "Thank you for applying! Your application has been registered and is pending administrator review.",
+    "infoTitle": "Submitted Information:",
+    "name": "Name:",
+    "email": "Email:",
+    "phone": "Phone:",
+    "status": "Status:",
+    "statusVal": "Pending Approval",
+    "footer": "Once our administrator approves your account, your custom referral links and earnings dashboard will automatically unlock.",
+    "goProfile": "Go to Profile"
+  },
+  "suspended": {
+    "title": "Account Suspended",
+    "desc": "Your partner partnership account has been suspended by the store administrator. Please contact support.",
+    "goProfile": "Go to Profile"
+  },
+  "enroll": {
+    "title": "Partner Profile details",
+    "desc": "Enter your details to register and join the program.",
+    "nameLabel": "Full Name",
+    "namePlaceholder": "Enter your name",
+    "emailLabel": "Email Address",
+    "emailPlaceholder": "devotee@example.com",
+    "termsCheck": "I agree to the Terms and Conditions of the Mantra Puja Partner/Affiliate program.",
+    "termsLink": "Terms and Conditions",
+    "submitting": "Submitting Application...",
+    "submit": "Register & Join Program"
+  },
+  "instagram": {
+    "title": "Share on Instagram Stories",
+    "desc": "Instagram does not support direct links or file transfers from web browsers. We have automatically uploaded your unified **Blessings Card** image to Cloudflare CDN and copied the share message containing your referral link and card preview link to your clipboard.",
+    "step1": "Open your Instagram App and swipe right to create a new Story.",
+    "step2": "Use the Link Sticker to add your copied referral link.",
+    "step3": "Paste the full spiritual message and dynamic barcode link directly on your story and publish!",
+    "close": "Got It, Open Instagram"
+  },
+  "toasts": {
+    "copied": "Referral link copied to clipboard!"
+  }
+}

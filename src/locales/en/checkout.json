@@ -103,6 +103,7 @@
         "limit": "This coupon has reached its total usage limit.",
         "used": "You have already used this coupon code.",
         "product": "This coupon is only valid for product: {{productName}}.",
+        "defaultProduct": "a specific product",
         "generic": "An error occurred while applying coupon. Please try again."
       }
     },

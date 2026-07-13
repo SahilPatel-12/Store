@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Star, ShoppingCart, ZoomIn } from 'lucide-react';
 import type { Product, PoojaProduct } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
+import { useLanguage } from '../lib/i18n';
 
 interface ProductModalProps {
   product: Product | null;
@@ -14,6 +15,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onAddToCart,
 }) => {
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -198,7 +201,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     color: 'var(--text-primary)',
                     transition: 'all 0.2s',
                   }}
-                  title="View full screen"
+                  title={isHindi ? "पूर्ण स्क्रीन देखें" : "View full screen"}
                 >
                   <ZoomIn size={18} />
                 </div>
@@ -249,7 +252,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <Star size={16} fill="var(--primary-gold)" color="var(--primary-gold)" />
                 <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{product.rating}</span>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                  ({product.reviewsCount} reviews)
+                  ({isHindi ? `${product.reviewsCount} समीक्षाएं` : `${product.reviewsCount} reviews`})
                 </span>
               </div>
 
@@ -313,7 +316,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     boxShadow: '0 4px 12px rgba(251, 191, 36, 0.15)'
                   }}
                 >
-                  <ShoppingCart size={18} /> Add to Cart (₹{product.price.toFixed(2)})
+                  <ShoppingCart size={18} /> {isHindi ? `कार्ट में जोड़ें (₹${product.price.toFixed(2)})` : `Add to Cart (₹${product.price.toFixed(2)})`}
                 </button>
               </div>
             )}
