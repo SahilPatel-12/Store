@@ -2804,6 +2804,7 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} className="nav-actions">
             {/* Premium Sliding Language Toggle */}
             <div
+              className="nav-lang-toggle"
               onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
               style={{
                 display: 'flex',
@@ -5684,12 +5685,35 @@ function App() {
       {/* CSS Injections for Mobile Responsiveness */}
       <style>{`
         @media (max-width: 768px) {
-          /* Enforce wrapping on the navbar container */
+          /* Prevent wrapping on the navbar container to keep all items on a single row */
           nav > .container {
-            flex-wrap: wrap !important;
+            flex-wrap: nowrap !important;
             justify-content: space-between !important;
-            gap: 12px 0 !important;
-            padding: 0 16px !important;
+            align-items: center !important;
+            gap: 8px !important;
+            padding: 0 12px !important;
+          }
+          
+          /* Scale logo height down for mobile views */
+          .nav-logo {
+            height: 38px !important;
+          }
+
+          /* Compress actions container spacing for mobile viewports */
+          .nav-actions {
+            gap: 6px !important;
+          }
+
+          /* Adjust mobile actions button padding */
+          .nav-actions button {
+            padding: 4px !important;
+          }
+
+          /* Shrink premium language toggle for mobile screen sizes */
+          .nav-lang-toggle {
+            width: 72px !important;
+            height: 28px !important;
+            margin-right: 0 !important;
           }
           
           /* Hide search wrapper on mobile views to prevent double search bars */
