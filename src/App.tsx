@@ -1743,10 +1743,10 @@ function App() {
             ))
             ? 1
             : (item.purchase_limit ? Number(item.purchase_limit) : undefined),
-          gstOverrideEnabled: item.gst_override_enabled || false,
-          customGst: item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined,
-          deliveryOverrideEnabled: item.delivery_override_enabled || false,
-          customDelivery: item.custom_delivery !== undefined && item.custom_delivery !== null ? parseFloat(item.custom_delivery.toString()) : undefined,
+          gstOverrideEnabled: item.slug === 'vidya-rudraksh-101' ? true : (item.gst_override_enabled || false),
+          customGst: item.slug === 'vidya-rudraksh-101' ? 0 : (item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined),
+          deliveryOverrideEnabled: item.slug === 'vidya-rudraksh-101' ? true : (item.delivery_override_enabled || false),
+          customDelivery: item.slug === 'vidya-rudraksh-101' ? 0 : (item.custom_delivery !== undefined && item.custom_delivery !== null ? parseFloat(item.custom_delivery.toString()) : undefined),
         }));
 
         // Merge Supabase products with local products from localStorage to ensure locally added custom items persist and show up
