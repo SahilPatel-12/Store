@@ -4725,54 +4725,65 @@ function App() {
             const sessionToken = localStorage.getItem('session_token') || '';
 
             try {
-              const res = await fetch('/api/orders/create', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  items: details.items.map((i: any) => ({
-                    productId: i.product.id,
-                    quantity: i.quantity
-                  })),
-                  shippingAddress: {
-                    fullName: details.fullName,
-                    phoneNumber: details.phoneNumber,
-                    email: details.email || '',
-                    addressLine1: details.addressLine1,
-                    addressLine2: details.addressLine2 || '',
-                    city: details.deliveryCity,
-                    state: details.deliveryState,
-                    pincode: details.pincode
+              let newOrder: LocalOrder;
+
+              if (details.paymentMethod === 'Razorpay') {
+                newOrder = {
+                  ...details,
+                  userId: loggedInUser?.id,
+                  status: 'Being Packed',
+                  paymentStatus: 'Confirmed'
+                };
+              } else {
+                const res = await fetch('/api/orders/create', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
                   },
-                  paymentMethod: details.paymentMethod,
-                  couponCode: details.appliedCouponCode || '',
-                  checkoutAttemptId,
-                  sessionToken,
-                  paymentScreenshot: details.paymentScreenshot || null
-                })
-              });
+                  body: JSON.stringify({
+                    items: details.items.map((i: any) => ({
+                      productId: i.product.id,
+                      quantity: i.quantity
+                    })),
+                    shippingAddress: {
+                      fullName: details.fullName,
+                      phoneNumber: details.phoneNumber,
+                      email: details.email || '',
+                      addressLine1: details.addressLine1,
+                      addressLine2: details.addressLine2 || '',
+                      city: details.deliveryCity,
+                      state: details.deliveryState,
+                      pincode: details.pincode
+                    },
+                    paymentMethod: details.paymentMethod,
+                    couponCode: details.appliedCouponCode || '',
+                    checkoutAttemptId,
+                    sessionToken,
+                    paymentScreenshot: details.paymentScreenshot || null
+                  })
+                });
 
-              if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || `Server responded with status ${res.status}`);
+                if (!res.ok) {
+                  const errData = await res.json().catch(() => ({}));
+                  throw new Error(errData.error || `Server responded with status ${res.status}`);
+                }
+
+                const result = await res.json();
+                console.log('[Checkout App] Secure order created:', result.orderId);
+
+                newOrder = {
+                  ...details,
+                  orderId: result.orderId,
+                  userId: loggedInUser?.id,
+                  status: 'Payment Pending',
+                  paymentStatus: 'Pending',
+                  subtotal: result.subtotal,
+                  discount: result.discount,
+                  shipping: result.shipping,
+                  tax: result.tax,
+                  total: result.total
+                };
               }
-
-              const result = await res.json();
-              console.log('[Checkout App] Secure order created:', result.orderId);
-
-              const newOrder: LocalOrder = {
-                ...details,
-                orderId: result.orderId,
-                userId: loggedInUser?.id,
-                status: 'Payment Pending',
-                paymentStatus: 'Pending',
-                subtotal: result.subtotal,
-                discount: result.discount,
-                shipping: result.shipping,
-                tax: result.tax,
-                total: result.total
-              };
 
               if (loggedInUser) {
                 // Sync user email if it was entered during checkout
@@ -5527,54 +5538,65 @@ function App() {
           const sessionToken = localStorage.getItem('session_token') || '';
 
           try {
-            const res = await fetch('/api/orders/create', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                items: details.items.map((i: any) => ({
-                  productId: i.product.id,
-                  quantity: i.quantity
-                })),
-                shippingAddress: {
-                  fullName: details.fullName,
-                  phoneNumber: details.phoneNumber,
-                  email: details.email || '',
-                  addressLine1: details.addressLine1,
-                  addressLine2: details.addressLine2 || '',
-                  city: details.deliveryCity,
-                  state: details.deliveryState,
-                  pincode: details.pincode
+            let newOrder: LocalOrder;
+
+            if (details.paymentMethod === 'Razorpay') {
+              newOrder = {
+                ...details,
+                userId: loggedInUser?.id,
+                status: 'Being Packed',
+                paymentStatus: 'Confirmed'
+              };
+            } else {
+              const res = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
                 },
-                paymentMethod: details.paymentMethod,
-                couponCode: details.appliedCouponCode || '',
-                checkoutAttemptId,
-                sessionToken,
-                paymentScreenshot: details.paymentScreenshot || null
-              })
-            });
+                body: JSON.stringify({
+                  items: details.items.map((i: any) => ({
+                    productId: i.product.id,
+                    quantity: i.quantity
+                  })),
+                  shippingAddress: {
+                    fullName: details.fullName,
+                    phoneNumber: details.phoneNumber,
+                    email: details.email || '',
+                    addressLine1: details.addressLine1,
+                    addressLine2: details.addressLine2 || '',
+                    city: details.deliveryCity,
+                    state: details.deliveryState,
+                    pincode: details.pincode
+                  },
+                  paymentMethod: details.paymentMethod,
+                  couponCode: details.appliedCouponCode || '',
+                  checkoutAttemptId,
+                  sessionToken,
+                  paymentScreenshot: details.paymentScreenshot || null
+                })
+              });
 
-            if (!res.ok) {
-              const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.error || `Server responded with status ${res.status}`);
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with status ${res.status}`);
+              }
+
+              const result = await res.json();
+              console.log('[Checkout App] Secure order created (Seamless):', result.orderId);
+
+              newOrder = {
+                ...details,
+                orderId: result.orderId,
+                userId: loggedInUser?.id,
+                status: details.status || 'Payment Pending',
+                paymentStatus: details.paymentStatus || 'Pending',
+                subtotal: result.subtotal,
+                discount: result.discount,
+                shipping: result.shipping,
+                tax: result.tax,
+                total: result.total
+              };
             }
-
-            const result = await res.json();
-            console.log('[Checkout App] Secure order created (Seamless):', result.orderId);
-
-            const newOrder: LocalOrder = {
-              ...details,
-              orderId: result.orderId,
-              userId: loggedInUser?.id,
-              status: details.status || (details.paymentMethod === 'Razorpay' ? 'Being Packed' : 'Payment Pending'),
-              paymentStatus: details.paymentStatus || (details.paymentMethod === 'Razorpay' ? 'Confirmed' : 'Pending'),
-              subtotal: result.subtotal,
-              discount: result.discount,
-              shipping: result.shipping,
-              tax: result.tax,
-              total: result.total
-            };
 
             if (loggedInUser) {
               // Sync user email if it was entered during checkout

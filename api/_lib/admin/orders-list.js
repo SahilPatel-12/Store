@@ -31,6 +31,7 @@ export default async function handler(req, res) {
     const { data, error } = await supabaseAdmin
       .from('website_store_orders')
       .select('*')
+      .neq('status', 'Payment Pending')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
