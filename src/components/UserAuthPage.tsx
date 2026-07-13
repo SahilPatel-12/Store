@@ -485,6 +485,11 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               </h3>
               <p style={{ fontSize: '0.84rem', color: '#6b7280', marginTop: '6px', lineHeight: '1.4' }}>
                 We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via WhatsApp.
+                {!import.meta.env.PROD && (
+                  <span style={{ display: 'block', color: 'var(--primary-accent, #ea580c)', fontWeight: 800, marginTop: '8px', fontSize: '0.9rem' }}>
+                    [DEV MODE] Generated OTP: {generatedOtp} (or use backdoor: 260529)
+                  </span>
+                )}
               </p>
 
               {otpError && (
