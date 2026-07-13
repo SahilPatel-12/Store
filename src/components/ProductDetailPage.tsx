@@ -5274,16 +5274,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       }}>
         <div className="announcement-marquee-wrapper">
           <div className="announcement-marquee">
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
           </div>
           <div className="announcement-marquee">
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
-            <span>⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
+            <span>{isHindi ? '⚡ माता-पिता के लिए विशेष ₹1 ऑफर, अभी ₹1 में ऑर्डर करें ⚡' : '⚡ Special ₹1 offer for parents, Order Now at ₹1 ⚡'}</span>
           </div>
         </div>
       </div>
@@ -5302,7 +5302,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             padding: '4px 10px',
             borderRadius: 'var(--radius-sm)'
           }}>
-            {isVidyaRudraksh ? 'Study & Focus' : product.spiritualType}
+            {isVidyaRudraksh ? (isHindi ? 'पढ़ाई और ध्यान' : 'Study & Focus') : product.spiritualType}
           </span>
         </div>
 
@@ -6579,7 +6579,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     <span className="badge-icon-live-container" style={{ color: '#10b981' }}>
                       <Eye size={15} strokeWidth={2.5} />
                     </span>
-                    <span>{viewersCount} people viewing now</span>
+                    <span>{isHindi ? `अभी ${viewersCount} लोग देख रहे हैं` : `${viewersCount} people viewing now`}</span>
                   </div>
 
                   {/* Countdown Deal Badge */}
@@ -6587,7 +6587,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     <span className="badge-icon-clock-container" style={{ color: '#f59e0b' }}>
                       <Clock size={15} strokeWidth={2.5} />
                     </span>
-                    <span>Sale ends in {timeLeft || '09:45:45'}</span>
+                    <span>{isHindi ? `ऑफर समाप्त होने में: ${timeLeft || '09:45:45'}` : `Sale ends in ${timeLeft || '09:45:45'}`}</span>
                   </div>
                 </div>
               )}
@@ -6608,7 +6608,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {isVidyaRudraksh ? '4.5' : product.rating}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  ({isVidyaRudraksh ? '21' : reviews.length} customer reviews)
+                  ({isVidyaRudraksh ? '21' : reviews.length} {isHindi ? 'ग्राहक समीक्षाएं' : 'customer reviews'})
                 </span>
               </div>
             </div>
@@ -6719,7 +6719,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       <Users size={15} />
                     </div>
                     <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                      10,000+ Parents Ka Vishwas
+                      {isHindi ? '10,000+ माता-पिता का विश्वास' : '10,000+ Parents Ka Vishwas'}
                     </span>
                   </div>
 
@@ -6741,7 +6741,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       <Landmark size={15} />
                     </div>
                     <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                      Sandipani Ashram Siddh
+                      {isHindi ? 'सांदीपनि आश्रम सिद्ध' : 'Sandipani Ashram Siddh'}
                     </span>
                   </div>
 
@@ -6763,7 +6763,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       <Package size={15} />
                     </div>
                     <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                      18,000+ Orders Delivered
+                      {isHindi ? '18,000+ ऑर्डर डिलीवर' : '18,000+ Orders Delivered'}
                     </span>
                   </div>
 
@@ -6785,7 +6785,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       <ShieldCheck size={15} />
                     </div>
                     <span className="vidya-trust-text" style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                      Certified Dharmic Product
+                      {isHindi ? 'प्रमाणित धार्मिक उत्पाद' : 'Certified Dharmic Product'}
                     </span>
                   </div>
                 </div>
