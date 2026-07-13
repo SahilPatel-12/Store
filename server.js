@@ -59,6 +59,18 @@ function loadEnvFiles() {
 
 loadEnvFiles();
 
+// Validate PAYMENT_ENV on server startup
+const paymentEnv = process.env.PAYMENT_ENV;
+if (paymentEnv !== undefined) {
+  const trimmed = paymentEnv.trim();
+  if (trimmed !== 'test' && trimmed !== 'live') {
+    console.error(`\n[FATAL CONFIGURATION ERROR] Invalid PAYMENT_ENV value: "${trimmed}".`);
+    console.error(`Allowed values are: "test" or "live".`);
+    console.error(`Please update your environment configuration (e.g. .env.local or production server env).\n`);
+    process.exit(1);
+  }
+}
+
 // Helper to determine Content-Type
 const MIME_TYPES = {
   '.html': 'text/html',

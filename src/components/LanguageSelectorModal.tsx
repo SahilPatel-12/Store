@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../lib/i18n';
 import { useTranslation } from 'react-i18next';
+import { Languages, Info } from 'lucide-react';
 
 export const LanguageSelectorModal: React.FC = () => {
   const { isLanguageReady, hasLanguagePreference, setLanguage } = useLanguage();
@@ -15,135 +16,54 @@ export const LanguageSelectorModal: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(12px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-      }}
-    >
-      <div
-        className="glass animate-fade-in"
-        style={{
-          width: '100%',
-          maxWidth: '400px',
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          padding: '32px 24px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          border: '2px solid var(--primary-gold, #d97706)',
-          textAlign: 'center',
-          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '1.4rem',
-            fontWeight: 900,
-            color: 'var(--primary-deep, #450a0a)',
-            marginBottom: '6px',
-            fontFamily: 'Playfair Display, serif',
-          }}
-        >
+    <div className="lang-modal-overlay">
+      <div className="lang-modal-container">
+        {/* Beautiful spiritual language icon */}
+        <div className="lang-icon-wrapper">
+          <Languages size={26} />
+        </div>
+
+        <h2 className="lang-modal-title">
           {t('title')}
         </h2>
-        <h3
-          style={{
-            fontSize: '1.05rem',
-            fontWeight: 800,
-            color: 'var(--text-dark, #111827)',
-            marginBottom: '24px',
-          }}
-        >
+        
+        <p className="lang-modal-subtitle">
           {t('subtitle')}
-        </h3>
+        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* English Option */}
+        <div className="lang-options-grid">
+          {/* English Option Card */}
           <button
             onClick={() => handleSelectLanguage('en')}
-            style={{
-              padding: '14px 20px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color, #e5e7eb)',
-              backgroundColor: '#f9fafb',
-              color: 'var(--text-primary, #1f2937)',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary-gold, #d97706)';
-              e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.05)';
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-color, #e5e7eb)';
-              e.currentTarget.style.backgroundColor = '#f9fafb';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
+            className="lang-card"
+            aria-label="Select English"
           >
-            {t('english')}
+            <span className="lang-card-letter">Aa</span>
+            <span className="lang-card-name">{t('english')}</span>
+            <span className="lang-card-desc">{t('englishDesc')}</span>
           </button>
 
-          {/* Hindi Option */}
+          {/* Hindi Option Card */}
           <button
             onClick={() => handleSelectLanguage('hi')}
-            style={{
-              padding: '14px 20px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color, #e5e7eb)',
-              backgroundColor: '#f9fafb',
-              color: 'var(--text-primary, #1f2937)',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary-gold, #d97706)';
-              e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.05)';
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-color, #e5e7eb)';
-              e.currentTarget.style.backgroundColor = '#f9fafb';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
+            className="lang-card"
+            aria-label="हिंदी भाषा चुनें"
           >
-            {t('hindi')}
+            <span className="lang-card-letter">अ</span>
+            <span className="lang-card-name">{t('hindi')}</span>
+            <span className="lang-card-desc">{t('hindiDesc')}</span>
           </button>
         </div>
 
-        <p
-          style={{
-            fontSize: '0.74rem',
-            color: 'var(--text-muted, #6b7280)',
-            marginTop: '20px',
-            lineHeight: '1.4',
-          }}
-        >
-          {t('footerNote')}
-        </p>
+        {/* Footer Note Info Box */}
+        <div className="lang-modal-footer-box">
+          <Info size={16} style={{ color: 'var(--primary-accent)', flexShrink: 0, marginTop: '2px' }} />
+          <p className="lang-modal-footer-text">
+            {t('footerNote')}
+          </p>
+        </div>
       </div>
     </div>
   );
 };
+

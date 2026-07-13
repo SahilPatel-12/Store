@@ -175,7 +175,9 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
 
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userEnteredOtp !== generatedOtp && userEnteredOtp !== '260529' && userEnteredOtp !== '111111') { // Backdoor bypass in case sandbox lacks live network
+    const isBypassAllowed = !import.meta.env.PROD;
+    const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
+    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) { // Backdoor bypass in case sandbox lacks live network
       setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
       return;
     }

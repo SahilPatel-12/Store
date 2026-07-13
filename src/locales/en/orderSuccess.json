@@ -104,5 +104,50 @@
     "description": "Curated divine items to complement your order",
     "view": "View",
     "browseAll": "Browse All Sacred Items"
-  }
+  },
+  "pdf": {
+    "title": "MANTRA PUJA",
+    "subtitle": "Spiritual & Temple Offerings",
+    "email": "Email: support@mantrapuja.com",
+    "web": "Web: www.mantrapuja.com",
+    "invoice": "INVOICE",
+    "invoiceId": "Invoice ID: {{orderId}}",
+    "date": "Date: {{date}}",
+    "billTo": "BILL TO:",
+    "phone": "Phone: {{phone}}",
+    "emailLabel": "Email: {{email}}",
+    "paymentDetails": "PAYMENT DETAILS:",
+    "method": "Method: {{method}}",
+    "status": "Status: {{status}}",
+    "sacredItemDetails": "Sacred Item Details",
+    "qty": "Qty",
+    "price": "Price",
+    "amount": "Amount",
+    "subtotal": "Subtotal:",
+    "discount": "Discount ({{percent}}%):",
+    "shipping": "Shipping:",
+    "free": "FREE",
+    "tax": "Tax ({{percent}}%):",
+    "totalCharged": "Total Charged:",
+    "blessingsText": "May these sacred items bring peace, prosperity, and divine blessings to your home.",
+    "thankYou": "Thank You for shopping with Mantra Puja!",
+    "currency": "Rs."
+  },
+  "mock": {
+    "product1": "Panchmukhi Rudraksha",
+    "product2": "Brass Diya Set",
+    "badgePopular": "Popular",
+    "badgeNew": "New"
+  },
+  "alerts": {
+    "shareError": "Could not generate sharing link. Please try again.",
+    "shareFailed": "Sharing failed: {{error}}",
+    "downloadError": "Could not download invoice. Please try again."
+  },
+  "share": {
+    "title": "Mantra Puja Blessings",
+    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}/shop\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "fileName": "VidyaRudraksh-Blessings.jpg"
+  },
+  "loading": "Loading details..."
 }

@@ -1,0 +1,20 @@
+{
+  "pageTitle": "My Sacred Wishlist",
+  "pageDesc": "Your personal collection of energetic beads, hand-selected idols, and pure aromatics awaiting your puja altars.",
+  "emptyTitle": "Your Wishlist is empty",
+  "emptyDesc": "Tap the heart icon on any sacred items as you browse our spiritual shop collections.",
+  "browseBtn": "Browse Sacred Store",
+  "savedItemsCount_one": "Saved Spiritual Item (1)",
+  "savedItemsCount_other": "Saved Spiritual Items ({{count}})",
+  "backToShop": "Back to Shop",
+  "removeFromWishlist": "Remove from Wishlist",
+  "moveToCart": "Move To Cart",
+  "outOfStock": "Out of Stock",
+  "movedToCartSuccess": "\"{{name}}\" moved to cart successfully!",
+  "loading": "Loading...",
+  "tabTitle": "My Sacred Wishlist",
+  "tabDesc": "Items saved for special pujas, auspicious days, or gifting. Synced in real-time.",
+  "exploreBtn": "Explore Products",
+  "addToCart": "Add to Cart",
+  "addedAlert": "\"{{name}}\" added to cart from Wishlist!"
+}

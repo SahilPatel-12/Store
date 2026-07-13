@@ -1,18 +1,22 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Statically import Phase 1 namespaces to avoid rendering flashes on start
+// Statically import Phase 1, Home, & Category namespaces to avoid rendering flashes on start
 import enCommon from '../locales/en/common.json';
 import enNavbar from '../locales/en/navbar.json';
 import enFooter from '../locales/en/footer.json';
 import enLanguageSelector from '../locales/en/languageSelector.json';
 import enCartDrawer from '../locales/en/cartDrawer.json';
+import enCategory from '../locales/en/category.json';
+import enHome from '../locales/en/home.json';
 
 import hiCommon from '../locales/hi/common.json';
 import hiNavbar from '../locales/hi/navbar.json';
 import hiFooter from '../locales/hi/footer.json';
 import hiLanguageSelector from '../locales/hi/languageSelector.json';
 import hiCartDrawer from '../locales/hi/cartDrawer.json';
+import hiCategory from '../locales/hi/category.json';
+import hiHome from '../locales/hi/home.json';
 
 const resources = {
   en: {
@@ -21,6 +25,8 @@ const resources = {
     footer: enFooter,
     languageSelector: enLanguageSelector,
     cartDrawer: enCartDrawer,
+    category: enCategory,
+    home: enHome,
   },
   hi: {
     common: hiCommon,
@@ -28,13 +34,15 @@ const resources = {
     footer: hiFooter,
     languageSelector: hiLanguageSelector,
     cartDrawer: hiCartDrawer,
+    category: hiCategory,
+    home: hiHome,
   }
 };
 
 // Dynamic lazy-loaded resource cache
 const loadedBundles: Record<string, Record<string, boolean>> = {
-  en: { common: true, navbar: true, footer: true, languageSelector: true, cartDrawer: true },
-  hi: { common: true, navbar: true, footer: true, languageSelector: true, cartDrawer: true }
+  en: { common: true, navbar: true, footer: true, languageSelector: true, cartDrawer: true, category: true, home: true },
+  hi: { common: true, navbar: true, footer: true, languageSelector: true, cartDrawer: true, category: true, home: true }
 };
 
 // Map of dynamic lazy-loaded namespaces for future phases
@@ -62,7 +70,7 @@ void i18n
     lng: 'en', // Default language, sync'd by LanguageProvider on start
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'navbar', 'footer', 'languageSelector', 'cartDrawer'],
+    ns: ['common', 'navbar', 'footer', 'languageSelector', 'cartDrawer', 'category', 'home'],
     interpolation: {
       escapeValue: false, // React already escapes values
     },

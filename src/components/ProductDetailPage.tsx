@@ -7,6 +7,7 @@ import { uploadToR2 } from '../lib/cloudflare/r2';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { CompressionStatusWidget } from '../lib/mediaCompressor';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -3372,6 +3373,8 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
   activeProducts,
   onViewDetails
 }) => {
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
   const [videoReviews, setVideoReviews] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -3737,7 +3740,7 @@ const VidyaCustomerStoriesSection: React.FC<VidyaCustomerStoriesSectionProps> = 
         }
       `}</style>
       <div className="vidya-stories-container">
-        <h2 className="vidya-stories-heading">Our Devotees' Most Loved Blessings</h2>
+        <h2 className="vidya-stories-heading">{isHindi ? "हमारे श्रद्धालुओं के सबसे प्रिय आशीर्वाद" : "Our Devotees' Most Loved Blessings"}</h2>
         
         <div className="vidya-stories-carousel-wrapper">
           {/* Navigation Buttons for Desktop */}
@@ -3915,6 +3918,155 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   mediaQueue = {},
   resolveMediaUrl,
 }) => {
+  const { language } = useLanguage();
+  const isHindi = language === 'hi';
+
+  const tDetail = (text: string | undefined | null): string => {
+    if (!text) return '';
+    if (!isHindi) return text;
+    const dictionary: Record<string, string> = {
+      // Maha Mrityunjaya
+      'Maha Mrityunjaya Havan': 'महामृत्युंजय हवन यज्ञ',
+      'Divine protective chanting & sacred fire offerings': 'दैवीय सुरक्षात्मक मंत्रोच्चार और पवित्र अग्नि आहुति',
+      'Sacred Vedic fire ritual for profound healing, longevity, and health alignment.': 'गहन उपचार, दीर्घायु और उत्तम स्वास्थ्य के लिए पवित्र वैदिक अग्नि अनुष्ठान।',
+      "The Maha Mrityunjaya ritual is one of the most powerful Vedic ceremonies. Performed by elite Banaras Acharyas, it invokes Lord Shiva's rejuvenating energy to dissolve chronic obstacles, restore physical vitality, and secure a protective shield for the performer's entire family.": "महामृत्युंजय अनुष्ठान सबसे शक्तिशाली वैदिक अनुष्ठानों में से एक है। बनारस के विशिष्ट आचार्यों द्वारा संपन्न यह अनुष्ठान पुराने रोगों और बाधाओं को दूर करने, शारीरिक ऊर्जा को पुनः जाग्रत करने और साधक के पूरे परिवार के लिए सुरक्षा कवच प्रदान करने हेतु भगवान शिव की कायाकल्प ऊर्जा का आह्वान करता है।",
+      'According to ancient Upanishadic scriptures, the Maha Mrityunjaya mantra represents the conquering of cosmic fears and physical decay, restoring energetic flow to the performer.': 'प्राचीन उपनिषद ग्रंथों के अनुसार, महामृत्युंजय मंत्र ब्रह्मांडीय भय और शारीरिक क्षय पर विजय का प्रतिनिधित्व करता है, जिससे साधक के भीतर सकारात्मक ऊर्जा का प्रवाह पुनः स्थापित होता है।',
+      '1. Enter the full name, Gotra, and Nakshatra of the performer.\n2. Sit facing East during the live stream session.\n3. Keep a copper plate and fresh flowers near you for Sankalpa.': '1. साधक का पूरा नाम, गोत्र और नक्षत्र दर्ज करें।\n2. लाइव स्ट्रीम सत्र के दौरान पूर्व दिशा की ओर मुख करके बैठें।\n3. संकल्प के लिए अपने पास तांबे की थाली और ताजे फूल रखें।',
+      'Ganesh Ambika Pujan': 'गणेश अंबिका पूजन',
+      'Initial invocation for obstacle removal.': 'बाधाओं को दूर करने के लिए प्रारंभिक आह्वान।',
+      'Shiva Linga Abhishek': 'शिवलिंग अभिषेक',
+      'Aromatic milk and honey offering to the Shiva Linga.': 'शिवलिंग पर सुगंधित दूध और शहद की आहुति।',
+      'Maha Mrityunjaya Mantra Jaap (11000 chants)': 'महामृत्युंजय मंत्र जाप (11000 जप)',
+      'Chanting for positive cell healing.': 'सकारात्मक कोशिकीय उपचार के लिए मंत्र जाप।',
+      'Purnahuti Havan': 'पूर्णाहुति हवन',
+      'Sacred offerings into the holy fire.': 'पवित्र अग्नि में अंतिम आहुतियां।',
+      'Ganga Jal (Purified Ganges Water)': 'गंगा जल (पवित्र गंगाजल)',
+      '1 Bottle': '1 बोतल',
+      'Holy water for home purification.': 'घर की शुद्धि के लिए पवित्र जल।',
+      'Maha Mrityunjaya Herbs Blend': 'महामृत्युंजय जड़ी-बूटी मिश्रण',
+      '250g': '250 ग्राम',
+      'Sacred organic herbs for Havan.': 'हवन के लिए पवित्र जैविक जड़ी-बूटियाँ।',
+      'Sacred Bilva Leaves': 'पवित्र बिल्व पत्र',
+      '108 Pcs': '108 नग',
+      'Offerings to Shiva Linga.': 'शिवलिंग पर अर्पित करने के लिए।',
+      'Premium Cow Ghee': 'प्रीमियम गाय का घी',
+      '500ml': '500 मिलीलीटर',
+      'Pure clarified butter.': 'शुद्ध स्पष्ट मक्खन (घी)।',
+      'Acharya Somnath Shastri': 'आचार्य सोमनाथ शास्त्री',
+      '18+ Years': '18+ वर्ष',
+      'Specialist in Vedic Rigveda rituals, holding a Doctorate in Sanskrit Scriptures from Banaras Hindu University.': 'बनारस हिंदू विश्वविद्यालय से संस्कृत शास्त्रों में डॉक्टरेट की उपाधि प्राप्त, वैदिक ऋग्वेद अनुष्ठानों के विशेषज्ञ।',
+      'Veda Acharya': 'वेदाचार्य',
+      'Can I attend the puja remotely?': 'क्या मैं दूर से पूजा में भाग ले सकता हूँ?',
+      'Yes, a live secure video broadcast is provided, and the priest will take your Sankalpa by reciting your name and Nakshatra.': 'हाँ, एक सुरक्षित लाइव वीडियो प्रसारण प्रदान किया जाता, और पंडित जी आपका नाम और नक्षत्र बोलकर आपका संकल्प लेंगे।',
+      'What do I get in the Prasad box?': 'प्रसाद बॉक्स में मुझे क्या मिलेगा?',
+      'An energized Shiva Kavach pendant, pure Varanasi Bhasma, Dry fruits prasad, and sacred Kalava string.': 'एक सिद्ध शिव कवच पेंडेंट, शुद्ध वाराणसी भस्म, सूखे मेवों का प्रसाद और पवित्र कलावा धागा।',
+      'Vedic Purity & Authenticity Seal': 'वैदिक शुद्धता और प्रामाणिकता की मुहर',
+      'Varanasi Sanskrit Parishad': 'वाराणसी संस्कृत परिषद',
+      // Kanakdhara
+      'Kanakdhara Lakshmi Havan': 'कनकधारा लक्ष्मी हवन यज्ञ',
+      "Adi Shankaracharya's sacred hymns for luxury and fortune": 'ऐश्वर्य और सौभाग्य के लिए आदि शंकराचार्य के पवित्र स्तोत्र',
+      'Auspicious gold-showering ritual for financial prosperity, business growth, and abundance.': 'वित्तीय समृद्धि, व्यावसायिक वृद्धि और बहुतायत के लिए शुभ स्वर्ण-वर्षा अनुष्ठान।',
+      'Kanakdhara is a celebrated Vedic worship designed to remove financial constraints. By chanting the 18 golden verses of Adi Shankaracharya and making honey-drenched offerings to Goddess Lakshmi, this puja unlocks stagnant fortunes, stabilizes business earnings, and fills the home with material abundance.': 'कनकधारा वित्तीय बाधाओं को दूर करने के लिए एक प्रसिद्ध वैदिक पूजा है। आदि शंकराचार्य के 18 स्वर्ण श्लोकों का पाठ करके और देवी लक्ष्मी को शहद से लथपथ आहुति देकर, यह पूजा रुकी हुई संपत्ति को सुचारू करती है, व्यावसायिक आय को स्थिर करती है और घर को भौतिक समृद्धि से भर देती है।',
+      "Kanakdhara translates to 'shower of gold.' It traces back to Adi Shankaracharya invoking Goddess Lakshmi to rain golden amlas for a poor household, aligning the home with wealth consciousness.": "कनकधारा का अनुवाद 'सोने की वर्षा' है। यह आदि शंकराचार्य द्वारा एक गरीब परिवार के लिए सोने के आंवलों की वर्षा करने हेतु देवी लक्ष्मी का आह्वान करने से जुड़ा है, जो घर को धन चेतना के साथ संरेखित करता है।",
+      '1. Share your business name and family details.\n2. Keep your safe locker or ledger book open during worship.\n3. Recite Kanakdhara Stotram along with the priest if possible.': '1. अपने व्यवसाय का नाम और परिवार का विवरण साझा करें।\n2. पूजा के दौरान अपनी तिजोरी या बहीखाता खुला रखें।\n3. यदि संभव हो तो पंडित जी के साथ कनकधारा स्तोत्र का पाठ करें।',
+      'Gauri Ganesh Puja': 'गौरी गणेश पूजा',
+      'Seeking blessings for initial auspiciousness.': 'प्रारंभिक शुभता के लिए आशीर्वाद मांगना।',
+      "Kanakdhara Stotram Chanting (18 times)": 'कनकधारा स्तोत्र पाठ (18 बार)',
+      "Chanting Adi Shankaracharya's powerful wealth hymns.": 'आदि शंकराचार्य के शक्तिशाली धन स्तोत्रों का पाठ।',
+      'Lotus Seed Havan': 'कमलगट्टा हवन',
+      'Lotus seed and honey offerings to the sacrificial fire.': 'यज्ञ की अग्नि में कमलगट्टा और शहद की आहुति।',
+      'Lakshmi Aarti & Archana': 'लक्ष्मी आरती और अर्चना',
+      'Devotional offering of camphor and deep.': 'कपूर और दीप की भक्तिमय आहुति।',
+      'Premium Lotus Seeds (Kamalgatta)': 'प्रीमियम कमलगट्टा',
+      'Organic Saffron & Honey': 'ऑर्गेनिक केसर और शहद',
+      '50g': '50 ग्राम',
+      'Sacred sweet offerings for Havan.': 'हवन के लिए पवित्र मीठी आहुति।',
+      'Energized Kanakdhara Yantra': 'सिद्ध कनकधारा यंत्र',
+      'Copper yantra for wealth stability.': 'धन की स्थिरता के लिए तांबे का यंत्र।',
+      'Yellow Mustard Seeds': 'पीली सरसों के बीज',
+      '100g': '100 ग्राम',
+      'For protection and prosperity.': 'सुरक्षा और समृद्धि के लिए।',
+      'Acharya Vidyadhar Dwivedi': 'आचार्य विद्याधर द्विवेदी',
+      '14 Years': '14 वर्ष',
+      'Expert scholar from Shri Jagannath Sanskrit Vishvavidyalaya specializing in Lakshmi rituals.': 'श्री जगन्नाथ संस्कृत विश्वविद्यालय के विशेषज्ञ विद्वान, जो लक्ष्मी अनुष्ठानों में विशेषज्ञता रखते हैं।',
+      'Jyotish & Karma Kanda Shastri': 'ज्योतिष एवं कर्मकांड शास्त्री',
+      'Where should I keep the Kanakdhara Yantra?': 'मुझे कनकधारा यंत्र कहाँ रखना चाहिए?',
+      'Keep it in your home temple, cash box, or office locker facing East.': 'इसे अपने घर के मंदिर, कैश बॉक्स या कार्यालय की तिजोरी में पूर्व दिशा की ओर रखें।',
+      'Is business presence required?': 'क्या व्यवसाय की भौतिक उपस्थिति आवश्यक है?',
+      'No, the priest will invoke your business name during the Sankalpa process.': 'नहीं, पंडित जी संकल्प प्रक्रिया के दौरान आपके व्यवसाय के नाम का आह्वान करेंगे।',
+      'Sri Chakra Purity Guarantee': 'श्री चक्र शुद्धता गारंटी',
+      'Shankaracharya Vedic Parishad': 'शंकराचार्य वैदिक परिषद',
+      // Satyanarayan
+      'Satyanarayan Katha & Havan': 'सत्यनारायण कथा और हवन यज्ञ',
+      'Divine narrations and offering to Lord Vishnu': 'भगवान विष्णु को दिव्य आख्यान और आहुति',
+      'Sacred monthly worship for domestic peace, happy relationships, and general well-being.': 'घरेलू शांति, सुखद संबंधों और सामान्य कल्याण के लिए पवित्र मासिक पूजा।',
+      'Performing the Satyanarayan Puja invites peace, harmony, and positivity into your living space. The ceremony features the recitation of the five chapters of Sri Satyanarayan Vrat Katha, invoking Lord Vishnu to cleanse negative family energies, bless new ventures, and promote domestic stability.': 'सत्यनारायण पूजा करने से आपके रहने के स्थान में शांति, सद्भाव और सकारात्मकता आती है। इस समारोह में श्री सत्यनारायण व्रत कथा के पांच अध्यायों का पाठ शामिल है, जिसमें भगवान विष्णु से परिवार की नकारात्मक ऊर्जाओं को शुद्ध करने, नए उपक्रमों को आशीर्वाद देने और घरेलू स्थिरता को बढ़ावा देने का आह्वान किया जाता है।',
+      'Mentioned in the Skanda Purana, this worship represents devotion to Satya (Truth) as the ultimate manifestation of Lord Vishnu, blessing the home with peaceful relations.': 'स्कंद पुराण में उल्लिखित, यह पूजा सत्य (सत्यता) के प्रति भक्ति का प्रतिनिधित्व करती है जो भगवान विष्णु का अंतिम रूप है, जिससे घर में शांतिपूर्ण संबंध बनते हैं।',
+      '1. Prepare a clean wooden platform (chowki) in your home.\n2. Arrange seasonal fruits, coconut, and fresh flowers.\n3. The Acharya will connect online to recite the holy Katha chapters.': '1. अपने घर में एक साफ लकड़ी की चौकी तैयार करें।\n2. मौसमी फल, नारियल और ताजे फूलों की व्यवस्था करें।\n3. आचार्य जी पवित्र कथा अध्यायों का पाठ करने के लिए ऑनलाइन जुड़ेंगे।',
+      'Panchadev Sthapana & Puja': 'पंचदेव स्थापना और पूजा',
+      'Installing and invoking main deities.': 'मुख्य देवताओं की स्थापना और आह्वान।',
+      'Satyanarayan Katha Recitation': 'सत्यनारायण कथा वाचन',
+      'Five chapters narrating Satyanarayan benefits.': 'सत्यनारायण पूजा के लाभों का वर्णन करने वाले पांच अध्याय।',
+      'Vishnu Sahasranama Chanting': 'विष्णु सहस्रनाम पाठ',
+      'Reciting 1000 names of Lord Vishnu.': 'भगवान विष्णु के 1000 नामों का पाठ।',
+      'Havan & Prasad Distribution': 'हवन और प्रसाद वितरण',
+      'Offering wheat Panjiri and final fire arati.': 'गेहूं की पंजीरी और अंतिम अग्नि आरती की पेशकश।',
+      'Sacred Tulsi Leaves': 'पवित्र तुलसी पत्र',
+      '51 Leaves': '51 पत्ते',
+      "Deity's favorite herbal offering.": 'देवताओं का पसंदीदा हर्बल प्रसाद।',
+      'Chana Dal & Haldi Powder': 'चना दाल और हल्दी पाउडर',
+      '100g each': '100 ग्राम प्रत्येक',
+      'Auspicious yellow color elements.': 'शुभ पीले रंग के तत्व।',
+      'Natural Sandalwood Paste': 'प्राकृतिक चंदन का पेस्ट',
+      'Fragrant paste for deity decoration.': 'देवता श्रृंगार के लिए सुगंधित पेस्ट।',
+      'Wheat Flour Prasad (Panjiri)': 'गेहूं के आटे का प्रसाद (पंजीरी)',
+      'Traditional Satyanarayan roasted offering.': 'पारंपरिक सत्यनारायण भुना हुआ प्रसाद।',
+      'Pandit Ramakant Joshi': 'पंडित रमाकांत जोशी',
+      '12 Years': '12 वर्ष',
+      'A traditional Uttarakhand Pandit specializing in Vishnu Stotras and monthly household vrat ceremonies.': 'एक पारंपरिक उत्तराखंड के पंडित जो विष्णु स्तोत्र और मासिक घरेलू व्रत समारोहों में विशेषज्ञता रखते हैं।',
+      'Karma Kanda Acharya': 'कर्मकांड आचार्य',
+      'Can I perform this on any day?': 'क्या मैं इसे किसी भी दिन कर सकता हूँ?',
+      'While Purnima is highly auspicious, it can be performed on any day to bring harmony.': 'हालांकि पूर्णिमा अत्यधिक शुभ होती है, लेकिन सद्भाव लाने के लिए इसे किसी भी दिन किया जा सकता है।',
+      'Badrinath Prasad Purity Seal': 'बद्रीनाथ प्रसाद शुद्धता मुहर',
+      'Himalayan Pujas Board': 'हिमालयन पूजा बोर्ड',
+      // General / Maha Pooja
+      'Sacred Maha Pooja': 'पवित्र महा पूजा',
+      'Maha Pooja': 'महा पूजा',
+      'Energized Vedic worship for prosperity and health': 'समृद्धि और स्वास्थ्य के लिए अभिमंत्रित वैदिक पूजा',
+      'Perform this premium blessed ritual to invoke positive cosmic vibrations.': 'सकारात्मक ब्रह्मांडीय तरंगों का आह्वान करने के लिए इस प्रीमियम अभिमंत्रित अनुष्ठान को करें।',
+      'This sacred ritual is performed by experienced Vedic priests under strict guidelines. It clears obstacles and brings divine harmony to your household.': 'यह पवित्र अनुष्ठान अनुभवी वैदिक पंडितों द्वारा सख्त नियमों के तहत किया जाता है। यह बाधाओं को दूर करता है और आपके परिवार में दिव्य सद्भाव लाता है।',
+      'According to the ancient scriptures, performing this ritual alignment cleanses negative energies and invokes divine blessings.': 'प्राचीन शास्त्रों के अनुसार, इस अनुष्ठान को करने से नकारात्मक ऊर्जाएं शुद्ध होती हैं और दिव्य आशीर्वाद प्राप्त होता है।',
+      '1. Enter the full name and Nakshatra of the performer.\n2. Keep a copper vessel with fresh water ready.\n3. The priest will call you at the scheduled time to take Sankalpa.': '1. साधक का पूरा नाम और नक्षत्र दर्ज करें।\n2. ताजे पानी से भरा तांबे का पात्र तैयार रखें।\n3. संकल्प के लिए निर्धारित समय पर पंडित जी आपसे संपर्क करेंगे।',
+      'Ganesh Sthapana & Puja': 'गणेश स्थापना और पूजा',
+      'Invoking Lord Ganesha to remove obstacles.': 'बाधाओं को दूर करने के लिए भगवान गणेश का आह्वान।',
+      'Mantra Jaap & Archana': 'मंत्र जाप और अर्चना',
+      'Chanting divine mantras with offerings of flowers.': 'फूलों के चढ़ावे के साथ दिव्य मंत्रों का जाप।',
+      '15 Mins': '15 मिनट',
+      '45 Mins': '45 मिनट',
+      'Gangajal': 'गंगाजल',
+      'Vedic Herbs (Havan Samagri)': 'वैदिक जड़ी-बूटियाँ (हवन सामग्री)',
+      'Acharya Rajesh Shastri': 'आचार्य राजेश शास्त्री',
+      '15+ Years': '15+ वर्ष',
+      'Highly trained scholar from Banaras Hindu University specializing in Rigveda rituals.': 'बनारस हिंदू विश्वविद्यालय से उच्च प्रशिक्षित विद्वान, जो ऋग्वेद अनुष्ठानों में विशेषज्ञ हैं।',
+      'Vedic Acharya': 'वैदिक आचार्य',
+      'Will I get the Prasad?': 'क्या मुझे प्रसाद मिलेगा?',
+      'Yes, the energized Prasad will be shipped directly to your delivery address.': 'हाँ, सिद्ध प्रसाद सीधे आपके वितरण पते पर भेज दिया जाएगा।',
+      'Can I attend the puja online?': 'हाँ, दूरस्थ उपस्थित लोगों के लिए एक सुरक्षित वीडियो कॉलिंग लिंक प्रदान किया जाता है।',
+      'Vedic Blessed': 'वैदिक आशीर्वाद प्राप्त',
+      // Additional
+      'This sacred ritual possesses deep Vedic significance. Recitation of its mantras brings deep peace, spiritual elevation, and divine blessings to the home.': 'इस पवित्र अनुष्ठान का गहरा वैदिक महत्व है। इसके मंत्रों का पाठ घर में गहरी शांति, आध्यात्मिक उन्नति और दैवीय आशीर्वाद लाता है।',
+      'Describe the activities performed in this Vedic ritual step...': 'इस वैदिक अनुष्ठान चरण में की जाने वाली गतिविधियों का वर्णन करें...',
+      'Explain significance/origin...': 'महत्व/उत्पत्ति स्पष्ट करें...',
+      'Provide devotee booking and performance instructions...': 'श्रद्धालु बुकिंग और अनुष्ठान निर्देश प्रदान करें...',
+      'Write a short spiritual bio of the priest...': 'पंडित जी का एक संक्षिप्त आध्यात्मिक जीवन परिचय लिखें...',
+      'FAQ Question': 'FAQ प्रश्न',
+      'FAQ Answer': 'FAQ उत्तर',
+      '1 Unit': '1 नग',
+      'Sacred material blessed during the pooja.': 'पूजा के दौरान अभिमंत्रित पवित्र सामग्री।'
+    };
+    return dictionary[text.trim()] || text;
+  };
+
   const resolveMediaUrlLocal = (url?: string) => {
     if (resolveMediaUrl && url) {
       return resolveMediaUrl(url);
@@ -3936,7 +4088,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = React.useState<number>(0);
   const [duration, setDuration] = React.useState<number>(0);
-  const [isPlaying, setIsPlaying] = React.useState<boolean>(true);
+  const [_isPlaying, setIsPlaying] = React.useState<boolean>(true);
 
   React.useEffect(() => {
     setZoomLevel(1);
@@ -5514,7 +5666,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   }}>
                     <ShieldCheck size={14} style={{ color: 'var(--primary-lime)' }} />
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                      100% Temple Blessed & Energized
+                      {isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं प्राण प्रतिष्ठित" : "100% Temple Blessed & Energized"}
                     </span>
                   </div>
 
@@ -5616,7 +5768,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   zIndex: 10
                 }}>
                   <ShieldCheck size={16} style={{ color: 'var(--primary-lime)' }} />
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>100% Temple Blessed & Energized</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>{isHindi ? "100% मंदिर द्वारा अभिमंत्रित एवं प्राण प्रतिष्ठित" : "100% Temple Blessed & Energized"}</span>
                 </div>
               )}
             </div>
@@ -6074,7 +6226,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     textAlign: 'center'
                   }}
                 >
-                  Material & Dimensions
+                  {isHindi ? "सामग्री एवं विवरण" : "Material & Dimensions"}
                 </button>
                 <button
                   onClick={() => setActiveTab('shipping')}
@@ -6088,7 +6240,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     textAlign: 'center'
                   }}
                 >
-                  Shipping & Returns
+                  {isHindi ? "शिपिंग एवं वापसी" : "Shipping & Returns"}
                 </button>
               </div>
 
@@ -6097,7 +6249,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 {activeTab === 'specs' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Material</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{isHindi ? "सामग्री" : "Material"}</span>
                       <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
                         {editable ? (
                           <InlineEdit
@@ -6111,7 +6263,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Weight</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{isHindi ? "वजन" : "Weight"}</span>
                       <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
                         {editable ? (
                           <InlineEdit
@@ -6125,7 +6277,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem', paddingBottom: '8px', borderBottom: '1px solid var(--border-light)' }}>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Dimensions</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{isHindi ? "माप (डाइमेंशन्स)" : "Dimensions"}</span>
                       <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
                         {editable ? (
                           <InlineEdit
@@ -6139,7 +6291,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', fontSize: '0.88rem' }}>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Origin</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{isHindi ? "उत्पत्ति" : "Origin"}</span>
                       <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>
                         {editable ? (
                           <InlineEdit
@@ -6157,13 +6309,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dark)', fontWeight: 600 }}>
                       <Clock size={16} style={{ color: 'var(--primary-lime)' }} />
-                      Fast Delivery: Shipped within 24-48 hours. Delivered in 3-5 business days.
+                      {isHindi ? "त्वरित वितरण: 24-48 घंटों के भीतर प्रेषित। 3-5 कार्य दिवसों में वितरित।" : "Fast Delivery: Shipped within 24-48 hours. Delivered in 3-5 business days."}
                     </p>
                     <p>
-                      Every spiritual item is packed carefully in sanitized cushions to maintain sacred purity and avoid transit damages.
+                      {isHindi ? "पवित्रता बनाए रखने और परिवहन के दौरान होने वाले नुकसान से बचाने के लिए प्रत्येक आध्यात्मिक सामग्री को कीटाणुरहित गद्देदार पैकिंग में सावधानीपूर्वक पैक किया जाता है।" : "Every spiritual item is packed carefully in sanitized cushions to maintain sacred purity and avoid transit damages."}
                     </p>
                     <p style={{ fontWeight: 600, color: 'var(--text-dark)' }}>
-                      Return Policy: Easy 7-day hassle-free returns on standard items if package is unopened and pristine.
+                      {isHindi ? "वापसी नीति: यदि पैकेज खुला न हो और मूल स्थिति में हो, तो मानक उत्पादों पर 7 दिनों की आसान और परेशानी मुक्त वापसी।" : "Return Policy: Easy 7-day hassle-free returns on standard items if package is unopened and pristine."}
                     </p>
                   </div>
                 )}
@@ -6582,7 +6734,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             {!isVidyaRudraksh && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>Quantity</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)' }}>{isHindi ? "मात्रा" : "Quantity"}</span>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -6604,7 +6756,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       onClick={() => setQuantity(prev => {
                         const limit = product?.purchaseLimit;
                         if (limit !== undefined && limit !== null && limit > 0 && prev >= limit) {
-                          alert(`You can only purchase a maximum of ${limit} units of this product per order.`);
+                          alert(isHindi ? `आप इस उत्पाद की अधिकतम ${limit} इकाइयाँ ही प्रति ऑर्डर खरीद सकते हैं।` : `You can only purchase a maximum of ${limit} units of this product per order.`);
                           return prev;
                         }
                         return prev + 1;
@@ -6618,7 +6770,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
                 {/* Dynamic total feedback */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total Cost</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{isHindi ? "कुल लागत" : "Total Cost"}</span>
                   <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-forest)' }}>
                     ₹{totalPrice.toFixed(2)}
                   </span>
@@ -6650,7 +6802,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         fontSize: '0.9rem',
                         gap: '8px'
                       }}>
-                        <span>1 Item in Cart (Limit 1)</span>
+                        <span>{isHindi ? "कार्ट में 1 उत्पाद (सीमा 1)" : "1 Item in Cart (Limit 1)"}</span>
                       </div>
                     );
                   }
@@ -6695,7 +6847,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                         fontSize: '0.95rem',
                         userSelect: 'none'
                       }}>
-                        {qty} in Cart
+                        {isHindi ? `कार्ट में ${qty}` : `${qty} in Cart`}
                       </span>
                       <button
                         className="qty-plus-btn"
@@ -6742,7 +6894,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       boxSizing: 'border-box'
                     }}
                   >
-                    <ShoppingBag size={18} /> Add to Cart
+                    <ShoppingBag size={18} /> {isHindi ? "कार्ट में जोड़ें" : "Add to Cart"}
                   </button>
                 );
               })()}
@@ -6758,7 +6910,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   transition: 'opacity 0.15s'
                 }}
               >
-                Buy Now
+                {isHindi ? "अभी खरीदें" : "Buy Now"}
               </button>
 
               <button
@@ -7172,7 +7324,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 border: '1px solid rgba(249, 115, 22, 0.15)'
               }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Info size={16} /> Spiritual Benefits & Blessings
+                <Info size={16} /> {isHindi ? "आद्यात्मिक लाभ एवं आशीर्वाद" : "Spiritual Benefits & Blessings"}
               </h3>
               <ul style={{ listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {(product.benefits || []).map((b, idx) => (
@@ -7270,7 +7422,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {!!pooja.spiritualSignificance && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('significance', <BookOpen size={22} />)} Spiritual Significance
+                        {renderSectionHeaderIcon('significance', <BookOpen size={22} />)} {isHindi ? "आध्यात्मिक महत्व" : "Spiritual Significance"}
                       </h2>
                       <div style={{
                         backgroundColor: '#ffffff',
@@ -7292,7 +7444,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                             style={{ width: '100%' }}
                           />
                         ) : (
-                          pooja.spiritualSignificance
+                          tDetail(pooja.spiritualSignificance)
                         )}
                       </div>
                     </div>
@@ -7302,7 +7454,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {(Array.isArray(pooja.ritualsIncluded) && pooja.ritualsIncluded.length > 0) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('rituals', <Calendar size={22} />)} Rituals & Vedic Steps Included ({pooja.ritualsIncluded?.length || 0})
+                        {renderSectionHeaderIcon('rituals', <Calendar size={22} />)} {isHindi ? `शामिल अनुष्ठान एवं वैदिक चरण (${pooja.ritualsIncluded?.length || 0})` : `Rituals & Vedic Steps Included (${pooja.ritualsIncluded?.length || 0})`}
                       </h2>
                       <div style={{
                         backgroundColor: '#ffffff',
@@ -7363,7 +7515,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                         placeholder="Ritual step name"
                                       />
                                     ) : (
-                                      ritual.name
+                                      tDetail(ritual.name)
                                     )}
                                   </h3>
                                   <span style={{
@@ -7424,7 +7576,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                     placeholder="Describe the activities performed in this Vedic ritual step..."
                                   />
                                 ) : (
-                                  ritual.description
+                                  tDetail(ritual.description)
                                 )}
                               </p>
                             </div>
@@ -7463,7 +7615,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {(Array.isArray(pooja.samagriList) && pooja.samagriList.length > 0) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('samagri', <Award size={22} />)} Sacred Samagri (Included Ingredients)
+                        {renderSectionHeaderIcon('samagri', <Award size={22} />)} {isHindi ? "पवित्र पूजन सामग्री (शामिल सामग्रियां)" : "Sacred Samagri (Included Ingredients)"}
                       </h2>
                       <div style={{
                         display: 'grid',
@@ -7517,7 +7669,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                     placeholder="Ingredient"
                                   />
                                 ) : (
-                                  samagri.name
+                                  tDetail(samagri.name)
                                 )}
                               </span>
                               <span style={{
@@ -7539,7 +7691,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                     placeholder="e.g. 1 unit"
                                   />
                                 ) : (
-                                  samagri.quantity
+                                  tDetail(samagri.quantity)
                                 )}
                               </span>
                             </div>
@@ -7556,7 +7708,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   placeholder="Explain significance/origin..."
                                 />
                               ) : (
-                                samagri.description
+                                tDetail(samagri.description)
                               )}
                             </div>
                           </div>
@@ -7597,7 +7749,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {!!pooja.bookingInstructions && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('guidelines', <Info size={22} />)} Booking & Performance Guidelines
+                        {renderSectionHeaderIcon('guidelines', <Info size={22} />)} {isHindi ? "बुकिंग एवं अनुष्ठान दिशानिर्देश" : "Booking & Performance Guidelines"}
                       </h2>
                       <div style={{
                         backgroundColor: 'var(--primary-lime-light)',
@@ -7619,7 +7771,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                             style={{ width: '100%' }}
                           />
                         ) : (
-                          pooja.bookingInstructions
+                          tDetail(pooja.bookingInstructions)
                         )}
                       </div>
                     </div>
@@ -7634,7 +7786,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {(pooja.priestDetails && typeof pooja.priestDetails === 'object' && Object.keys(pooja.priestDetails).length > 0 && (pooja.priestDetails as any).name) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('priest', <User size={22} />)} Assigned Priest Details
+                        {renderSectionHeaderIcon('priest', <User size={22} />)} {isHindi ? "नियुक्त पंडित जी का विवरण" : "Assigned Priest Details"}
                       </h2>
                       <div style={{
                         backgroundColor: '#ffffff',
@@ -7742,7 +7894,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                 placeholder="Priest Name"
                               />
                             ) : (
-                              pooja.priestDetails?.name
+                              tDetail(pooja.priestDetails?.name || '')
                             )}
                           </h3>
 
@@ -7758,7 +7910,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   placeholder="Qualification"
                                 />
                               ) : (
-                                pooja.priestDetails?.qualification
+                                tDetail(pooja.priestDetails?.qualification || '')
                               )}
                             </span>
                           )}
@@ -7776,8 +7928,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   placeholder="e.g. 15 Years"
                                 />
                               ) : (
-                                pooja.priestDetails?.experience
-                              )} of Vedic Rituals
+                                tDetail(pooja.priestDetails?.experience || '')
+                              )}{isHindi ? " का वैदिक अनुष्ठानों का अनुभव" : " of Vedic Rituals"}
                             </span>
                           )}
 
@@ -7794,7 +7946,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   placeholder="Write a short spiritual bio of the priest..."
                                 />
                               ) : (
-                                pooja.priestDetails?.bio
+                                tDetail(pooja.priestDetails?.bio || '')
                               )}
                             </p>
                           )}
@@ -7807,7 +7959,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {(Array.isArray(pooja.faqs) && pooja.faqs.length > 0) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        🕉️ Frequently Asked Questions
+                        {isHindi ? "🕉️ सामान्यतः पूछे जाने वाले प्रश्न (FAQ)" : "🕉️ Frequently Asked Questions"}
                       </h2>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {(pooja.faqs || []).map((faq, idx) => {
@@ -7846,7 +7998,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                       placeholder="FAQ Question"
                                     />
                                   ) : (
-                                    faq.question
+                                    tDetail(faq.question)
                                   )}
                                 </span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -7899,7 +8051,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                       placeholder="FAQ Answer"
                                     />
                                   ) : (
-                                    faq.answer
+                                    tDetail(faq.answer)
                                   )}
                                 </div>
                               )}
@@ -7938,7 +8090,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {(editable || (Array.isArray(pooja.certificates) && pooja.certificates.length > 0)) && (
                     <div>
                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-forest)', marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-                        {renderSectionHeaderIcon('cert', <ShieldCheck size={22} style={{ color: 'var(--primary-lime)' }} />)} Authenticity & Certification
+                        {renderSectionHeaderIcon('cert', <ShieldCheck size={22} style={{ color: 'var(--primary-lime)' }} />)} {isHindi ? "प्रामाणिकता एवं प्रमाणन" : "Authenticity & Certification"}
                       </h2>
                       <div style={{
                         backgroundColor: '#ffffff',
@@ -8069,7 +8221,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   {/* Step Content */}
                                   <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
                                     <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-dark)', lineHeight: '1.4' }}>
-                                      {cert.name}
+                                      {tDetail(cert.name)}
                                     </span>
                                   </div>
                                 </div>
@@ -8175,7 +8327,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               ) : (
                 <div style={{ textAlign: 'left' }}>
                   <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> Verified Devotee Reviews
+                    <MessageSquare size={20} style={{ color: 'var(--primary-lime)' }} /> {isHindi ? "सत्यापित भक्तों की समीक्षाएं" : "Verified Devotee Reviews"}
                   </h2>
 
                   <div style={{
@@ -8185,8 +8337,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   }}>
                     {reviews.length === 0 ? (
                       <div style={{ padding: '30px', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)', backgroundColor: '#fafafa', gridColumn: '1 / -1' }}>
-                        <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>No reviews yet for this product.</p>
-                        {editable && <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>Be the first to share a blessing review on the right!</p>}
+                        <p style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>{isHindi ? "इस उत्पाद के लिए अभी तक कोई समीक्षा नहीं है।" : "No reviews yet for this product."}</p>
+                        {editable && <p style={{ fontSize: '0.78rem', marginTop: '4px', margin: '4px 0 0' }}>{isHindi ? "दाहिनी ओर पहला आशीर्वाद समीक्षा साझा करने वाले बनें!" : "Be the first to share a blessing review on the right!"}</p>}
                       </div>
                     ) : (
                       reviews.map((rev) => (
@@ -8242,7 +8394,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                       }}
                                       title="Verified Devotee Purchase"
                                     >
-                                      ✓ Verified
+                                      {isHindi ? "✓ सत्यापित" : "✓ Verified"}
                                     </span>
                                   )}
                                 </div>
@@ -8616,7 +8768,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
         <div className="container">
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', textAlign: 'left' }}>
-            Recommended Related Items
+            {isHindi ? "संबंधित अनुशंसित उत्पाद" : "Recommended Related Items"}
           </h2>
 
           {editable && (
@@ -9007,7 +9159,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                                   fontSize: '0.85rem',
                                   userSelect: 'none'
                                 }}>
-                                  {qty} in Cart
+                                  {isHindi ? `कार्ट में ${qty}` : `${qty} in Cart`}
                                 </span>
                                 <button
                                   className="qty-plus-btn"
@@ -9059,7 +9211,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                             >
-                              Add To Cart
+                              {isHindi ? "कार्ट में जोड़ें" : "Add To Cart"}
                             </button>
                           );
                         })()
@@ -9079,7 +9231,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                             cursor: 'not-allowed'
                           }}
                         >
-                          Out of Stock
+                          {isHindi ? "आउट ऑफ स्टॉक" : "Out of Stock"}
                         </button>
                       )}
                     </div>
@@ -9319,7 +9471,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               {discountPct === 100 || singleItemPrice === 1 ? (
                 <span className="limited-offer-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <Clock size={12} style={{ animation: 'clock-vibrate 3s infinite ease-in-out' }} />
-                  Limited Offer
+                  {isHindi ? "सीमित समय का ऑफर" : "Limited Offer"}
                 </span>
               ) : (
                 <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.78rem' }}>{discountPct}% OFF</span>
@@ -9344,7 +9496,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               boxShadow: '0 2px 4px rgba(251, 191, 36, 0.15)'
             }}
           >
-            Add to Cart
+            {isHindi ? "कार्ट में जोड़ें" : "Add to Cart"}
           </button>
           <button
             onClick={handleBuyNowClick}
@@ -9358,7 +9510,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               textTransform: 'uppercase'
             }}
           >
-            Buy Now
+            {isHindi ? "अभी खरीदें" : "Buy Now"}
           </button>
         </div>
       </div>

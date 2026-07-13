@@ -356,7 +356,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             .eq('locale', language)
             .maybeSingle();
           
-          const productName = productData?.name || 'a specific product';
+          const productName = productData?.name || t('summary.coupon.error.defaultProduct');
           setCouponMessage({ text: t('summary.coupon.error.product', { productName }), type: 'error' });
           onApplyCoupon('', 0, null);
           return;

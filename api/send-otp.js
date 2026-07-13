@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './_lib/supabase-admin.js';
-import { decryptTextServer } from './_lib/crypto-server.js';
+import { decryptTextServer, decryptTextWithCustomKey } from './_lib/crypto-server.js';
 import crypto from 'crypto';
 
 function getClientIp(req) {
@@ -90,7 +90,77 @@ export default async function handler(req, res) {
 
   try {
     // ==========================================
-    // WhatsApp Settings Config
+    // 1. Try MSG91 Gateway (Takes precedence if configured)
+    // ==========================================
+    const { data: msg91Data } = await supabaseAdmin
+      .from('website_settings')
+      .select('value')
+      .eq('key', 'msg91_settings')
+      .maybeSingle();
+
+    if (msg91Data?.value && msg91Data.value.encrypted_auth_key && msg91Data.value.encrypted_template_id) {
+      const msg91Val = msg91Data.value;
+      const rawKey = process.env.ENCRYPTION_STRING_KEY_ESG_91 || 'gk4ukWKg78THpQ170x0XY0aPl9';
+      let decryptedAuthKey, decryptedTemplateId;
+      try {
+        decryptedAuthKey = decryptTextWithCustomKey(msg91Val.encrypted_auth_key, msg91Val.auth_key_iv, msg91Val.auth_key_tag, rawKey);
+        decryptedTemplateId = decryptTextWithCustomKey(msg91Val.encrypted_template_id, msg91Val.template_id_iv, msg91Val.template_id_tag, rawKey);
+      } catch (decErr) {
+        console.error('[send-otp] MSG91 Decryption failed:', decErr);
+        return res.status(500).json({ error: 'Internal failure decrypting MSG91 configurations.' });
+      }
+
+      console.log('[send-otp] Firing MSG91 flow gateway request');
+      let gatewayStatus = 200;
+      let gatewayResponseText = '';
+      try {
+        const resGateway = await fetch('https://control.msg91.com/api/v5/flow/', {
+          method: 'POST',
+          headers: {
+            'authkey': decryptedAuthKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            template_id: decryptedTemplateId,
+            sender: msg91Val.senderId,
+            recipients: [
+              {
+                mobiles: formattedPhone,
+                VAR1: otp
+              }
+            ]
+          })
+        });
+        gatewayStatus = resGateway.status;
+        gatewayResponseText = await resGateway.text();
+      } catch (fetchErr) {
+        console.warn('[send-otp] MSG91 gateway request failed:', fetchErr.message);
+        const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development';
+        if (isDev) {
+          console.log('\n========================================');
+          console.log(`[DEV MODE OTP BYPASS (MSG91)]`);
+          console.log(`Phone: ${phone}`);
+          console.log(`Generated OTP: ${otp}`);
+          console.log('========================================\n');
+          gatewayStatus = 200;
+          gatewayResponseText = 'mock_dev_success';
+        } else {
+          throw fetchErr;
+        }
+      }
+
+      await logOtpRequest(formattedPhone, ipAddress);
+
+      return res.status(200).json({
+        success: true,
+        gatewayStatus,
+        message: 'OTP request processed via MSG91 SMS gateway.',
+        detail: gatewayResponseText
+      });
+    }
+
+    // ==========================================
+    // 2. Fallback: WhatsApp Settings Config
     // ==========================================
     const { data: waData } = await supabaseAdmin
       .from('website_settings')
@@ -147,41 +217,59 @@ export default async function handler(req, res) {
     let gatewayStatus = 200;
     let gatewayResponseText = '';
 
-    if (val.endpoint.includes('bhashsms.com')) {
-      const urlObj = new URL(val.endpoint);
-      urlObj.searchParams.set('pass', decryptedToken);
-      urlObj.searchParams.set('phone', formattedPhone);
-      urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
+    try {
+      if (val.endpoint.includes('bhashsms.com')) {
+        const urlObj = new URL(val.endpoint);
+        urlObj.searchParams.set('pass', decryptedToken);
+        urlObj.searchParams.set('phone', formattedPhone);
+        urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
 
-      console.log('[send-otp] Firing BhashSMS gateway request');
+        console.log('[send-otp] Firing BhashSMS gateway request');
+        
+        const resGateway = await fetch(urlObj.toString());
+        gatewayStatus = resGateway.status;
+        gatewayResponseText = await resGateway.text();
+      } else {
+        console.log('[send-otp] Firing POST gateway request');
+        const resGateway = await fetch(val.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedToken}`
+          },
+          body: JSON.stringify({
+            to: phone,
+            recipient: phone,
+            phone: phone,
+            message: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`,
+            body: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`
+          })
+        });
+        gatewayStatus = resGateway.status;
+        gatewayResponseText = await resGateway.text();
+      }
+
+      if (gatewayStatus === 200) {
+        console.log('[send-otp] WhatsApp gateway request completed successfully');
+      } else {
+        console.warn(`[send-otp] WhatsApp gateway rejected request. Status: ${gatewayStatus}`);
+      }
+    } catch (fetchErr) {
+      console.warn('[send-otp] WhatsApp gateway request failed:', fetchErr.message);
       
-      const resGateway = await fetch(urlObj.toString());
-      gatewayStatus = resGateway.status;
-      gatewayResponseText = await resGateway.text();
-    } else {
-      console.log('[send-otp] Firing POST gateway request');
-      const resGateway = await fetch(val.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${decryptedToken}`
-        },
-        body: JSON.stringify({
-          to: phone,
-          recipient: phone,
-          phone: phone,
-          message: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`,
-          body: `Your Mantra Puja authentication OTP is: ${otp}. Valid for 5 minutes.`
-        })
-      });
-      gatewayStatus = resGateway.status;
-      gatewayResponseText = await resGateway.text();
-    }
-
-    if (gatewayStatus === 200) {
-      console.log('[send-otp] WhatsApp gateway request completed successfully');
-    } else {
-      console.warn(`[send-otp] WhatsApp gateway rejected request. Status: ${gatewayStatus}`);
+      const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development';
+      if (isDev) {
+        console.log('\n========================================');
+        console.log(`[DEV MODE OTP BYPASS]`);
+        console.log(`Phone: ${phone}`);
+        console.log(`Generated OTP: ${otp}`);
+        console.log('========================================\n');
+        
+        gatewayStatus = 200;
+        gatewayResponseText = 'mock_dev_success';
+      } else {
+        throw fetchErr;
+      }
     }
     
     // Log request in rate limiting logs

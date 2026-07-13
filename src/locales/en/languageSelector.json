@@ -2,6 +2,8 @@
   "title": "Welcome to MantraPuja",
   "subtitle": "Select Your Language / भाषा का चयन करें",
   "english": "English",
+  "englishDesc": "Read & shop in English",
   "hindi": "हिंदी",
+  "hindiDesc": "हिंदी में पढ़ें और खरीदें",
   "footerNote": "You can change this preference at any time from the language switcher in the navigation bar."
 }

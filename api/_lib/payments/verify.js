@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '../supabase-admin.js';
 import { getRazorpayClient } from '../razorpay-client.js';
 import { decryptTextServer } from '../crypto-server.js';
+import { getPaymentEnvironment } from '../payment-environment.js';
 
 // Verify devotee session
 async function verifySession(token) {
@@ -71,6 +72,23 @@ export default async function handler(req, res) {
     // 6. Verify submitted Razorpay Order ID matches stored value
     if (order.razorpay_order_id !== razorpay_order_id) {
       return res.status(400).json({ error: 'Order ID mismatch: browser-provided ID does not match server-created ID.' });
+    }
+
+    // 6.5 Verify that order.razorpay_mode matches current PAYMENT_ENV configuration
+    let currentEnvMode;
+    try {
+      const { data: activation } = await supabaseAdmin
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'payment_activation_settings')
+        .maybeSingle();
+      currentEnvMode = getPaymentEnvironment(activation?.value?.razorpayMode);
+    } catch (envErr) {
+      return res.status(500).json({ error: envErr.message });
+    }
+
+    if (order.razorpay_mode !== currentEnvMode) {
+      return res.status(400).json({ error: `Bad Request: Environment mismatch. Order is configured for ${order.razorpay_mode} mode, but the server is running in ${currentEnvMode} mode.` });
     }
 
     // 7. Load Razorpay mode credentials and decrypt Key Secret

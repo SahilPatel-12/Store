@@ -59,7 +59,8 @@ export default async function handler(req, res) {
           lastVerifiedAt: null,
           isConfigured: false,
           activePaymentProvider: activation.activePaymentProvider,
-          legacyManualUpiEnabled: activation.legacyManualUpiEnabled
+          legacyManualUpiEnabled: activation.legacyManualUpiEnabled,
+          paymentEnv: process.env.PAYMENT_ENV || 'not_set'
         });
       }
 
@@ -72,7 +73,8 @@ export default async function handler(req, res) {
         lastVerifiedAt: config.last_verified_at,
         isConfigured: config.is_configured,
         activePaymentProvider: activation.activePaymentProvider,
-        legacyManualUpiEnabled: activation.legacyManualUpiEnabled
+        legacyManualUpiEnabled: activation.legacyManualUpiEnabled,
+        paymentEnv: process.env.PAYMENT_ENV || 'not_set'
       });
 
     } else if (req.method === 'POST') {

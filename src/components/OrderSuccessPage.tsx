@@ -42,7 +42,7 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
   }
 };
 
-const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
+const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -62,39 +62,39 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('MANTRA PUJA', 29, 21);
+    doc.text(t('pdf.title'), 29, 21);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(107, 114, 128); // gray-500
-    doc.text('Spiritual & Temple Offerings', 29, 26);
-    doc.text('Email: support@mantrapuja.com', 29, 30);
-    doc.text('Web: www.mantrapuja.com', 29, 34);
+    doc.text(t('pdf.subtitle'), 29, 26);
+    doc.text(t('pdf.email'), 29, 30);
+    doc.text(t('pdf.web'), 29, 34);
   } catch (e) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('MANTRA PUJA', 14, 20);
+    doc.text(t('pdf.title'), 14, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(107, 114, 128); // gray-500
-    doc.text('Spiritual & Temple Offerings', 14, 25);
-    doc.text('Email: support@mantrapuja.com', 14, 29);
-    doc.text('Web: www.mantrapuja.com', 14, 33);
+    doc.text(t('pdf.subtitle'), 14, 25);
+    doc.text(t('pdf.email'), 14, 29);
+    doc.text(t('pdf.web'), 14, 33);
   }
 
   // Header - Invoice Info (Right side)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text('INVOICE', 196, 20, { align: 'right' });
+  doc.text(t('pdf.invoice'), 196, 20, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
-  doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+  doc.text(t('pdf.invoiceId', { orderId: order.orderId }), 196, 26, { align: 'right' });
+  doc.text(t('pdf.date', { date: new Date(order.placedAt).toLocaleDateString('en-IN') }), 196, 31, { align: 'right' });
 
   // Divider Line
   doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
@@ -105,7 +105,7 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('BILL TO:', 14, 50);
+  doc.text(t('pdf.billTo'), 14, 50);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
@@ -115,8 +115,8 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(75, 85, 99); // gray-600
-  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
-  doc.text(`Email: ${order.email}`, 14, 64);
+  doc.text(t('pdf.phone', { phone: order.phoneNumber }), 14, 60);
+  doc.text(t('pdf.emailLabel', { email: order.email }), 14, 64);
   
   // Format long address nicely
   const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
@@ -127,18 +127,19 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('PAYMENT DETAILS:', 120, 50);
+  doc.text(t('pdf.paymentDetails'), 120, 50);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(75, 85, 99);
-  doc.text(`Method: ${order.paymentMethod}`, 120, 55);
+  doc.text(t('pdf.method', { method: order.paymentMethod }), 120, 55);
 
   let displayPaymentStatus = order.paymentStatus || 'Pending';
   if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
     displayPaymentStatus = 'Confirmed';
   }
-  doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
+  const translatedStatus = displayPaymentStatus === 'Confirmed' ? t('tracking.confirmed.time') : t('tracking.confirmedAwaiting.time');
+  doc.text(t('pdf.status', { status: translatedStatus }), 120, 59);
 
   // Table header background block
   let y = 85;
@@ -148,10 +149,10 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
-  doc.text('Sacred Item Details', 18, y + 5.5);
-  doc.text('Qty', 115, y + 5.5, { align: 'center' });
-  doc.text('Price', 150, y + 5.5, { align: 'right' });
-  doc.text('Amount', 190, y + 5.5, { align: 'right' });
+  doc.text(t('pdf.sacredItemDetails'), 18, y + 5.5);
+  doc.text(t('pdf.qty'), 115, y + 5.5, { align: 'center' });
+  doc.text(t('pdf.price'), 150, y + 5.5, { align: 'right' });
+  doc.text(t('pdf.amount'), 190, y + 5.5, { align: 'right' });
 
   y += 8; // move past header row
 
@@ -168,8 +169,8 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
     
     doc.text(item.product.name, 18, y + 5.5);
     doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
-    doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
-    doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
+    doc.text(`${t('pdf.currency')} ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
+    doc.text(`${t('pdf.currency')} ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
     
     y += 8;
   });
@@ -185,20 +186,20 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
 
-  doc.text('Subtotal:', labelX, y);
-  doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
+  doc.text(t('pdf.subtotal'), labelX, y);
+  doc.text(`${t('pdf.currency')} ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
 
   if (order.discount > 0) {
     doc.setTextColor(16, 185, 129); // green
-    doc.text(`Discount (${order.discountPercent}%):`, labelX, y);
-    doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.text(t('pdf.discount', { percent: order.discountPercent }), labelX, y);
+    doc.text(`-${t('pdf.currency')} ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     y += 6;
   }
 
-  doc.text('Shipping:', labelX, y);
-  doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
+  doc.text(t('pdf.shipping'), labelX, y);
+  doc.text(order.shipping === 0 ? t('pdf.free') : `${t('pdf.currency')} ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
 
   // Draw line for total
@@ -209,8 +210,8 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('Total Charged:', labelX, y);
-  doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+  doc.text(t('pdf.totalCharged'), labelX, y);
+  doc.text(`${t('pdf.currency')} ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 15;
 
   // Footer Blessings Box
@@ -228,12 +229,12 @@ const generateInvoiceDoc = async (order: OrderDetails): Promise<jsPDF> => {
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(9.5);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('May these sacred items bring peace, prosperity, and divine blessings to your home.', 105, footerY + 7, { align: 'center' });
+  doc.text(t('pdf.blessingsText'), 105, footerY + 7, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(107, 114, 128); // gray
-  doc.text('Thank you for shopping with Mantra Puja!', 105, footerY + 13, { align: 'center' });
+  doc.text(t('pdf.thankYou'), 105, footerY + 13, { align: 'center' });
 
   return doc;
 };
@@ -309,17 +310,20 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
 
   React.useEffect(() => {
     import('../lib/i18next').then(({ loadNamespaces }) => {
-      loadNamespaces(language, ['orderSuccess']).then(() => setIsReady(true));
+      Promise.all([
+        loadNamespaces(language, ['orderSuccess']),
+        loadNamespaces('en', ['orderSuccess'])
+      ]).then(() => setIsReady(true));
     });
   }, [language]);
 
   const suggestedProducts = React.useMemo(() => {
     if (!products || products.length === 0) {
       return [
-        { id: '1', name: 'Panchmukhi Rudraksha', price: 299, image: '📿', badge: 'Popular', product: null as any },
-        { id: '2', name: 'Brass Diya Set', price: 149, image: '🪔', badge: 'New', product: null as any },
-        { id: '3', name: 'Rose Incense Sticks', price: 89, image: '🌸', badge: 'Bestseller', product: null as any },
-        { id: '4', name: 'Shiva Kavach Yantra', price: 499, image: '🔱', badge: 'Divine', product: null as any },
+        { id: '1', name: t('mock.product1'), price: 299, image: '📿', badge: t('mock.badgePopular'), product: null as any },
+        { id: '2', name: t('mock.product2'), price: 149, image: '🪔', badge: t('mock.badgeNew'), product: null as any },
+        { id: '3', name: t('mock.product3', { defaultValue: 'Rose Incense Sticks' }), price: 89, image: '🌸', badge: t('mock.badgeBestseller', { defaultValue: 'Bestseller' }), product: null as any },
+        { id: '4', name: t('mock.product4', { defaultValue: 'Shiva Kavach Yantra' }), price: 499, image: '🔱', badge: t('mock.badgeDivine', { defaultValue: 'Divine' }), product: null as any },
       ];
     }
 
@@ -422,13 +426,14 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
 
   const handleDownloadInvoice = async () => {
     try {
-      const doc = await generateInvoiceDoc(order);
+      const tEn = (key: string, options?: any) => t(key, { ...options, lng: 'en' });
+      const doc = await generateInvoiceDoc(order, tEn);
       doc.save(`Invoice-${order.orderId}.pdf`);
       setInvoiceDownloaded(true);
       setTimeout(() => setInvoiceDownloaded(false), 3000);
     } catch (err) {
       console.error('Failed to download invoice:', err);
-      alert('Could not download invoice. Please try again.');
+      alert(t('alerts.downloadError'));
     }
   };
 
@@ -444,18 +449,11 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
         }).catch(() => {});
       } catch (e) {}
 
-      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
-      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
-
-बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
-
-🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
-${window.location.origin}/shop
-
-May divine blessings bring success and wisdom to your family! 📿🔱`;
+      const productName = order.items?.[0]?.product?.name || (language === 'hi' ? 'विद्या रुद्राक्ष' : 'Vidya Rudraksh');
+      const blessingText = t('share.blessingText', { productName, url: window.location.origin });
 
       const cardBlob = await createProductShareCard();
-      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+      const cardFile = new File([cardBlob], t('share.fileName'), { type: 'image/jpeg' });
 
       // Upload public sharing card to Cloudflare R2
       const publicUrl = await uploadToR2(cardFile, 'referrals', true);
@@ -473,7 +471,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
       }
     } catch (err) {
       console.error('Failed to share invoice:', err);
-      alert('Could not generate sharing link. Please try again.');
+      alert(t('alerts.shareError'));
     } finally {
       setIsSharing(false);
     }
@@ -491,24 +489,17 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
         }).catch(() => {});
       } catch (e) {}
 
-      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
-      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
-
-बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
-
-🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
-${window.location.origin}/shop
-
-May divine blessings bring success and wisdom to your family! 📿🔱`;
+      const productName = order.items?.[0]?.product?.name || (language === 'hi' ? 'विद्या रुद्राक्ष' : 'Vidya Rudraksh');
+      const blessingText = t('share.blessingText', { productName, url: window.location.origin });
 
       const cardBlob = await createProductShareCard();
-      const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
+      const cardFile = new File([cardBlob], t('share.fileName'), { type: 'image/jpeg' });
 
       // Try native share API with attached image file
       if (navigator.canShare && navigator.canShare({ files: [cardFile] })) {
         await navigator.share({
           files: [cardFile],
-          title: `Mantra Puja Blessings`,
+          title: t('share.title'),
           text: blessingText
         });
         return;
@@ -520,7 +511,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
 
       if (navigator.share) {
         await navigator.share({
-          title: `Mantra Puja Blessings`,
+          title: t('share.title'),
           text: fallbackText
         });
         return;
@@ -533,7 +524,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
       if (err?.name === 'AbortError') {
         return;
       }
-      alert(`Sharing failed: ${err?.message || String(err)}`);
+      alert(t('alerts.shareFailed', { error: err?.message || String(err) }));
       setShareExpanded(p => !p);
     } finally {
       setIsSharing(false);
@@ -543,7 +534,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
   if (!isReady) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
-        <p>{language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}</p>
+        <p>{t('loading')}</p>
       </div>
     );
   }

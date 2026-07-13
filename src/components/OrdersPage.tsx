@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Package,
   Clock,
@@ -253,6 +254,17 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   orders,
   setOrders,
 }) => {
+  const { t, i18n } = useTranslation(['profile', 'common', 'shop']);
+  const language = i18n.language || 'en';
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['profile', 'shop', 'common']).then(() => setIsReady(true));
+    });
+  }, [language]);
+
+
 
   // Filter Tabs State
   const [filterTab, setFilterTab] = React.useState<'All' | 'Active' | 'Completed' | 'Cancelled'>('All');
@@ -433,6 +445,19 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
     });
   }, [orders, filterTab]);
 
+  if (!isReady) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' }}>
+        <div className="flex-col-center">
+          <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin-anim 1s linear infinite' }} />
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '12px', fontWeight: 600 }}>
+            {t('orders.loading', { defaultValue: 'Loading devotional orders...' })}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
 
   // Reorder Products: adds all products to cart and navigates to cart
   const handleReorder = (order: LocalOrder) => {
@@ -552,18 +577,18 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
 
   const getStatusColor = (order: LocalOrder) => {
     if (order.status === 'Cancelled') {
-      return { bg: '#fee2e2', text: '#dc2626', icon: <XCircle size={14} />, label: 'Cancelled' };
+      return { bg: '#fee2e2', text: '#dc2626', icon: <XCircle size={14} />, label: t('orders.actions.cancelled', { defaultValue: 'Cancelled' }) };
     }
     if ((order.paymentMethod === 'Scan & Pay (UPI)' || order.paymentMethod === 'Razorpay') && order.paymentStatus !== 'Confirmed') {
-      return { bg: '#fff7ed', text: '#c2410c', icon: <Clock size={14} />, label: 'Payment Pending' };
+      return { bg: '#fff7ed', text: '#c2410c', icon: <Clock size={14} />, label: t('orders.actions.pendingUpi', { defaultValue: 'Payment Pending' }) };
     }
     switch (order.status) {
       case 'Delivered':
-        return { bg: '#dcfce7', text: '#15803d', icon: <CheckCircle size={14} />, label: 'Delivered' };
+        return { bg: '#dcfce7', text: '#15803d', icon: <CheckCircle size={14} />, label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }) };
       case 'Shipped':
-        return { bg: '#dbeafe', text: '#1d4ed8', icon: <Truck size={14} />, label: 'Shipped' };
+        return { bg: '#dbeafe', text: '#1d4ed8', icon: <Truck size={14} />, label: t('orders.tracking.dispatched', { defaultValue: 'Shipped' }) };
       default:
-        return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)', icon: <Clock size={14} />, label: 'Preparing Package' };
+        return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)', icon: <Clock size={14} />, label: t('orders.actions.preparingPackage', { defaultValue: 'Preparing Package' }) };
     }
   };
 
@@ -638,13 +663,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                   marginBottom: '12px'
                 }}
               >
-                <ArrowLeft size={14} /> Back to Home
+                <ArrowLeft size={14} /> {t('common:actions.backToHome', { defaultValue: 'Back to Home' })}
               </button>
               <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.5px' }}>
-                My Sacred Orders
+                {t('orders.title')}
               </h1>
               <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
-                Trace divine packages and historical orders filled with healing spiritual energy.
+                {t('orders.subtitle')}
               </p>
             </div>
 
@@ -661,13 +686,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               }}>
                 <div style={{ textAlign: 'center', paddingRight: '16px', borderRight: '1px solid rgba(255,255,255,0.15)' }}>
                   <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-lime)' }}>{orders.length}</span>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders</span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>{t('orders.totalOrdersCount', { defaultValue: 'Total Orders' })}</span>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: '#6ee7b7' }}>
                     {orders.filter((o) => o.status === 'Being Packed' || o.status === 'Shipped').length}
                   </span>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>Active</span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>{t('orders.activeOrders', { defaultValue: 'Active' })}</span>
                 </div>
               </div>
 
@@ -688,7 +713,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                   backdropFilter: 'blur(8px)'
                 }}
                 className="card-hover"
-                title="Sync Statuses from Temple Server"
+                title={t('orders.syncTooltip', { defaultValue: 'Sync Statuses from Temple Server' })}
               >
                 <RotateCcw size={18} className={isRefreshing ? 'spin-anim' : ''} />
               </button>
@@ -728,13 +753,13 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                   transition: 'all 0.15s'
                 }}
               >
-                {tab === 'Active' ? 'Active Shipments' : tab === 'Completed' ? 'Completed Orders' : `${tab} Orders`}
+                {tab === 'Active' ? t('orders.tabs.active', { defaultValue: 'Active Shipments' }) : tab === 'Completed' ? t('orders.tabs.completed', { defaultValue: 'Completed Orders' }) : tab === 'Cancelled' ? t('orders.tabs.cancelled', { defaultValue: 'Cancelled Orders' }) : t('orders.tabs.all', { defaultValue: 'All Orders' })}
               </button>
             ))}
           </div>
 
           <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            Showing {filteredOrders.length} orders
+            {language === 'hi' ? `${filteredOrders.length} ऑर्डर दिखाए जा रहे हैं` : `Showing ${filteredOrders.length} orders`}
           </span>
         </div>
 
@@ -749,12 +774,12 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
             boxShadow: 'var(--shadow-sm)'
           }}>
             <span style={{ fontSize: '3.5rem' }}>🕉️</span>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '20px', color: 'var(--text-dark)' }}>No orders found</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '20px', color: 'var(--text-dark)' }}>{t('orders.emptyTitle')}</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '24px' }}>
-              Your selected filters returned zero results. Explore our spiritual catalogs to find sacred essentials.
+              {t('orders.emptyFilterDesc', { defaultValue: 'Your selected filters returned zero results. Explore our spiritual catalogs to find sacred essentials.' })}
             </p>
             <button onClick={onNavigateToShop} className="btn-lime" style={{ fontSize: '0.88rem', padding: '12px 28px' }}>
-              Explore Sacred Store
+              {t('orders.startShopping', { defaultValue: 'Explore Sacred Store' })}
             </button>
           </div>
         ) : (
@@ -768,17 +793,17 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               const isUpi = order.paymentMethod === 'Scan & Pay (UPI)';
               const isConfirmed = order.paymentStatus === 'Confirmed';
               const milestones = isUpi && !isConfirmed ? [
-                { label: 'Payment', sublabel: 'Verifying', done: false, inProgress: true },
-                { label: 'Confirmed', sublabel: 'Awaiting', done: false, inProgress: false },
-                { label: 'Prepared', sublabel: 'Awaiting', done: false, inProgress: false },
-                { label: 'Dispatched', sublabel: 'Awaiting', done: false, inProgress: false },
-                { label: 'Delivered', sublabel: 'Awaiting', done: false, inProgress: false },
+                { label: t('orders.tracking.payment', { defaultValue: 'Payment' }), sublabel: t('orders.tracking.verifying', { defaultValue: 'Verifying' }), done: false, inProgress: true },
+                { label: t('orders.tracking.confirmed', { defaultValue: 'Confirmed' }), sublabel: t('orders.tracking.awaiting', { defaultValue: 'Awaiting' }), done: false, inProgress: false },
+                { label: t('orders.tracking.prepared', { defaultValue: 'Prepared' }), sublabel: t('orders.tracking.awaiting', { defaultValue: 'Awaiting' }), done: false, inProgress: false },
+                { label: t('orders.tracking.dispatched', { defaultValue: 'Dispatched' }), sublabel: t('orders.tracking.awaiting', { defaultValue: 'Awaiting' }), done: false, inProgress: false },
+                { label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }), sublabel: t('orders.tracking.awaiting', { defaultValue: 'Awaiting' }), done: false, inProgress: false },
               ] : [
-                { label: 'Confirmed', sublabel: 'Verified', done: true, inProgress: false },
-                { label: 'Prepared', sublabel: 'Blessed', done: order.status !== 'Being Packed' && order.status !== 'Cancelled', inProgress: order.status === 'Being Packed' },
-                { label: 'Dispatched', sublabel: 'Varanasi Hub', done: order.status === 'Shipped' || order.status === 'Delivered', inProgress: order.status === 'Shipped' },
-                { label: 'In Transit', sublabel: 'Near City', done: order.status === 'Delivered', inProgress: false },
-                { label: 'Delivered', sublabel: 'Handed over', done: order.status === 'Delivered', inProgress: false },
+                { label: t('orders.tracking.confirmed', { defaultValue: 'Confirmed' }), sublabel: t('orders.tracking.verified', { defaultValue: 'Verified' }), done: true, inProgress: false },
+                { label: t('orders.tracking.prepared', { defaultValue: 'Prepared' }), sublabel: t('orders.tracking.blessed', { defaultValue: 'Blessed' }), done: order.status !== 'Being Packed' && order.status !== 'Cancelled', inProgress: order.status === 'Being Packed' },
+                { label: t('orders.tracking.dispatched', { defaultValue: 'Dispatched' }), sublabel: t('orders.tracking.hub', { defaultValue: 'Varanasi Hub' }), done: order.status === 'Shipped' || order.status === 'Delivered', inProgress: order.status === 'Shipped' },
+                { label: t('orders.tracking.inTransit', { defaultValue: 'In Transit' }), sublabel: t('orders.tracking.nearCity', { defaultValue: 'Near City' }), done: order.status === 'Delivered', inProgress: false },
+                { label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }), sublabel: t('orders.tracking.handedOver', { defaultValue: 'Handed over' }), done: order.status === 'Delivered', inProgress: false },
               ];
 
               return (
@@ -816,7 +841,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                      }}>
                        <div>
                          <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                           {isMobile ? 'Placed' : 'Order Placed'}
+                           {isMobile ? t('orders.placed') : t('orders.datePlaced')}
                          </span>
                          <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
                            {isMobile ? order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -824,7 +849,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                        </div>
                        <div>
                          <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                           {isMobile ? 'Total' : 'Total Amount'}
+                           {isMobile ? t('orders.total') : t('orders.totalAmount')}
                          </span>
                          <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 900, color: 'var(--primary-forest)', whiteSpace: 'nowrap' }}>
                            ₹{isMobile ? order.total.toFixed(0) : order.total.toFixed(2)}
@@ -832,7 +857,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                        </div>
                        <div>
                          <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                           {isMobile ? 'ID' : 'Order ID'}
+                           {isMobile ? t('orders.id') : t('orders.orderId')}
                          </span>
                          <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 800, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
                            {isMobile ? `#${order.orderId.replace('MANTRA-', '')}` : `#${order.orderId}`}
@@ -840,7 +865,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                        </div>
                        <div>
                          <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                           {isMobile ? 'Ship To' : 'Ship To'}
+                           {t('orders.shipTo', { defaultValue: 'Ship To' })}
                          </span>
                          <span style={{ fontSize: isMobile ? '0.75rem' : '0.88rem', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: isMobile ? '70px' : 'none' }}>
                            {order.fullName}
@@ -875,9 +900,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           fontSize: '0.78rem',
                           fontWeight: 700
                         }}
-                        title="View Full Invoice breakdown"
+                        title={t('orders.actions.viewInvoiceBreakdown', { defaultValue: 'View Full Invoice breakdown' })}
                       >
-                        <Info size={14} /> Details
+                        <Info size={14} /> {t('orders.actions.details', { defaultValue: 'Details' })}
                       </button>
                     </div>
                   </div>
@@ -923,7 +948,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 {item.product?.name || 'Spiritual Item'}
                               </h4>
                               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Quantity: {item.quantity} • price: ₹{(item.product?.price || 0).toFixed(2)} each
+                                {t('orders.qty')}: {item.quantity} • {t('shop:price', { defaultValue: 'Price' })}: ₹{(item.product?.price || 0).toFixed(2)} {t('shop:each', { defaultValue: 'each' })}
                               </p>
                             </div>
                           </div>
@@ -947,9 +972,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                           <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <Truck size={15} style={{ color: 'var(--primary-lime)' }} /> Live Courier Journey (Sacred Express)
+                            <Truck size={15} style={{ color: 'var(--primary-lime)' }} /> {t('orders.liveCourierJourney', { defaultValue: 'Live Courier Journey (Sacred Express)' })}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>AWB: SEC-{order.orderId}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('orders.awb', { defaultValue: 'AWB' })}: SEC-{order.orderId}</span>
                         </div>
 
                         {/* Tracker Milestones Visual Row */}
@@ -1017,7 +1042,11 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                               fontSize: '0.78rem',
                               fontWeight: 700
                             }}>
-                              ⚠️ Your payment was not done properly. Please check your transaction details and re-upload a valid payment screenshot. (Decline Attempt {order.paymentDeclineCount || 0} of 3)
+                              {language === 'hi' ? (
+                                <>⚠️ आपका भुगतान ठीक से नहीं हुआ था। कृपया अपने लेन-देन विवरण की जाँच करें और एक मान्य भुगतान स्क्रीनशॉट पुनः अपलोड करें। (अस्वीकृति प्रयास 3 में से {order.paymentDeclineCount || 0})</>
+                              ) : (
+                                <>⚠️ Your payment was not done properly. Please check your transaction details and re-upload a valid payment screenshot. (Decline Attempt {order.paymentDeclineCount || 0} of 3)</>
+                              )}
                             </div>
                           )}
 
@@ -1056,7 +1085,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 />
                               )}
                               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                                Scan to Pay ₹{order.total.toFixed(2)}
+                                {t('orders.actions.scanToPay', { defaultValue: 'Scan to Pay' })} ₹{order.total.toFixed(2)}
                               </span>
 
                               <div style={{
@@ -1071,7 +1100,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 border: '1px solid #e5e7eb',
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                                  <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID / VPA (Click to Pay)</span>
+                                  <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 700 }}>{t('orders.actions.upiId', { defaultValue: 'UPI ID / VPA (Click to Pay)' })}</span>
                                   <a
                                     href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${order.total.toFixed(2)}&cu=INR&tn=Order%20${order.orderId}`}
                                     style={{
@@ -1102,10 +1131,9 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     alignItems: 'center',
                                     gap: '2px',
                                     flexShrink: 0
-                                  }}
-                                >
+                                  }}>
                                   {copiedUpiOrderId === order.orderId ? <Check size={8} /> : <Copy size={8} />}
-                                  {copiedUpiOrderId === order.orderId ? 'Copied' : 'Copy'}
+                                  {copiedUpiOrderId === order.orderId ? t('affiliate.copied', { defaultValue: 'Copied!' }) : t('affiliate.copy', { defaultValue: 'Copy' })}
                                 </button>
                               </div>
 
@@ -1131,7 +1159,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                               >
-                                ⚡ Pay via UPI App
+                                {t('orders.actions.payViaUpiApp', { defaultValue: '⚡ Pay via UPI App' })}
                               </button>
                             </div>
 
@@ -1159,7 +1187,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     margin: '0 auto 8px auto',
                                     animation: 'spin-anim 1s linear infinite',
                                   }} />
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>Uploading to Temple server...</span>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)' }}>{t('orders.actions.uploading')}</span>
                                 </div>
                               ) : selectedFiles[order.orderId] ? (
                                 <div style={{
@@ -1178,7 +1206,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '4px', marginBottom: '8px', border: '1px solid var(--border-light)' }}
                                   />
                                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dark)', wordBreak: 'break-all' }}>
-                                    Selected: {selectedFiles[order.orderId].name}
+                                    {t('orders.actions.selected')}: {selectedFiles[order.orderId].name}
                                   </span>
                                   <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
                                     <button
@@ -1194,7 +1222,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                         cursor: 'pointer'
                                       }}
                                     >
-                                      Submit
+                                      {t('common:actions.submit', { defaultValue: 'Submit' })}
                                     </button>
                                     <button
                                       onClick={() => {
@@ -1215,7 +1243,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                         cursor: 'pointer'
                                       }}
                                     >
-                                      Cancel
+                                      {t('common:actions.cancel', { defaultValue: 'Cancel' })}
                                     </button>
                                   </div>
                                 </div>
@@ -1236,10 +1264,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '4px', marginBottom: '8px', border: '1px solid #bbf7d0' }}
                                   />
                                   <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <CheckCircle size={14} style={{ color: '#15803d' }} /> Receipt Uploaded
+                                    <CheckCircle size={14} style={{ color: '#15803d' }} /> {t('orders.actions.receiptUploaded')}
                                   </span>
                                   <p style={{ fontSize: '0.7rem', color: '#166534', marginTop: '2px', marginBottom: '10px' }}>
-                                    Awaiting confirmation from our admin team.
+                                    {t('orders.actions.awaitingConfirmation')}
                                   </p>
                                   <label
                                     style={{
@@ -1257,7 +1285,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                     }}
                                   >
                                     <Upload size={10} />
-                                    Re-upload proof
+                                    {t('orders.actions.reuploadProof')}
                                     <input
                                       type="file"
                                       accept="image/*"
@@ -1291,10 +1319,10 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                                 >
                                   <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: '6px' }} />
                                   <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                                    Upload Payment Screenshot
+                                    {t('orders.actions.uploadPaymentScreenshot', { defaultValue: 'Upload Payment Screenshot' })}
                                   </span>
                                   <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                    JPG, PNG files
+                                    {t('orders.actions.imageFilesOnly', { defaultValue: 'JPG, PNG files' })}
                                   </span>
                                   <input
                                     type="file"
@@ -1358,11 +1386,11 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           }}
                         >
                           <Truck size={14} style={{ color: isTrackingExpanded ? '#ffffff' : 'var(--primary-lime)' }} />
-                          <span>{isTrackingExpanded ? 'Close Tracking' : 'Track Order'}</span>
+                          <span>{isTrackingExpanded ? t('orders.actions.closeTracking', { defaultValue: 'Close Tracking' }) : t('orders.actions.trackOrder', { defaultValue: 'Track Order' })}</span>
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <XCircle size={14} style={{ color: '#ef4444' }} /> Order Cancelled
+                          <XCircle size={14} style={{ color: '#ef4444' }} /> {t('orders.actions.cancelled', { defaultValue: 'Cancelled' })}
                         </span>
                       )}
                     </div>
@@ -1391,7 +1419,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         }}
                       >
                         <Share2 size={14} style={{ color: shareExpandedOrderId === order.orderId || sharingOrderId === order.orderId ? 'var(--primary-lime)' : 'var(--text-muted)' }} />
-                        <span>{sharingOrderId === order.orderId ? 'Sharing...' : 'Share'}</span>
+                        <span>{sharingOrderId === order.orderId ? t('orders.sharing') : t('orders.share')}</span>
                       </button>
 
                       {/* Download Invoice button */}
@@ -1415,7 +1443,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                         }}
                       >
                         <Download size={14} style={{ color: 'var(--text-muted)' }} />
-                        <span>Invoice</span>
+                        <span>{t('orders.downloadInvoice')}</span>
                       </button>
 
                       {order.status !== 'Cancelled' && (
@@ -1436,7 +1464,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                           }}
                         >
                           <RotateCcw size={14} />
-                          <span>Reorder Items</span>
+                          <span>{t('orders.actions.reorder', { defaultValue: 'Reorder Items' })}</span>
                         </button>
                       )}
                     </div>
@@ -1528,12 +1556,12 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Order Details: #{selectedDetailsOrder.orderId}</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>{t('orders.detailsTitle', { defaultValue: 'Order Details' })}: #{selectedDetailsOrder.orderId}</h3>
               <button
                 onClick={() => setSelectedDetailsOrder(null)}
                 style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: 700 }}
               >
-                Close
+                {t('common:actions.close', { defaultValue: 'Close' })}
               </button>
             </div>
 
@@ -1543,7 +1571,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               {/* Delivery info */}
               <div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
-                  <MapPin size={12} style={{ color: 'var(--primary-lime)' }} /> Delivery Address
+                  <MapPin size={12} style={{ color: 'var(--primary-lime)' }} /> {t('orders.deliveryAddress', { defaultValue: 'Delivery Address' })}
                 </span>
                 <div style={{ backgroundColor: '#fafafa', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
                   <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{selectedDetailsOrder.fullName}</p>
@@ -1560,11 +1588,11 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               {/* Items List */}
               <div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
-                  <Package size={12} style={{ color: 'var(--primary-lime)' }} /> Purchased Sacred Items
+                  <Package size={12} style={{ color: 'var(--primary-lime)' }} /> {t('orders.purchasedSacredItems', { defaultValue: 'Purchased Sacred Items' })}
                 </span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {selectedDetailsOrder.items.map((i, index) => (
-                    <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>
                         {i.product.name} <span style={{ color: 'var(--text-muted)' }}>× {i.quantity}</span>
                       </span>
@@ -1579,33 +1607,33 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
               {/* Pricing details */}
               <div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>
-                  Billing Breakdown
+                  {t('orders.billingBreakdown', { defaultValue: 'Billing Breakdown' })}
                 </span>
                 <div style={{ backgroundColor: 'var(--primary-lime-light)', border: '1px solid #ffedd5', borderRadius: 'var(--radius-md)', padding: '16px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Items Subtotal</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('orders.subtotal', { defaultValue: 'Items Subtotal' })}</span>
                       <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.subtotal.toFixed(2)}</span>
                     </div>
                     {selectedDetailsOrder.discount > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Coupon Savings ({selectedDetailsOrder.discountPercent}%)</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('orders.couponSavings', { defaultValue: 'Coupon Savings' })} ({selectedDetailsOrder.discountPercent}%)</span>
                         <span style={{ fontWeight: 700, color: '#10b981' }}>-₹{selectedDetailsOrder.discount.toFixed(2)}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Sacred Shipping</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('orders.shippingMethod', { defaultValue: 'Sacred Shipping' })}</span>
                       <span style={{ fontWeight: 700, color: selectedDetailsOrder.shipping === 0 ? '#10b981' : 'var(--text-dark)' }}>
-                        {selectedDetailsOrder.shipping === 0 ? 'FREE' : `₹${selectedDetailsOrder.shipping.toFixed(2)}`}
+                        {selectedDetailsOrder.shipping === 0 ? t('checkout:free', { defaultValue: 'FREE' }) : `₹${selectedDetailsOrder.shipping.toFixed(2)}`}
                       </span>
                     </div>
                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Vedic Services Tax ({selectedDetailsOrder.gstPercentSnapshot !== undefined && selectedDetailsOrder.gstPercentSnapshot !== null ? selectedDetailsOrder.gstPercentSnapshot : 8}%)</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('orders.vedicTax', { defaultValue: 'Vedic Services Tax' })} ({selectedDetailsOrder.gstPercentSnapshot !== undefined && selectedDetailsOrder.gstPercentSnapshot !== null ? selectedDetailsOrder.gstPercentSnapshot : 8}%)</span>
                       <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
                     </div>
                     <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '6px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '1rem', fontWeight: 900 }}>
-                      <span>Grand Total</span>
+                      <span>{t('orders.grandTotal', { defaultValue: 'Grand Total' })}</span>
                       <span style={{ color: 'var(--primary-forest)', fontSize: '1.2rem' }}>₹{selectedDetailsOrder.total.toFixed(2)}</span>
                     </div>
                   </div>
@@ -1621,7 +1649,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
                 className="btn-lime"
                 style={{ padding: '10px 24px', fontSize: '0.82rem', borderRadius: 'var(--radius-md)' }}
               >
-                Close Details
+                {t('common:actions.close', { defaultValue: 'Close' })}
               </button>
             </div>
           </div>

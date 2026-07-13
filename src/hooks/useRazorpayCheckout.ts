@@ -113,6 +113,41 @@ export function useRazorpayCheckout({
 
       const rzData = await rzOrderRes.json();
 
+      if (rzData.bypass) {
+        // Direct success bypass for local test environment
+        await onOrderSuccess({
+          orderId: internalOrderId,
+          items: cart,
+          subtotal: orderResult.subtotal,
+          discount: orderResult.discount,
+          discountPercent,
+          shipping: orderResult.shipping,
+          tax: orderResult.tax,
+          total: orderResult.total,
+          paymentMethod: 'Razorpay',
+          deliveryCity: city,
+          deliveryState: state,
+          fullName,
+          email,
+          phoneNumber: phone,
+          addressLine1,
+          addressLine2,
+          pincode,
+          placedAt: orderResult.placedAt ? new Date(orderResult.placedAt) : new Date(),
+          razorpayPaymentId: 'rzp_bypass_mocked',
+          appliedCouponCode: appliedCouponCode || undefined,
+          paymentStatus: 'Confirmed',
+          status: 'Being Packed',
+          gstPercentSnapshot: taxDeliverySettings.globalGstPercent,
+          gstAmountSnapshot: orderResult.tax,
+          deliveryAmountSnapshot: orderResult.shipping,
+          freeDeliveryEligibleSnapshot: (orderResult.subtotal - orderResult.discount) >= taxDeliverySettings.freeDeliveryThreshold
+        });
+        onOrderComplete();
+        setIsPlacingOrder(false);
+        return;
+      }
+
       // 4. Trigger standard Razorpay Checkout Overlay
       const options = {
         key: rzData.keyId,

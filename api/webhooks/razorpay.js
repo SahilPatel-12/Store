@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from '../_lib/supabase-admin.js';
 import { decryptTextServer } from '../_lib/crypto-server.js';
+import { getPaymentEnvironment } from '../_lib/payment-environment.js';
 
 // Disable bodyParser so we can parse the raw request stream to verify the signature
 export const config = {
@@ -43,11 +44,26 @@ export default async function handler(req, res) {
       return res.status(500).send('Configuration error.');
     }
 
+    let targetMode;
+    try {
+      const { data: activation } = await supabaseAdmin
+        .from('website_settings')
+        .select('value')
+        .eq('key', 'payment_activation_settings')
+        .maybeSingle();
+      targetMode = getPaymentEnvironment(activation?.value?.razorpayMode);
+    } catch (envErr) {
+      console.error('[Webhook] Environment resolution failed:', envErr.message);
+      return res.status(500).send('Environment configuration error.');
+    }
+
+    const filteredConfigs = configs.filter(c => c.mode === targetMode);
+
     let activeMode = null;
     let matchedConfig = null;
 
     // 2. Timing-safe verification fallback across configured modes
-    for (const config of configs) {
+    for (const config of filteredConfigs) {
       if (!config.encrypted_webhook_secret) continue;
       try {
         const webhookSecret = decryptTextServer(

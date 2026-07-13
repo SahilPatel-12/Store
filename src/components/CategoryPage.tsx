@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Heart, Star, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import type { Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
@@ -55,6 +56,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   onUpdateQuantity,
   onBannerClick,
 }) => {
+  const { t } = useTranslation('category');
   const activeProducts = productsProp || [];
   const [searchQuery, setSearchQuery] = React.useState('');
   const [itemsLimit, setItemsLimit] = React.useState(16);
@@ -78,28 +80,63 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const isCategoryMatch = (productCategory: string, filterCategory: string) => {
     const prodCat = productCategory.toLowerCase();
     const filterCat = filterCategory.toLowerCase();
+    
+    // Check direct match in raw English or raw Hindi
     if (prodCat === filterCat) return true;
     
-    // Map legacy categories to actual product categories
+    // Check match against translated version of the selected filterCategory
+    const localizedFilterCat = t('names.' + filterCategory, { defaultValue: filterCategory }).toLowerCase();
+    if (prodCat === localizedFilterCat) return true;
+    
+    // Direct database translation mappings (fallback check)
+    if (filterCat === 'pyrite' && prodCat === 'पाइराइट') return true;
+    if ((filterCat === 'necklaces/mala' || filterCat === 'necklaces & mala') && prodCat === 'हार/माला') return true;
+    if (filterCat === 'karungali' && prodCat === 'करुंगाली') return true;
+    if (filterCat === 'pyramid' && prodCat === 'पिरामिड') return true;
+    if (filterCat === 'frames' && prodCat === 'फ्रेम') return true;
+    if (filterCat === 'bracelet' && prodCat === 'ब्रेसलेट') return true;
+    if (filterCat === 'anklet' && prodCat === 'पायल') return true;
+    if ((filterCat === 'crystal dome trees' || filterCat === 'crystal dome tree') && prodCat === 'क्रिस्टल डोम ट्री') return true;
+    if (filterCat === 'kavach' && prodCat === 'कवच') return true;
+
+    // Map legacy categories to actual product categories supporting translations
     if (filterCat === 'idols' || filterCat === 'deity idols') {
-      return prodCat === 'idols' || prodCat === 'deity idols' || prodCat === 'murti';
+      const allowed = ['idols', 'deity idols', 'murti'];
+      const allowedSet = new Set(allowed.map(c => c.toLowerCase()));
+      allowed.forEach(c => allowedSet.add(t('names.' + c, { defaultValue: c }).toLowerCase()));
+      return allowedSet.has(prodCat);
     }
     if (filterCat === 'kits' || filterCat === 'puja kits') {
-      return prodCat === 'kits' || prodCat === 'puja kits';
+      const allowed = ['kits', 'puja kits'];
+      const allowedSet = new Set(allowed.map(c => c.toLowerCase()));
+      allowed.forEach(c => allowedSet.add(t('names.' + c, { defaultValue: c }).toLowerCase()));
+      return allowedSet.has(prodCat);
     }
     if (filterCat === 'incense' || filterCat === 'incense & fragrance') {
-      return prodCat === 'incense' || prodCat === 'incense & fragrance' || prodCat === 'incense holders' || prodCat === 'fragrance';
+      const allowed = ['incense', 'incense & fragrance', 'incense holders', 'fragrance'];
+      const allowedSet = new Set(allowed.map(c => c.toLowerCase()));
+      allowed.forEach(c => allowedSet.add(t('names.' + c, { defaultValue: c }).toLowerCase()));
+      return allowedSet.has(prodCat);
     }
     if (filterCat === 'books' || filterCat === 'sacred books') {
-      return prodCat === 'books' || prodCat === 'sacred books';
+      const allowed = ['books', 'sacred books'];
+      const allowedSet = new Set(allowed.map(c => c.toLowerCase()));
+      allowed.forEach(c => allowedSet.add(t('names.' + c, { defaultValue: c }).toLowerCase()));
+      return allowedSet.has(prodCat);
     }
     if (filterCat === 'accessories') {
-      return [
+      const allowed = [
         'accessories', 'bracelet', 'anklet', 'necklaces/mala', 'yantras',
         'frames', 'rashi', 'karungali', 'jadi', 'pyrite', 'kavach',
         'siddh range', 'gemstones', 'pyramid', 'tower & tumbles',
         'crystal dome trees', 'women bracelets', 'evil eye', 'gifting'
-      ].includes(prodCat);
+      ];
+      const allowedSet = new Set(allowed.map(c => c.toLowerCase()));
+      allowed.forEach(c => allowedSet.add(t('names.' + c, { defaultValue: c }).toLowerCase()));
+      // Also add raw DB category translations to allow matching
+      allowedSet.add('पाइराइट');
+      allowedSet.add('हार/माला');
+      return allowedSet.has(prodCat);
     }
     return false;
   };
@@ -156,7 +193,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
           onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
         >
-          <ArrowLeft size={16} /> Back to Shop
+          <ArrowLeft size={16} /> {t('backToShop')}
         </button>
       </div>
 
@@ -200,7 +237,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                   >
                     <img
                       src={imageUrl}
-                      alt={`${categoryName} banner ${idx + 1}`}
+                      alt={`${t(`names.${categoryName}`, { defaultValue: categoryName })} banner ${idx + 1}`}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -329,16 +366,16 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                     fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase',
                     letterSpacing: '2px', color: 'var(--primary-lime)', marginBottom: '8px'
                   }}>
-                    Collection
+                    {t('collection')}
                   </span>
                   <h1 style={{
                     fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.2,
                     marginBottom: '12px', fontFamily: 'var(--font-sans)', color: '#ffffff'
                   }}>
-                    {categoryName}
+                    {t(`names.${categoryName}`, { defaultValue: categoryName })}
                   </h1>
                   <p style={{ fontSize: '0.92rem', opacity: 0.85, lineHeight: 1.5, maxWidth: '520px' }}>
-                    {categoryDescriptions[categoryName] || 'Explore our energized devotional items blessed under traditional temple rituals to bring auspiciousness.'}
+                    {t(`descriptions.${categoryName}`, { defaultValue: categoryDescriptions[categoryName] || 'Explore our energized devotional items blessed under traditional temple rituals to bring auspiciousness.' })}
                   </p>
                 </div>
 
@@ -374,12 +411,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
           flexWrap: 'wrap',
           gap: '12px'
         }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Search In {categoryName}</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>{t('searchTitle', { category: t(`names.${categoryName}`, { defaultValue: categoryName }) })}</h3>
           
           <div style={{ position: 'relative', flex: '0 1 320px', width: '100%' }}>
             <input
               type="text"
-              placeholder={`Search products in ${categoryName}...`}
+              placeholder={t('searchPlaceholder', { category: t(`names.${categoryName}`, { defaultValue: categoryName }) })}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -420,10 +457,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               color: 'var(--text-muted)'
             }}>
               <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-dark)' }}>
-                No items in this collection
+                {t('emptyState.title')}
               </p>
               <p style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                We currently don't have matching items in the {categoryName} catalog.
+                {t('emptyState.description', { category: t(`names.${categoryName}`, { defaultValue: categoryName }) })}
               </p>
             </div>
           ) : (
@@ -517,7 +554,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                             zIndex: 10,
                             boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
                           }}>
-                            {discount}%<br/>OFF
+                            {discount}%<br/>{t('product.off')}
                           </div>
                         )}
 
@@ -661,7 +698,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                                       fontSize: '0.85rem',
                                       userSelect: 'none'
                                     }}>
-                                      {qty} in Cart
+                                      {t('product.inCart', { count: qty })}
                                     </span>
                                     {!isOneRupeeProd ? (
                                       <button
@@ -717,7 +754,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
                                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-deep)'}
                                 >
-                                  Add To Cart
+                                  {t('product.addToCart')}
                                 </button>
                               );
                             })()
@@ -737,7 +774,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                                 cursor: 'not-allowed'
                               }}
                             >
-                              Out of Stock
+                              {t('product.outOfStock')}
                             </button>
                           )}
                         </div>
@@ -761,7 +798,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                       gap: '8px'
                     }}
                   >
-                    <RefreshCw size={16} /> Load More Items
+                    <RefreshCw size={16} /> {t('loadMore')}
                   </button>
                 </div>
               )}

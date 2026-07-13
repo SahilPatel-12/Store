@@ -545,6 +545,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isTestingRazorpay, setIsTestingRazorpay] = React.useState(false);
   const [isLoadingRazorpayConfig, setIsLoadingRazorpayConfig] = React.useState(false);
   const [isRefreshingOrders, setIsRefreshingOrders] = React.useState(false);
+  const [paymentEnv, setPaymentEnv] = React.useState<string>('not_set');
 
   // Barcode / UPI QR settings state
   const [adminUpiId, setAdminUpiId] = React.useState('7974478098@paytm');
@@ -1179,6 +1180,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         setRazorpayLastVerifiedAt(data.lastVerifiedAt || null);
         setActivePaymentProvider(data.activePaymentProvider || 'manual_upi');
         setLegacyManualUpiEnabled(data.legacyManualUpiEnabled !== undefined ? data.legacyManualUpiEnabled : true);
+        setPaymentEnv(data.paymentEnv || 'not_set');
         // Keep input secrets empty per Correction 2
         setRazorpayKeySecret('');
         setRazorpayWebhookSecret('');
@@ -6457,6 +6459,53 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               ) : (
                 <form onSubmit={handleSaveRazorpaySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
+                  {/* Server Environment Information Banner */}
+                  {paymentEnv && paymentEnv !== 'not_set' && (
+                    <div style={{
+                      padding: '16px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: paymentEnv === 'live' ? '#fef2f2' : '#eff6ff',
+                      border: '1.5px solid ' + (paymentEnv === 'live' ? '#fecaca' : '#bfdbfe'),
+                      marginBottom: '8px'
+                    }}>
+                      <h4 style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 900,
+                        color: paymentEnv === 'live' ? '#991b1b' : '#1e3a8a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: paymentEnv === 'live' ? '#ef4444' : '#3b82f6'
+                        }} />
+                        Server Environment: {paymentEnv.toUpperCase()}
+                      </h4>
+                      <p style={{
+                        fontSize: '0.82rem',
+                        color: paymentEnv === 'live' ? '#7f1d1d' : '#1e40af',
+                        marginTop: '6px',
+                        lineHeight: '1.4'
+                      }}>
+                        {paymentEnv === 'live' ? (
+                          <>
+                            <strong>This server is locked to Razorpay Live credentials.</strong> All payments created from this server will use the Live account.
+                          </>
+                        ) : (
+                          <>
+                            <strong>This server is locked to Razorpay Test credentials.</strong> All payments created from this server will use the Test account.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Mode Selection */}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>

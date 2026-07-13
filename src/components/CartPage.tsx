@@ -158,7 +158,7 @@ export const CartPage: React.FC<CartPageProps> = ({
             .eq('locale', language)
             .maybeSingle();
           
-          const productName = productData?.name || 'a specific product';
+          const productName = productData?.name || t('coupon.error.defaultProduct');
           setCouponError(t('coupon.error.product', { productName }));
           onApplyCoupon('', 0, null);
           return;
@@ -194,7 +194,7 @@ export const CartPage: React.FC<CartPageProps> = ({
   if (!isReady) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
-        <p>{language === 'hi' ? 'विवरण लोड हो रहा है...' : 'Loading details...'}</p>
+        <p>{t('loading')}</p>
       </div>
     );
   }

@@ -13,6 +13,8 @@ import {
   Clock,
   Trash2
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../lib/i18n';
 import type { LocalOrder } from '../types';
 
 export interface LocalNotification {
@@ -59,6 +61,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   onNavigateToShop,
   onNavigateToOrders
 }) => {
+  const { language } = useLanguage();
+  const { t } = useTranslation('notifications');
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../lib/i18next').then(({ loadNamespaces }) => {
+      loadNamespaces(language, ['notifications']).then(() => setIsReady(true));
+    });
+  }, [language]);
 
   const notifications = React.useMemo(() => {
     const list: LocalNotification[] = [];
@@ -68,7 +79,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         id: `${order.orderId}_placed`,
         orderId: order.orderId,
         type: 'order_placed',
-        message: `Your order #${order.orderId} has been successfully placed! Total amount: ₹${order.total.toFixed(2)}.`,
+        message: t('messages.order_placed', { orderId: order.orderId, total: order.total.toFixed(2), defaultValue: `Your order #${order.orderId} has been successfully placed! Total amount: ₹${order.total.toFixed(2)}.` }),
         timestamp: order.placedAt,
         read: readNotificationIds.includes(`${order.orderId}_placed`)
       });
@@ -81,7 +92,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               id: `${order.orderId}_verification_pending`,
               orderId: order.orderId,
               type: 'payment_verification_pending',
-              message: `Payment screenshot for Order #${order.orderId} has been uploaded successfully. Admin verification is pending.`,
+              message: t('messages.payment_verification_pending', { orderId: order.orderId, defaultValue: `Payment screenshot for Order #${order.orderId} has been uploaded successfully. Admin verification is pending.` }),
               timestamp: order.placedAt,
               read: readNotificationIds.includes(`${order.orderId}_verification_pending`)
             });
@@ -90,7 +101,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               id: `${order.orderId}_payment_pending`,
               orderId: order.orderId,
               type: 'payment_pending',
-              message: `Please scan the QR code and upload your transaction confirmation screenshot for Order #${order.orderId} to begin verification.`,
+              message: t('messages.payment_pending', { orderId: order.orderId, defaultValue: `Please scan the QR code and upload your transaction confirmation screenshot for Order #${order.orderId} to begin verification.` }),
               timestamp: order.placedAt,
               read: readNotificationIds.includes(`${order.orderId}_payment_pending`)
             });
@@ -104,7 +115,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_confirmed`,
           orderId: order.orderId,
           type: 'payment_confirmed',
-          message: `Your payment for Order #${order.orderId} has been successfully verified and confirmed by the admin!`,
+          message: t('messages.payment_confirmed', { orderId: order.orderId, defaultValue: `Your payment for Order #${order.orderId} has been successfully verified and confirmed by the admin!` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_confirmed`)
         });
@@ -116,7 +127,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_declined_${order.paymentDeclineCount || 0}`,
           orderId: order.orderId,
           type: 'payment_declined',
-          message: `Payment proof for Order #${order.orderId} was declined by the admin. (Attempt ${order.paymentDeclineCount || 1}/3). Please re-upload a valid transaction screenshot.`,
+          message: t('messages.payment_declined', { orderId: order.orderId, attempt: order.paymentDeclineCount || 1, defaultValue: `Payment proof for Order #${order.orderId} was declined by the admin. (Attempt ${order.paymentDeclineCount || 1}/3). Please re-upload a valid transaction screenshot.` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_declined_${order.paymentDeclineCount || 0}`),
           attemptCount: order.paymentDeclineCount || 1
@@ -129,7 +140,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_prepared`,
           orderId: order.orderId,
           type: 'order_prepared',
-          message: `Your order #${order.orderId} is being prepared and packed for shipment.`,
+          message: t('messages.order_prepared', { orderId: order.orderId, defaultValue: `Your order #${order.orderId} is being prepared and packed for shipment.` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_prepared`)
         });
@@ -141,7 +152,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_shipped`,
           orderId: order.orderId,
           type: 'order_shipped',
-          message: `Order #${order.orderId} has been shipped and is now in transit.`,
+          message: t('messages.order_shipped', { orderId: order.orderId, defaultValue: `Order #${order.orderId} has been shipped and is now in transit.` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_shipped`)
         });
@@ -153,7 +164,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_delivered`,
           orderId: order.orderId,
           type: 'order_delivered',
-          message: `Order #${order.orderId} has been delivered. We hope it brings peace and positive energy!`,
+          message: t('messages.order_delivered', { orderId: order.orderId, defaultValue: `Order #${order.orderId} has been delivered. We hope it brings peace and positive energy!` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_delivered`)
         });
@@ -165,7 +176,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           id: `${order.orderId}_cancelled`,
           orderId: order.orderId,
           type: 'order_cancelled',
-          message: `Order #${order.orderId} was cancelled.`,
+          message: t('messages.order_cancelled', { orderId: order.orderId, defaultValue: `Order #${order.orderId} was cancelled.` }),
           timestamp: order.placedAt,
           read: readNotificationIds.includes(`${order.orderId}_cancelled`)
         });
@@ -193,7 +204,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         const prioB = NOTIFICATION_PRIORITY[b.type] || 0;
         return prioB - prioA;
       });
-  }, [orders, readNotificationIds, clearedNotificationIds]);
+  }, [orders, readNotificationIds, clearedNotificationIds, t, language, isReady]);
 
   const unreadCount = React.useMemo(() => {
     return notifications.filter(n => !n.read).length;
@@ -243,6 +254,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     return { borderColor, bgColor };
   };
 
+  if (!isReady) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--text-muted)' }}>
+        <p>{t('loading', { defaultValue: 'Loading...' })}</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       maxWidth: '800px',
@@ -278,7 +297,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
         >
           <ChevronLeft size={16} />
-          Back to Home
+          {t('backToHome', { defaultValue: 'Back to Home' })}
         </button>
 
         <div style={{
@@ -300,7 +319,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               letterSpacing: '-0.5px'
             }}>
               <Bell size={28} style={{ color: 'var(--primary-gold, #d97706)' }} />
-              Sacred Alerts
+              {t('pageTitle', { defaultValue: 'Sacred Alerts' })}
             </h1>
             <p style={{
               fontSize: '0.9rem',
@@ -310,7 +329,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               marginBottom: 0,
               marginLeft: 0
             }}>
-              Dynamic status updates regarding your spiritual orders and verification logs.
+              {t('pageDesc', { defaultValue: 'Dynamic status updates regarding your spiritual orders and verification logs.' })}
             </p>
           </div>
 
@@ -342,7 +361,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                 }}
               >
                 <Sparkles size={14} />
-                Mark all as read
+                {t('markAllRead', { defaultValue: 'Mark all as read' })}
               </button>
             )}
 
@@ -373,7 +392,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                 }}
               >
                 <Trash2 size={14} />
-                Clear all
+                {t('clearAll', { defaultValue: 'Clear all' })}
               </button>
             )}
           </div>
@@ -408,9 +427,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             <Bell size={32} style={{ opacity: 0.5 }} />
           </div>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>No Alerts Yet</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>{t('emptyTitle', { defaultValue: 'No Alerts Yet' })}</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '300px' }}>
-              Your spiritual updates, shipping notices, and payment confirmations will appear here.
+              {t('emptyDesc', { defaultValue: 'Your spiritual updates, shipping notices, and payment confirmations will appear here.' })}
             </p>
           </div>
           <button
@@ -427,7 +446,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               marginTop: '8px'
             }}
           >
-            Go to Puja Store
+            {t('goToStore', { defaultValue: 'Go to Puja Store' })}
           </button>
         </div>
       ) : (
@@ -497,7 +516,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
-                  title="Clear alert"
+                  title={t('clearAlertTooltip', { defaultValue: 'Clear alert' })}
                   onMouseOver={(e) => {
                     e.currentTarget.style.color = '#dc2626';
                     e.currentTarget.style.backgroundColor = '#fee2e2';
@@ -545,7 +564,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                       textTransform: 'uppercase',
                       color: 'var(--text-muted)'
                     }}>
-                      Order #{notif.orderId}
+                      {t('orderIdLabel', { orderId: notif.orderId, defaultValue: 'Order #' + notif.orderId })}
                     </span>
                     <span style={{
                       fontSize: '0.72rem',
@@ -594,7 +613,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                       onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
                     >
-                      Re-upload Payment Proof
+                      {t('reuploadBtn', { defaultValue: 'Re-upload Payment Proof' })}
                       <ArrowRight size={12} />
                     </button>
                   )}
