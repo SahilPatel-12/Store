@@ -1178,6 +1178,10 @@ function App() {
     setMobileMenuOpen(false);
     setMobileCategoriesExpanded(false);
 
+    if (page !== 'detail') {
+      setSelectedProduct(null);
+    }
+
     if (page === 'profile') {
       setProfileInitialTab(options?.profileTab);
     }
@@ -1347,6 +1351,9 @@ function App() {
         setCurrentPageState('category');
       } else if (path.startsWith('/product/')) {
         const prodSlug = path.substring(9).replace(/\/$/, '');
+        if (productsState.length === 0) {
+          return;
+        }
         const foundProduct = productsState.find(p => getProductSlug(p) === prodSlug);
         if (foundProduct) {
           setSelectedProduct(foundProduct);
@@ -2355,6 +2362,28 @@ function App() {
     return productsState.filter(p => (p as any).slug !== 'vidya-rudraksh' && (p as any).slug !== 'vidya-rudraksh-101');
   }, [productsState]);
 
+  const [cameFromLockdown, setCameFromLockdown] = React.useState(false);
+  const [activeLockdownProduct, setActiveLockdownProduct] = React.useState<Product | null>(null);
+  
+  React.useEffect(() => {
+    if (currentPage === 'detail' && selectedProduct) {
+      const pSlug = (selectedProduct as any).slug || '';
+      const pName = selectedProduct.name || '';
+      const pPrice = selectedProduct.price || 0;
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      if (slugMatch || nameMatch || priceMatch) {
+        setCameFromLockdown(true);
+        setActiveLockdownProduct(selectedProduct);
+      }
+    } else if (currentPage === 'home' || currentPage === 'shop' || currentPage === 'category' || currentPage === 'search') {
+      setCameFromLockdown(false);
+      setActiveLockdownProduct(null);
+    }
+  }, [currentPage, selectedProduct]);
+
   const isLockdownMode = React.useMemo(() => {
     // 1. Check if on detail page for a lockdown item
     if (currentPage === 'detail' && selectedProduct) {
@@ -2386,11 +2415,34 @@ function App() {
       });
       if (hasHiddenInOrder) return true;
     }
+
+    // 3. If we came from lockdown, and are on profile, notifications, orders, affiliation, cart, checkout, or user-auth page
+    if (cameFromLockdown) {
+      const lockdownPages = ['cart', 'checkout', 'profile', 'notifications', 'orders', 'affiliation', 'user-auth'];
+      if (lockdownPages.includes(currentPage)) {
+        return true;
+      }
+    }
     
     return false;
-  }, [selectedProduct, orderDetails, currentPage]);
+  }, [selectedProduct, orderDetails, currentPage, cameFromLockdown]);
+
+  const isSelectedProductLockdown = React.useMemo(() => {
+    if (!selectedProduct) return false;
+    const pSlug = (selectedProduct as any).slug || '';
+    const pName = selectedProduct.name || '';
+    const pPrice = selectedProduct.price || 0;
+    const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+    const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                      (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+    const priceMatch = pPrice === 1 || pPrice === 101;
+    return slugMatch || nameMatch || priceMatch;
+  }, [selectedProduct]);
 
   const getLockdownProduct = () => {
+    if (activeLockdownProduct) {
+      return activeLockdownProduct;
+    }
     if (selectedProduct) {
       const pSlug = (selectedProduct as any).slug || '';
       const pName = selectedProduct.name || '';
@@ -2423,8 +2475,7 @@ function App() {
   const handleLockdownRedirect = () => {
     const lp = getLockdownProduct();
     if (lp) {
-      setSelectedProduct(lp);
-      setCurrentPage('detail');
+      setCurrentPage('detail', { product: lp });
     } else {
       setCurrentPage('shop');
     }
@@ -5003,13 +5054,13 @@ function App() {
         />
       ) : currentPage === 'style-login' ? (
         <Msg91TestLabPage
-          onNavigateToHome={() => setCurrentPage('home')}
-          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
         />
       ) : currentPage === 'user-auth' ? (
         <UserAuthPage
-          onNavigateToHome={() => setCurrentPage('home')}
-          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
           onLoginSuccess={(userSession, token) => {
             try {
               localStorage.setItem('mantra_user_session', JSON.stringify(userSession));
@@ -5557,7 +5608,7 @@ function App() {
         </footer>
       )}
 
-      {currentPage !== 'detail' && (
+      {currentPage !== 'detail' && selectedProduct && !isSelectedProductLockdown && (
         <ProductModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
