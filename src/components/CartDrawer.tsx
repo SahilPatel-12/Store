@@ -120,6 +120,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   // Explore more items (filtering out cart items)
   const crossSellProducts = React.useMemo(() => {
+    const hasLockdownItem = items.some(item => {
+      const p: any = item?.product || {};
+      const pSlug = p.slug || '';
+      const pName = p.name || '';
+      const pPrice = p.price || 0;
+      
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      
+      return slugMatch || nameMatch || priceMatch;
+    });
+
+    if (hasLockdownItem) {
+      return [];
+    }
+
     const cartIds = new Set(items.map(item => item?.product?.id).filter(Boolean));
     let pool = Array.isArray(products) ? products : [];
     const validIds = Array.isArray(exploreMoreProductIds) ? exploreMoreProductIds : [];

@@ -10,17 +10,6 @@ function getSessionToken(): string | null {
   }
 }
 
-function getAdminToken(): string | null {
-  try {
-    const stored = localStorage.getItem('ridae_admin_auth_session');
-    if (stored) {
-      const session = JSON.parse(stored);
-      return session?.token || null;
-    }
-  } catch (e) {}
-  return null;
-}
-
 /**
  * Helper to compress image client-side using Canvas.
  * Resizes the image to a max dimension of 1920px (preserving aspect ratio)
@@ -143,7 +132,6 @@ export async function uploadToR2(file: File, pathPrefix: string = 'products', sk
   }
 
   const sessionToken = getSessionToken();
-  const adminToken = getAdminToken();
 
   try {
     // 1. Get pre-signed URL from server
@@ -152,13 +140,13 @@ export async function uploadToR2(file: File, pathPrefix: string = 'products', sk
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
         purpose,
         filename: processedFile.name,
         contentType: processedFile.type,
         fileSize: processedFile.size,
-        sessionToken,
-        adminToken
+        sessionToken
       })
     });
 
@@ -209,21 +197,15 @@ export async function deleteFromR2(url: string): Promise<void> {
     return;
   }
 
-  const adminToken = getAdminToken();
-  if (!adminToken) {
-    console.warn('[R2 Client] Asset deletion requires admin privileges.');
-    return;
-  }
-
   try {
     const response = await fetch('/api/r2-presigned', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
-        url,
-        adminToken
+        url
       })
     });
 

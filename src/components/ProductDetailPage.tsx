@@ -4239,6 +4239,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const activeProducts = productsProp || [];
   const isVidyaRudraksh = (product.name?.toLowerCase().includes('vidya') || product.name?.includes('विद्या')) && (product.name?.toLowerCase().includes('rudraksh') || product.name?.includes('रुद्राक्ष') || product.category?.toLowerCase() === 'rudraksha' || product.category === 'रुद्राक्ष');
   const isOneRupeeProd = product.price === 1 || isVidyaRudraksh;
+  const isLockdownMode = (product as any).slug === 'vidya-rudraksh' || (product as any).slug === 'vidya-rudraksh-101';
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
   const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
@@ -8409,10 +8410,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         )}
 
       {/* Customer Reels Stories Showcase Carousel */}
-      <VidyaCustomerStoriesSection
-        activeProducts={activeProducts}
-        onViewDetails={onViewDetails}
-      />
+      {!isLockdownMode && (
+        <VidyaCustomerStoriesSection
+          activeProducts={activeProducts}
+          onViewDetails={onViewDetails}
+        />
+      )}
 
       {/* Reviews Section */}
       {(!reviewsHidden || editable) && (
@@ -8934,7 +8937,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       )}
 
       {/* Related Products Grid */}
-      <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
+      {!isLockdownMode && (
+        <section style={{ marginTop: '56px', borderTop: '1px solid var(--border-light)', paddingTop: '40px' }}>
         <div className="container">
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '24px', textAlign: 'left' }}>
             {isHindi ? "संबंधित अनुशंसित उत्पाद" : "Recommended Related Items"}
@@ -9412,6 +9416,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
         </div>
       </section>
+      )}
 
 
 

@@ -206,7 +206,6 @@ const styles = {
 };
 
 export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }: Msg91TestLabPageProps) {
-  const [adminToken, setAdminToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [config, setConfig] = useState<ConfigStatus | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -230,27 +229,22 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
 
   // Check admin session and load status on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('ridae_admin_auth_session');
-      if (!stored) {
+    (async () => {
+      try {
+        const response = await fetch('/api/admin/session');
+        const data = await response.json();
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          checkConfigStatus();
+        } else {
+          setIsAuthenticated(false);
+          setIsLoading(false);
+        }
+      } catch (e) {
         setIsAuthenticated(false);
         setIsLoading(false);
-        return;
       }
-
-      const parsed = JSON.parse(stored);
-      if (!parsed?.token) {
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        return;
-      }
-
-      setAdminToken(parsed.token);
-      checkConfigStatus(parsed.token);
-    } catch (e) {
-      setIsAuthenticated(false);
-      setIsLoading(false);
-    }
+    })();
   }, []);
 
   const addLog = (msg: string) => {
@@ -258,18 +252,16 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
     setStatusLog(prev => [`[${time}] ${msg}`, ...prev]);
   };
 
-  const checkConfigStatus = async (token: string) => {
+  const checkConfigStatus = async () => {
     try {
       addLog('Verifying admin privileges and fetching MSG91 status...');
       const res = await fetch('/api/test-msg91/status', {
-        headers: {
-          'x-admin-token': token
-        }
+        credentials: 'include'
       });
 
       if (res.status === 401) {
         setIsAuthenticated(false);
-        addLog('Error: 401 Unauthorized admin token.');
+        addLog('Error: 401 Unauthorized admin session.');
         setIsLoading(false);
         return;
       }
@@ -293,7 +285,6 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneNumber) return;
-    if (!adminToken) return;
 
     setIsSending(true);
     setErrorDetail(null);
@@ -313,9 +304,9 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       const res = await fetch('/api/test-msg91/send', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': adminToken
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           phone: `${countryCode}${phoneNumber}`
         })
@@ -348,7 +339,7 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || !phoneNumber || !adminToken) return;
+    if (!otpCode || !phoneNumber) return;
 
     setIsVerifying(true);
     setErrorDetail(null);
@@ -359,9 +350,9 @@ export default function Msg91TestLabPage({ onNavigateToHome, onNavigateToShop }:
       const res = await fetch('/api/test-msg91/verify', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': adminToken
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           phone: `${countryCode}${phoneNumber}`,
           otp: otpCode

@@ -1,15 +1,7 @@
+import { verifyAdmin } from './auth.js';
 import { supabaseAdmin } from '../supabase-admin.js';
 
-async function verifyAdmin(token) {
-  if (!token) return false;
-  const { data } = await supabaseAdmin
-    .from('admin_sessions')
-    .select('id')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  return !!data;
-}
+
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -30,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const isAdmin = await verifyAdmin(adminToken);
+    const isAdmin = !!(await verifyAdmin(req));
     if (!isAdmin) {
       return res.status(401).json({ error: 'Unauthorized: Admin session required.' });
     }

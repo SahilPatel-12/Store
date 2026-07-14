@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './_lib/supabase-admin.js';
+import { verifyAdmin } from './_lib/admin/auth.js';
 import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { createRequire } from 'module';
@@ -63,18 +64,6 @@ const PURPOSE_ALLOWLIST = {
   'invoices': { role: 'public', allowedMimeTypes: ['application/pdf'], maxSizeBytes: 10 * 1024 * 1024, prefix: 'invoices' }
 };
 
-// Admin verification
-async function verifyAdmin(token) {
-  if (!token) return false;
-  const { data } = await supabaseAdmin
-    .from('admin_sessions')
-    .select('id')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  return !!data;
-}
-
 // Customer verification
 async function verifyCustomer(token) {
   if (!token) return false;
@@ -120,7 +109,7 @@ export default async function handler(req, res) {
 
     // Role authentication check
     if (rules.role === 'admin') {
-      const isAdmin = await verifyAdmin(adminToken);
+      const isAdmin = !!(await verifyAdmin(req));
       if (!isAdmin) {
         return res.status(401).json({ error: 'Unauthorized: Admin session required.' });
       }
@@ -210,13 +199,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Could not generate upload signature.' });
     }
   } else if (req.method === 'DELETE') {
-    const { url, adminToken } = req.body;
+    const { url } = req.body;
 
-    if (!url || !adminToken) {
-      return res.status(400).json({ error: 'Missing URL or Admin Token.' });
+    if (!url) {
+      return res.status(400).json({ error: 'Missing URL.' });
     }
 
-    const isAdmin = await verifyAdmin(adminToken);
+    const isAdmin = !!(await verifyAdmin(req));
     if (!isAdmin) {
       return res.status(401).json({ error: 'Unauthorized: Admin session required.' });
     }

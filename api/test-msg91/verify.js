@@ -1,26 +1,11 @@
 import { supabaseAdmin } from '../_lib/supabase-admin.js';
+import { verifyAdmin } from '../_lib/admin/auth.js';
 import crypto from 'crypto';
-
-async function verifyAdmin(token) {
-  if (!token) return null;
-  const { data } = await supabaseAdmin
-    .from('admin_sessions')
-    .select('id, admin_id')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  return data;
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
-  const adminToken = req.headers['x-admin-token'];
-  if (!adminToken) {
-    return res.status(401).json({ error: 'Unauthorized: Missing admin token.' });
   }
 
   const { phone, otp } = req.body || {};
@@ -30,7 +15,7 @@ export default async function handler(req, res) {
 
   try {
     // 1. Verify Admin Session
-    const adminSession = await verifyAdmin(adminToken);
+    const adminSession = await verifyAdmin(req);
     if (!adminSession) {
       return res.status(401).json({ error: 'Unauthorized: Invalid or expired admin session.' });
     }

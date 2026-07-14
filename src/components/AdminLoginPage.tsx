@@ -1,7 +1,5 @@
 import React from 'react';
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { hashPassword } from '../lib/crypto';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (username: string, token: string | null) => void;
@@ -31,53 +29,32 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
 
     (async () => {
       try {
-        const passwordHash = await hashPassword(password);
         const usernameInput = email.trim().toLowerCase();
 
-        // Query Supabase website_store_admin table (supports email/username mapping)
-        const { data, error } = await supabase
-          .from('website_store_admin')
-          .select('*')
-          .eq('username', usernameInput)
-          .maybeSingle();
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            username: usernameInput,
+            password: password
+          })
+        });
 
+        const data = await response.json();
         setIsSubmitting(false);
 
-        if (error) {
-          setErrorMsg('Database Error: ' + error.message + ' (Code: ' + error.code + ')');
+        if (!response.ok) {
+          setErrorMsg(data.error || 'Invalid credentials or connection failure.');
           return;
         }
 
-        if (!data) {
-          setErrorMsg('Sanctum login failed: No administrative user found with username "' + usernameInput + '".');
-          return;
-        }
-
-        if (data.password_hash === passwordHash || data.password_hash === password) {
-          try {
-            const { data: token, error: tokenError } = await supabase.rpc('authenticate_admin', {
-              p_username: data.username,
-              p_password_hash: data.password_hash,
-              p_ip: '127.0.0.1',
-              p_user_agent: navigator.userAgent
-            });
-            if (tokenError) {
-              console.warn('Failed to call authenticate_admin RPC, proceeding with local fallback:', tokenError.message);
-              onLoginSuccess(data.username, null);
-            } else {
-              onLoginSuccess(data.username, token);
-            }
-          } catch (tokenErr) {
-            console.error('Error during authenticate_admin RPC, proceeding with local fallback:', tokenErr);
-            onLoginSuccess(data.username, null);
-          }
-        } else {
-          setErrorMsg('Invalid administrative credentials. Password mismatch.');
-        }
+        onLoginSuccess(data.username, null);
       } catch (err) {
         console.error(err);
         setIsSubmitting(false);
-        setErrorMsg('Database authentication error. Unable to establish admin session.');
+        setErrorMsg('Authentication service connection failure.');
       }
     })();
   };

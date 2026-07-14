@@ -37,8 +37,257 @@ import {
   Compass
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
-import { supabase, getAdminSupabase } from '../lib/supabase';
+import { supabase, callAdminApi } from '../lib/supabase';
 import { hashPassword } from '../lib/crypto';
+
+// Local drop-in mock client that maps database operations to explicit backend API endpoints
+const getAdminSupabase = (): any => {
+  const makeBuilder = (table: string, method: string, args: any[] = []) => {
+    const queryState = {
+      table,
+      method, // 'select' | 'insert' | 'update' | 'upsert' | 'delete'
+      payload: args[0],
+      eqs: [] as { col: string, val: any }[],
+      neqs: [] as { col: string, val: any }[],
+      ins: [] as { col: string, vals: any[] }[],
+      limitVal: null as number | null,
+    };
+
+    const handler = {
+      get(_target: any, prop: string): any {
+        if (prop === 'then') {
+          return (resolve: any) => {
+            (async () => {
+              try {
+                let result: any = null;
+                if (queryState.table === 'website_settings') {
+                  if (queryState.method === 'select') {
+                    const data = await callAdminApi('/api/admin/settings');
+                    const eqKey = queryState.eqs.find(e => e.col === 'key')?.val;
+                    if (eqKey) {
+                      result = data.find((d: any) => d.key === eqKey);
+                    } else {
+                      result = data;
+                    }
+                  } else if (queryState.method === 'upsert') {
+                    result = await callAdminApi('/api/admin/settings', {
+                      method: 'POST',
+                      body: JSON.stringify(queryState.payload)
+                    });
+                  }
+                } else if (queryState.table === 'website_pooja_products') {
+                  if (queryState.method === 'upsert' || queryState.method === 'update') {
+                    const eqCategory = queryState.eqs.find(e => e.col === 'category')?.val;
+                    const categoryPayload = queryState.payload?.category;
+                    const inIds = queryState.ins.find(i => i.col === 'id')?.vals;
+                    const neqId = queryState.neqs.find(n => n.col === 'id')?.val;
+
+                    if (eqCategory && categoryPayload) {
+                      result = await callAdminApi('/api/admin/products', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'update-category', oldCategory: eqCategory, newCategory: categoryPayload })
+                      });
+                    } else if (inIds) {
+                      result = await callAdminApi('/api/admin/products', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'bulk-update', ids: inIds, payload: queryState.payload })
+                      });
+                    } else if (neqId === '00000000-0000-0000-0000-000000000000') {
+                      result = await callAdminApi('/api/admin/products', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'bulk-update-all', payload: queryState.payload })
+                      });
+                    } else {
+                      const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                      result = await callAdminApi('/api/admin/products', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'save', product: { id: idVal, ...queryState.payload } })
+                      });
+                    }
+                  } else if (queryState.method === 'delete') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/products', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'delete', productId: idVal })
+                    });
+                  }
+                } else if (queryState.table === 'website_store_pundits') {
+                  if (queryState.method === 'insert') {
+                    result = await callAdminApi('/api/admin/pundits', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'create', params: queryState.payload })
+                    });
+                  } else if (queryState.method === 'update') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/pundits', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'update', punditId: idVal, pundit: queryState.payload })
+                    });
+                  } else if (queryState.method === 'delete') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/pundits', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'delete', punditId: idVal })
+                    });
+                  }
+                } else if (queryState.table === 'website_store_pundit_bookings') {
+                  if (queryState.method === 'update') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/bookings', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'update', bookingId: idVal, booking: queryState.payload })
+                    });
+                  } else if (queryState.method === 'delete') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/bookings', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'delete', bookingId: idVal })
+                    });
+                  }
+                } else if (queryState.table === 'website_store_astrologers') {
+                  if (queryState.method === 'insert') {
+                    result = await callAdminApi('/api/admin/astrologers', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'create', astrologer: queryState.payload, userId: queryState.payload.user_id })
+                    });
+                  } else if (queryState.method === 'delete') {
+                    const userIdVal = queryState.eqs.find(e => e.col === 'user_id')?.val;
+                    result = await callAdminApi('/api/admin/astrologers', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'delete', userId: userIdVal })
+                    });
+                  }
+                } else if (queryState.table === 'website_store_users' || queryState.table === 'app_users') {
+                  if (queryState.method === 'update') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/astrologers', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'toggle-status', userId: idVal, isAstrologer: queryState.payload.is_astrologer })
+                    });
+                  } else if (queryState.method === 'delete') {
+                    const idVal = queryState.eqs.find(e => e.col === 'id')?.val;
+                    result = await callAdminApi('/api/admin/astrologers', {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'delete-cascade', userId: idVal })
+                    });
+                  }
+                }
+
+                resolve({ data: result, error: null });
+              } catch (err: any) {
+                resolve({ data: null, error: err });
+              }
+            })();
+          };
+        }
+
+        if (prop === 'eq') {
+          return (col: string, val: any) => {
+            queryState.eqs.push({ col, val });
+            return proxy;
+          };
+        }
+        if (prop === 'neq') {
+          return (col: string, val: any) => {
+            queryState.neqs.push({ col, val });
+            return proxy;
+          };
+        }
+        if (prop === 'in') {
+          return (col: string, vals: any[]) => {
+            queryState.ins.push({ col, vals });
+            return proxy;
+          };
+        }
+        if (prop === 'limit') {
+          return (val: number) => {
+            queryState.limitVal = val;
+            return proxy;
+          };
+        }
+        if (prop === 'select') {
+          return () => proxy;
+        }
+        if (prop === 'single' || prop === 'maybeSingle') {
+          return () => proxy;
+        }
+        if (prop === 'order') {
+          return () => proxy;
+        }
+
+        return proxy;
+      }
+    };
+
+    const targetObj = Object.create(null);
+    const proxy = new Proxy(targetObj, handler);
+    return proxy;
+  };
+
+  return {
+    from: (table: string) => {
+      return {
+        select: (_fields?: string) => makeBuilder(table, 'select'),
+        insert: (payload: any) => makeBuilder(table, 'insert', [payload]),
+        update: (payload: any) => makeBuilder(table, 'update', [payload]),
+        upsert: (payload: any) => makeBuilder(table, 'upsert', [payload]),
+        delete: () => makeBuilder(table, 'delete'),
+      };
+    }
+  };
+};
+
+const mockSupabaseRpc = async (fn: string, params: any = {}) => {
+  try {
+    let action = '';
+    let endpoint = '/api/admin/withdrawals';
+    let body: any = { action };
+
+    if (fn === 'admin_create_pundit') {
+      endpoint = '/api/admin/pundits';
+      body = { action: 'create', params };
+    } else if (fn === 'admin_update_pundit_password') {
+      endpoint = '/api/admin/pundits';
+      body = { action: 'update-password', punditId: params.p_pundit_id, password: params.p_new_password };
+    } else if (fn === 'admin_set_affiliate_status') {
+      body = { action: 'set-affiliate-status', userId: params.p_user_id, status: params.p_status };
+    } else if (fn === 'admin_delete_user_cascade') {
+      endpoint = '/api/admin/astrologers';
+      body = { action: 'delete-cascade', userId: params.p_user_id };
+    } else if (fn === 'admin_get_all_withdrawals') {
+      body = { action: 'get-withdrawals' };
+    } else if (fn === 'admin_approve_withdrawal') {
+      body = { action: 'approve-withdrawal', withdrawalId: params.p_withdrawal_id };
+    } else if (fn === 'admin_reject_withdrawal') {
+      body = { action: 'reject-withdrawal', withdrawalId: params.p_withdrawal_id, reason: params.p_notes };
+    } else if (fn === 'admin_mark_withdrawal_paid') {
+      body = { action: 'pay-withdrawal', withdrawalId: params.p_withdrawal_id, transactionId: params.p_tx_id };
+    } else if (fn === 'admin_get_all_affiliate_levels') {
+      body = { action: 'get-levels' };
+    } else if (fn === 'admin_save_affiliate_level') {
+      body = { action: 'save-level', level: params.p_level, commissionPercent: params.p_commission_percent };
+    } else if (fn === 'admin_delete_affiliate_level') {
+      body = { action: 'delete-level', level: params.p_level };
+    } else if (fn === 'admin_get_all_affiliate_settings') {
+      body = { action: 'get-affiliate-settings' };
+    } else if (fn === 'admin_save_affiliate_settings') {
+      body = { action: 'save-affiliate-settings', settings: params.p_settings_json };
+    } else {
+      return { data: null, error: new Error(`Unknown RPC function: ${fn}`) };
+    }
+
+    const data = await callAdminApi(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    return { data, error: null };
+  } catch (e: any) {
+    return { data: null, error: e };
+  }
+};
+
+(supabase as any).rpc = mockSupabaseRpc as any;
+
 import { ProductCard } from './ProductCard';
 import { ProductDetailPage } from './ProductDetailPage';
 import { uploadToR2, deleteFromR2 } from '../lib/cloudflare/r2';
@@ -7140,6 +7389,155 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 </div>
 
               </div>
+            </div>
+
+            {/* Change Password Card */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              boxShadow: 'var(--shadow-md)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0,
+                height: '4px',
+                background: 'linear-gradient(90deg, #dc2626 0%, #ef4444 100%)'
+              }} />
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                <div className="flex-center" style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626'
+                }}>
+                  <Lock size={24} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                    Change Administrator Password
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Rotate your administrator password. Requires a minimum of 16 characters.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const currentPassword = (form.elements.namedItem('currentPassword') as HTMLInputElement).value;
+                const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
+                const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
+
+                if (newPassword !== confirmPassword) {
+                  alert('Error: New password and confirm password do not match.');
+                  return;
+                }
+
+                if (newPassword.length < 16) {
+                  alert('Error: New password must be at least 16 characters long.');
+                  return;
+                }
+
+                try {
+                  await callAdminApi('/api/admin/password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                  });
+                  alert('Password updated successfully! You will be logged out. Please log in again.');
+                  if (onLogout) onLogout();
+                } catch (err: any) {
+                  alert('Error changing password: ' + err.message);
+                }
+              }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Current Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    required
+                    placeholder="Enter current administrative password..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1.5px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    New Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    required
+                    placeholder="Enter new password (minimum 16 characters)..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1.5px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Confirm New Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    required
+                    placeholder="Confirm new administrative password..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1.5px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-lime"
+                  style={{
+                    padding: '14px 28px',
+                    fontSize: '0.9rem',
+                    justifyContent: 'center',
+                    borderRadius: 'var(--radius-md)',
+                    width: '100%',
+                    marginTop: '8px',
+                    cursor: 'pointer',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff'
+                  }}
+                >
+                  Update Admin Password
+                </button>
+              </form>
             </div>
 
           </div>

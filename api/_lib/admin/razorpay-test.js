@@ -1,3 +1,4 @@
+import { verifyAdmin } from './auth.js';
 import { supabaseAdmin } from '../supabase-admin.js';
 import { getRazorpayClient } from '../razorpay-client.js';
 
@@ -30,7 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const adminSession = await verifyAdmin(adminToken);
+    const adminSession = await verifyAdmin(req);
     if (!adminSession) {
       return res.status(401).json({ error: 'Unauthorized: Invalid or expired admin session.' });
     }

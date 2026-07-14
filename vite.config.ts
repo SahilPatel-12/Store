@@ -36,14 +36,25 @@ function vercelDevPlugin() {
           // Simulate vercel.json rewrites locally
           if (pathname.startsWith('/api/admin/')) {
             const action = pathname.substring(11);
-            pathname = '/api/admin';
-            if (action === 'whatsapp/config') query['action'] = 'whatsapp-config';
-            else if (action === 'razorpay/config') query['action'] = 'razorpay-config';
-            else if (action === 'razorpay/test-connection') query['action'] = 'razorpay-test';
-            else if (action === 'orders/update-delivery-status') query['action'] = 'orders-update';
-            else if (action === 'orders/confirm-legacy-payment') query['action'] = 'orders-confirm';
-            else if (action === 'orders/decline-legacy-payment') query['action'] = 'orders-decline';
-            else if (action === 'orders/list') query['action'] = 'orders-list';
+            const legacyActions = [
+              'whatsapp/config',
+              'razorpay/config',
+              'razorpay/test-connection',
+              'orders/update-delivery-status',
+              'orders/confirm-legacy-payment',
+              'orders/decline-legacy-payment',
+              'orders/list'
+            ];
+            if (legacyActions.includes(action)) {
+              pathname = '/api/admin';
+              if (action === 'whatsapp/config') query['action'] = 'whatsapp-config';
+              else if (action === 'razorpay/config') query['action'] = 'razorpay-config';
+              else if (action === 'razorpay/test-connection') query['action'] = 'razorpay-test';
+              else if (action === 'orders/update-delivery-status') query['action'] = 'orders-update';
+              else if (action === 'orders/confirm-legacy-payment') query['action'] = 'orders-confirm';
+              else if (action === 'orders/decline-legacy-payment') query['action'] = 'orders-decline';
+              else if (action === 'orders/list') query['action'] = 'orders-list';
+            }
           } else if (pathname.startsWith('/api/payments/razorpay/')) {
             const action = pathname.substring(23);
             pathname = '/api/payments';

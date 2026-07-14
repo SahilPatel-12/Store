@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-07-14T05:45:10.913Z",
+  "website_store_admin": [
+    {
+      "id": "e9010eb8-a46e-4963-a47f-e0ea90ac610a",
+      "username": "admin",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "created_at": "2026-05-29T08:04:52.13207+00:00"
+    }
+  ],
+  "admin_sessions": [
+    {
+      "id": "eccf35b4-8b75-4ae4-83c8-1be61b93dde3",
+      "admin_id": "e9010eb8-a46e-4963-a47f-e0ea90ac610a",
+      "session_token": "98fddb51ea255496f9bf1be3de091fa109f7582d10302b9a410a00ee5bedcaf5",
+      "created_at": "2026-07-14T05:07:42.421641+00:00",
+      "expires_at": "2026-07-15T05:07:42.421641+00:00",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "last_activity": "2026-07-14T05:07:42.421641+00:00"
+    }
+  ]
+}

@@ -12,22 +12,33 @@ if (typeof window !== 'undefined') {
   (window as any).supabase = supabase;
 }
 
-export const getAdminSupabase = () => {
-  let token = '';
-  if (typeof window !== 'undefined') {
+export async function callAdminApi(endpoint: string, options: RequestInit = {}) {
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+  };
+  
+  const mergedOptions: RequestInit = {
+    ...options,
+    credentials: 'include',
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+  };
+
+  const response = await fetch(endpoint, mergedOptions);
+  
+  if (!response.ok) {
+    let errorMsg = `Request failed with status ${response.status}`;
     try {
-      const stored = localStorage.getItem('ridae_admin_auth_session');
-      if (stored) {
-        const session = JSON.parse(stored);
-        token = session.token || '';
+      const errData = await response.json();
+      if (errData?.error) {
+        errorMsg = errData.error;
       }
     } catch (e) {}
+    throw new Error(errorMsg);
   }
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        'x-admin-token': token
-      }
-    }
-  });
-};
+
+  return response.json();
+}
+

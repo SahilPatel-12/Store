@@ -986,37 +986,23 @@ function App() {
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
   const [pendingAddToCart, setPendingAddToCart] = React.useState<{ product: Product; qty: number } | null>(null);
 
-  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string; token: string | null } | null>(() => {
-    try {
-      const stored = localStorage.getItem('ridae_admin_auth_session');
-      if (stored) {
-        const session = JSON.parse(stored);
-        if (session && session.isAuthenticated && session.token && session.expireTime > Date.now()) {
-          return { username: session.username, loginTime: session.loginTime, token: session.token };
-        }
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string; token: string | null } | null>(null);
 
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('ridae_admin_auth_session');
-      if (stored) {
-        const session = JSON.parse(stored);
-        if (session && session.isAuthenticated && session.token && session.expireTime > Date.now()) {
-          return true;
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState<boolean>(false);
+
+  // Mount effect to check session cookie on startup
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch('/api/admin/session');
+        const data = await response.json();
+        if (data.authenticated) {
+          setIsAdminAuthenticated(true);
+          setCurrentAdmin({ username: data.username, loginTime: new Date().toISOString(), token: null });
         }
-        localStorage.removeItem('ridae_admin_auth_session');
-        localStorage.removeItem('ridae_admin_auth');
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  });
+      } catch (e) {}
+    })();
+  }, []);
 
   // Lifted stateful catalog products
   const [productsState, setProductsState] = React.useState<Product[]>(() => {
@@ -1093,22 +1079,18 @@ function App() {
   React.useEffect(() => {
     if (!isAdminAuthenticated) return;
 
-    const checkInterval = setInterval(() => {
+    const checkInterval = setInterval(async () => {
       try {
-        const stored = localStorage.getItem('ridae_admin_auth_session');
-        if (stored) {
-          const session = JSON.parse(stored);
-          if (session && session.expireTime && Date.now() > session.expireTime) {
-            alert('Your administrator session has expired. Please log in again.');
-            localStorage.removeItem('ridae_admin_auth_session');
-            localStorage.removeItem('ridae_admin_auth');
-            setIsAdminAuthenticated(false);
-            setCurrentAdmin(null);
-            setCurrentPageState('admin-login');
-          }
+        const response = await fetch('/api/admin/session');
+        const data = await response.json();
+        if (!data.authenticated) {
+          alert('Your administrator session has expired or was terminated. Please log in again.');
+          setIsAdminAuthenticated(false);
+          setCurrentAdmin(null);
+          setCurrentPageState('admin-login');
         }
       } catch (e) {}
-    }, 15000);
+    }, 30000); // Check every 30 seconds
 
     return () => clearInterval(checkInterval);
   }, [isAdminAuthenticated]);
@@ -1988,28 +1970,28 @@ function App() {
 
   const getFeaturedProducts = () => {
     if (homepageConfig && homepageConfig.featuredProductIds && homepageConfig.featuredProductIds.length > 0) {
-      return productsState.filter(p => homepageConfig.featuredProductIds!.includes(p.id))
+      return visibleProducts.filter(p => homepageConfig.featuredProductIds!.includes(p.id))
         .sort((a, b) => homepageConfig.featuredProductIds!.indexOf(a.id) - homepageConfig.featuredProductIds!.indexOf(b.id));
     }
-    return productsState.slice(0, 4);
+    return visibleProducts.slice(0, 4);
   };
 
   const getSaleProducts = () => {
     if (homepageConfig && homepageConfig.saleProductIds && homepageConfig.saleProductIds.length > 0) {
-      return productsState.filter(p => homepageConfig.saleProductIds!.includes(p.id))
+      return visibleProducts.filter(p => homepageConfig.saleProductIds!.includes(p.id))
         .sort((a, b) => homepageConfig.saleProductIds!.indexOf(a.id) - homepageConfig.saleProductIds!.indexOf(b.id))
         .slice(0, 4);
     }
-    return productsState.slice(4, 8);
+    return visibleProducts.slice(4, 8);
   };
 
   const getNewArrivalsProducts = () => {
     if (homepageConfig && homepageConfig.newArrivalsProductIds && homepageConfig.newArrivalsProductIds.length > 0) {
-      return productsState.filter(p => homepageConfig.newArrivalsProductIds!.includes(p.id))
+      return visibleProducts.filter(p => homepageConfig.newArrivalsProductIds!.includes(p.id))
         .sort((a, b) => homepageConfig.newArrivalsProductIds!.indexOf(a.id) - homepageConfig.newArrivalsProductIds!.indexOf(b.id))
         .slice(0, 4);
     }
-    return productsState.slice(7, 11);
+    return visibleProducts.slice(7, 11);
   };
 
   // Localized homepage configuration text headers to support fallback values in Hindi mode
@@ -2250,9 +2232,7 @@ function App() {
     try {
       let data: any[] = [];
       if (isAdminAuthenticated) {
-        const adminSession = JSON.parse(localStorage.getItem('ridae_admin_auth_session') || '{}');
-        const adminToken = adminSession.token || '';
-        const res = await fetch(`/api/admin/orders/list?adminToken=${adminToken}`);
+        const res = await fetch('/api/admin/orders', { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch admin orders');
         data = await res.json();
       } else if (loggedInUser) {
@@ -2371,6 +2351,87 @@ function App() {
     }
   }, [cart]);
 
+  const visibleProducts = React.useMemo(() => {
+    return productsState.filter(p => (p as any).slug !== 'vidya-rudraksh' && (p as any).slug !== 'vidya-rudraksh-101');
+  }, [productsState]);
+
+  const isLockdownMode = React.useMemo(() => {
+    // 1. Check if on detail page for a lockdown item
+    if (currentPage === 'detail' && selectedProduct) {
+      const pSlug = (selectedProduct as any).slug || '';
+      const pName = selectedProduct.name || '';
+      const pPrice = selectedProduct.price || 0;
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      if (slugMatch || nameMatch || priceMatch) {
+        return true;
+      }
+    }
+    
+    // 2. Check if on success page for a lockdown order
+    if (currentPage === 'success' && orderDetails) {
+      const items = orderDetails.items || [];
+      const hasHiddenInOrder = items.some((item: any) => {
+        const p = item.product || {};
+        const pSlug = p.slug || item.slug || '';
+        const pName = p.name || item.name || '';
+        const pPrice = p.price || item.price || 0;
+        const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+        const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                          (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+        const priceMatch = pPrice === 1 || pPrice === 101;
+        return slugMatch || nameMatch || priceMatch;
+      });
+      if (hasHiddenInOrder) return true;
+    }
+    
+    return false;
+  }, [selectedProduct, orderDetails, currentPage]);
+
+  const getLockdownProduct = () => {
+    if (selectedProduct) {
+      const pSlug = (selectedProduct as any).slug || '';
+      const pName = selectedProduct.name || '';
+      const pPrice = selectedProduct.price || 0;
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      if (slugMatch || nameMatch || priceMatch) {
+        return selectedProduct;
+      }
+    }
+    const cartLockdown = cart.find(item => {
+      const p: any = item?.product || {};
+      const pSlug = p.slug || '';
+      const pName = p.name || '';
+      const pPrice = p.price || 0;
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      return slugMatch || nameMatch || priceMatch;
+    });
+    if (cartLockdown && cartLockdown.product) {
+      return cartLockdown.product;
+    }
+    return productsState.find(p => (p as any).slug === 'vidya-rudraksh') || productsState.find(p => (p as any).slug === 'vidya-rudraksh-101') || null;
+  };
+
+  const handleLockdownRedirect = () => {
+    const lp = getLockdownProduct();
+    if (lp) {
+      setSelectedProduct(lp);
+      setCurrentPage('detail');
+    } else {
+      setCurrentPage('shop');
+    }
+  };
+
+
+
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -2435,6 +2496,24 @@ function App() {
 
   const handleAddToCartWithQty = (product: Product, quantity = 1, force = false) => {
     if (!product || !product.id) return;
+    
+    // Single-product checkout flow for exclusive/hidden items:
+    const isAddingHidden = (product as any).slug === 'vidya-rudraksh' || (product as any).slug === 'vidya-rudraksh-101';
+    
+    if (isAddingHidden) {
+      setCart([{ product, quantity: 1 }]);
+      setIsCartDrawerOpen(true);
+      return;
+    }
+
+    // if cart currently contains any hidden/exclusive products, clear it when adding a normal product
+    const hasHiddenInCart = cart.some(item => (item?.product as any)?.slug === 'vidya-rudraksh' || (item?.product as any)?.slug === 'vidya-rudraksh-101');
+    if (hasHiddenInCart) {
+      setCart([{ product, quantity }]);
+      setIsCartDrawerOpen(true);
+      return;
+    }
+
     if (force) {
       // guest bypass
     }
@@ -2654,7 +2733,13 @@ function App() {
         }}>
           {/* Logo & Brand Name (Left side) */}
           <div
-            onClick={() => setCurrentPage('home')}
+            onClick={() => {
+              if (isLockdownMode) {
+                handleLockdownRedirect();
+                return;
+              }
+              setCurrentPage('home');
+            }}
             style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
             <img 
@@ -2669,6 +2754,7 @@ function App() {
           </div>
 
           {/* Nav Links & Search bar (Center) */}
+          {!isLockdownMode && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }} className="nav-links-wrapper">
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }} className="nav-menu">
               <a
@@ -2799,6 +2885,7 @@ function App() {
               />
             </div>
           </div>
+          )}
 
           {/* Profile & Cart actions (Right side) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} className="nav-actions">
@@ -2922,6 +3009,7 @@ function App() {
             >
               <User size={20} style={{ fill: loggedInUser ? 'var(--primary-gold, #d97706)' : 'none' }} />
             </button>
+            {!isLockdownMode && (
             <button
               onClick={() => setCurrentPage('wishlist')}
               style={{
@@ -2954,6 +3042,7 @@ function App() {
                 </span>
               )}
             </button>
+            )}
             <button
               onClick={() => setIsCartDrawerOpen(true)}
               className={`navbar-cart-btn ${isCartBouncing ? "cart-bounce-animation" : ""}`}
@@ -2987,6 +3076,7 @@ function App() {
                 </span>
               )}
             </button>
+            {!isLockdownMode && (
             <button
               onClick={() => setMobileMenuOpen(prev => !prev)}
               style={{ display: 'none', padding: '8px', color: 'var(--text-dark)' }}
@@ -2994,6 +3084,7 @@ function App() {
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
+            )}
           </div>
         </div>
 
@@ -4646,7 +4737,7 @@ function App() {
         </>
       ) : currentPage === 'shop' ? (
         <ShopPage
-          products={productsState}
+          products={visibleProducts}
           onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
           wishlist={wishlist}
@@ -4661,7 +4752,7 @@ function App() {
         />
       ) : currentPage === 'category' ? (
         <CategoryPage
-          products={productsState}
+          products={visibleProducts}
           categoryName={selectedCategoryName}
           onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
@@ -4675,7 +4766,7 @@ function App() {
         />
       ) : currentPage === 'search' ? (
         <SearchPage
-          products={productsState}
+          products={visibleProducts}
           initialQuery={searchQueryTerm}
           onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
@@ -4701,7 +4792,7 @@ function App() {
           }}
           discountPercent={discountPercent}
           taxDeliverySettings={taxDeliverySettings}
-          products={productsState}
+          products={visibleProducts}
         />
       ) : currentPage === 'checkout' ? (
         <CheckoutPage
@@ -4868,8 +4959,8 @@ function App() {
           order={orderDetails}
           products={productsState}
           onViewProductDetails={handleViewDetails}
-          onContinueShopping={() => setCurrentPage('shop')}
-          onGoHome={() => setCurrentPage('home')}
+          onContinueShopping={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
+          onGoHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
           onViewOrders={() => setCurrentPage('orders')}
         />
       ) : currentPage === 'orders' ? (
@@ -4877,20 +4968,20 @@ function App() {
           orders={ordersState}
           setOrders={setOrdersState}
           onAddToCart={handleAddToCartWithQty}
-          onNavigateToShop={() => setCurrentPage('shop')}
-          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
+          onNavigateToHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
           onNavigateToCart={() => setIsCartDrawerOpen(true)}
         />
       ) : currentPage === 'profile' ? (
         <UserProfilePage
           orders={ordersState}
           setOrders={setOrdersState}
-          products={productsState}
+          products={visibleProducts}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
           onAddToCart={handleAddToCartWithQty}
-          onNavigateToShop={() => setCurrentPage('shop')}
-          onNavigateToHome={() => setCurrentPage('home')}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
+          onNavigateToHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
           onNavigateToOrders={() => setCurrentPage('orders')}
           loggedInUser={loggedInUser}
           initialTab={profileInitialTab}
@@ -4969,8 +5060,8 @@ function App() {
           onClearAllNotifications={(ids) => {
             setClearedNotificationIds(prev => [...prev, ...ids.filter(id => !prev.includes(id))]);
           }}
-          onNavigateToHome={() => setCurrentPage('home')}
-          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToHome={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('home'); } }}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
           onNavigateToOrders={() => {
             setCurrentPage('orders');
           }}
@@ -4982,7 +5073,7 @@ function App() {
           onToggleWishlist={handleToggleWishlist}
           onAddToCart={handleAddToCartWithQty}
           onViewDetails={handleViewDetails}
-          onNavigateToShop={() => setCurrentPage('shop')}
+          onNavigateToShop={() => { if (isLockdownMode) { handleLockdownRedirect(); } else { setCurrentPage('shop'); } }}
         />
       ) : currentPage === 'about' ? (
         <AboutUsPage />
@@ -5009,20 +5100,8 @@ function App() {
         />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
-          onLoginSuccess={(username, token) => {
-            try {
-              const expireTime = Date.now() + 2 * 60 * 60 * 1000; // 2 hour session validity
-              const session = {
-                isAuthenticated: true,
-                username: username,
-                loginTime: new Date().toISOString(),
-                expireTime: expireTime,
-                token: token
-              };
-              localStorage.setItem('ridae_admin_auth_session', JSON.stringify(session));
-              localStorage.setItem('ridae_admin_auth', 'true');
-            } catch (e) {}
-            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token });
+          onLoginSuccess={(username) => {
+            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token: null });
             setIsAdminAuthenticated(true);
             setCurrentPage('admin');
           }}
@@ -5036,14 +5115,13 @@ function App() {
           setOrders={setOrdersState}
           onNavigateToHome={() => setCurrentPage('home')}
           onNavigateToShop={() => setCurrentPage('shop')}
-          onLogout={() => {
+          onLogout={async () => {
             try {
-              localStorage.removeItem('ridae_admin_auth_session');
-              localStorage.removeItem('ridae_admin_auth');
+              await fetch('/api/admin/logout', { method: 'POST' });
             } catch (e) {}
-              setIsAdminAuthenticated(false);
-              setCurrentAdmin(null);
-              setCurrentPage('admin-login');
+            setIsAdminAuthenticated(false);
+            setCurrentAdmin(null);
+            setCurrentPage('admin-login');
           }}
           adminSession={currentAdmin}
           onRefreshOrders={fetchOrdersFromSupabase}
@@ -5330,6 +5408,7 @@ function App() {
               </div>
 
               {/* Column 2: Alt Navigation */}
+              {!isLockdownMode && (
               <div style={{ flex: '1 1 170px' }}>
                 <h4 style={{
                   fontSize: '0.9rem',
@@ -5381,8 +5460,10 @@ function App() {
                   </li>
                 </ul>
               </div>
+              )}
 
               {/* Column 3: Support */}
+              {!isLockdownMode && (
               <div style={{ flex: '1 1 170px' }}>
                 <h4 style={{
                   fontSize: '0.9rem',
@@ -5419,6 +5500,7 @@ function App() {
                   </li>
                 </ul>
               </div>
+              )}
 
               {/* Column 4: Legal Guidelines */}
               <div style={{ flex: '1 1 170px' }}>
@@ -5506,7 +5588,7 @@ function App() {
           setAppliedCouponProductId(productId);
         }}
         products={productsState}
-        exploreMoreProductIds={Array.isArray(homepageConfig?.cartExploreMoreProductIds) ? homepageConfig.cartExploreMoreProductIds : []}
+        exploreMoreProductIds={isLockdownMode ? [] : (Array.isArray(homepageConfig?.cartExploreMoreProductIds) ? homepageConfig.cartExploreMoreProductIds : [])}
         onAddToCart={handleAddToCartWithQty}
         taxDeliverySettings={taxDeliverySettings}
       />

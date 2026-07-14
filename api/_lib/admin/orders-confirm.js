@@ -1,15 +1,7 @@
+import { verifyAdmin } from './auth.js';
 import { supabaseAdmin } from '../supabase-admin.js';
 
-async function verifyAdmin(token) {
-  if (!token) return false;
-  const { data } = await supabaseAdmin
-    .from('admin_sessions')
-    .select('id')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  return !!data;
-}
+
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -17,14 +9,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  const { orderId, adminToken } = req.body;
+  const { orderId } = req.body;
 
-  if (!orderId || !adminToken) {
-    return res.status(400).json({ error: 'Missing order ID or admin token.' });
+  if (!orderId) {
+    return res.status(400).json({ error: 'Missing order ID.' });
   }
 
   try {
-    const isAdmin = await verifyAdmin(adminToken);
+    const isAdmin = !!(await verifyAdmin(req));
     if (!isAdmin) {
       return res.status(401).json({ error: 'Unauthorized: Admin session required.' });
     }

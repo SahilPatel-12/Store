@@ -317,6 +317,23 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     });
   }, [language]);
 
+  const isLockdownMode = React.useMemo(() => {
+    const items = order?.items || [];
+    return items.some((item: any) => {
+      const p = item.product || {};
+      const pSlug = p.slug || item.slug || '';
+      const pName = p.name || item.name || '';
+      const pPrice = p.price || item.price || 0;
+      
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
+      const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
+                        (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
+      const priceMatch = pPrice === 1 || pPrice === 101;
+      
+      return slugMatch || nameMatch || priceMatch;
+    });
+  }, [order]);
+
   const suggestedProducts = React.useMemo(() => {
     if (!products || products.length === 0) {
       return [
@@ -1074,6 +1091,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
         {/* ═══════════════════════════════════════
             YOU MAY ALSO LIKE
         ═══════════════════════════════════════ */}
+        {!isLockdownMode && (
         <div className="success-section" style={{ marginTop: '48px' }}>
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
             <span style={{
@@ -1183,6 +1201,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
             </button>
           </div>
         </div>
+        )}
 
       </div>
     </div>
