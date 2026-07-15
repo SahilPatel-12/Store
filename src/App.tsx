@@ -1412,12 +1412,18 @@ function App() {
       } else if (path === '/style-login' || path === '/style-login/') {
         setCurrentPageState('style-login');
       } else if (path === '/affiliation' || path === '/affiliation/' || path === '/affiliation-program' || path === '/affiliation-program/') {
+        if (path.includes('affiliation-program')) {
+          window.history.replaceState({}, '', '/affiliation' + search);
+        }
         setCurrentPageState('affiliation');
       } else if (path === '/pundit-login' || path === '/pundit-login/') {
         setCurrentPageState('pundit-login');
       } else if (path === '/pundit-dashboard' || path === '/pundit-dashboard/') {
         setCurrentPageState('pundit-dashboard');
       } else if (path === '/sitemap' || path === '/sitemap/' || path === '/site-map' || path === '/site-map/') {
+        if (path.includes('site-map')) {
+          window.history.replaceState({}, '', '/sitemap' + search);
+        }
         setCurrentPageState('sitemap');
       } else if (path === '/astrologer-login' || path === '/astrologer-login/') {
         setCurrentPageState('astrologer-login');
@@ -1486,10 +1492,12 @@ function App() {
       case 'affiliation':
         title = "Affiliate Partner Program | Mantra Puja";
         description = "Become a partner and share the blessings of Vedic pujas and deity idols, earning spiritual commissions.";
+        canonical = "https://shop.mantrapuja.com/affiliation";
         break;
       case 'sitemap':
         title = "Sitemap Directory | Mantra Puja Store";
         description = "Browse our full dynamic index of products, category landing pages, help guides, and devotee accounts.";
+        canonical = "https://shop.mantrapuja.com/sitemap";
         break;
       case 'profile':
       case 'orders':

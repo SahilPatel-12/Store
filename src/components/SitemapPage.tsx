@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Compass, ShoppingBag, User, Heart, Settings, ShieldAlert, FileText, ChevronRight, HelpCircle } from 'lucide-react';
+import { Search, Compass, ShoppingBag, User, Heart, Settings, ShieldAlert, FileText, ChevronRight, HelpCircle, Home } from 'lucide-react';
 
 interface SitemapPageProps {
   products: any[];
   onNavigate: (
-    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard',
+    page: 'home' | 'shop' | 'category' | 'detail' | 'search' | 'cart' | 'checkout' | 'success' | 'profile' | 'orders' | 'wishlist' | 'about' | 'contact' | 'policies' | 'admin' | 'admin-login' | 'user-auth' | 'affiliation' | 'notifications' | 'pundit-login' | 'pundit-dashboard' | 'sitemap' | 'astrologer-login' | 'astrologer-dashboard',
     options?: any
   ) => void;
   onTrackEvent?: (eventName: string, details?: any) => void;
@@ -434,17 +434,28 @@ export const SitemapPage: React.FC<SitemapPageProps> = ({
             
             <li style={{ borderTop: '1px solid var(--border-light)', paddingTop: '14px', marginTop: '6px' }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                Pundit Gateways
+                Sacred Partner Gateways
               </div>
-              <button
-                onClick={() => handleLinkClick('pundit-login', '/pundit-login')}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'left' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-accent)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-              >
-                <User size={16} style={{ color: 'var(--primary-accent)' }} />
-                <span>Pundit Login Portal</span>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button
+                  onClick={() => handleLinkClick('pundit-login', '/pundit-login')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'left' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-accent)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  <User size={16} style={{ color: 'var(--primary-accent)' }} />
+                  <span>Pundit Login Portal</span>
+                </button>
+                <button
+                  onClick={() => handleLinkClick('astrologer-login', '/astrologer-login')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'left' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-accent)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  <User size={16} style={{ color: 'var(--primary-gold)' }} />
+                  <span>Astrologer Login Portal</span>
+                </button>
+              </div>
             </li>
           </ul>
         </section>
@@ -465,6 +476,17 @@ export const SitemapPage: React.FC<SitemapPageProps> = ({
           </div>
 
           <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <li>
+              <button
+                onClick={() => handleLinkClick('home', '/')}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'left' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-accent)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              >
+                <Home size={16} style={{ color: 'var(--primary-accent)' }} />
+                <span>Home Altar</span>
+              </button>
+            </li>
             <li>
               <button
                 onClick={() => handleLinkClick('about', '/about')}

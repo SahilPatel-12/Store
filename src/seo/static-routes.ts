@@ -6,10 +6,8 @@ export const staticRoutes = [
   "/contact",
   "/policies",
   "/auth",
-  "/style-login",
   "/affiliation",
-  "/affiliation-program",
+  "/pundit-login",
   "/sitemap",
-  "/site-map",
   "/astrologer-login"
 ];

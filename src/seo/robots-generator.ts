@@ -22,10 +22,12 @@ export const buildRobotsTxt = (): string => {
   robots += 'Disallow: /cart\n';
   robots += 'Disallow: /auth/\n';
   robots += 'Disallow: /auth\n';
-  robots += 'Disallow: /pundit-login/\n';
-  robots += 'Disallow: /pundit-login\n';
   robots += 'Disallow: /admin-login/\n';
   robots += 'Disallow: /admin-login\n';
+  robots += 'Disallow: /astrologer-dashboard/\n';
+  robots += 'Disallow: /astrologer-dashboard\n';
+  robots += 'Disallow: /style-login/\n';
+  robots += 'Disallow: /style-login\n';
   robots += 'Disallow: /search\n'; // Block search queries parsing to prevent keyword spam
   
   // Explicitly allow indexing of public sitemap configuration paths

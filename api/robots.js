@@ -209,10 +209,12 @@ var buildRobotsTxt = () => {
   robots += "Disallow: /cart\n";
   robots += "Disallow: /auth/\n";
   robots += "Disallow: /auth\n";
-  robots += "Disallow: /pundit-login/\n";
-  robots += "Disallow: /pundit-login\n";
   robots += "Disallow: /admin-login/\n";
   robots += "Disallow: /admin-login\n";
+  robots += "Disallow: /astrologer-dashboard/\n";
+  robots += "Disallow: /astrologer-dashboard\n";
+  robots += "Disallow: /style-login/\n";
+  robots += "Disallow: /style-login\n";
   robots += "Disallow: /search\n";
   for (const module of sitemapRegistry) {
     if (module.enabled && module.robotsPolicy === "index, follow") {

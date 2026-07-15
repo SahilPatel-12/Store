@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 export type VercelRequest = any;
 export type VercelResponse = any;
@@ -111,6 +112,61 @@ async function hasEntries(supabase: any, sub: string): Promise<boolean> {
   }
 }
 
+async function getChildSitemapLastMod(supabase: any, name: string): Promise<string> {
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    if (name === 'static') {
+      return todayStr;
+    }
+    if (name === 'products' || name === 'categories') {
+      const { data, error } = await supabase
+        .from('website_pooja_products')
+        .select('updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split('T')[0];
+      }
+    }
+    if (name === 'pundits') {
+      const { data, error } = await supabase
+        .from('website_store_pundits')
+        .select('updated_at')
+        .eq('status', 'approved')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split('T')[0];
+      }
+    }
+    if (name === 'images') {
+      const prodLastMod = await getChildSitemapLastMod(supabase, 'products');
+      return prodLastMod;
+    }
+
+    const fallbacksMap: Record<string, string[]> = {
+      blogs: ['website_store_blogs', 'website_blogs', 'blogs', 'posts'],
+      collections: ['website_store_collections', 'website_collections', 'collections'],
+      brands: ['website_store_brands', 'website_brands', 'brands'],
+      articles: ['website_store_articles', 'website_articles', 'articles'],
+      festivals: ['website_store_festivals', 'website_festivals', 'festivals'],
+      pujas: ['website_store_pujas', 'website_pujas', 'pujas']
+    };
+    const candidateTables = fallbacksMap[name] || [`website_store_${name}`, name];
+    for (const table of candidateTables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select('updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split('T')[0];
+      }
+    }
+  } catch {}
+  return todayStr;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   
@@ -157,16 +213,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'images'
       ];
 
+      let maxLastMod = '';
       for (const name of childSitemaps) {
         if (await hasEntries(supabase, name)) {
+          const childLastMod = await getChildSitemapLastMod(supabase, name);
+          if (childLastMod > maxLastMod) {
+            maxLastMod = childLastMod;
+          }
           indexXml += '  <sitemap>\n';
           indexXml += `    <loc>${BASE_URL}/sitemap-${name}.xml</loc>\n`;
+          indexXml += `    <lastmod>${childLastMod}</lastmod>\n`;
           indexXml += '  </sitemap>\n';
         }
       }
 
       indexXml += '</sitemapindex>';
       
+      const etag = crypto.createHash('md5').update(indexXml).digest('hex');
+      res.setHeader('ETag', `"${etag}"`);
+      if (req.headers && req.headers['if-none-match'] === `"${etag}"`) {
+        res.statusCode = 304;
+        return res.end();
+      }
+      if (maxLastMod) {
+        res.setHeader('Last-Modified', new Date(maxLastMod).toUTCString());
+      }
+
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=0, must-revalidate');
       return res.status(200).send(indexXml);
@@ -197,10 +269,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           changefreq = 'weekly';
         }
 
+        const todayStr = new Date().toISOString().split('T')[0];
         rawNodes.push({
           loc: `${BASE_URL}${p}`,
           changefreq,
-          priority
+          priority,
+          lastmod: todayStr
         });
       }
     } else if (sub === 'products') {
@@ -225,17 +299,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (sub === 'categories') {
       const { data, error } = await supabase
         .from('website_pooja_products')
-        .select('category')
+        .select('category, updated_at')
         .eq('is_published', true);
 
       if (!error && data) {
-        const uniqueCategories = Array.from(new Set(data.map(item => item.category).filter(Boolean)));
-        categoriesCount = uniqueCategories.length;
-        for (const cat of uniqueCategories) {
+        const categoryMap = new Map<string, string | null>();
+        for (const item of data) {
+          if (item.category) {
+            const existingLastMod = categoryMap.get(item.category);
+            const currentLastMod = item.updated_at;
+            if (!existingLastMod || (currentLastMod && new Date(currentLastMod) > new Date(existingLastMod))) {
+              categoryMap.set(item.category, currentLastMod);
+            }
+          }
+        }
+
+        categoriesCount = categoryMap.size;
+        for (const [cat, lastModVal] of categoryMap.entries()) {
           rawNodes.push({
             loc: `${BASE_URL}/category/${getCategorySlug(cat)}`,
             changefreq: 'weekly',
-            priority: 0.8
+            priority: 0.8,
+            lastmod: lastModVal ? new Date(lastModVal).toISOString().split('T')[0] : undefined
           });
         }
       }
@@ -260,7 +345,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Gather images for products
       const { data: prodData } = await supabase
         .from('website_pooja_products')
-        .select('slug, image')
+        .select('slug, image, updated_at')
         .eq('is_published', true);
 
       if (prodData) {
@@ -269,7 +354,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const imgUrl = item.image.startsWith('http') ? item.image : `${BASE_URL}${item.image.startsWith('/') ? '' : '/'}${item.image}`;
             rawNodes.push({
               loc: `${BASE_URL}/product/${item.slug}`,
-              images: [imgUrl]
+              images: [imgUrl],
+              lastmod: item.updated_at ? new Date(item.updated_at).toISOString().split('T')[0] : undefined
             });
           }
         }
@@ -278,7 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Gather photos for pundits
       const { data: punditData } = await supabase
         .from('website_store_pundits')
-        .select('id, profile_photo')
+        .select('id, profile_photo, updated_at')
         .eq('status', 'approved');
 
       if (punditData) {
@@ -287,7 +373,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const imgUrl = item.profile_photo.startsWith('http') ? item.profile_photo : `${BASE_URL}${item.profile_photo.startsWith('/') ? '' : '/'}${item.profile_photo}`;
             rawNodes.push({
               loc: `${BASE_URL}/pundit/${item.id}`,
-              images: [imgUrl]
+              images: [imgUrl],
+              lastmod: item.updated_at ? new Date(item.updated_at).toISOString().split('T')[0] : undefined
             });
           }
         }
@@ -423,7 +510,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let xml = buildXmlSitemap(finalNodes);
 
     // 4. DEVELOPMENT DIAGNOSTIC LOGGING (XML comment)
-    const isDev = process.env.NODE_ENV !== 'production' || req.query.debug === 'true';
+    const isDev = process.env.NODE_ENV === 'development' || req.query.debug === 'true';
     if (isDev) {
       const genTime = Date.now() - startTime;
       xml += `\n<!--\nSitemap Diagnostic Audit (sub=${sub}):\n`;
@@ -442,6 +529,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       xml += `- Invalid URLs Filtered: ${invalidCount}\n`;
       xml += `- Generation Time: ${genTime}ms\n`;
       xml += `-->`;
+    }
+
+    const etag = crypto.createHash('md5').update(xml).digest('hex');
+    res.setHeader('ETag', `"${etag}"`);
+    if (req.headers && req.headers['if-none-match'] === `"${etag}"`) {
+      res.statusCode = 304;
+      return res.end();
+    }
+
+    let maxLastMod = '';
+    for (const node of finalNodes) {
+      if (node.lastmod && node.lastmod > maxLastMod) {
+        maxLastMod = node.lastmod;
+      }
+    }
+    if (maxLastMod) {
+      res.setHeader('Last-Modified', new Date(maxLastMod).toUTCString());
     }
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

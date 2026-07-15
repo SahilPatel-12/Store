@@ -123,6 +123,71 @@ const server = http.createServer(async (req, res) => {
   // Diagnostic log for all requests
   console.log(`[Server] Request: ${req.method} ${pathname}`);
 
+  // Sitemap Router Interceptor
+  const isSitemapIndex = pathname === '/sitemap.xml';
+  const isSitemapChild = pathname.startsWith('/sitemap-') && pathname.endsWith('.xml');
+  if (isSitemapIndex || isSitemapChild) {
+    let sub = '';
+    if (isSitemapChild) {
+      const match = pathname.match(/^\/sitemap-(.+)\.xml$/);
+      if (match) {
+        sub = match[1];
+      }
+    }
+
+    try {
+      const filePath = path.join(__dirname, 'api', 'sitemap.js');
+      if (fs.existsSync(filePath)) {
+        const module = await import(`file://${filePath}`);
+        const handler = module.default;
+
+        // Parse query params
+        const queryParams = parseQueryParams(req.url);
+        if (sub) {
+          queryParams.sub = sub;
+        }
+        req.query = queryParams;
+
+        // Enhance response object with serverless compatibility helpers
+        res.status = function (statusCode) {
+          res.statusCode = statusCode;
+          return res;
+        };
+
+        res.json = function (data) {
+          if (!res.headersSent) {
+            res.setHeader('Content-Type', 'application/json');
+          }
+          res.end(JSON.stringify(data));
+          return res;
+        };
+
+        res.send = function (data) {
+          if (typeof data === 'object') {
+            return res.json(data);
+          }
+          res.end(data);
+          return res;
+        };
+
+        await handler(req, res);
+        return;
+      } else {
+        console.error(`[Server] Sitemap API handler not found at: ${filePath}`);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/html');
+        res.end('<h1>500 Internal Server Error: Sitemap Handler Missing</h1>');
+        return;
+      }
+    } catch (err) {
+      console.error('[Server] Error handling sitemap request:', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<h1>500 Internal Server Error</h1><p>${err.message}</p>`);
+      return;
+    }
+  }
+
   // 1. API Route Handler
   if (pathname.startsWith('/api/')) {
     // Add CORS headers for API requests

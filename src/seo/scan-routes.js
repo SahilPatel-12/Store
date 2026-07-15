@@ -24,12 +24,13 @@ function scanRoutes() {
         let cleanPath = rawPath.replace(/\/$/, '');
         if (!cleanPath) continue;
 
-        if (cleanPath.startsWith('/category') || cleanPath.startsWith('/product') || cleanPath.startsWith('/blog') || cleanPath.startsWith('/pundit') || cleanPath.startsWith('/temple')) {
+        if (cleanPath.startsWith('/category') || cleanPath.startsWith('/product') || cleanPath.startsWith('/blog') || (cleanPath.startsWith('/pundit') && cleanPath !== '/pundit-login') || cleanPath.startsWith('/temple')) {
           continue;
         }
 
         const isPrivate = /dashboard|checkout|cart|success|orders|profile|wishlist|notifications|search|admin|callback|error|dev/i.test(cleanPath);
-        if (isPrivate) continue;
+        const isExcluded = /style-login|site-map|affiliation-program/i.test(cleanPath);
+        if (isPrivate || isExcluded) continue;
 
         routes.add(cleanPath);
       }

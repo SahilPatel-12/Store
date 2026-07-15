@@ -13,25 +13,44 @@ function vercelDevPlugin() {
       }
 
       server.middlewares.use(async (req: any, res: any, next) => {
-        if (req.url && req.url.startsWith('/api/')) {
-          // Handle CORS preflight request
-          if (req.method === 'OPTIONS') {
-            res.statusCode = 200;
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token, Authorization');
-            res.end();
-            return;
-          }
-
+        if (req.url) {
           const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
           let pathname = url.pathname;
-          
-          // Parse query parameters
-          const query: Record<string, string> = {};
-          url.searchParams.forEach((val, key) => {
-            query[key] = val;
-          });
+
+          const isSitemapIndex = pathname === '/sitemap.xml';
+          const isSitemapChild = pathname.startsWith('/sitemap-') && pathname.endsWith('.xml');
+          const isSitemap = isSitemapIndex || isSitemapChild;
+
+          if (pathname.startsWith('/api/') || isSitemap) {
+            // Handle CORS preflight request
+            if (req.method === 'OPTIONS') {
+              res.statusCode = 200;
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+              res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token, Authorization');
+              res.end();
+              return;
+            }
+
+            // Parse query parameters
+            const query: Record<string, string> = {};
+            url.searchParams.forEach((val, key) => {
+              query[key] = val;
+            });
+
+            if (isSitemap) {
+              let sub = '';
+              if (isSitemapChild) {
+                const match = pathname.match(/^\/sitemap-(.+)\.xml$/);
+                if (match) {
+                  sub = match[1];
+                }
+              }
+              pathname = '/api/sitemap';
+              if (sub) {
+                query['sub'] = sub;
+              }
+            }
 
           // Simulate vercel.json rewrites locally
           if (pathname.startsWith('/api/admin/')) {
@@ -130,12 +149,12 @@ function vercelDevPlugin() {
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
               }
-              return;
             }
           }
         }
-        next();
-      });
+      }
+      next();
+    });
     }
   };
 }

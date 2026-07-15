@@ -21945,6 +21945,9 @@ function shouldShowDeprecationWarning() {
 }
 if (shouldShowDeprecationWarning()) console.warn("\u26A0\uFE0F  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217");
 
+// src/seo/api/sitemap.ts
+import crypto2 from "crypto";
+
 // src/seo/seo-registry.ts
 var BASE_URL = "https://shop.mantrapuja.com";
 
@@ -21996,11 +21999,9 @@ var staticRoutes = [
   "/contact",
   "/policies",
   "/auth",
-  "/style-login",
   "/affiliation",
-  "/affiliation-program",
+  "/pundit-login",
   "/sitemap",
-  "/site-map",
   "/astrologer-login"
 ];
 
@@ -22077,6 +22078,47 @@ async function hasEntries(supabase, sub) {
     return false;
   }
 }
+async function getChildSitemapLastMod(supabase, name) {
+  const todayStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  try {
+    if (name === "static") {
+      return todayStr;
+    }
+    if (name === "products" || name === "categories") {
+      const { data, error } = await supabase.from("website_pooja_products").select("updated_at").order("updated_at", { ascending: false }).limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split("T")[0];
+      }
+    }
+    if (name === "pundits") {
+      const { data, error } = await supabase.from("website_store_pundits").select("updated_at").eq("status", "approved").order("updated_at", { ascending: false }).limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split("T")[0];
+      }
+    }
+    if (name === "images") {
+      const prodLastMod = await getChildSitemapLastMod(supabase, "products");
+      return prodLastMod;
+    }
+    const fallbacksMap = {
+      blogs: ["website_store_blogs", "website_blogs", "blogs", "posts"],
+      collections: ["website_store_collections", "website_collections", "collections"],
+      brands: ["website_store_brands", "website_brands", "brands"],
+      articles: ["website_store_articles", "website_articles", "articles"],
+      festivals: ["website_store_festivals", "website_festivals", "festivals"],
+      pujas: ["website_store_pujas", "website_pujas", "pujas"]
+    };
+    const candidateTables = fallbacksMap[name] || [`website_store_${name}`, name];
+    for (const table of candidateTables) {
+      const { data, error } = await supabase.from(table).select("updated_at").order("updated_at", { ascending: false }).limit(1);
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return new Date(data[0].updated_at).toISOString().split("T")[0];
+      }
+    }
+  } catch {
+  }
+  return todayStr;
+}
 async function handler(req, res) {
   const startTime = Date.now();
   let staticCount = 0;
@@ -22115,15 +22157,31 @@ async function handler(req, res) {
         "pujas",
         "images"
       ];
+      let maxLastMod2 = "";
       for (const name of childSitemaps) {
         if (await hasEntries(supabase, name)) {
+          const childLastMod = await getChildSitemapLastMod(supabase, name);
+          if (childLastMod > maxLastMod2) {
+            maxLastMod2 = childLastMod;
+          }
           indexXml += "  <sitemap>\n";
           indexXml += `    <loc>${BASE_URL}/sitemap-${name}.xml</loc>
+`;
+          indexXml += `    <lastmod>${childLastMod}</lastmod>
 `;
           indexXml += "  </sitemap>\n";
         }
       }
       indexXml += "</sitemapindex>";
+      const etag2 = crypto2.createHash("md5").update(indexXml).digest("hex");
+      res.setHeader("ETag", `"${etag2}"`);
+      if (req.headers && req.headers["if-none-match"] === `"${etag2}"`) {
+        res.statusCode = 304;
+        return res.end();
+      }
+      if (maxLastMod2) {
+        res.setHeader("Last-Modified", new Date(maxLastMod2).toUTCString());
+      }
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       res.setHeader("Cache-Control", "public, max-age=0, s-maxage=0, must-revalidate");
       return res.status(200).send(indexXml);
@@ -22151,10 +22209,12 @@ async function handler(req, res) {
           priority = 0.6;
           changefreq = "weekly";
         }
+        const todayStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
         rawNodes.push({
           loc: `${BASE_URL}${p}`,
           changefreq,
-          priority
+          priority,
+          lastmod: todayStr
         });
       }
     } else if (sub === "products") {
@@ -22173,15 +22233,25 @@ async function handler(req, res) {
         }
       }
     } else if (sub === "categories") {
-      const { data, error } = await supabase.from("website_pooja_products").select("category").eq("is_published", true);
+      const { data, error } = await supabase.from("website_pooja_products").select("category, updated_at").eq("is_published", true);
       if (!error && data) {
-        const uniqueCategories = Array.from(new Set(data.map((item) => item.category).filter(Boolean)));
-        categoriesCount = uniqueCategories.length;
-        for (const cat of uniqueCategories) {
+        const categoryMap = /* @__PURE__ */ new Map();
+        for (const item of data) {
+          if (item.category) {
+            const existingLastMod = categoryMap.get(item.category);
+            const currentLastMod = item.updated_at;
+            if (!existingLastMod || currentLastMod && new Date(currentLastMod) > new Date(existingLastMod)) {
+              categoryMap.set(item.category, currentLastMod);
+            }
+          }
+        }
+        categoriesCount = categoryMap.size;
+        for (const [cat, lastModVal] of categoryMap.entries()) {
           rawNodes.push({
             loc: `${BASE_URL}/category/${getCategorySlug(cat)}`,
             changefreq: "weekly",
-            priority: 0.8
+            priority: 0.8,
+            lastmod: lastModVal ? new Date(lastModVal).toISOString().split("T")[0] : void 0
           });
         }
       }
@@ -22199,26 +22269,28 @@ async function handler(req, res) {
         }
       }
     } else if (sub === "images") {
-      const { data: prodData } = await supabase.from("website_pooja_products").select("slug, image").eq("is_published", true);
+      const { data: prodData } = await supabase.from("website_pooja_products").select("slug, image, updated_at").eq("is_published", true);
       if (prodData) {
         for (const item of prodData) {
           if (item.slug && item.image) {
             const imgUrl = item.image.startsWith("http") ? item.image : `${BASE_URL}${item.image.startsWith("/") ? "" : "/"}${item.image}`;
             rawNodes.push({
               loc: `${BASE_URL}/product/${item.slug}`,
-              images: [imgUrl]
+              images: [imgUrl],
+              lastmod: item.updated_at ? new Date(item.updated_at).toISOString().split("T")[0] : void 0
             });
           }
         }
       }
-      const { data: punditData } = await supabase.from("website_store_pundits").select("id, profile_photo").eq("status", "approved");
+      const { data: punditData } = await supabase.from("website_store_pundits").select("id, profile_photo, updated_at").eq("status", "approved");
       if (punditData) {
         for (const item of punditData) {
           if (item.id && item.profile_photo) {
             const imgUrl = item.profile_photo.startsWith("http") ? item.profile_photo : `${BASE_URL}${item.profile_photo.startsWith("/") ? "" : "/"}${item.profile_photo}`;
             rawNodes.push({
               loc: `${BASE_URL}/pundit/${item.id}`,
-              images: [imgUrl]
+              images: [imgUrl],
+              lastmod: item.updated_at ? new Date(item.updated_at).toISOString().split("T")[0] : void 0
             });
           }
         }
@@ -22331,7 +22403,7 @@ async function handler(req, res) {
     }
     const finalNodes = Array.from(deduplicatedNodesMap.values());
     let xml = buildXmlSitemap(finalNodes);
-    const isDev = process.env.NODE_ENV !== "production" || req.query.debug === "true";
+    const isDev = process.env.NODE_ENV === "development" || req.query.debug === "true";
     if (isDev) {
       const genTime = Date.now() - startTime;
       xml += `
@@ -22367,6 +22439,21 @@ Sitemap Diagnostic Audit (sub=${sub}):
       xml += `- Generation Time: ${genTime}ms
 `;
       xml += `-->`;
+    }
+    const etag = crypto2.createHash("md5").update(xml).digest("hex");
+    res.setHeader("ETag", `"${etag}"`);
+    if (req.headers && req.headers["if-none-match"] === `"${etag}"`) {
+      res.statusCode = 304;
+      return res.end();
+    }
+    let maxLastMod = "";
+    for (const node of finalNodes) {
+      if (node.lastmod && node.lastmod > maxLastMod) {
+        maxLastMod = node.lastmod;
+      }
+    }
+    if (maxLastMod) {
+      res.setHeader("Last-Modified", new Date(maxLastMod).toUTCString());
     }
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=0, s-maxage=0, must-revalidate");
