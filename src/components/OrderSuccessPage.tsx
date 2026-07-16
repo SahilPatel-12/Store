@@ -467,20 +467,41 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       } catch (e) {}
 
       const productName = order.items?.[0]?.product?.name || (language === 'hi' ? 'विद्या रुद्राक्ष' : 'Vidya Rudraksh');
-      const blessingText = t('share.blessingText', { productName, url: window.location.origin });
+      const firstItem = order.items?.[0];
+      const productPrice = firstItem?.product?.price;
+      const productSlug = (firstItem?.product as any)?.slug || '';
+      
+      let blessingKey = 'share.blessingText';
+      const isVidyaRudraksh = productSlug.includes('vidya-rudraksh') || firstItem?.product?.name?.toLowerCase().includes('vidya');
+      if (isVidyaRudraksh) {
+        if (productPrice === 1001 || productSlug === 'vidya-rudraksh-1001') {
+          blessingKey = 'share.blessingText_1001';
+        } else if (productPrice === 101 || productSlug === 'vidya-rudraksh-101') {
+          blessingKey = 'share.blessingText_101';
+        } else if (productPrice === 1 || productSlug === 'vidya-rudraksh') {
+          blessingKey = 'share.blessingText_1';
+        }
+      }
+      const productUrl = productSlug 
+        ? `${window.location.origin}/product/${productSlug}` 
+        : `${window.location.origin}/shop`;
+      const blessingText = t(blessingKey, { productName, url: productUrl });
+      const isNoImage = isVidyaRudraksh && (productPrice === 101 || productPrice === 1001 || productSlug === 'vidya-rudraksh-101' || productSlug === 'vidya-rudraksh-1001');
 
-      const cardBlob = await createProductShareCard();
-      const cardFile = new File([cardBlob], t('share.fileName'), { type: 'image/jpeg' });
-
-      // Upload public sharing card to Cloudflare R2
-      const publicUrl = await uploadToR2(cardFile, 'referrals', true);
-      const text = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
+      let text = blessingText;
+      let publicUrl = '';
+      if (!isNoImage) {
+        const cardBlob = await createProductShareCard();
+        const cardFile = new File([cardBlob], t('share.fileName'), { type: 'image/jpeg' });
+        publicUrl = await uploadToR2(cardFile, 'referrals', true);
+        text = `${blessingText}\n\n👉 View Blessings Card: ${publicUrl}`;
+      }
       const encoded = encodeURIComponent(text);
 
       const urls: Record<string, string> = {
         whatsapp: `https://wa.me/?text=${encoded}`,
         twitter: `https://twitter.com/intent/tweet?text=${encoded}`,
-        telegram: `https://t.me/share/url?url=${publicUrl}&text=${encoded}`,
+        telegram: `https://t.me/share/url?url=${encodeURIComponent(publicUrl || (window.location.origin + '/shop'))}&text=${encoded}`,
       };
 
       if (urls[platform]) {
@@ -507,7 +528,38 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       } catch (e) {}
 
       const productName = order.items?.[0]?.product?.name || (language === 'hi' ? 'विद्या रुद्राक्ष' : 'Vidya Rudraksh');
-      const blessingText = t('share.blessingText', { productName, url: window.location.origin });
+      const firstItem = order.items?.[0];
+      const productPrice = firstItem?.product?.price;
+      const productSlug = (firstItem?.product as any)?.slug || '';
+      
+      let blessingKey = 'share.blessingText';
+      const isVidyaRudraksh = productSlug.includes('vidya-rudraksh') || firstItem?.product?.name?.toLowerCase().includes('vidya');
+      if (isVidyaRudraksh) {
+        if (productPrice === 1001 || productSlug === 'vidya-rudraksh-1001') {
+          blessingKey = 'share.blessingText_1001';
+        } else if (productPrice === 101 || productSlug === 'vidya-rudraksh-101') {
+          blessingKey = 'share.blessingText_101';
+        } else if (productPrice === 1 || productSlug === 'vidya-rudraksh') {
+          blessingKey = 'share.blessingText_1';
+        }
+      }
+      const productUrl = productSlug 
+        ? `${window.location.origin}/product/${productSlug}` 
+        : `${window.location.origin}/shop`;
+      const blessingText = t(blessingKey, { productName, url: productUrl });
+      const isNoImage = isVidyaRudraksh && (productPrice === 101 || productPrice === 1001 || productSlug === 'vidya-rudraksh-101' || productSlug === 'vidya-rudraksh-1001');
+
+      if (isNoImage) {
+        if (navigator.share) {
+          await navigator.share({
+            title: t('share.title'),
+            text: blessingText
+          });
+          return;
+        }
+        setShareExpanded(p => !p);
+        return;
+      }
 
       const cardBlob = await createProductShareCard();
       const cardFile = new File([cardBlob], t('share.fileName'), { type: 'image/jpeg' });

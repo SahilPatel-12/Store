@@ -306,12 +306,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   onNavigateToAffiliation,
 }) => {
   const { language } = useLanguage();
-  const { t } = useTranslation(['profile', 'wishlist', 'notifications']);
+  const { t } = useTranslation(['profile', 'wishlist', 'notifications', 'orderSuccess']);
   const [isReady, setIsReady] = React.useState(false);
 
   React.useEffect(() => {
     import('../lib/i18next').then(({ loadNamespaces }) => {
-      loadNamespaces(language, ['profile', 'wishlist', 'notifications']).then(() => setIsReady(true));
+      loadNamespaces(language, ['profile', 'wishlist', 'notifications', 'orderSuccess']).then(() => setIsReady(true));
     });
   }, [language]);
   const [activeTab, setActiveTab] = React.useState<
@@ -507,15 +507,41 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         }).catch(() => {});
       } catch (e) {}
 
-      const productName = order.items?.[0]?.product?.name || 'Vidya Rudraksh';
-      const blessingText = `🕉️ सांदीपनि आश्रम से सिद्ध "${productName}" 🙏✨
+      const firstItem = order.items?.[0];
+      const productName = firstItem?.product?.name || (language === 'hi' ? 'विद्या रुद्राक्ष' : 'Vidya Rudraksh');
+      const productPrice = firstItem?.product?.price;
+      const productSlug = (firstItem?.product as any)?.slug || '';
+      
+      let blessingKey = 'orderSuccess:share.blessingText';
+      const isVidyaRudraksh = productSlug.includes('vidya-rudraksh') || firstItem?.product?.name?.toLowerCase().includes('vidya');
+      if (isVidyaRudraksh) {
+        if (productPrice === 1001 || productSlug === 'vidya-rudraksh-1001') {
+          blessingKey = 'orderSuccess:share.blessingText_1001';
+        } else if (productPrice === 101 || productSlug === 'vidya-rudraksh-101') {
+          blessingKey = 'orderSuccess:share.blessingText_101';
+        } else if (productPrice === 1 || productSlug === 'vidya-rudraksh') {
+          blessingKey = 'orderSuccess:share.blessingText_1';
+        }
+      }
+      const productUrl = productSlug 
+        ? `${window.location.origin}/product/${productSlug}` 
+        : `${window.location.origin}/shop`;
+      const blessingText = t(blessingKey, { productName, url: productUrl });
+      const isNoImage = isVidyaRudraksh && (productPrice === 101 || productPrice === 1001 || productSlug === 'vidya-rudraksh-101' || productSlug === 'vidya-rudraksh-1001');
 
-बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠
-
-🔗 आज ही अपने बच्चे के लिए प्राप्त करें:
-${window.location.origin}/shop
-
-May divine blessings bring success and wisdom to your family! 📿🔱`;
+      if (isNoImage) {
+        if (navigator.share) {
+          await navigator.share({
+            title: t('orderSuccess:share.title', 'Mantra Puja Blessings'),
+            text: blessingText
+          });
+          return;
+        } else {
+          await navigator.clipboard.writeText(blessingText);
+          triggerToast('Message & link copied to clipboard!');
+          return;
+        }
+      }
 
       const cardBlob = await createProductShareCard();
       const cardFile = new File([cardBlob], 'VidyaRudraksh-Blessings.jpg', { type: 'image/jpeg' });
@@ -524,7 +550,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
       if (navigator.canShare && navigator.canShare({ files: [cardFile] })) {
         await navigator.share({
           files: [cardFile],
-          title: `Mantra Puja Blessings`,
+          title: t('orderSuccess:share.title', 'Mantra Puja Blessings'),
           text: blessingText
         });
         return;
@@ -536,7 +562,7 @@ May divine blessings bring success and wisdom to your family! 📿🔱`;
 
       if (navigator.share) {
         await navigator.share({
-          title: `Mantra Puja Blessings`,
+          title: t('orderSuccess:share.title', 'Mantra Puja Blessings'),
           text: fallbackText
         });
         return;

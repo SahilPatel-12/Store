@@ -146,7 +146,10 @@
   },
   "share": {
     "title": "Mantra Puja Blessings",
-    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}/shop\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "blessingText_1": "🕉️ Bless your child with \"Vidya Rudraksh\" (Siddh from Sandipani Ashram for just ₹1) 🙏✨\n\nEvery child deserves the power of wisdom! Energized to support study, focus, and learning. 📚🧠\n\n🔗 Order today for your child:\n{{url}}\n\nMay divine blessings bring success and wisdom to your child! 📿🔱",
+    "blessingText_101": "🕉️ Bless your child with the sacred \"Vidya Rudraksh Special\" (Siddh from Sandipani Ashram) 🙏✨\n\nSpecially energized to boost concentration, memory, and academic success for students! 📚🎓\n\n🔗 Get it for your child today:\n{{url}}\n\nMay divine blessings bring success, focus, and wisdom to your child! 📿🔱",
+    "blessingText_1001": "🕉️ Invite divine excellence with the \"Vidya Rudraksh Premium\" (Grand Siddhi energized at Sandipani Ashram) 🙏✨\n\nAbhimantrit with powerful Vedic mantras and personalized Sankalp for students aiming for competitive exams and higher education! 📚🏆\n\n🔗 Get the Premium blessings today:\n{{url}}\n\nMay the ultimate blessings of Goddess Saraswati and Lord Shiva guide your child to peak success! 📿🔱",
     "fileName": "VidyaRudraksh-Blessings.jpg"
   },
   "loading": "Loading details..."

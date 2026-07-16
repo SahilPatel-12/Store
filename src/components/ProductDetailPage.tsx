@@ -3068,7 +3068,7 @@ const VidyaWhyParentsTrustSection: React.FC = () => {
   );
 };
 
-const VidyaWhyOneRupeeSection: React.FC = () => {
+const VidyaWhyOneRupeeSection: React.FC<{ price: number }> = ({ price }) => {
   const { language } = useLanguage();
   const isHindi = language === 'hi';
   const chargesBreakdown = isHindi ? [
@@ -3288,20 +3288,25 @@ const VidyaWhyOneRupeeSection: React.FC = () => {
         }
       `}</style>
       <div className="vidya-onerupee-container">
-        <span className="vidya-onerupee-tag">{isHindi ? "₹1 भावना" : "₹1 Spirit"}</span>
-        <h2 className="vidya-onerupee-heading">{isHindi ? "हम सिर्फ ₹1 में क्यों दे रहे हैं?" : "Hum Sirf ₹1 Mein Kyu De Rahe Hain?"}</h2>
+        <span className="vidya-onerupee-tag">{isHindi ? `₹${price} भावना` : `₹${price} Spirit`}</span>
+        <h2 className="vidya-onerupee-heading">{isHindi ? `हम सिर्फ ₹${price} में क्यों दे रहे हैं?` : `Hum Sirf ₹${price} Mein Kyu De Rahe Hain?`}</h2>
         
         {/* Glowing floating coin */}
         <div className="vidya-onerupee-coin-wrap">
           <div className="vidya-onerupee-coin-ripple" />
           <div className="vidya-onerupee-coin-ripple" />
-          <div className="vidya-onerupee-coin">₹1</div>
+          <div 
+            className="vidya-onerupee-coin" 
+            style={{ fontSize: price >= 1000 ? '1.4rem' : price >= 100 ? '1.8rem' : '2.5rem' }}
+          >
+            ₹{price}
+          </div>
         </div>
 
         <p className="vidya-onerupee-story">
           {isHindi 
-            ? <>हर बच्चा <span style={{ color: '#ea580c', fontWeight: 900 }}>विद्या का अधिकारी</span> है।<br />इसलिए रुद्राक्ष का मूल्य <span className="vidya-onerupee-highlight">मात्र ₹1 रखा गया है।</span></>
-            : <>Har Bachcha <span style={{ color: '#ea580c', fontWeight: 900 }}>Vidya Ka Adhikari</span> Hai.<br />Isliye Rudraksh Ka Moolya <span className="vidya-onerupee-highlight">Matra ₹1 Rakha Gaya Hai.</span></>}
+            ? <>हर बच्चा <span style={{ color: '#ea580c', fontWeight: 900 }}>विद्या का अधिकारी</span> है।<br />इसलिए रुद्राक्ष का मूल्य <span className="vidya-onerupee-highlight">मात्र ₹{price} रखा गया है।</span></>
+            : <>Har Bachcha <span style={{ color: '#ea580c', fontWeight: 900 }}>Vidya Ka Adhikari</span> Hai.<br />Isliye Rudraksh Ka Moolya <span className="vidya-onerupee-highlight">Matra ₹{price} Rakha Gaya Hai.</span></>}
         </p>
 
         <span className="vidya-onerupee-charges-label">{isHindi ? "आप केवल नीचे दिए गए शुल्क देते हैं (विवरण के लिए टैप करें):" : "Aap Sirf Niche Diye Charges Dete Hain (Tap for details):"}</span>
@@ -7569,7 +7574,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           {/* <VidyaVideoSection videoUrl={pooja.videoUrl} thumbnailUrl={pooja.uiLabels?.videoThumbnail} /> */}
           <VidyaSandipaniAshramSection />
           <VidyaWhyParentsTrustSection />
-          <VidyaWhyOneRupeeSection />
+          <VidyaWhyOneRupeeSection price={product.price} />
         </>
       )}
 

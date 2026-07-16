@@ -146,7 +146,10 @@
   },
   "share": {
     "title": "मन्त्रपूजा आशीर्वाद",
-    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}/shop\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "blessingText": "🕉️ सांदीपनि आश्रम से सिद्ध \"{{productName}}\" 🙏✨\n\nबच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता के लिए विशेष! 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}\n\nMay divine blessings bring success and wisdom to your family! 📿🔱",
+    "blessingText_1": "🕉️ सांदीपनि आश्रम से सिद्ध \"विद्या रुद्राक्ष\" (मात्र ₹1 में) 🙏✨\n\nहर बच्चा विद्या का अधिकारी है! बच्चों की पढ़ाई, एकाग्रता और सीखने की क्षमता बढ़ाने के लिए दिव्य प्रसाद। 📚🧠\n\n🔗 आज ही अपने बच्चे के लिए प्राप्त करें:\n{{url}}\n\nMay divine blessings bring success and wisdom to your child! 📿🔱",
+    "blessingText_101": "🕉️ सांदीपनि आश्रम से सिद्ध \"विद्या रुद्राक्ष स्पेशल\" (विशेष अभिमंत्रित) 🙏✨\n\nबच्चों की शिक्षा में आने वाली बाधाओं को दूर करने, एकाग्रता और उज्ज्वल भविष्य के लिए विशेष पूजा युक्त रुद्राक्ष! 📚🎓\n\n🔗 आज ही अपने बच्चे के लिए बुक करें:\n{{url}}\n\nMay divine blessings bring success, focus, and wisdom to your child! 📿🔱",
+    "blessingText_1001": "🕉️ अत्यंत कल्याणकारी \"विद्या रुद्राक्ष प्रीमियम\" (सांदीपनि आश्रम से महा-सिद्ध) 🙏✨\n\nविद्या सिद्धि अनुष्ठान, विशेष मन्त्रोच्चार और संकल्प के साथ अभिमंत्रित। छात्रों की एकाग्रता, उच्च बुद्धि और प्रतियोगी परीक्षाओं में सफलता के लिए सर्वोपरि! 📚🏆\n\n🔗 आज ही प्रीमियम रुद्राक्ष प्राप्त करें:\n{{url}}\n\nMay the ultimate blessings of Goddess Saraswati and Lord Shiva guide your child to peak success! 📿🔱",
     "fileName": "VidyaRudraksh-Blessings.jpg"
   },
   "loading": "विवरण लोड हो रहा है..."

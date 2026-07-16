@@ -51,6 +51,11 @@ async function run() {
       custom_delivery: 0,
       gst_override_enabled: true,
       custom_gst: 0,
+      related_products: [
+        'e3af2e49-7fc7-4bd5-89ec-ed861641c799', // 2 Mukhi Rudraksha (1501)
+        '9bab7781-f55f-4847-8361-692d00daf1ed', // 7 Mukhi Rudraksha (999)
+        '96175523-5182-43c9-a7fc-6abf7f96858c'  // 3 Mukhi Rudraksha (1201)
+      ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
