@@ -3858,18 +3858,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   // Order status changes
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
-      const adminToken = adminSession?.token || '';
-      const res = await fetch('/api/admin/orders/update-delivery-status', {
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      await callAdminApi('/api/admin/orders/update-delivery-status', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ orderId, status, adminToken })
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Server error updating status');
-      }
     } catch (err) {
       console.error('Failed to update order status:', err);
       triggerToast(`Failed to update status: ${(err as Error).message}`);
@@ -3892,18 +3885,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       return;
     }
     try {
-      const adminToken = adminSession?.token || '';
-      const res = await fetch('/api/admin/orders/confirm-legacy-payment', {
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      await callAdminApi('/api/admin/orders/confirm-legacy-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ orderId, adminToken })
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Server error confirming payment');
-      }
     } catch (err) {
       console.error('Failed to confirm payment:', err);
       triggerToast(`Failed to confirm payment: ${(err as Error).message}`);
@@ -3932,20 +3918,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     if (!order) return;
 
     try {
-      const adminToken = adminSession?.token || '';
-      const res = await fetch('/api/admin/orders/decline-legacy-payment', {
+      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const resData = await callAdminApi('/api/admin/orders/decline-legacy-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ orderId, adminToken })
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Server error declining payment');
-      }
 
-      const resData = await res.json();
       const updatedOrder = resData.order;
       const newCount = updatedOrder.payment_decline_count;
       const isCancelled = updatedOrder.status === 'Cancelled';

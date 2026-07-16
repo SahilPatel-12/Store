@@ -9,14 +9,43 @@ import crypto from 'crypto';
  * @returns {Promise<{ id: string, admin_id: string } | null>}
  */
 export async function verifyAdmin(req) {
+  let token = '';
+
+  // 1. Read from cookie
   const cookies = req.headers.cookie || '';
   const sessionCookie = cookies
     .split(';')
     .map(c => c.trim())
     .find(c => c.startsWith('__Host-admin_session='));
-  
-  if (!sessionCookie) return null;
-  const token = sessionCookie.split('=')[1];
+  if (sessionCookie) {
+    token = sessionCookie.split('=')[1] || '';
+  }
+
+  // 2. Fallback to custom header
+  if (!token) {
+    token = req.headers['x-admin-token'] || '';
+  }
+
+  // 3. Fallback to standard authorization header
+  if (!token && req.headers['authorization']) {
+    const parts = req.headers['authorization'].split(' ');
+    if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+      token = parts[1];
+    } else {
+      token = req.headers['authorization'];
+    }
+  }
+
+  // 4. Fallback to query parameter
+  if (!token && req.query && req.query.adminToken) {
+    token = req.query.adminToken;
+  }
+
+  // 5. Fallback to request body parameter
+  if (!token && req.body && req.body.adminToken) {
+    token = req.body.adminToken;
+  }
+
   if (!token) return null;
 
   // Compute SHA-256 hash of the provided cookie token
