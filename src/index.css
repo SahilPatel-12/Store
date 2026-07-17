@@ -1314,6 +1314,7 @@ details.referral-details > summary {
   font-weight: 800;
   background: linear-gradient(135deg, var(--primary-forest, #2d140e), var(--primary-accent, #ea580c));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 12px;
   transition: transform 0.3s ease;

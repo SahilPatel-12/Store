@@ -2,18 +2,6 @@ import { verifyAdmin } from './auth.js';
 import { supabaseAdmin } from '../supabase-admin.js';
 import { getRazorpayClient } from '../razorpay-client.js';
 
-// Verify if the admin token is valid and not expired
-async function verifyAdmin(token) {
-  if (!token) return null;
-  const { data } = await supabaseAdmin
-    .from('admin_sessions')
-    .select('id')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  return data;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);

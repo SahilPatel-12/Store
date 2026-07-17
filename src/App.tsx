@@ -994,11 +994,18 @@ function App() {
   React.useEffect(() => {
     (async () => {
       try {
-        const response = await fetch('/api/admin/session');
+        const token = localStorage.getItem('admin_session_token') || '';
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['x-admin-token'] = token;
+        }
+        const response = await fetch('/api/admin/session', { headers });
         const data = await response.json();
         if (data.authenticated) {
           setIsAdminAuthenticated(true);
-          setCurrentAdmin({ username: data.username, loginTime: new Date().toISOString(), token: null });
+          setCurrentAdmin({ username: data.username, loginTime: new Date().toISOString(), token: token || null });
+        } else {
+          localStorage.removeItem('admin_session_token');
         }
       } catch (e) {}
     })();
@@ -5159,8 +5166,11 @@ function App() {
         />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
-          onLoginSuccess={(username) => {
-            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token: null });
+          onLoginSuccess={(username, token) => {
+            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token });
+            if (token) {
+              localStorage.setItem('admin_session_token', token);
+            }
             setIsAdminAuthenticated(true);
             setCurrentPage('admin');
           }}
@@ -5178,6 +5188,7 @@ function App() {
             try {
               await fetch('/api/admin/logout', { method: 'POST' });
             } catch (e) {}
+            localStorage.removeItem('admin_session_token');
             setIsAdminAuthenticated(false);
             setCurrentAdmin(null);
             setCurrentPage('admin-login');

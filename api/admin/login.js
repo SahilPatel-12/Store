@@ -123,7 +123,7 @@ export default async function handler(req, res) {
       await logAdminAction(adminUser.id, req, 'LOGIN_SUCCESS', { username: normalizedUsername });
       await cleanupExpiredSessions();
 
-      return res.status(200).json({ success: true, username: adminUser.username });
+      return res.status(200).json({ success: true, username: adminUser.username, token: token });
     } else {
       // 8. Record failed login attempt and trigger rate lockout if count >= 5
       const currentFailed = (lockoutRecord?.failed_count || 0) + 1;

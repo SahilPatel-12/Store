@@ -13,7 +13,9 @@ if (typeof window !== 'undefined') {
 }
 
 export async function callAdminApi(endpoint: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? (localStorage.getItem('session_token') || '260529') : '';
+  const token = typeof window !== 'undefined'
+    ? (localStorage.getItem('admin_session_token') || localStorage.getItem('session_token') || '260529')
+    : '';
   const defaultHeaders = {
     'Content-Type': 'application/json',
     ...(token ? { 'x-admin-token': token } : {}),

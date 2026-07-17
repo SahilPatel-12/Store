@@ -50,7 +50,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           return;
         }
 
-        onLoginSuccess(data.username, null);
+        onLoginSuccess(data.username, data.token || null);
       } catch (err) {
         console.error(err);
         setIsSubmitting(false);
