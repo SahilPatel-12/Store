@@ -1,4 +1,7 @@
 import React from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import logo from '../assets/My_logo/Frame 16.png';
 import {
   BarChart3,
   Package,
@@ -39,6 +42,468 @@ import {
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase, callAdminApi } from '../lib/supabase';
 import { hashPassword } from '../lib/crypto';
+
+const getAssetAsDataUrl = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image blob as Data URL.'));
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error('Error converting asset to data URL:', err);
+    return url;
+  }
+};
+
+const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
+  const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
+  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
+  const lightGray = [229, 231, 235]; // #e5e7eb
+
+  // Header - Brand Left Side (With logo image load)
+  try {
+    const logoDataUrl = await getAssetAsDataUrl(logo);
+    doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 29, 21);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 29, 26);
+    doc.text('Email: support@mantrapuja.com', 29, 30);
+    doc.text('Web: www.mantrapuja.com', 29, 34);
+  } catch (e) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('MANTRA PUJA', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text('Spiritual & Temple Offerings', 14, 25);
+    doc.text('Email: support@mantrapuja.com', 14, 29);
+    doc.text('Web: www.mantrapuja.com', 14, 33);
+  }
+
+  // Header - Invoice Info (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.text('INVOICE', 196, 20, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
+  doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
+
+  // Divider Line
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.5);
+  doc.line(14, 42, 196, 42);
+
+  // Billing Address Section (Left)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('BILL TO:', 14, 50);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(order.fullName, 14, 55);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99); // gray-600
+  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
+  doc.text(`Email: ${order.email}`, 14, 64);
+
+  // Format long address nicely
+  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  const splitAddress = doc.splitTextToSize(addressText, 80);
+  doc.text(splitAddress, 14, 68);
+
+  // Payment details (Right side)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('PAYMENT DETAILS:', 120, 50);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99);
+  doc.text(`Method: ${order.paymentMethod}`, 120, 55);
+
+  let displayPaymentStatus = order.paymentStatus || 'Pending';
+  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+    displayPaymentStatus = 'Confirmed';
+  }
+  doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
+
+  // Table header background block
+  let y = 85;
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(14, y, 182, 8, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Sacred Item Details', 18, y + 5.5);
+  doc.text('Qty', 115, y + 5.5, { align: 'center' });
+  doc.text('Price', 150, y + 5.5, { align: 'right' });
+  doc.text('Amount', 190, y + 5.5, { align: 'right' });
+
+  y += 8; // move past header row
+
+  // Table Rows
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+  order.items.forEach((item, index) => {
+    // Alternating row backgrounds
+    if (index % 2 === 1) {
+      doc.setFillColor(249, 250, 251); // gray-50
+      doc.rect(14, y, 182, 8, 'F');
+    }
+
+    doc.text(item.product.name, 18, y + 5.5);
+    doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
+    doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
+    doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
+
+    y += 8;
+  });
+
+  // Table border line below rows
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.line(14, y, 196, y);
+  y += 8;
+
+  // Pricing calculations block
+  const labelX = 140;
+  const valueX = 190;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+
+  doc.text('Subtotal:', labelX, y);
+  doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 6;
+
+  if (order.discount > 0) {
+    const discountPercent = order.discountPercent || Math.round((order.discount / (order.subtotal || 1)) * 100);
+    doc.setTextColor(16, 185, 129); // green
+    doc.text(`Discount (${discountPercent}%):`, labelX, y);
+    doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    y += 6;
+  }
+
+  doc.text('Shipping:', labelX, y);
+  doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 6;
+
+  // Draw line for total
+  doc.setLineWidth(0.5);
+  doc.line(130, y, 196, y);
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('Total Charged:', labelX, y);
+  doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+  y += 15;
+
+  // Footer Blessings Box (Captures beautifully styled Hindi text & emojis via html2canvas)
+  let footerQrDataUrl = '';
+  try {
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
+    footerQrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
+  } catch (e) {
+    console.error("Failed to fetch QR data for footer:", e);
+  }
+
+  // Create temporary HTML element to render Devanagari text and Emojis perfectly
+  const tempDiv = document.createElement('div');
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.top = '-9999px';
+  tempDiv.style.width = '760px';
+  tempDiv.innerHTML = `
+    <div id="invoice-footer-capture" style="
+      width: 760px;
+      font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+      background-color: #fdfbf7;
+      padding: 24px;
+      color: #374151;
+      display: grid;
+      grid-template-columns: 2.2fr 1fr 1.1fr 1.1fr;
+      gap: 20px;
+      box-sizing: border-box;
+      border-top: 3px solid #fbbf24;
+      line-height: 1.5;
+    ">
+      <!-- Column 1: Brand & Thanks -->
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 20px;">🕉️</span>
+          <span style="font-size: 18px; font-weight: bold; color: #4a2010; letter-spacing: 0.5px;">MantraPuja</span>
+          <span style="font-size: 11px; color: #ea580c; background-color: #fef3c7; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 6px;">आस्था से आराधना तक</span>
+        </div>
+        <div style="font-size: 12px; font-weight: bold; color: #4a2010; margin-bottom: 4px;">धन्यवाद! 🙏</div>
+        <div style="font-size: 11px; margin-bottom: 8px; color: #4b5563; text-align: justify;">
+          आपने MantraPuja पर विश्वास जताया, इसके लिए हम आपका हार्दिक आभार व्यक्त करते हैं।
+        </div>
+        <div style="font-size: 10.5px; color: #4b5563; margin-bottom: 12px; text-align: justify;">
+          हमारा उद्देश्य आपके घर तक प्रमाणित आध्यात्मिक उत्पाद, पूजा सामग्री, ऑनलाइन पूजा सेवाएँ एवं ज्योतिष परामर्श सरल, सुरक्षित और विश्वसनीय रूप से पहुँचाना है।
+        </div>
+        <div style="font-size: 11px; font-style: italic; color: #ea580c; font-weight: 600; border-left: 2.5px solid #ea580c; padding-left: 8px; margin-top: 4px;">
+          "मन से पूजा, मन से जुड़ाव, मन से मंत्रपूजा।"
+        </div>
+      </div>
+
+      <!-- Column 2: Services -->
+      <div>
+        <div style="font-size: 12px; font-weight: bold; color: #4a2010; border-bottom: 1.5px solid #fbbf24; padding-bottom: 4px; margin-bottom: 8px; letter-spacing: 0.5px;">
+          हमारी सेवाएँ
+        </div>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 11px; display: flex; flex-direction: column; gap: 6px; color: #4b5563;">
+          <li style="display: flex; align-items: center; gap: 6px;"><span>📿</span> सिद्ध रुद्राक्ष एवं मालाएँ</li>
+          <li style="display: flex; align-items: center; gap: 6px;"><span>🛕</span> ऑनलाइन पूजा बुकिंग</li>
+          <li style="display: flex; align-items: center; gap: 6px;"><span>👨🏻‍🦳</span> प्रमाणित पंडित सेवा</li>
+          <li style="display: flex; align-items: center; gap: 6px;"><span>🔮</span> ज्योतिष एवं कुंडली परामर्श</li>
+          <li style="display: flex; align-items: center; gap: 6px;"><span>🛍️</span> आध्यात्मिक एवं पूजा उत्पाद</li>
+        </ul>
+      </div>
+
+      <!-- Column 3: Info & Socials -->
+      <div>
+        <div style="font-size: 11px; font-weight: bold; color: #dc2626; margin-bottom: 6px;">
+          ⚠️ महत्वपूर्ण सूचना
+        </div>
+        <ul style="padding: 0 0 0 12px; margin: 0 0 12px 0; font-size: 10px; color: #4b5563; line-height: 1.4;">
+          <li>उत्पाद प्राप्त होने पर पैकेज अवश्य जाँचें।</li>
+          <li>किसी भी सहायता के लिए हमारी टीम से संपर्क करें।</li>
+          <li>श्रद्धा एवं विश्वास के साथ उपयोग करें।</li>
+        </ul>
+        
+        <div style="font-size: 11px; font-weight: bold; color: #4a2010; margin-bottom: 6px;">
+          हमसे जुड़ें
+        </div>
+        <div style="font-size: 10px; color: #4b5563; display: flex; flex-direction: column; gap: 5px;">
+          <div style="display: flex; align-items: center; gap: 6px;"><span>📷</span> Instagram : @mantrapujaa</div>
+          <div style="display: flex; align-items: center; gap: 6px;"><span>📘</span> Facebook : @mantrapujaa</div>
+          <div style="display: flex; align-items: center; gap: 6px;"><span>▶️</span> YouTube : @MantraPujaOfficials</div>
+        </div>
+      </div>
+
+      <!-- Column 4: Big QR Code & Team -->
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border-left: 1px dashed #e5e7eb; padding-left: 12px; height: 100%;">
+        <div style="font-size: 11px; font-weight: bold; color: #ea580c; margin-bottom: 6px; letter-spacing: 0.5px;">
+          SCAN TO SHOP
+        </div>
+        ${footerQrDataUrl ? `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px;">
+          <img src="${footerQrDataUrl}" style="width: 85px; height: 85px; border: 1.5px solid #fbbf24; border-radius: 6px; padding: 3px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
+          <span style="font-size: 8.5px; font-weight: bold; color: #4a2010;">shop.mantrapuja.com</span>
+        </div>
+        ` : ''}
+        <div style="font-size: 9.5px; color: #4a2010; font-weight: bold; line-height: 1.3; margin-top: auto;">
+          <span style="color: #ea580c; display: block; margin-bottom: 1px;">🙏 जय श्री महाकाल 🙏</span>
+          <span style="font-size: 8.5px; color: #6b7280; font-weight: normal;">MantraPuja Team</span>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(tempDiv);
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(tempDiv.querySelector('#invoice-footer-capture') as HTMLElement, {
+      scale: 2.5, // High resolution print capture
+      useCORS: true,
+      logging: false
+    });
+  } finally {
+    document.body.removeChild(tempDiv);
+  }
+
+  const imgData = canvas.toDataURL('image/png');
+  const mmWidth = 182;
+  const mmHeight = mmWidth * (canvas.height / canvas.width);
+
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let footerY = pageHeight - mmHeight - 14; // Position near the bottom of A4 page
+  if (y > footerY) {
+    // If the items list overflows the page content limit, insert a clean page break
+    doc.addPage();
+    footerY = 15;
+  }
+
+  doc.addImage(imgData, 'PNG', 14, footerY, mmWidth, mmHeight);
+
+  return doc;
+};
+
+const generateShippingLabelDoc = async (order: LocalOrder): Promise<jsPDF> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [101.6, 101.6]
+  });
+
+  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
+  const accentColor = [234, 88, 12]; // #ea580c (Orange)
+  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
+  const lightGray = [229, 231, 235]; // #e5e7eb
+
+  // Draw outer border (thick line for premium card look)
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(1.0);
+  doc.rect(2, 2, 97.6, 97.6); // 2mm margin all around
+
+  // Header Brand & Logo (Properly sized 2:1 aspect ratio landscape logo aligned on the left)
+  try {
+    const logoDataUrl = await getAssetAsDataUrl(logo);
+    doc.addImage(logoDataUrl, 'PNG', 6, 4.5, 24, 12);
+  } catch (e) {
+    console.error("Failed to load logo in shipping label:", e);
+  }
+
+  // Capitalized brand title and tagline vertically centered next to the logo on the right
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('MANTRA PUJA', 32, 9.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text('- SACRED BLESSINGS -', 32, 14);
+
+  // Divider Line 1
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.5);
+  doc.line(2, 20, 99.6, 20);
+
+  // Receiver Section (Clean layout starting at x = 5)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+  doc.text('DELIVER TO (RECEIVER):', 5, 25);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0); // Solid black for readability
+  doc.text(order.fullName, 5, 31);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  const splitAddress = doc.splitTextToSize(addressText, 91.6);
+  doc.text(splitAddress, 5, 36);
+
+  // Phone number (Bold for shipping courier)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Phone: ${order.phoneNumber}`, 5, 47.5);
+
+  // Handling instructions text (Drawn directly on the white background, left-aligned at x = 5)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+  doc.text('HANDLE WITH GENTLE CARE & DEVOTION', 5, 57);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text('Contains spiritually energized items. Keep in a clean & pure space.', 5, 61.5);
+
+  // Divider Line below Warning Banner
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.5);
+  doc.line(2, 66, 99.6, 66);
+
+  // Bottom half partition (Sender Left, QR Right)
+  const bottomSectionY = 71;
+
+  // Left side: FROM
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('FROM:', 5, bottomSectionY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text('MantraPuja Store', 5, bottomSectionY + 3.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(75, 85, 99);
+  const senderAddrLines = [
+    '501, Shagun Tower, Vijay Nagar,',
+    'Indore - 452010, Madhya Pradesh'
+  ];
+  doc.text(senderAddrLines, 5, bottomSectionY + 7.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Support: +91 90090 46430`, 5, bottomSectionY + 21.5);
+
+  // Vertical Separator (Matches the full bottom half height)
+  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.setLineWidth(0.3);
+  doc.line(60, 66, 60, 99.6);
+
+  // Right side: QR Code
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('SCAN TO SHOP:', 79.8, bottomSectionY, { align: 'center' });
+
+  // QR Code Image fetch & render (Centered horizontally in the right column)
+  try {
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
+    const qrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
+    doc.addImage(qrDataUrl, 'PNG', 71.3, bottomSectionY + 2, 17, 17);
+  } catch (e) {
+    // Fallback text if QR code image generation fails
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.rect(71.3, bottomSectionY + 2, 17, 17);
+    doc.text('QR CODE', 79.8, bottomSectionY + 11, { align: 'center' });
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(107, 114, 128);
+  doc.text('shop.mantrapuja.com', 79.8, bottomSectionY + 21.5, { align: 'center' });
+
+  return doc;
+};
 
 // Local drop-in mock client that maps database operations to explicit backend API endpoints
 const getAdminSupabase = (): any => {
@@ -660,7 +1125,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [resetPunditId, setResetPunditId] = React.useState<string | null>(null);
   const [resetPunditPassword, setResetPunditPassword] = React.useState('');
   const [isResettingPassword, setIsResettingPassword] = React.useState(false);
-  
+
   // User directory states
   const [usersState, setUsersState] = React.useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = React.useState(false);
@@ -867,7 +1332,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           .select('value')
           .eq('key', 'homepage_settings')
           .single();
-        
+
         if (data && data.value) {
           const val = data.value;
           setFeaturedTitle(val.featuredTitle || 'Our Featured Collection');
@@ -1286,7 +1751,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             .select('value')
             .eq('key', 'tax_delivery_settings')
             .single();
-          
+
           if (taxData && taxData.value) {
             const val = taxData.value as { global_gst_percent?: number; global_delivery_charge?: number; free_delivery_threshold?: number };
             setGlobalGstPercent(String(val.global_gst_percent ?? 8));
@@ -1573,7 +2038,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         });
 
       if (error) throw error;
-      
+
       if (onUpdateTaxDeliverySettings) {
         onUpdateTaxDeliverySettings({
           globalGstPercent: gstVal,
@@ -1645,27 +2110,27 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     const staticCats = safeCategoriesList.length > 0
       ? safeCategoriesList.map(c => c.name)
       : [
-          'Rudraksha',
-          'Bracelet',
-          'Murti',
-          'Yantras',
-          'Anklet',
-          'Frames',
-          'Rashi',
-          'Karungali',
-          'Jadi',
-          'Pyrite',
-          'Kavach',
-          'Siddh Range',
-          'Gemstones',
-          'Pyramid',
-          'Necklaces/Mala',
-          'Tower & Tumbles',
-          'Crystal Dome Trees',
-          'Women Bracelets',
-          'Evil Eye',
-          'Gifting'
-        ];
+        'Rudraksha',
+        'Bracelet',
+        'Murti',
+        'Yantras',
+        'Anklet',
+        'Frames',
+        'Rashi',
+        'Karungali',
+        'Jadi',
+        'Pyrite',
+        'Kavach',
+        'Siddh Range',
+        'Gemstones',
+        'Pyramid',
+        'Necklaces/Mala',
+        'Tower & Tumbles',
+        'Crystal Dome Trees',
+        'Women Bracelets',
+        'Evil Eye',
+        'Gifting'
+      ];
     // Merge all unique categories
     const allUniqueCats = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
 
@@ -1756,7 +2221,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       alert('Invalid category name.');
       return;
     }
-    
+
     // Check duplicate
     const exists = safeCategoriesList.some(
       c => c.name.toLowerCase() === trimmedName.toLowerCase()
@@ -1843,7 +2308,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
       // 3. Update local products list state
       setProducts(prev => prev.map(p => p.category === oldName ? { ...p, category: trimmedNew } : p));
-      
+
       // 4. Update local settings states
       setSortedCategoriesList(updatedOrder);
       setEditingCategoryName(null);
@@ -1940,27 +2405,27 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     const staticCats = safeCategoriesList.length > 0
       ? safeCategoriesList.map(c => c.name)
       : [
-          'Rudraksha',
-          'Bracelet',
-          'Murti',
-          'Yantras',
-          'Anklet',
-          'Frames',
-          'Rashi',
-          'Karungali',
-          'Jadi',
-          'Pyrite',
-          'Kavach',
-          'Siddh Range',
-          'Gemstones',
-          'Pyramid',
-          'Necklaces/Mala',
-          'Tower & Tumbles',
-          'Crystal Dome Trees',
-          'Women Bracelets',
-          'Evil Eye',
-          'Gifting'
-        ];
+        'Rudraksha',
+        'Bracelet',
+        'Murti',
+        'Yantras',
+        'Anklet',
+        'Frames',
+        'Rashi',
+        'Karungali',
+        'Jadi',
+        'Pyrite',
+        'Kavach',
+        'Siddh Range',
+        'Gemstones',
+        'Pyramid',
+        'Necklaces/Mala',
+        'Tower & Tumbles',
+        'Crystal Dome Trees',
+        'Women Bracelets',
+        'Evil Eye',
+        'Gifting'
+      ];
     const merged = Array.from(new Set(['all', ...uniqueCats, ...staticCats]));
     if (categoriesOrder && categoriesOrder.length > 0) {
       merged.sort((a, b) => {
@@ -1978,7 +2443,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   // Sync/load products for selected category and sort them by productsOrder prop
   React.useEffect(() => {
     const filtered = products.filter(p => selectedSorterCategory === 'all' || p.category === selectedSorterCategory);
-    
+
     const customOrderList = productsOrder?.[selectedSorterCategory];
     if (customOrderList && customOrderList.length > 0) {
       filtered.sort((a, b) => {
@@ -2092,7 +2557,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleBulkGSTApply = async () => {
     const selectedIds = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
     if (selectedIds.length === 0) return;
-    
+
     const input = prompt("Enter the GST override percentage (0-100) to apply to selected products:");
     if (input === null) return; // Cancelled
     const pct = parseFloat(input);
@@ -2100,7 +2565,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       alert("Invalid percentage entered.");
       return;
     }
-    
+
     setIsBulkGSTApplying(true);
     try {
       const { error } = await getAdminSupabase()
@@ -2124,7 +2589,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleBulkDeliveryApply = async () => {
     const selectedIds = Object.keys(selectedPoojaIds).filter(id => selectedPoojaIds[id]);
     if (selectedIds.length === 0) return;
-    
+
     const input = prompt("Enter the custom delivery charge (₹) to apply to selected products:");
     if (input === null) return;
     const cost = parseFloat(input);
@@ -2132,7 +2597,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       alert("Invalid delivery cost entered.");
       return;
     }
-    
+
     setIsBulkDeliveryApplying(true);
     try {
       const { error } = await getAdminSupabase()
@@ -2621,7 +3086,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
       const hashedPw = await hashPassword(newPunditPassword);
       const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
-      
+
       const { data, error } = await supabase.rpc('admin_create_pundit', {
         p_admin_token: adminToken,
         p_full_name: newPunditName.trim(),
@@ -2681,7 +3146,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   const handleUpdateAffiliateStatus = async (targetUserId: string, newStatus: string) => {
     const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529'; // session token fallback
-    
+
     setIsUpdatingAffiliateStatus(targetUserId);
     try {
       const { data, error } = await supabase.rpc('admin_set_affiliate_status', {
@@ -2691,7 +3156,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       });
 
       if (error) throw error;
-      
+
       if (data) {
         triggerToast(`Devotee status updated to ${newStatus} successfully!`);
         // Refresh local state list
@@ -2816,7 +3281,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         .update({ is_suspended: newSuspended })
         .eq('id', userId);
       if (error) throw error;
-      
+
       // Update local state
       setUsersState(prev => prev.map(user => user.id === userId ? { ...user, is_suspended: newSuspended } : user));
       triggerToast(`Devotee account ${newSuspended ? 'suspended' : 'activated'} successfully!`);
@@ -2839,7 +3304,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         p_admin_token: adminToken,
         p_target_user_id: userId
       });
-      
+
       if (error) throw error;
 
       if (data) {
@@ -2923,7 +3388,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             return;
           }
         }
-        
+
         // Fallback if no user accounts found
         const combinedFallback = astrologers.map(ast => ({
           ...ast,
@@ -2944,10 +3409,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleToggleSuspendAstrologer = async (astrologer: any) => {
     const targetUserId = astrologer.user_id;
     if (!targetUserId) return;
-    
+
     const currentlySuspended = astrologer.user?.is_suspended || false;
     const nextSuspended = !currentlySuspended;
-    
+
     setIsSuspendingAstrologer(astrologer.id);
     try {
       // 1. Update the is_suspended flag in website_store_users
@@ -2955,7 +3420,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         .from('website_store_users')
         .update({ is_suspended: nextSuspended })
         .eq('id', targetUserId);
-        
+
       if (error) throw error;
 
       // 2. If suspending, also turn them offline in website_store_astrologers
@@ -3063,8 +3528,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           minWithdrawal = parseFloat(settingsMap.payout_rules.min_withdrawal_amount);
         }
 
-        setAffiliateSettings(prev => ({ 
-          ...prev, 
+        setAffiliateSettings(prev => ({
+          ...prev,
           ...settingsMap,
           affiliate_min_withdrawal: minWithdrawal
         }));
@@ -3110,7 +3575,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         setIsSavingAffiliateSettings(false);
         return;
       }
-      
+
       const { data, error } = await supabase.rpc('admin_save_affiliate_settings', {
         p_admin_token: adminToken,
         p_max_depth: maxDepth,
@@ -3395,10 +3860,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsSavingPooja(true);
     try {
       const finalProduct = await processPendingUploads(editingPoojaProduct);
-      
+
       const slugVal = finalProduct.slug || finalProduct.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const idVal = finalProduct.id || `pooja-${Date.now()}`;
-      
+
       const dbPayload = {
         id: idVal,
         name: finalProduct.name,
@@ -3419,7 +3884,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         duration: finalProduct.duration || null,
         temple_association: finalProduct.templeAssociation || null,
         who_should_perform: finalProduct.whoShouldPerform || null,
-        
+
         rituals_included: finalProduct.ritualsIncluded,
         samagri_list: finalProduct.samagriList,
         priest_details: finalProduct.priestDetails,
@@ -3428,13 +3893,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         cta_labels: finalProduct.ctaLabels || { primary: 'Book Now', secondary: 'Learn More' },
         og_data: finalProduct.ogData || { title: '', description: '', image: '' },
         schema_markup: finalProduct.schemaMarkup || {},
-        
+
         tags: finalProduct.idealOccasions || [],
         benefits: finalProduct.benefits || [],
         ideal_occasions: finalProduct.idealOccasions || [],
         offers: finalProduct.offers || [],
         badges: finalProduct.badges || [],
-        
+
         image: (finalProduct.galleryImages && finalProduct.galleryImages.length > 0)
           ? finalProduct.galleryImages[0].url
           : (finalProduct.image || '📿'),
@@ -3446,7 +3911,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         icon_image: finalProduct.iconImage || null,
         promo_creatives: finalProduct.promoCreatives || [],
         related_products: finalProduct.relatedProducts || null,
-        
+
         price: parseFloat(finalProduct.price.toString()),
         original_price: finalProduct.originalPrice ? parseFloat(finalProduct.originalPrice.toString()) : null,
         rating: finalProduct.rating || 4.8,
@@ -3504,7 +3969,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           if (targetProd.videoUrl) urlsToDelete.push(targetProd.videoUrl);
           if (targetProd.priestImage) urlsToDelete.push(targetProd.priestImage);
           if (targetProd.iconImage) urlsToDelete.push(targetProd.iconImage);
-          
+
           if (Array.isArray(targetProd.galleryImages)) {
             targetProd.galleryImages.forEach((img: any) => {
               if (img && img.url) urlsToDelete.push(img.url);
@@ -3520,7 +3985,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               if (typeof url === 'string') urlsToDelete.push(url);
             });
           }
-          
+
           if (Array.isArray(targetProd.testimonials)) {
             targetProd.testimonials.forEach((testi: any) => {
               if (Array.isArray(testi.imageUrls)) {
@@ -3560,7 +4025,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       clone.name = `${product.name} (Copy)`;
       clone.slug = `${product.slug}-copy-${Math.floor(Math.random() * 1000)}`;
       clone.isPublished = false; // Start as draft (hidden)
-      
+
       const dbPayload = {
         name: clone.name,
         sanskrit_name: clone.sanskritName || null,
@@ -3580,7 +4045,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         duration: clone.duration || null,
         temple_association: clone.templeAssociation || null,
         who_should_perform: clone.whoShouldPerform || null,
-        
+
         rituals_included: clone.ritualsIncluded || [],
         samagri_list: clone.samagriList || [],
         priest_details: clone.priestDetails || { name: '', experience: '', bio: '', qualification: '' },
@@ -3593,13 +4058,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           image: ''
         },
         schema_markup: clone.schemaMarkup || {},
-        
+
         tags: clone.idealOccasions || [],
         benefits: clone.benefits || [],
         ideal_occasions: clone.idealOccasions || [],
         offers: clone.offers || [],
         badges: clone.badges || [],
-        
+
         image: '📿',
         banner_image: null,
         gallery_images: [],
@@ -3609,7 +4074,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         icon_image: null,
         promo_creatives: [],
         related_products: clone.relatedProducts || null,
-        
+
         price: parseFloat(clone.price.toString()),
         original_price: clone.originalPrice ? parseFloat(clone.originalPrice.toString()) : null,
         rating: clone.rating || 4.8,
@@ -3647,12 +4112,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const newPublished = !currentPublished;
       const { error } = await getAdminSupabase()
         .from('website_pooja_products')
-        .update({ 
+        .update({
           is_published: newPublished,
           published_at: newPublished ? new Date().toISOString() : null
         })
         .eq('id', id);
-      
+
       if (error) throw error;
       triggerToast(`Product "${name}" is now ${newPublished ? 'Published (visible)' : 'Draft (hidden)'}.`);
       loadPoojaProducts();
@@ -3673,6 +4138,28 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const handleDownloadInvoice = async (order: LocalOrder) => {
+    try {
+      const doc = await generateInvoiceDoc(order);
+      doc.save(`Invoice-${order.orderId}.pdf`);
+      triggerToast(`Downloaded invoice for #${order.orderId}`);
+    } catch (err) {
+      console.error('Failed to download invoice:', err);
+      alert('Failed to download invoice: ' + (err as Error).message);
+    }
+  };
+
+  const handleDownloadShippingLabel = async (order: LocalOrder) => {
+    try {
+      const doc = await generateShippingLabelDoc(order);
+      doc.save(`Shipping-Label-${order.orderId}.pdf`);
+      triggerToast(`Downloaded shipping label for #${order.orderId}`);
+    } catch (err) {
+      console.error('Failed to download shipping label:', err);
+      alert('Failed to download shipping label: ' + (err as Error).message);
+    }
   };
 
   // Product Form state
@@ -3724,7 +4211,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     const totalSales = paidOrders.reduce((sum, o) => sum + o.total, 0);
     const activeFulfillments = orders.filter(o => o.status === 'Being Packed' || o.status === 'Shipped').length;
     const aov = paidOrders.length > 0 ? totalSales / paidOrders.length : 0;
-    
+
     return {
       totalSales,
       activeFulfillments,
@@ -3929,16 +4416,16 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const isCancelled = updatedOrder.status === 'Cancelled';
 
       triggerToast(
-        isCancelled 
+        isCancelled
           ? `Order #${orderId} payment declined (Attempt ${newCount}/3). Order has been automatically cancelled!`
           : `Order #${orderId} payment declined (Attempt ${newCount}/3). User notified to re-upload.`
       );
 
       setOrders(prev => prev.map(o => {
         if (o.orderId === orderId) {
-          return { 
-            ...o, 
-            paymentStatus: 'Declined', 
+          return {
+            ...o,
+            paymentStatus: 'Declined',
             paymentDeclineCount: newCount,
             status: updatedOrder.status
           };
@@ -3948,9 +4435,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
       setSelectedOrderDetails(prev => {
         if (prev && prev.orderId === orderId) {
-          return { 
-            ...prev, 
-            paymentStatus: 'Declined', 
+          return {
+            ...prev,
+            paymentStatus: 'Declined',
             paymentDeclineCount: newCount,
             status: updatedOrder.status
           };
@@ -3966,8 +4453,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   // Filter products by query
   const filteredProducts = React.useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    return products.filter(p =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [products, searchQuery]);
@@ -3976,7 +4463,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const filteredOrders = React.useMemo(() => {
     return orders.filter(o => {
       const matchesSearch = o.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            o.orderId.toLowerCase().includes(searchQuery.toLowerCase());
+        o.orderId.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -3997,7 +4484,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex' }}>
-      
+
       {/* 1. Left Sidebar Navigation */}
       <aside style={{
         width: '280px',
@@ -4017,7 +4504,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           padding: '24px 24px 20px 24px',
           borderBottom: '1px solid rgba(255,255,255,0.06)'
         }}>
-          <div 
+          <div
             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
             onClick={onNavigateToHome}
             title="Navigate to Shop Home"
@@ -4268,2252 +4755,2078 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
         {/* Content Box */}
         <div style={{ padding: '32px', flexGrow: 1, overflowY: 'auto' }}>
-        
-        {/* =======================================================
+
+          {/* =======================================================
             TAB: ANALYTICS DASHBOARD
             ======================================================= */}
-        {activeTab === 'analytics' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', textAlign: 'left' }}>
-            
-            {/* Metrics cards row */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '20px'
-            }}>
-              
-              {/* Sales */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#fff7ed', color: 'var(--primary-lime)' }}>
-                  <DollarSign size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Sales Revenue</span>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>₹{metrics.totalSales.toFixed(2)}</h3>
-                </div>
-              </div>
+          {activeTab === 'analytics' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', textAlign: 'left' }}>
 
-              {/* Active fulfillments */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
-                  <Truck size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Shipments</span>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{metrics.activeFulfillments}</h3>
-                </div>
-              </div>
-
-              {/* AOV */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#f0fdf4', color: '#166534' }}>
-                  <TrendingUp size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Average Order Value</span>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>₹{metrics.aov.toFixed(2)}</h3>
-                </div>
-              </div>
-
-              {/* Total Products */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
-                  <Package size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Listed Items</span>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{metrics.totalProducts}</h3>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Split row for charts */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1.3fr 1fr',
-              gap: '30px'
-            }} className="hero-grid-split">
-              
-              {/* Left Box: Monthly Sales Trend (High Fidelity Visual CSS/HTML Bar Chart) */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Sales Trend (2026)</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '32px' }}>Store monthly revenue growth metrics.</p>
-
-                {/* Bars Grid */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-end',
-                  height: '200px',
-                  padding: '0 16px',
-                  borderBottom: '2px solid var(--border-light)'
-                }}>
-                  {[
-                    { month: 'Jan', revenue: 1450, height: '40%' },
-                    { month: 'Feb', revenue: 1890, height: '55%' },
-                    { month: 'Mar', revenue: 2320, height: '70%' },
-                    { month: 'Apr', revenue: 2100, height: '62%' },
-                    { month: 'May', revenue: 3108, height: '95%' }
-                  ].map(item => (
-                    <div key={item.month} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px',
-                      flex: '1',
-                      maxWidth: '50px'
-                    }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary-forest)' }}>₹{item.revenue}</span>
-                      <div style={{
-                        width: '32px',
-                        height: '140px',
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        backgroundColor: '#f3f4f6',
-                        borderRadius: '4px 4px 0 0',
-                        overflow: 'hidden'
-                      }}>
-                        <div style={{
-                          width: '100%',
-                          height: item.height,
-                          background: 'linear-gradient(to top, var(--primary-forest), var(--primary-lime))',
-                          borderRadius: '4px 4px 0 0',
-                          transition: 'height 0.3s ease'
-                        }} />
-                      </div>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>{item.month}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Box: Sales by Category */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Top Categories</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Top-performing spiritual categories.</p>
-
-                {categorySales.length === 0 ? (
-                  <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    No sales cataloged yet.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {categorySales.map(item => {
-                      const pct = Math.round((item.value / metrics.totalSales) * 100);
-                      return (
-                        <div key={item.name}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
-                            <span>{item.name}</span>
-                            <span style={{ color: 'var(--primary-lime)' }}>₹{item.value.toFixed(0)} ({pct}%)</span>
-                          </div>
-                          <div style={{ width: '100%', height: '8px', backgroundColor: '#f3f4f6', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${pct}%`,
-                              height: '100%',
-                              backgroundColor: 'var(--primary-lime)',
-                              borderRadius: 'var(--radius-full)'
-                            }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            {/* Recent Orders table */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px',
-              boxShadow: 'var(--shadow-sm)'
-            }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>Recent Store Activity</h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
-                      <th style={{ padding: '12px 16px' }}>Order ID</th>
-                      <th style={{ padding: '12px 16px' }}>Customer</th>
-                      <th style={{ padding: '12px 16px' }}>Date</th>
-                      <th style={{ padding: '12px 16px' }}>Fulfillment</th>
-                      <th style={{ padding: '12px 16px' }}>Total Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.slice(0, 3).map(order => {
-                      const statusBadge = getStatusStyle(order.status);
-                      return (
-                        <tr key={order.orderId} style={{ borderBottom: '1px solid var(--border-light)', fontSize: '0.88rem' }}>
-                          <td style={{ padding: '16px', fontWeight: 800 }}>#{order.orderId}</td>
-                          <td style={{ padding: '16px', fontWeight: 700 }}>{order.fullName}</td>
-                          <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
-                            {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            <span style={{
-                              backgroundColor: statusBadge.bg,
-                              color: statusBadge.text,
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              padding: '4px 10px',
-                              borderRadius: 'var(--radius-full)'
-                            }}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '16px', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: PRODUCTS CATALOG MANAGEMENT
-            ======================================================= */}
-        {activeTab === 'products' && (
-          <div>
-            {filteredProducts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
-                <span style={{ fontSize: '3rem' }}>🛍️</span>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No products match query</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Try clearing the search input to list all items.</p>
-              </div>
-            ) : (
+              {/* Metrics cards row */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '24px'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '20px'
               }}>
-                {filteredProducts.map(product => (
-                  <div
-                    key={product.id}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden',
-                      boxShadow: 'var(--shadow-sm)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      textAlign: 'left'
-                    }}
-                  >
-                    {/* Header Image Box */}
-                    <div style={{
-                      height: '140px',
-                      backgroundColor: '#f3f4f6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '3.6rem',
-                      borderBottom: '1px solid var(--border-light)',
-                      overflow: 'hidden'
-                    }}>
-                      {isImageUrl(product.image) ? (
-                        <img src={getDisplayImageUrl(product.image)} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        product.image || '📿'
-                      )}
-                    </div>
 
-                    {/* Meta details */}
-                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>
-                          {product.spiritualType}
-                        </span>
-                        <span style={{
-                          backgroundColor: product.inStock ? '#dcfce7' : '#fee2e2',
-                          color: product.inStock ? '#166534' : '#991b1b',
-                          fontSize: '0.68rem',
-                          fontWeight: 800,
-                          padding: '2px 8px',
-                          borderRadius: 'var(--radius-full)'
-                        }}>
-                          {product.inStock ? 'IN STOCK' : 'OUT OF STOCK'}
-                        </span>
-                      </div>
-
-                      <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '6px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {product.name}
-                      </h4>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Category: {product.category}
-                      </span>
-
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '10px' }}>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
-                          ₹{product.price}
-                        </span>
-                        {product.originalPrice && (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                            ₹{product.originalPrice}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Action buttons */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-light)' }}>
-                        <button
-                          onClick={() => handleEditProductClick(product)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            padding: '8px 12px',
-                            border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            color: 'var(--text-dark)'
-                          }}
-                        >
-                          <Edit size={12} /> Edit Details
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id, product.name)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            padding: '8px 12px',
-                            backgroundColor: '#fff5f5',
-                            border: '1px solid #fed7d7',
-                            borderRadius: 'var(--radius-md)',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            color: '#e53e3e'
-                          }}
-                        >
-                          <Trash2 size={12} /> Delete
-                        </button>
-                      </div>
-                    </div>
+                {/* Sales */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#fff7ed', color: 'var(--primary-lime)' }}>
+                    <DollarSign size={24} />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: ORDERS FULFILLMENT MANAGEMENT
-            ======================================================= */}
-        {activeTab === 'orders' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Status Tabs filters */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 'var(--radius-full)',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      backgroundColor: statusFilter === status ? 'var(--primary-lime-light)' : 'transparent',
-                      border: statusFilter === status ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                      color: statusFilter === status ? 'var(--primary-lime)' : 'var(--text-muted)'
-                    }}
-                  >
-                    {status === 'Being Packed' ? 'Packing' : status}
-                  </button>
-                ))}
-              </div>
-
-              {onRefreshOrders && (
-                <button
-                  onClick={handleRefreshOrders}
-                  disabled={isRefreshingOrders}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    backgroundColor: 'var(--primary-lime-light)',
-                    border: '1.5px solid var(--primary-lime)',
-                    color: 'var(--primary-lime)',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '0.82rem',
-                    fontWeight: 800,
-                    cursor: isRefreshingOrders ? 'not-allowed' : 'pointer',
-                    opacity: isRefreshingOrders ? 0.75 : 1,
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <RefreshCw
-                    size={14}
-                    style={{
-                      animation: isRefreshingOrders ? 'spin 1s linear infinite' : 'none'
-                    }}
-                  />
-                  <span>{isRefreshingOrders ? 'Syncing...' : 'Sync Orders'}</span>
-                </button>
-              )}
-            </div>
-
-            {filteredOrders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
-                <span style={{ fontSize: '3rem' }}>📦</span>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No orders match filters</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Try broadening your search or selection filter.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {filteredOrders.map(order => {
-                  const badge = getStatusStyle(order.status);
-                  return (
-                    <div
-                      key={order.orderId}
-                      style={{
-                        backgroundColor: '#ffffff',
-                        border: '1px solid var(--border-light)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '20px 24px',
-                        boxShadow: 'var(--shadow-sm)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '24px',
-                        flexWrap: 'wrap',
-                        textAlign: 'left'
-                      }}
-                    >
-                      {/* Left: Customer & Meta */}
-                      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                        <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
-                          <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
-                        </div>
-                        <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Placed At</span>
-                          <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                            {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                        <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Customer</span>
-                          <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.fullName}</span>
-                        </div>
-                         <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment</span>
-                          <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-dark)' }}>{order.paymentMethod}</span>
-                        </div>
-                        <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Status</span>
-                          <span style={{
-                            fontSize: '0.74rem',
-                            fontWeight: 800,
-                            backgroundColor: order.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
-                            color: order.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
-                            padding: '2px 8px',
-                            borderRadius: '999px',
-                            textTransform: 'uppercase',
-                            display: 'inline-block',
-                            marginTop: '2px'
-                          }}>
-                            {order.paymentStatus || 'Pending'}
-                          </span>
-                        </div>
-                        {order.paymentScreenshot && (
-                          <div>
-                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Proof</span>
-                            <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
-                              <img
-                                src={order.paymentScreenshot}
-                                alt="Proof screenshot thumbnail"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(order.paymentScreenshot, '_blank');
-                                }}
-                                style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  objectFit: 'cover',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--border-light)',
-                                  cursor: 'pointer',
-                                  boxShadow: 'var(--shadow-sm)',
-                                  transition: 'transform 0.2s'
-                                }}
-                                onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
-                                onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                                title="Click to view full screen"
-                              />
-                            </div>
-                          </div>
-                        )}
-                        <div>
-                          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Charged</span>
-                          <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      {/* Right: Status Fulfillers */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>FULFILLMENT STATUS</span>
-                            {order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && (
-                              <span style={{ fontSize: '0.62rem', color: '#c2410c', fontWeight: 800, textTransform: 'uppercase' }}>(Locked - Awaiting Payment)</span>
-                            )}
-                          </div>
-                          <select
-                            value={order.status}
-                            onChange={(e) => handleUpdateOrderStatus(order.orderId, e.target.value)}
-                            disabled={order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed'}
-                            style={{
-                              padding: '8px 12px',
-                              borderRadius: 'var(--radius-md)',
-                              border: '1.5px solid var(--border-light)',
-                              outline: 'none',
-                              fontSize: '0.82rem',
-                              fontWeight: 700,
-                              backgroundColor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#f3f4f6' : badge.bg,
-                              color: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#9ca3af' : badge.text,
-                              cursor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 'not-allowed' : 'pointer',
-                              opacity: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 0.6 : 1
-                            }}
-                          >
-                            <option value="Being Packed">Preparing Package</option>
-                            <option value="Shipped">Shipped / In Transit</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-                        </div>
-
-                        <button
-                          onClick={() => setSelectedOrderDetails(order)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '8px 16px',
-                            backgroundColor: '#f3f4f6',
-                            borderRadius: 'var(--radius-md)',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            color: 'var(--text-dark)',
-                            marginTop: '16px'
-                          }}
-                        >
-                          <Eye size={14} /> View Details
-                        </button>
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: HOMEPAGE VISUAL CUSTOMIZER
-            ======================================================= */}
-        {activeTab === 'homepage_editor' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '30px', textAlign: 'left', minHeight: '80vh' }} className="homepage-editor-split">
-            
-            {/* LEFT COLUMN: Live Visual Preview */}
-            <div style={{
-              backgroundColor: '#f8fafc',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px',
-              boxShadow: 'var(--shadow-sm)',
-              alignSelf: 'start',
-              position: 'sticky',
-              top: '100px',
-              maxHeight: 'calc(100vh - 140px)',
-              overflowY: 'auto'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Eye size={18} style={{ color: 'var(--primary-lime)' }} /> Live Homepage Preview Simulation
-                </h4>
-                <span style={{ fontSize: '0.72rem', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800, textTransform: 'uppercase' }}>
-                  Realtime
-                </span>
-              </div>
-
-              {/* Home Page Sections Simulation Container */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', fontSize: '0.85rem' }}>
-                
-                {/* 0. Banner Carousel Preview */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 0: Homepage Banner Carousel</span>
-                  <div style={{
-                    position: 'relative',
-                    height: '130px',
-                    borderRadius: 'var(--radius-sm)',
-                    overflow: 'hidden',
-                    backgroundColor: '#1c1917',
-                    marginTop: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    {bannerImages.length > 0 ? (
-                      <>
-                        <img
-                          src={resolveMediaUrl(bannerImages[Math.min(activePreviewSlide, bannerImages.length - 1)])}
-                          alt="Simulated Banner"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '8px',
-                          left: '8px',
-                          backgroundColor: 'rgba(0,0,0,0.6)',
-                          color: '#ffffff',
-                          fontSize: '0.65rem',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 700
-                        }}>
-                          Slide {Math.min(activePreviewSlide, bannerImages.length - 1) + 1} of {bannerImages.length}
-                        </div>
-                        {bannerImages.length > 1 && (
-                          <div style={{ position: 'absolute', right: '8px', bottom: '8px', display: 'flex', gap: '4px' }}>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.preventDefault(); setActivePreviewSlide(prev => (prev - 1 + bannerImages.length) % bannerImages.length); }}
-                              style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '20px', height: '20px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 900 }}
-                            >
-                              ‹
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.preventDefault(); setActivePreviewSlide(prev => (prev + 1) % bannerImages.length); }}
-                              style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '20px', height: '20px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 900 }}
-                            >
-                              ›
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'rgba(255,255,255,0.3)', gap: '4px' }}>
-                        <Upload size={20} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>No Banners Uploaded</span>
-                        <span style={{ fontSize: '0.62rem' }}>Showing default Unsplash loop</span>
-                      </div>
-                    )}
+                  <div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Sales Revenue</span>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>₹{metrics.totalSales.toFixed(2)}</h3>
                   </div>
                 </div>
 
-                {/* 1. Featured Collection Preview */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 1: Featured Collection</span>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{featuredTitle}</h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{featuredSubtitle}</p>
+                {/* Active fulfillments */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+                    <Truck size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Shipments</span>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{metrics.activeFulfillments}</h3>
+                  </div>
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '16px', marginTop: '16px' }}>
-                    {/* Left dynamized showcase image */}
-                    <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '140px', position: 'relative' }}>
-                      {showcaseImage ? (
-                        <img src={showcaseImage} alt="Showcase Preview" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>Default Altar Image</span>
-                      )}
+                {/* AOV */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#f0fdf4', color: '#166534' }}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Average Order Value</span>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>₹{metrics.aov.toFixed(2)}</h3>
+                  </div>
+                </div>
+
+                {/* Total Products */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+                    <Package size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Listed Items</span>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{metrics.totalProducts}</h3>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Split row for charts */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1.3fr 1fr',
+                gap: '30px'
+              }} className="hero-grid-split">
+
+                {/* Left Box: Monthly Sales Trend (High Fidelity Visual CSS/HTML Bar Chart) */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Sales Trend (2026)</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '32px' }}>Store monthly revenue growth metrics.</p>
+
+                  {/* Bars Grid */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-end',
+                    height: '200px',
+                    padding: '0 16px',
+                    borderBottom: '2px solid var(--border-light)'
+                  }}>
+                    {[
+                      { month: 'Jan', revenue: 1450, height: '40%' },
+                      { month: 'Feb', revenue: 1890, height: '55%' },
+                      { month: 'Mar', revenue: 2320, height: '70%' },
+                      { month: 'Apr', revenue: 2100, height: '62%' },
+                      { month: 'May', revenue: 3108, height: '95%' }
+                    ].map(item => (
+                      <div key={item.month} style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flex: '1',
+                        maxWidth: '50px'
+                      }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary-forest)' }}>₹{item.revenue}</span>
+                        <div style={{
+                          width: '32px',
+                          height: '140px',
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: '4px 4px 0 0',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: '100%',
+                            height: item.height,
+                            background: 'linear-gradient(to top, var(--primary-forest), var(--primary-lime))',
+                            borderRadius: '4px 4px 0 0',
+                            transition: 'height 0.3s ease'
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>{item.month}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Box: Sales by Category */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>Top Categories</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Top-performing spiritual categories.</p>
+
+                  {categorySales.length === 0 ? (
+                    <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                      No sales cataloged yet.
                     </div>
-                    {/* 2x2 products grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      {Array.from({ length: 4 }).map((_, i) => {
-                        const pid = activeFeaturedIds[i];
-                        const product = allAvailableProducts.find(p => p.id === pid);
-                        if (product) {
-                          return (
-                            <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', position: 'relative', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '96px', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
-                              <div style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
-                                {isImageUrl(product.image) ? (
-                                  <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                  product.image || '📿'
-                                )}
-                              </div>
-                              <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{product.price}</span>
-                            </div>
-                          );
-                        }
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {categorySales.map(item => {
+                        const pct = Math.round((item.value / metrics.totalSales) * 100);
                         return (
-                          <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', boxSizing: 'border-box', minWidth: 0 }}>
-                            + Select #{i + 1}
+                          <div key={item.name}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                              <span>{item.name}</span>
+                              <span style={{ color: 'var(--primary-lime)' }}>₹{item.value.toFixed(0)} ({pct}%)</span>
+                            </div>
+                            <div style={{ width: '100%', height: '8px', backgroundColor: '#f3f4f6', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                              <div style={{
+                                width: `${pct}%`,
+                                height: '100%',
+                                backgroundColor: 'var(--primary-lime)',
+                                borderRadius: 'var(--radius-full)'
+                              }} />
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* 2. Flash Sale Section Preview */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: 'var(--primary-lime-light)' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>Section 2: Flash Sale</span>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{saleTitle}</h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{saleSubtitle}</p>
+              </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
-                    {Array.from({ length: 4 }).map((_, i) => {
-                      const pid = activeSaleIds[i];
-                      const product = allAvailableProducts.find(p => p.id === pid);
-                      if (product) {
+              {/* Recent Orders table */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>Recent Store Activity</h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
+                        <th style={{ padding: '12px 16px' }}>Order ID</th>
+                        <th style={{ padding: '12px 16px' }}>Customer</th>
+                        <th style={{ padding: '12px 16px' }}>Date</th>
+                        <th style={{ padding: '12px 16px' }}>Fulfillment</th>
+                        <th style={{ padding: '12px 16px' }}>Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.slice(0, 3).map(order => {
+                        const statusBadge = getStatusStyle(order.status);
                         return (
-                          <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', backgroundColor: '#ffffff', position: 'relative', height: '102px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
-                            <span style={{ position: 'absolute', top: '4px', left: '4px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.6rem', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', zIndex: 1 }}>
-                              -{saleDiscount}%
+                          <tr key={order.orderId} style={{ borderBottom: '1px solid var(--border-light)', fontSize: '0.88rem' }}>
+                            <td style={{ padding: '16px', fontWeight: 800 }}>#{order.orderId}</td>
+                            <td style={{ padding: '16px', fontWeight: 700 }}>{order.fullName}</td>
+                            <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                              {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              <span style={{
+                                backgroundColor: statusBadge.bg,
+                                color: statusBadge.text,
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                padding: '4px 10px',
+                                borderRadius: 'var(--radius-full)'
+                              }}>
+                                {order.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '16px', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: PRODUCTS CATALOG MANAGEMENT
+            ======================================================= */}
+          {activeTab === 'products' && (
+            <div>
+              {filteredProducts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
+                  <span style={{ fontSize: '3rem' }}>🛍️</span>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No products match query</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Try clearing the search input to list all items.</p>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: '24px'
+                }}>
+                  {filteredProducts.map(product => (
+                    <div
+                      key={product.id}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-lg)',
+                        overflow: 'hidden',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        textAlign: 'left'
+                      }}
+                    >
+                      {/* Header Image Box */}
+                      <div style={{
+                        height: '140px',
+                        backgroundColor: '#f3f4f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '3.6rem',
+                        borderBottom: '1px solid var(--border-light)',
+                        overflow: 'hidden'
+                      }}>
+                        {isImageUrl(product.image) ? (
+                          <img src={getDisplayImageUrl(product.image)} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          product.image || '📿'
+                        )}
+                      </div>
+
+                      {/* Meta details */}
+                      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>
+                            {product.spiritualType}
+                          </span>
+                          <span style={{
+                            backgroundColor: product.inStock ? '#dcfce7' : '#fee2e2',
+                            color: product.inStock ? '#166534' : '#991b1b',
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-full)'
+                          }}>
+                            {product.inStock ? 'IN STOCK' : 'OUT OF STOCK'}
+                          </span>
+                        </div>
+
+                        <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)', marginTop: '6px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {product.name}
+                        </h4>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Category: {product.category}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '10px' }}>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+                            ₹{product.price}
+                          </span>
+                          {product.originalPrice && (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                              ₹{product.originalPrice}
                             </span>
-                            <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
-                              {isImageUrl(product.image) ? (
-                                <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              ) : (
-                                product.image || '📿'
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-light)' }}>
+                          <button
+                            onClick={() => handleEditProductClick(product)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              padding: '8px 12px',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)'
+                            }}
+                          >
+                            <Edit size={12} /> Edit Details
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product.id, product.name)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              padding: '8px 12px',
+                              backgroundColor: '#fff5f5',
+                              border: '1px solid #fed7d7',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: '#e53e3e'
+                            }}
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: ORDERS FULFILLMENT MANAGEMENT
+            ======================================================= */}
+          {activeTab === 'orders' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* Status Tabs filters */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        backgroundColor: statusFilter === status ? 'var(--primary-lime-light)' : 'transparent',
+                        border: statusFilter === status ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                        color: statusFilter === status ? 'var(--primary-lime)' : 'var(--text-muted)'
+                      }}
+                    >
+                      {status === 'Being Packed' ? 'Packing' : status}
+                    </button>
+                  ))}
+                </div>
+
+                {onRefreshOrders && (
+                  <button
+                    onClick={handleRefreshOrders}
+                    disabled={isRefreshingOrders}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      backgroundColor: 'var(--primary-lime-light)',
+                      border: '1.5px solid var(--primary-lime)',
+                      color: 'var(--primary-lime)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      cursor: isRefreshingOrders ? 'not-allowed' : 'pointer',
+                      opacity: isRefreshingOrders ? 0.75 : 1,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <RefreshCw
+                      size={14}
+                      style={{
+                        animation: isRefreshingOrders ? 'spin 1s linear infinite' : 'none'
+                      }}
+                    />
+                    <span>{isRefreshingOrders ? 'Syncing...' : 'Sync Orders'}</span>
+                  </button>
+                )}
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
+                  <span style={{ fontSize: '3rem' }}>📦</span>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No orders match filters</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Try broadening your search or selection filter.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {filteredOrders.map(order => {
+                    const badge = getStatusStyle(order.status);
+                    return (
+                      <div
+                        key={order.orderId}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '20px 24px',
+                          boxShadow: 'var(--shadow-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '24px',
+                          flexWrap: 'wrap',
+                          textAlign: 'left'
+                        }}
+                      >
+                        {/* Left: Customer & Meta */}
+                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Placed At</span>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                              {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Customer</span>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>{order.fullName}</span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment</span>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-dark)' }}>{order.paymentMethod}</span>
+                          </div>
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Status</span>
+                            <span style={{
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              backgroundColor: order.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
+                              color: order.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              textTransform: 'uppercase',
+                              display: 'inline-block',
+                              marginTop: '2px'
+                            }}>
+                              {order.paymentStatus || 'Pending'}
+                            </span>
+                          </div>
+                          {order.paymentScreenshot && (
+                            <div>
+                              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Proof</span>
+                              <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                                <img
+                                  src={order.paymentScreenshot}
+                                  alt="Proof screenshot thumbnail"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(order.paymentScreenshot, '_blank');
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    objectFit: 'cover',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-light)',
+                                    cursor: 'pointer',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    transition: 'transform 0.2s'
+                                  }}
+                                  onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
+                                  onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                  title="Click to view full screen"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Charged</span>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{order.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Right: Status Fulfillers */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>FULFILLMENT STATUS</span>
+                              {order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' && (
+                                <span style={{ fontSize: '0.62rem', color: '#c2410c', fontWeight: 800, textTransform: 'uppercase' }}>(Locked - Awaiting Payment)</span>
                               )}
                             </div>
-                            <div>
-                              <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dark)' }}>₹{product.price}</span>
-                            </div>
+                            <select
+                              value={order.status}
+                              onChange={(e) => handleUpdateOrderStatus(order.orderId, e.target.value)}
+                              disabled={order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed'}
+                              style={{
+                                padding: '8px 12px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1.5px solid var(--border-light)',
+                                outline: 'none',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                backgroundColor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#f3f4f6' : badge.bg,
+                                color: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? '#9ca3af' : badge.text,
+                                cursor: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 'not-allowed' : 'pointer',
+                                opacity: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 0.6 : 1
+                              }}
+                            >
+                              <option value="Being Packed">Preparing Package</option>
+                              <option value="Shipped">Shipped / In Transit</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
                           </div>
-                        );
-                      }
-                      return (
-                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '102px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', boxSizing: 'border-box', minWidth: 0 }}>
-                          + Select #{i + 1}
+
+                          <button
+                            onClick={() => setSelectedOrderDetails(order)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '8px 16px',
+                              backgroundColor: '#f3f4f6',
+                              borderRadius: 'var(--radius-md)',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              color: 'var(--text-dark)',
+                              marginTop: '16px'
+                            }}
+                          >
+                            <Eye size={14} /> View Details
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: HOMEPAGE VISUAL CUSTOMIZER
+            ======================================================= */}
+          {activeTab === 'homepage_editor' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '30px', textAlign: 'left', minHeight: '80vh' }} className="homepage-editor-split">
+
+              {/* LEFT COLUMN: Live Visual Preview */}
+              <div style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)',
+                alignSelf: 'start',
+                position: 'sticky',
+                top: '100px',
+                maxHeight: 'calc(100vh - 140px)',
+                overflowY: 'auto'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Eye size={18} style={{ color: 'var(--primary-lime)' }} /> Live Homepage Preview Simulation
+                  </h4>
+                  <span style={{ fontSize: '0.72rem', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800, textTransform: 'uppercase' }}>
+                    Realtime
+                  </span>
                 </div>
 
-                {/* 3. New Arrivals Section Preview */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 3: New Arrivals</span>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{newArrivalsTitle}</h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>Button: {newArrivalsSubtitle}</p>
+                {/* Home Page Sections Simulation Container */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', fontSize: '0.85rem' }}>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
-                    {Array.from({ length: 4 }).map((_, i) => {
-                      const pid = activeNewArrivalsIds[i];
-                      const product = allAvailableProducts.find(p => p.id === pid);
-                      if (product) {
-                        const isOverlay = i === 0;
-                        return (
-                          <div key={product.id} style={{
-                            border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: isOverlay ? '0' : '8px',
-                            backgroundColor: isOverlay ? 'var(--primary-forest)' : '#ffffff',
-                            color: isOverlay ? '#ffffff' : 'var(--text-dark)',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            height: '110px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            minWidth: 0
+                  {/* 0. Banner Carousel Preview */}
+                  <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 0: Homepage Banner Carousel</span>
+                    <div style={{
+                      position: 'relative',
+                      height: '130px',
+                      borderRadius: 'var(--radius-sm)',
+                      overflow: 'hidden',
+                      backgroundColor: '#1c1917',
+                      marginTop: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {bannerImages.length > 0 ? (
+                        <>
+                          <img
+                            src={resolveMediaUrl(bannerImages[Math.min(activePreviewSlide, bannerImages.length - 1)])}
+                            alt="Simulated Banner"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            left: '8px',
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            color: '#ffffff',
+                            fontSize: '0.65rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700
                           }}>
-                            {isOverlay ? (
-                              <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                                <div style={{ fontSize: '0.6rem', opacity: 0.8 }}>[Overlay Style]</div>
-                                <div>
-                                  <span style={{ fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 900 }}>₹{product.price}</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
+                            Slide {Math.min(activePreviewSlide, bannerImages.length - 1) + 1} of {bannerImages.length}
+                          </div>
+                          {bannerImages.length > 1 && (
+                            <div style={{ position: 'absolute', right: '8px', bottom: '8px', display: 'flex', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setActivePreviewSlide(prev => (prev - 1 + bannerImages.length) % bannerImages.length); }}
+                                style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '20px', height: '20px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 900 }}
+                              >
+                                ‹
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setActivePreviewSlide(prev => (prev + 1) % bannerImages.length); }}
+                                style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '20px', height: '20px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 900 }}
+                              >
+                                ›
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'rgba(255,255,255,0.3)', gap: '4px' }}>
+                          <Upload size={20} />
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>No Banners Uploaded</span>
+                          <span style={{ fontSize: '0.62rem' }}>Showing default Unsplash loop</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 1. Featured Collection Preview */}
+                  <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 1: Featured Collection</span>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{featuredTitle}</h3>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{featuredSubtitle}</p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '16px', marginTop: '16px' }}>
+                      {/* Left dynamized showcase image */}
+                      <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '140px', position: 'relative' }}>
+                        {showcaseImage ? (
+                          <img src={showcaseImage} alt="Showcase Preview" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>Default Altar Image</span>
+                        )}
+                      </div>
+                      {/* 2x2 products grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {Array.from({ length: 4 }).map((_, i) => {
+                          const pid = activeFeaturedIds[i];
+                          const product = allAvailableProducts.find(p => p.id === pid);
+                          if (product) {
+                            return (
+                              <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', position: 'relative', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '96px', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
+                                <div style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
                                   {isImageUrl(product.image) ? (
                                     <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   ) : (
                                     product.image || '📿'
                                   )}
                                 </div>
-                                <div>
-                                  <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{product.price}</span>
-                                </div>
-                              </>
-                            )}
+                                <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{product.price}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', boxSizing: 'border-box', minWidth: 0 }}>
+                              + Select #{i + 1}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Flash Sale Section Preview */}
+                  <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: 'var(--primary-lime-light)' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>Section 2: Flash Sale</span>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{saleTitle}</h3>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>{saleSubtitle}</p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
+                      {Array.from({ length: 4 }).map((_, i) => {
+                        const pid = activeSaleIds[i];
+                        const product = allAvailableProducts.find(p => p.id === pid);
+                        if (product) {
+                          return (
+                            <div key={product.id} style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', padding: '8px', backgroundColor: '#ffffff', position: 'relative', height: '102px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box', minWidth: 0, overflow: 'hidden' }}>
+                              <span style={{ position: 'absolute', top: '4px', left: '4px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.6rem', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', zIndex: 1 }}>
+                                -{saleDiscount}%
+                              </span>
+                              <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
+                                {isImageUrl(product.image) ? (
+                                  <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  product.image || '📿'
+                                )}
+                              </div>
+                              <div>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dark)' }}>₹{product.price}</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '102px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', boxSizing: 'border-box', minWidth: 0 }}>
+                            + Select #{i + 1}
                           </div>
                         );
-                      }
-                      return (
-                        <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', minWidth: 0 }}>
-                          + Select #{i + 1}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Shop Page Banners Preview */}
-                <div style={{ border: '2px solid var(--primary-lime)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>🛍️ Shop Page Banners</span>
-
-                  {/* Main shop banner preview */}
-                  <div style={{ marginTop: '10px', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Main Shop Banner</div>
-                    <div style={{ height: '60px', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#1c1917', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {shopMainBanners.length > 0 ? (
-                        <>
-                          <img src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]} alt="Shop main banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.5rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
-                            Slide {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1}/{shopMainBanners.length}
-                          </div>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>No main banner — fallback shown</span>
-                      )}
+                      })}
                     </div>
                   </div>
 
-                  {/* Category banners row */}
-                  {Object.keys(shopCategoryBanners).some(k => (shopCategoryBanners[k] || []).length > 0) && (
-                    <div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase' }}>Category Banners Strip</div>
-                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
-                        {Object.entries(shopCategoryBanners)
-                          .filter(([, imgs]) => imgs && imgs.length > 0)
-                          .map(([cat, imgs]) => (
-                            <div key={cat} style={{ position: 'relative', width: '80px', height: '44px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-light)' }}>
-                              <img src={imgs[0]} alt={cat} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)' }} />
-                              <div style={{ position: 'absolute', bottom: '2px', left: '3px', fontSize: '0.48rem', color: '#fff', fontWeight: 800 }}>{cat}</div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  {/* 3. New Arrivals Section Preview */}
+                  <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Section 3: New Arrivals</span>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '4px', color: 'var(--text-dark)' }}>{newArrivalsTitle}</h3>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>Button: {newArrivalsSubtitle}</p>
 
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: Curation Controls Panel */}
-            <form onSubmit={handleSaveHomepageSettings} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-              
-              {/* Header card with save */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '20px 24px',
-                boxShadow: 'var(--shadow-sm)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px'
-              }}>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Homepage Curation Manager</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dynamically curate sections and customize text labels.</p>
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSavingHomepage}
-                  className="btn-lime"
-                  style={{
-                    padding: '12px 24px',
-                    fontSize: '0.85rem',
-                    borderRadius: 'var(--radius-md)',
-                    minWidth: '160px',
-                    justifyContent: 'center',
-                    cursor: isSavingHomepage ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {isSavingHomepage ? 'Saving layout...' : 'Save Settings'}
-                </button>
-              </div>
-
-              {/* Loader overlay inside form */}
-              {isLoadingHomepage ? (
-                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '60px 0', textAlign: 'center' }}>
-                  <div style={{
-                    width: '32px', height: '32px', border: '3px solid var(--border-light)',
-                    borderTopColor: 'var(--primary-lime)', borderRadius: '50%',
-                    animation: 'spin 1s linear infinite', margin: '0 auto 16px'
-                  }} />
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading active configurations...</p>
-                </div>
-              ) : (
-                <>
-                  {/* Search box filters everything below */}
-                  <div style={{ position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-muted)' }} />
-                    <input
-                      type="text"
-                      placeholder="Search catalog products to filter selection lists below..."
-                      value={homepageSearchQuery}
-                  onChange={(e) => setHomepageSearchQuery(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px 12px 42px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        backgroundColor: '#ffffff'
-                      }}
-                    />
-                  </div>
-
-                  {/* Section 0: Homepage Banner Carousel */}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 0: Homepage Banner Carousel</h4>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: 'var(--primary-lime-light)',
-                        color: 'var(--primary-lime)'
-                      }}>
-                        {bannerImages.length} Slides
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {/* Upload button wrapper */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Upload New Slide Image</label>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <label
-                            htmlFor="banner-image-upload"
-                            style={{
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px' }}>
+                      {Array.from({ length: 4 }).map((_, i) => {
+                        const pid = activeNewArrivalsIds[i];
+                        const product = allAvailableProducts.find(p => p.id === pid);
+                        if (product) {
+                          const isOverlay = i === 0;
+                          return (
+                            <div key={product.id} style={{
+                              border: '1px solid var(--border-light)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: isOverlay ? '0' : '8px',
+                              backgroundColor: isOverlay ? 'var(--primary-forest)' : '#ffffff',
+                              color: isOverlay ? '#ffffff' : 'var(--text-dark)',
+                              position: 'relative',
+                              overflow: 'hidden',
+                              height: '110px',
                               display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '10px 16px',
-                              backgroundColor: '#ffffff',
-                              border: '1px dashed var(--primary-lime)',
-                              borderRadius: 'var(--radius-md)',
-                              cursor: 'pointer',
-                              color: 'var(--primary-lime)',
-                              fontSize: '0.85rem',
-                              fontWeight: 700,
-                              transition: 'all 0.2s',
-                              userSelect: 'none',
-                              width: 'fit-content'
-                            }}
-                          >
-                            <Upload size={16} />
-                            Select slide file to upload
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            id="banner-image-upload"
-                            onChange={handleBannerUpload}
-                            style={{ display: 'none' }}
-                          />
-                        </div>
-                        {bannerImages.some(img => img.startsWith('temp-media-')) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
-                            {bannerImages.filter(img => img.startsWith('temp-media-')).map(tempId => (
-                              <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
-                            ))}
-                          </div>
-                        )}
-                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                          <strong>Recommended dimensions:</strong> 1920px (Width) × 460px (Height) or standard aspect ratio (e.g. 16:9). The storefront hero banner renders inside a <strong>fixed 460px height</strong> container.
-                        </p>
-                      </div>
-
-                      {/* Display of current slides */}
-                      {bannerImages.length > 0 && (
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Carousel Slides</label>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-                            {bannerImages.map((banner, index) => (
-                              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div
-                                  onClick={() => setActivePreviewSlide(index)}
-                                  style={{
-                                    position: 'relative',
-                                    borderRadius: '6px',
-                                    overflow: 'hidden',
-                                    border: `2px solid ${index === activePreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                                    aspectRatio: '16/9',
-                                    backgroundColor: '#e2e8f0',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
-                                  }}
-                                >
-                                  <img src={resolveMediaUrl(banner)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
-                                    style={{
-                                      position: 'absolute',
-                                      top: '4px',
-                                      right: '4px',
-                                      backgroundColor: 'rgba(239, 68, 68, 0.9)',
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      borderRadius: '50%',
-                                      width: '20px',
-                                      height: '20px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      cursor: 'pointer',
-                                      boxShadow: 'var(--shadow-sm)',
-                                      padding: 0,
-                                      zIndex: 6
-                                    }}
-                                    title="Remove Slide"
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                  
-                                  {/* Reorder Controls */}
-                                  <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
-                                    {index > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'left'); }}
-                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                        title="Move Slide Left"
-                                      >
-                                        ◀
-                                      </button>
-                                    )}
-                                    {index < bannerImages.length - 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'right'); }}
-                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                        title="Move Slide Right"
-                                      >
-                                        ▶
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  <div style={{
-                                    position: 'absolute',
-                                    bottom: '4px',
-                                    left: '4px',
-                                    backgroundColor: 'rgba(0,0,0,0.6)',
-                                    color: '#ffffff',
-                                    fontSize: '0.55rem',
-                                    padding: '1px 4px',
-                                    borderRadius: '2px',
-                                    fontWeight: 700
-                                  }}>
-                                    #{index + 1}
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              minWidth: 0
+                            }}>
+                              {isOverlay ? (
+                                <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                                  <div style={{ fontSize: '0.6rem', opacity: 0.8 }}>[Overlay Style]</div>
+                                  <div>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 900 }}>₹{product.price}</span>
                                   </div>
                                 </div>
-                                <input
-                                  type="text"
-                                  placeholder="Redirect URL (e.g. /product)"
-                                  value={bannerRedirects[banner] || ''}
-                                  onChange={(e) => setBannerRedirects(prev => ({ ...prev, [banner]: e.target.value }))}
-                                  style={{
-                                    padding: '5px 8px',
-                                    fontSize: '0.72rem',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--border-light)',
-                                    outline: 'none',
-                                    width: '100%',
-                                    boxSizing: 'border-box'
-                                  }}
-                                />
-                              </div>
-                            ))}
+                              ) : (
+                                <>
+                                  <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', background: '#f8fafc', borderRadius: '4px', overflow: 'hidden' }}>
+                                    {isImageUrl(product.image) ? (
+                                      <img src={getDisplayImageUrl(product.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      product.image || '📿'
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{product.name}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{product.price}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={i} style={{ border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-sm)', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', backgroundColor: '#ffffff', minWidth: 0 }}>
+                            + Select #{i + 1}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Section 1 Control Box */}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 1: Featured Collections (Max 4)</h4>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: featuredProductIds.length === 4 ? '#dcfce7' : featuredProductIds.length > 4 ? '#fee2e2' : '#fef3c7',
-                        color: featuredProductIds.length === 4 ? '#15803d' : featuredProductIds.length > 4 ? '#b91c1c' : '#b45309'
-                      }}>
-                        {featuredProductIds.length}/4 Selected
-                      </span>
+                  {/* Shop Page Banners Preview */}
+                  <div style={{ border: '2px solid var(--primary-lime)', borderRadius: 'var(--radius-md)', padding: '16px', backgroundColor: '#ffffff' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-lime)', fontWeight: 800, textTransform: 'uppercase' }}>🛍️ Shop Page Banners</span>
+
+                    {/* Main shop banner preview */}
+                    <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase' }}>Main Shop Banner</div>
+                      <div style={{ height: '60px', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#1c1917', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {shopMainBanners.length > 0 ? (
+                          <>
+                            <img src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]} alt="Shop main banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.5rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
+                              Slide {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1}/{shopMainBanners.length}
+                            </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>No main banner — fallback shown</span>
+                        )}
+                      </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
-                          <input type="text" value={featuredTitle} onChange={(e) => setFeaturedTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Subtitle</label>
-                          <input type="text" value={featuredSubtitle} onChange={(e) => setFeaturedSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                    {/* Category banners row */}
+                    {Object.keys(shopCategoryBanners).some(k => (shopCategoryBanners[k] || []).length > 0) && (
+                      <div>
+                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase' }}>Category Banners Strip</div>
+                        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
+                          {Object.entries(shopCategoryBanners)
+                            .filter(([, imgs]) => imgs && imgs.length > 0)
+                            .map(([cat, imgs]) => (
+                              <div key={cat} style={{ position: 'relative', width: '80px', height: '44px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-light)' }}>
+                                <img src={imgs[0]} alt={cat} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)' }} />
+                                <div style={{ position: 'absolute', bottom: '2px', left: '3px', fontSize: '0.48rem', color: '#fff', fontWeight: 800 }}>{cat}</div>
+                              </div>
+                            ))}
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      {/* Section 1 Showcase Image Uploader */}
-                      <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f8fafc' }}>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Featured Section Showcase Image (Left Column)</label>
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                          {showcaseImage ? (
-                            <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#fff', flexShrink: 0 }}>
-                              <img src={resolveMediaUrl(showcaseImage)} alt="Showcase Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <button
-                                type="button"
-                                onClick={handleRemoveShowcase}
-                                style={{
-                                  position: 'absolute',
-                                  top: '2px',
-                                  right: '2px',
-                                  backgroundColor: 'rgba(239, 68, 68, 0.9)',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '50%',
-                                  width: '18px',
-                                  height: '18px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  cursor: 'pointer',
-                                  boxShadow: 'var(--shadow-sm)',
-                                  padding: 0
-                                }}
-                                title="Remove Image"
-                              >
-                                <X size={10} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ width: '80px', height: '80px', borderRadius: '6px', border: '1px dashed var(--border-light)', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 700, textAlign: 'center', padding: '4px', flexShrink: 0 }}>
-                              Default Altar Image
-                            </div>
-                          )}
+                </div>
+              </div>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {/* RIGHT COLUMN: Curation Controls Panel */}
+              <form onSubmit={handleSaveHomepageSettings} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+
+                {/* Header card with save */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '20px 24px',
+                  boxShadow: 'var(--shadow-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px'
+                }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Homepage Curation Manager</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dynamically curate sections and customize text labels.</p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSavingHomepage}
+                    className="btn-lime"
+                    style={{
+                      padding: '12px 24px',
+                      fontSize: '0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      minWidth: '160px',
+                      justifyContent: 'center',
+                      cursor: isSavingHomepage ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {isSavingHomepage ? 'Saving layout...' : 'Save Settings'}
+                  </button>
+                </div>
+
+                {/* Loader overlay inside form */}
+                {isLoadingHomepage ? (
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '60px 0', textAlign: 'center' }}>
+                    <div style={{
+                      width: '32px', height: '32px', border: '3px solid var(--border-light)',
+                      borderTopColor: 'var(--primary-lime)', borderRadius: '50%',
+                      animation: 'spin 1s linear infinite', margin: '0 auto 16px'
+                    }} />
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading active configurations...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Search box filters everything below */}
+                    <div style={{ position: 'relative' }}>
+                      <Search size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder="Search catalog products to filter selection lists below..."
+                        value={homepageSearchQuery}
+                        onChange={(e) => setHomepageSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px 12px 42px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          backgroundColor: '#ffffff'
+                        }}
+                      />
+                    </div>
+
+                    {/* Section 0: Homepage Banner Carousel */}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 0: Homepage Banner Carousel</h4>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--primary-lime-light)',
+                          color: 'var(--primary-lime)'
+                        }}>
+                          {bannerImages.length} Slides
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Upload button wrapper */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Upload New Slide Image</label>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <label
-                              htmlFor="showcase-image-upload"
+                              htmlFor="banner-image-upload"
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                padding: '8px 12px',
+                                gap: '8px',
+                                padding: '10px 16px',
                                 backgroundColor: '#ffffff',
                                 border: '1px dashed var(--primary-lime)',
                                 borderRadius: 'var(--radius-md)',
                                 cursor: 'pointer',
                                 color: 'var(--primary-lime)',
-                                fontSize: '0.8rem',
+                                fontSize: '0.85rem',
                                 fontWeight: 700,
                                 transition: 'all 0.2s',
                                 userSelect: 'none',
                                 width: 'fit-content'
                               }}
                             >
-                              <Upload size={14} />
-                              Upload showcase image
+                              <Upload size={16} />
+                              Select slide file to upload
                             </label>
                             <input
                               type="file"
                               accept="image/*"
-                              id="showcase-image-upload"
-                              onChange={handleShowcaseUpload}
-                              style={{ display: 'none' }}
-                            />
-                            {showcaseImage && showcaseImage.startsWith('temp-media-') && (
-                              <div style={{ width: '100%', minWidth: '220px', marginTop: '4px' }}>
-                                <CompressionStatusWidget tempId={showcaseImage} mediaQueue={mediaQueue} />
-                              </div>
-                            )}
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                              <strong>Recommended dimensions:</strong> 560px (Width) × 760px (Height) or aspect ratio 3:4. Constrained inside a <strong>fixed aspect-ratio</strong> relative frame matching the right products column (height: 100%, min-height: 380px) to prevent layout shifting.
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Products scroll list */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select featured items</label>
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {allAvailableProducts
-                            .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
-                            .map((p) => {
-                              const checked = activeFeaturedIds.includes(p.id);
-                              const isLimitReached = activeFeaturedIds.length >= 4;
-                              const isDisabled = !checked && isLimitReached;
-                              return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isDisabled}
-                                    onChange={() => {
-                                      setFeaturedProductIds(prev => {
-                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
-                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
-                                        if (cleanPrev.length >= 4) return cleanPrev;
-                                        return [...cleanPrev, p.id];
-                                      });
-                                    }}
-                                  />
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {isImageUrl(p.image) ? (
-                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
-                                    )}
-                                  </div>
-                                  <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 2 Control Box */}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 2: Flash Sale (Max 4)</h4>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: activeSaleIds.length === 4 ? '#dcfce7' : activeSaleIds.length > 4 ? '#fee2e2' : '#fef3c7',
-                        color: activeSaleIds.length === 4 ? '#15803d' : activeSaleIds.length > 4 ? '#b91c1c' : '#b45309'
-                      }}>
-                        {activeSaleIds.length}/4 Selected
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 0.6fr', gap: '16px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
-                          <input type="text" value={saleTitle} onChange={(e) => setSaleTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Subtitle</label>
-                          <input type="text" value={saleSubtitle} onChange={(e) => setSaleSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Discount %</label>
-                          <input type="number" min="0" max="100" value={saleDiscount} onChange={(e) => setSaleDiscount(parseInt(e.target.value) || 0)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                      </div>
-
-                      {/* Products scroll list */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select flash sale items</label>
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {allAvailableProducts
-                            .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
-                            .map((p) => {
-                              const checked = activeSaleIds.includes(p.id);
-                              const isLimitReached = activeSaleIds.length >= 4;
-                              const isDisabled = !checked && isLimitReached;
-                              return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isDisabled}
-                                    onChange={() => {
-                                      setSaleProductIds(prev => {
-                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
-                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
-                                        if (cleanPrev.length >= 4) return cleanPrev;
-                                        return [...cleanPrev, p.id];
-                                      });
-                                    }}
-                                  />
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {isImageUrl(p.image) ? (
-                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
-                                    )}
-                                  </div>
-                                  <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 3 Control Box */}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 3: New Arrivals (Max 4)</h4>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: activeNewArrivalsIds.length === 4 ? '#dcfce7' : activeNewArrivalsIds.length > 4 ? '#fee2e2' : '#fef3c7',
-                        color: activeNewArrivalsIds.length === 4 ? '#15803d' : activeNewArrivalsIds.length > 4 ? '#b91c1c' : '#b45309'
-                      }}>
-                        {activeNewArrivalsIds.length}/4 Selected
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
-                          <input type="text" value={newArrivalsTitle} onChange={(e) => setNewArrivalsTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Discover Button Text</label>
-                          <input type="text" value={newArrivalsSubtitle} onChange={(e) => setNewArrivalsSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
-                        </div>
-                      </div>
-
-                      {/* Products scroll list */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select new arrival items</label>
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {allAvailableProducts
-                            .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
-                            .map((p) => {
-                              const checked = activeNewArrivalsIds.includes(p.id);
-                              const isLimitReached = activeNewArrivalsIds.length >= 4;
-                              const isDisabled = !checked && isLimitReached;
-                              return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isDisabled}
-                                    onChange={() => {
-                                      setNewArrivalsProductIds(prev => {
-                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
-                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
-                                        if (cleanPrev.length >= 4) return cleanPrev;
-                                        return [...cleanPrev, p.id];
-                                      });
-                                    }}
-                                  />
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {isImageUrl(p.image) ? (
-                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
-                                    )}
-                                  </div>
-                                  <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cart Drawer Explore More Upselling Section */}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Cart Drawer: Explore More Upselling Products</h4>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: '#e0f2fe',
-                        color: '#0369a1'
-                      }}>
-                        {activeCartExploreMoreIds.length} Selected
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Select the products you want to display in the "Explore More" upselling section of the slide-over cart drawer. These items will be shown to users to encourage cross-selling.
-                      </p>
-                      {/* Products scroll list */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select items to display in Explore More</label>
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {allAvailableProducts
-                            .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
-                            .map((p) => {
-                              const checked = activeCartExploreMoreIds.includes(p.id);
-                              return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => {
-                                      setCartExploreMoreProductIds(prev => {
-                                        const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id));
-                                        if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
-                                        return [...cleanPrev, p.id];
-                                      });
-                                    }}
-                                  />
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {isImageUrl(p.image) ? (
-                                      <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                      <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
-                                    )}
-                                  </div>
-                                  <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* ============================================================
-                      SECTION 4 (Shop Banners): Main Banner + Category Banners
-                      ============================================================ */}
-                  <div style={{ backgroundColor: '#ffffff', border: '2px solid var(--primary-lime)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-light)', paddingBottom: '14px' }}>
-                      <div>
-                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                          🛍️ Shop Page Banners
-                        </h4>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          Upload a main shop banner carousel + per-category banners. These images are stored in Cloudflare R2.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isSavingShopBanners}
-                        onClick={handleSaveShopBanners}
-                        className="btn-lime"
-                        style={{
-                          padding: '10px 20px', fontSize: '0.82rem',
-                          borderRadius: 'var(--radius-md)', minWidth: '140px',
-                          justifyContent: 'center',
-                          cursor: isSavingShopBanners ? 'not-allowed' : 'pointer',
-                          flexShrink: 0
-                        }}
-                      >
-                        {isSavingShopBanners ? 'Saving...' : 'Save Shop Banners'}
-                      </button>
-                    </div>
-
-                    {isLoadingShopBanners ? (
-                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                        <div style={{ width: '28px', height: '28px', border: '3px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                        <span style={{ fontSize: '0.82rem' }}>Loading shop banner configurations...</span>
-                      </div>
-                    ) : (
-                      <>
-                        {/* ---- Main Shop Banner (Carousel) ---- */}
-                        <div style={{ marginBottom: '28px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase' }}>
-                              Main Shop Banner Carousel
-                            </label>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                              {shopMainBanners.length} image{shopMainBanners.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-
-                          {/* Mini carousel preview */}
-                          {shopMainBanners.length > 0 && (
-                            <div style={{ position: 'relative', height: '100px', borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#1c1917', marginBottom: '10px' }}>
-                              <img
-                                src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]}
-                                alt="Main banner preview"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                              {shopMainBanners.length > 1 && (
-                                <div style={{ position: 'absolute', bottom: '6px', right: '6px', display: 'flex', gap: '4px' }}>
-                                  <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p - 1 + shopMainBanners.length) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '18px', height: '18px', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-                                  <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p + 1) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '18px', height: '18px', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-                                </div>
-                              )}
-                              <div style={{ position: 'absolute', bottom: '4px', left: '6px', fontSize: '0.58rem', color: '#fff', fontWeight: 700, backgroundColor: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: '3px' }}>
-                                {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1}/{shopMainBanners.length}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Thumbnails */}
-                          {shopMainBanners.length > 0 && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                              {shopMainBanners.map((url, idx) => (
-                                <div
-                                  key={idx}
-                                  onClick={() => setShopBannerPreviewSlide(idx)}
-                                  style={{
-                                    position: 'relative',
-                                    aspectRatio: '16/5',
-                                    borderRadius: '6px',
-                                    overflow: 'hidden',
-                                    border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                                    backgroundColor: '#e2e8f0',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
-                                  }}
-                                >
-                                  <img src={resolveMediaUrl(url)} alt={`Main banner ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
-                                    style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
-                                    title="Remove"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                  
-                                  {/* Reorder Controls */}
-                                  <div style={{ position: 'absolute', bottom: '3px', right: '3px', display: 'flex', gap: '2px', zIndex: 6 }}>
-                                    {idx > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
-                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
-                                        title="Move slide left"
-                                      >
-                                        ◀
-                                      </button>
-                                    )}
-                                    {idx < shopMainBanners.length - 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
-                                        style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
-                                        title="Move slide right"
-                                      >
-                                        ▶
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  <div style={{ position: 'absolute', bottom: '2px', left: '4px', fontSize: '0.5rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 3px', borderRadius: '2px', fontWeight: 700 }}>#{idx + 1}</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label
-                              htmlFor="shop-main-banner-upload"
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700,
-                                border: '1px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
-                                color: 'var(--primary-lime)', cursor: 'pointer',
-                                backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
-                              }}
-                            >
-                              <Upload size={14} />
-                              Add Main Banner Slide
-                            </label>
-                            <input
-                              type="file" id="shop-main-banner-upload" accept="image/*"
-                              onChange={handleShopMainBannerUpload}
+                              id="banner-image-upload"
+                              onChange={handleBannerUpload}
                               style={{ display: 'none' }}
                             />
                           </div>
-                          {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
+                          {bannerImages.some(img => img.startsWith('temp-media-')) && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
-                              {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                              {bannerImages.filter(img => img.startsWith('temp-media-')).map(tempId => (
                                 <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
                               ))}
                             </div>
                           )}
-                          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                            <strong>Recommended:</strong> 1920 × 320px (or 6:1 ratio). Displayed at fixed 320px height on the Shop page.
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                            <strong>Recommended dimensions:</strong> 1920px (Width) × 460px (Height) or standard aspect ratio (e.g. 16:9). The storefront hero banner renders inside a <strong>fixed 460px height</strong> container.
                           </p>
                         </div>
 
-                        {/* ---- Category Banners Grid ---- */}
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase', marginBottom: '12px' }}>
-                            Category-Specific Banners
-                          </label>
-                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                            Upload one or multiple images per category. They appear as a scrollable row of animated cards on the Shop page. <strong>Recommended: 260 × 140px</strong> (or 13:7 ratio).
-                          </p>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
-                            {shopCategories.map(cat => {
-                              const catBanners = shopCategoryBanners[cat] || [];
-                              return (
-                                <div key={cat} style={{
-                                  border: '1px solid var(--border-light)',
-                                  borderRadius: 'var(--radius-md)',
-                                  padding: '14px',
-                                  backgroundColor: catBanners.length > 0 ? '#f0fdf4' : '#f8fafc',
-                                  position: 'relative'
-                                }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>{cat}</span>
-                                    <span style={{
-                                      fontSize: '0.65rem', fontWeight: 800, padding: '1px 6px',
-                                      borderRadius: '4px',
-                                      backgroundColor: catBanners.length > 0 ? '#dcfce7' : '#f1f5f9',
-                                      color: catBanners.length > 0 ? '#15803d' : 'var(--text-muted)'
-                                    }}>
-                                      {catBanners.length} img{catBanners.length !== 1 ? 's' : ''}
-                                    </span>
-                                  </div>
-
-                                  {/* Thumbnail strip */}
-                                  {catBanners.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                                      {catBanners.map((url, idx) => (
-                                        <div key={idx} style={{ position: 'relative', width: '54px', height: '36px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
-                                          <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                          <button
-                                            type="button"
-                                            onClick={() => handleCategoryBannerRemove(cat, idx)}
-                                            style={{ position: 'absolute', top: '1px', right: '1px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                                            title="Remove"
-                                          >
-                                            <X size={8} />
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  <label
-                                    htmlFor={`cat-banner-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`}
+                        {/* Display of current slides */}
+                        {bannerImages.length > 0 && (
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Carousel Slides</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                              {bannerImages.map((banner, index) => (
+                                <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div
+                                    onClick={() => setActivePreviewSlide(index)}
                                     style={{
-                                      display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                      padding: '6px 10px', fontSize: '0.75rem', fontWeight: 700,
-                                      border: '1px dashed var(--primary-lime)',
-                                      borderRadius: 'var(--radius-sm)',
-                                      color: 'var(--primary-lime)',
+                                      position: 'relative',
+                                      borderRadius: '6px',
+                                      overflow: 'hidden',
+                                      border: `2px solid ${index === activePreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                      aspectRatio: '16/9',
+                                      backgroundColor: '#e2e8f0',
                                       cursor: 'pointer',
-                                      backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
+                                      transition: 'all 0.2s',
+                                      boxShadow: index === activePreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
                                     }}
                                   >
-                                    <Upload size={11} />
-                                    {catBanners.length > 0 ? '+ Add Another' : 'Upload Banner'}
-                                  </label>
-                                  <input
-                                    type="file"
-                                    id={`cat-banner-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`}
-                                    accept="image/*"
-                                    onChange={e => handleCategoryBannerUpload(cat, e)}
-                                    style={{ display: 'none' }}
-                                  />
-                                  {catBanners.some(img => img.startsWith('temp-media-')) && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
-                                      {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
-                                        <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
-                                      ))}
+                                    <img src={resolveMediaUrl(banner)} alt={`Slide ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleRemoveBanner(index); }}
+                                      style={{
+                                        position: 'absolute',
+                                        top: '4px',
+                                        right: '4px',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '20px',
+                                        height: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        boxShadow: 'var(--shadow-sm)',
+                                        padding: 0,
+                                        zIndex: 6
+                                      }}
+                                      title="Remove Slide"
+                                    >
+                                      <X size={12} />
+                                    </button>
+
+                                    {/* Reorder Controls */}
+                                    <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                                      {index > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'left'); }}
+                                          style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                          title="Move Slide Left"
+                                        >
+                                          ◀
+                                        </button>
+                                      )}
+                                      {index < bannerImages.length - 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleMoveBanner(index, 'right'); }}
+                                          style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                          title="Move Slide Right"
+                                        >
+                                          ▶
+                                        </button>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
 
-            </form>
-          </div>
-        )}
-
-
-        {/* =======================================================
-            TAB: SHOP BANNERS
-            ======================================================= */}
-        {activeTab === 'shop_banners' && (
-          <div style={{ textAlign: 'left' }}>
-
-            {/* Header */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px 28px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '20px',
-              marginBottom: '24px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
-                  🛍️
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Shop Page Banner Manager</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Upload a main banner carousel for the Shop header + per-category banners. Images → Cloudflare R2 · URLs → Supabase.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingShopBanners}
-                onClick={handleSaveShopBanners}
-                className="btn-lime"
-                style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingShopBanners ? 'not-allowed' : 'pointer', flexShrink: 0 }}
-              >
-                {isSavingShopBanners ? 'Saving...' : '💾 Save All Banners'}
-              </button>
-            </div>
-
-            {isLoadingShopBanners ? (
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '80px 0', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ width: '36px', height: '36px', border: '3px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Loading shop banner configurations...</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-                {/* ===== MAIN SHOP BANNER CAROUSEL ===== */}
-                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '28px', boxShadow: 'var(--shadow-sm)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                    <div>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Upload size={16} style={{ color: 'var(--primary-lime)' }} />
-                        Main Shop Banner Carousel
-                      </h4>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        These images appear as a full-width carousel at the top of the Shop page. <strong>Recommended: 1920 × 320px</strong> (6:1 ratio, fixed 320px height).
-                      </p>
-                    </div>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '4px 12px', borderRadius: '8px', backgroundColor: shopMainBanners.length > 0 ? '#dcfce7' : '#f1f5f9', color: shopMainBanners.length > 0 ? '#15803d' : 'var(--text-muted)', flexShrink: 0 }}>
-                      {shopMainBanners.length} slide{shopMainBanners.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  {/* Preview */}
-                  {shopMainBanners.length > 0 && (
-                    <div style={{ position: 'relative', height: '160px', borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#1c1917', marginBottom: '16px' }}>
-                      <img
-                        src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]}
-                        alt="Main banner preview"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, transparent 50%)' }} />
-                      <div style={{ position: 'absolute', bottom: '12px', left: '16px', color: '#fff' }}>
-                        <div style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'uppercase', fontWeight: 700 }}>Preview</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800 }}>Slide {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1} of {shopMainBanners.length}</div>
-                      </div>
-                      {shopMainBanners.length > 1 && (
-                        <div style={{ position: 'absolute', bottom: '12px', right: '12px', display: 'flex', gap: '6px' }}>
-                          <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p - 1 + shopMainBanners.length) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)', width: '28px', height: '28px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900 }}>‹</button>
-                          <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p + 1) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)', width: '28px', height: '28px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900 }}>›</button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Thumbnail grid */}
-                  {shopMainBanners.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                      {shopMainBanners.map((url, idx) => (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div
-                            onClick={() => setShopBannerPreviewSlide(idx)}
-                            style={{
-                              position: 'relative',
-                              aspectRatio: '16/5',
-                              borderRadius: 'var(--radius-sm)',
-                              overflow: 'hidden',
-                              border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                              backgroundColor: '#e2e8f0',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                              boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
-                            }}
-                          >
-                            <img src={resolveMediaUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
-                              style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
-                              title="Remove slide"
-                            >
-                              <X size={11} />
-                            </button>
-                            
-                            {/* Reorder Controls */}
-                            <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
-                              {idx > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
-                                  style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                  title="Move Slide Left"
-                                >
-                                  ◀
-                                </button>
-                              )}
-                              {idx < shopMainBanners.length - 1 && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
-                                  style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
-                                  title="Move Slide Right"
-                                >
-                                  ▶
-                                </button>
-                              )}
-                            </div>
-
-                            <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.55rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
-                              Slide {idx + 1}
-                            </div>
-                          </div>
-                          <input
-                            type="text"
-                            placeholder="Redirect URL (e.g. /product)"
-                            value={shopMainBannerRedirects[url] || ''}
-                            onChange={(e) => setShopMainBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
-                            style={{
-                              padding: '5px 8px',
-                              fontSize: '0.72rem',
-                              borderRadius: '4px',
-                              border: '1px solid var(--border-light)',
-                              outline: 'none',
-                              width: '100%',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload button */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                    <label
-                      htmlFor="shop-main-banner-upload-tab"
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '8px',
-                        padding: '11px 20px', fontSize: '0.88rem', fontWeight: 700,
-                        border: '1.5px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
-                        color: 'var(--primary-lime)', cursor: 'pointer',
-                        backgroundColor: '#f0fdf4', userSelect: 'none', transition: 'all 0.2s'
-                      }}
-                    >
-                      <Upload size={16} />
-                      + Add Banner Slide
-                    </label>
-                    <input
-                      type="file" id="shop-main-banner-upload-tab" accept="image/*"
-                      onChange={handleShopMainBannerUpload}
-                      style={{ display: 'none' }}
-                    />
-                    {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
-                        {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
-                          <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
-                        ))}
-                      </div>
-                    )}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      You can add multiple slides. Each slide auto-advances every 4.5 seconds on the shop page.
-                    </span>
-                  </div>
-                </div>
-
-                {/* ===== CATEGORY BANNERS GRID ===== */}
-                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '28px', boxShadow: 'var(--shadow-sm)' }}>
-                  <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Layout size={16} style={{ color: 'var(--primary-lime)' }} />
-                      Category-Specific Banners
-                    </h4>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Upload banners for specific categories. They appear as a scrollable strip of cards below the main banner on the Shop page.
-                      <strong> Recommended: 260 × 140px</strong> (13:7 ratio). You can add multiple images per category — they auto-cycle.
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                    {shopCategories.map(cat => {
-                      const catBanners = shopCategoryBanners[cat] || [];
-                      const inputId = `cat-tab-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`;
-                      return (
-                        <div key={cat} style={{
-                          border: `1.5px solid ${catBanners.length > 0 ? 'var(--primary-lime)' : 'var(--border-light)'}`,
-                          borderRadius: 'var(--radius-md)',
-                          padding: '16px',
-                          backgroundColor: catBanners.length > 0 ? '#f0fdf4' : '#f9fafb',
-                          transition: 'all 0.2s'
-                        }}>
-                          {/* Category header */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{cat}</span>
-                            <span style={{
-                              fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px',
-                              backgroundColor: catBanners.length > 0 ? '#dcfce7' : '#f1f5f9',
-                              color: catBanners.length > 0 ? '#15803d' : 'var(--text-muted)'
-                            }}>
-                              {catBanners.length} image{catBanners.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-
-                          {/* Previews */}
-                          {catBanners.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                              {catBanners.map((url, idx) => (
-                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
-                                  <div style={{ position: 'relative', width: '50px', height: '32px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
-                                    <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <div style={{
+                                      position: 'absolute',
+                                      bottom: '4px',
+                                      left: '4px',
+                                      backgroundColor: 'rgba(0,0,0,0.6)',
+                                      color: '#ffffff',
+                                      fontSize: '0.55rem',
+                                      padding: '1px 4px',
+                                      borderRadius: '2px',
+                                      fontWeight: 700
+                                    }}>
+                                      #{index + 1}
+                                    </div>
                                   </div>
                                   <input
                                     type="text"
                                     placeholder="Redirect URL (e.g. /product)"
-                                    value={shopCategoryBannerRedirects[url] || ''}
-                                    onChange={(e) => setShopCategoryBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
+                                    value={bannerRedirects[banner] || ''}
+                                    onChange={(e) => setBannerRedirects(prev => ({ ...prev, [banner]: e.target.value }))}
                                     style={{
-                                      flexGrow: 1,
-                                      padding: '4px 8px',
+                                      padding: '5px 8px',
                                       fontSize: '0.72rem',
                                       borderRadius: '4px',
                                       border: '1px solid var(--border-light)',
                                       outline: 'none',
-                                      minWidth: 0
+                                      width: '100%',
+                                      boxSizing: 'border-box'
                                     }}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCategoryBannerRemove(cat, idx)}
-                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                                    title="Remove"
-                                  >
-                                    <X size={12} />
-                                  </button>
                                 </div>
                               ))}
                             </div>
-                          )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                          {/* Upload */}
-                          <label
-                            htmlFor={inputId}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700,
-                              border: '1px dashed var(--primary-lime)',
-                              borderRadius: 'var(--radius-sm)',
-                              color: 'var(--primary-lime)',
-                              cursor: 'pointer',
-                              backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
-                            }}
-                          >
-                            <Upload size={12} />
-                            {catBanners.length > 0 ? '+ Add More' : 'Upload Banner'}
-                          </label>
-                          <input
-                            type="file"
-                            id={inputId}
-                            accept="image/*"
-                            onChange={e => handleCategoryBannerUpload(cat, e)}
-                            style={{ display: 'none' }}
-                          />
-                          {catBanners.some(img => img.startsWith('temp-media-')) && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
-                              {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
-                                <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Bottom save */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: '24px' }}>
-                  <button
-                    type="button"
-                    disabled={isSavingShopBanners}
-                    onClick={handleSaveShopBanners}
-                    className="btn-lime"
-                    style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingShopBanners ? 'not-allowed' : 'pointer' }}
-                  >
-                    {isSavingShopBanners ? 'Saving to Supabase...' : '💾 Save All Banners'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: WHATSAPP GATEWAY SETTINGS
-            ======================================================= */}
-        {activeTab === 'settings' && (
-          <div style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              
-              {/* Top Accent line */}
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)'
-              }} />
-
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="flex-center" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--primary-lime-light)',
-                  color: 'var(--primary-lime)'
-                }}>
-                  <Settings size={24} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    WhatsApp API Gateway
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Configure credentials for secure phone-verification and login OTP dispatching.
-                  </p>
-                </div>
-              </div>
-
-              {/* Encryption Banner */}
-              <div style={{
-                backgroundColor: 'rgba(194, 65, 12, 0.06)',
-                border: '1px solid rgba(194, 65, 12, 0.2)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                marginBottom: '28px',
-                display: 'flex',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>🔒</span>
-                <div>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    End-to-End Client-Side Encryption Enabled
-                  </h4>
-                  <p style={{ fontSize: '0.78rem', color: '#7c2d12', marginTop: '4px', lineHeight: '1.4' }}>
-                    Your secret API tokens are encrypted client-side using the standard <strong>AES-GCM (128-bit)</strong> cryptosystem with the 16-character key from your environment configurations. Only encrypted data reaches the cloud database, securing your communications from third-party interception.
-                  </p>
-                </div>
-              </div>
-
-              {isLoadingSettings ? (
-                <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    border: '3px solid var(--border-light)',
-                    borderTopColor: 'var(--primary-lime)',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    margin: '0 auto 16px'
-                  }} />
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Retrieving secure server settings...</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveWhatsappSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
-                  {/* Endpoint Input */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      API Gateway Endpoint URL *
-                    </label>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://api.whatsapp-gateway.com/v1/send"
-                      value={whatsappEndpoint}
-                      onChange={(e) => setWhatsappEndpoint(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
-                      The endpoint URL used to trigger OTP messages.
-                      <br />
-                      <strong>For BhashSMS:</strong> Provide the gateway URL containing all template parameters except the password parameter, for example:
-                      <code style={{ backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '4px', fontSize: '0.7rem', wordBreak: 'break-all', display: 'inline-block', marginTop: '4px' }}>
-                        https://bhashsms.com/api/sendmsg.php?user=MisCRM&amp;sender=MisCRM&amp;text=service_rejected_hindi&amp;priority=wa&amp;stype=normal
-                      </code>
-                    </span>
-                  </div>
-
-                  {/* Token Input */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Secret Gateway API Key / Token *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Enter secret WhatsApp API key token..."
-                      value={whatsappToken}
-                      onChange={(e) => setWhatsappToken(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
-                      Your secret key or API token. This is encrypted on your device and sent to Supabase in ciphertext representation.
-                      <br />
-                      <strong>For BhashSMS:</strong> Enter your API password (it will be passed securely as the <code style={{ backgroundColor: '#f3f4f6', padding: '1px 3px', borderRadius: '3px' }}>pass</code> query parameter).
-                    </span>
-                  </div>
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSavingSettings}
-                    className="btn-lime"
-                    style={{
-                      padding: '14px 28px',
-                      fontSize: '0.9rem',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-md)',
-                      width: '100%',
-                      marginTop: '8px',
-                      cursor: isSavingSettings ? 'not-allowed' : 'pointer',
-                      opacity: isSavingSettings ? 0.75 : 1
-                    }}
-                  >
-                    {isSavingSettings ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid #ffffff',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          animation: 'spin 0.6s linear infinite',
-                          marginRight: '8px'
-                        }} />
-                        Encrypting & Saving Credentials...
-                      </>
-                    ) : (
-                      'Save & Encrypt Gateway settings'
-                    )}
-                  </button>
-
-                </form>
-              )}
-
-              {/* MSG91 OTP Gateway Card */}
-              <div style={{
-                backgroundColor: 'var(--bg-card)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1.5px solid var(--border-light)',
-                padding: '32px',
-                boxShadow: 'var(--shadow-sm)',
-                marginTop: '32px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                        MSG91 OTP Gateway
-                      </h3>
-                      {msg91IsConfigured && (
+                    {/* Section 1 Control Box */}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 1: Featured Collections (Max 4)</h4>
                         <span style={{
-                          fontSize: '0.68rem',
+                          fontSize: '0.75rem',
                           fontWeight: 800,
-                          color: '#065f46',
-                          backgroundColor: '#d1fae5',
                           padding: '2px 8px',
-                          borderRadius: '12px',
-                          textTransform: 'uppercase'
+                          borderRadius: '4px',
+                          backgroundColor: featuredProductIds.length === 4 ? '#dcfce7' : featuredProductIds.length > 4 ? '#fee2e2' : '#fef3c7',
+                          color: featuredProductIds.length === 4 ? '#15803d' : featuredProductIds.length > 4 ? '#b91c1c' : '#b45309'
                         }}>
-                          Active
+                          {featuredProductIds.length}/4 Selected
                         </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
+                            <input type="text" value={featuredTitle} onChange={(e) => setFeaturedTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Subtitle</label>
+                            <input type="text" value={featuredSubtitle} onChange={(e) => setFeaturedSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                        </div>
+
+                        {/* Section 1 Showcase Image Uploader */}
+                        <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f8fafc' }}>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Featured Section Showcase Image (Left Column)</label>
+                          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                            {showcaseImage ? (
+                              <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#fff', flexShrink: 0 }}>
+                                <img src={resolveMediaUrl(showcaseImage)} alt="Showcase Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveShowcase}
+                                  style={{
+                                    position: 'absolute',
+                                    top: '2px',
+                                    right: '2px',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '18px',
+                                    height: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    padding: 0
+                                  }}
+                                  title="Remove Image"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ width: '80px', height: '80px', borderRadius: '6px', border: '1px dashed var(--border-light)', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.62rem', fontWeight: 700, textAlign: 'center', padding: '4px', flexShrink: 0 }}>
+                                Default Altar Image
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <label
+                                htmlFor="showcase-image-upload"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '8px 12px',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px dashed var(--primary-lime)',
+                                  borderRadius: 'var(--radius-md)',
+                                  cursor: 'pointer',
+                                  color: 'var(--primary-lime)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  transition: 'all 0.2s',
+                                  userSelect: 'none',
+                                  width: 'fit-content'
+                                }}
+                              >
+                                <Upload size={14} />
+                                Upload showcase image
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                id="showcase-image-upload"
+                                onChange={handleShowcaseUpload}
+                                style={{ display: 'none' }}
+                              />
+                              {showcaseImage && showcaseImage.startsWith('temp-media-') && (
+                                <div style={{ width: '100%', minWidth: '220px', marginTop: '4px' }}>
+                                  <CompressionStatusWidget tempId={showcaseImage} mediaQueue={mediaQueue} />
+                                </div>
+                              )}
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                <strong>Recommended dimensions:</strong> 560px (Width) × 760px (Height) or aspect ratio 3:4. Constrained inside a <strong>fixed aspect-ratio</strong> relative frame matching the right products column (height: 100%, min-height: 380px) to prevent layout shifting.
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Products scroll list */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select featured items</label>
+                          <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {allAvailableProducts
+                              .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
+                              .map((p) => {
+                                const checked = activeFeaturedIds.includes(p.id);
+                                const isLimitReached = activeFeaturedIds.length >= 4;
+                                const isDisabled = !checked && isLimitReached;
+                                return (
+                                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={isDisabled}
+                                      onChange={() => {
+                                        setFeaturedProductIds(prev => {
+                                          const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                          if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                          if (cleanPrev.length >= 4) return cleanPrev;
+                                          return [...cleanPrev, p.id];
+                                        });
+                                      }}
+                                    />
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      {isImageUrl(p.image) ? (
+                                        <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      ) : (
+                                        <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 2 Control Box */}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 2: Flash Sale (Max 4)</h4>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: activeSaleIds.length === 4 ? '#dcfce7' : activeSaleIds.length > 4 ? '#fee2e2' : '#fef3c7',
+                          color: activeSaleIds.length === 4 ? '#15803d' : activeSaleIds.length > 4 ? '#b91c1c' : '#b45309'
+                        }}>
+                          {activeSaleIds.length}/4 Selected
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 0.6fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
+                            <input type="text" value={saleTitle} onChange={(e) => setSaleTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Subtitle</label>
+                            <input type="text" value={saleSubtitle} onChange={(e) => setSaleSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Discount %</label>
+                            <input type="number" min="0" max="100" value={saleDiscount} onChange={(e) => setSaleDiscount(parseInt(e.target.value) || 0)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                        </div>
+
+                        {/* Products scroll list */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select flash sale items</label>
+                          <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {allAvailableProducts
+                              .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
+                              .map((p) => {
+                                const checked = activeSaleIds.includes(p.id);
+                                const isLimitReached = activeSaleIds.length >= 4;
+                                const isDisabled = !checked && isLimitReached;
+                                return (
+                                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={isDisabled}
+                                      onChange={() => {
+                                        setSaleProductIds(prev => {
+                                          const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                          if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                          if (cleanPrev.length >= 4) return cleanPrev;
+                                          return [...cleanPrev, p.id];
+                                        });
+                                      }}
+                                    />
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      {isImageUrl(p.image) ? (
+                                        <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      ) : (
+                                        <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 3 Control Box */}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Section 3: New Arrivals (Max 4)</h4>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: activeNewArrivalsIds.length === 4 ? '#dcfce7' : activeNewArrivalsIds.length > 4 ? '#fee2e2' : '#fef3c7',
+                          color: activeNewArrivalsIds.length === 4 ? '#15803d' : activeNewArrivalsIds.length > 4 ? '#b91c1c' : '#b45309'
+                        }}>
+                          {activeNewArrivalsIds.length}/4 Selected
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Section Title</label>
+                            <input type="text" value={newArrivalsTitle} onChange={(e) => setNewArrivalsTitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Discover Button Text</label>
+                            <input type="text" value={newArrivalsSubtitle} onChange={(e) => setNewArrivalsSubtitle(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '0.85rem', outline: 'none' }} />
+                          </div>
+                        </div>
+
+                        {/* Products scroll list */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select new arrival items</label>
+                          <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {allAvailableProducts
+                              .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
+                              .map((p) => {
+                                const checked = activeNewArrivalsIds.includes(p.id);
+                                const isLimitReached = activeNewArrivalsIds.length >= 4;
+                                const isDisabled = !checked && isLimitReached;
+                                return (
+                                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: isDisabled ? 'not-allowed' : 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', opacity: isDisabled ? 0.5 : 1, transition: 'all 0.1s' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={isDisabled}
+                                      onChange={() => {
+                                        setNewArrivalsProductIds(prev => {
+                                          const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id)).slice(0, 4);
+                                          if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                          if (cleanPrev.length >= 4) return cleanPrev;
+                                          return [...cleanPrev, p.id];
+                                        });
+                                      }}
+                                    />
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      {isImageUrl(p.image) ? (
+                                        <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      ) : (
+                                        <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cart Drawer Explore More Upselling Section */}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>Cart Drawer: Explore More Upselling Products</h4>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#e0f2fe',
+                          color: '#0369a1'
+                        }}>
+                          {activeCartExploreMoreIds.length} Selected
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Select the products you want to display in the "Explore More" upselling section of the slide-over cart drawer. These items will be shown to users to encourage cross-selling.
+                        </p>
+                        {/* Products scroll list */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select items to display in Explore More</label>
+                          <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {allAvailableProducts
+                              .filter(p => !homepageSearchQuery || p.name.toLowerCase().includes(homepageSearchQuery.toLowerCase()))
+                              .map((p) => {
+                                const checked = activeCartExploreMoreIds.includes(p.id);
+                                return (
+                                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', cursor: 'pointer', padding: '6px 8px', borderRadius: '4px', backgroundColor: checked ? '#f0fdf4' : 'transparent', transition: 'all 0.1s' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => {
+                                        setCartExploreMoreProductIds(prev => {
+                                          const cleanPrev = prev.filter(id => allAvailableProducts.some(ap => ap.id === id));
+                                          if (cleanPrev.includes(p.id)) return cleanPrev.filter(id => id !== p.id);
+                                          return [...cleanPrev, p.id];
+                                        });
+                                      }}
+                                    />
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      {isImageUrl(p.image) ? (
+                                        <img src={getDisplayImageUrl(p.image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      ) : (
+                                        <span style={{ fontSize: '1rem' }}>{p.image || '📿'}</span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontWeight: checked ? 700 : 500, color: 'var(--text-dark)' }}>{p.name}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: 'auto' }}>₹{p.price}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* ============================================================
+                      SECTION 4 (Shop Banners): Main Banner + Category Banners
+                      ============================================================ */}
+                    <div style={{ backgroundColor: '#ffffff', border: '2px solid var(--primary-lime)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-light)', paddingBottom: '14px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                            🛍️ Shop Page Banners
+                          </h4>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Upload a main shop banner carousel + per-category banners. These images are stored in Cloudflare R2.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isSavingShopBanners}
+                          onClick={handleSaveShopBanners}
+                          className="btn-lime"
+                          style={{
+                            padding: '10px 20px', fontSize: '0.82rem',
+                            borderRadius: 'var(--radius-md)', minWidth: '140px',
+                            justifyContent: 'center',
+                            cursor: isSavingShopBanners ? 'not-allowed' : 'pointer',
+                            flexShrink: 0
+                          }}
+                        >
+                          {isSavingShopBanners ? 'Saving...' : 'Save Shop Banners'}
+                        </button>
+                      </div>
+
+                      {isLoadingShopBanners ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                          <div style={{ width: '28px', height: '28px', border: '3px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                          <span style={{ fontSize: '0.82rem' }}>Loading shop banner configurations...</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* ---- Main Shop Banner (Carousel) ---- */}
+                          <div style={{ marginBottom: '28px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                              <label style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase' }}>
+                                Main Shop Banner Carousel
+                              </label>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                                {shopMainBanners.length} image{shopMainBanners.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+
+                            {/* Mini carousel preview */}
+                            {shopMainBanners.length > 0 && (
+                              <div style={{ position: 'relative', height: '100px', borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#1c1917', marginBottom: '10px' }}>
+                                <img
+                                  src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]}
+                                  alt="Main banner preview"
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                                {shopMainBanners.length > 1 && (
+                                  <div style={{ position: 'absolute', bottom: '6px', right: '6px', display: 'flex', gap: '4px' }}>
+                                    <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p - 1 + shopMainBanners.length) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '18px', height: '18px', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                                    <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p + 1) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.3)', width: '18px', height: '18px', borderRadius: '50%', color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                                  </div>
+                                )}
+                                <div style={{ position: 'absolute', bottom: '4px', left: '6px', fontSize: '0.58rem', color: '#fff', fontWeight: 700, backgroundColor: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: '3px' }}>
+                                  {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1}/{shopMainBanners.length}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Thumbnails */}
+                            {shopMainBanners.length > 0 && (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                                {shopMainBanners.map((url, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => setShopBannerPreviewSlide(idx)}
+                                    style={{
+                                      position: 'relative',
+                                      aspectRatio: '16/5',
+                                      borderRadius: '6px',
+                                      overflow: 'hidden',
+                                      border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                      backgroundColor: '#e2e8f0',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                                    }}
+                                  >
+                                    <img src={resolveMediaUrl(url)} alt={`Main banner ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
+                                      style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
+                                      title="Remove"
+                                    >
+                                      <X size={10} />
+                                    </button>
+
+                                    {/* Reorder Controls */}
+                                    <div style={{ position: 'absolute', bottom: '3px', right: '3px', display: 'flex', gap: '2px', zIndex: 6 }}>
+                                      {idx > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
+                                          style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
+                                          title="Move slide left"
+                                        >
+                                          ◀
+                                        </button>
+                                      )}
+                                      {idx < shopMainBanners.length - 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
+                                          style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '14px', height: '14px', borderRadius: '3px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem' }}
+                                          title="Move slide right"
+                                        >
+                                          ▶
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div style={{ position: 'absolute', bottom: '2px', left: '4px', fontSize: '0.5rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 3px', borderRadius: '2px', fontWeight: 700 }}>#{idx + 1}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <label
+                                htmlFor="shop-main-banner-upload"
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                  padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700,
+                                  border: '1px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
+                                  color: 'var(--primary-lime)', cursor: 'pointer',
+                                  backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
+                                }}
+                              >
+                                <Upload size={14} />
+                                Add Main Banner Slide
+                              </label>
+                              <input
+                                type="file" id="shop-main-banner-upload" accept="image/*"
+                                onChange={handleShopMainBannerUpload}
+                                style={{ display: 'none' }}
+                              />
+                            </div>
+                            {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
+                                {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                  <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                                ))}
+                              </div>
+                            )}
+                            <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                              <strong>Recommended:</strong> 1920 × 320px (or 6:1 ratio). Displayed at fixed 320px height on the Shop page.
+                            </p>
+                          </div>
+
+                          {/* ---- Category Banners Grid ---- */}
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase', marginBottom: '12px' }}>
+                              Category-Specific Banners
+                            </label>
+                            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                              Upload one or multiple images per category. They appear as a scrollable row of animated cards on the Shop page. <strong>Recommended: 260 × 140px</strong> (or 13:7 ratio).
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
+                              {shopCategories.map(cat => {
+                                const catBanners = shopCategoryBanners[cat] || [];
+                                return (
+                                  <div key={cat} style={{
+                                    border: '1px solid var(--border-light)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: '14px',
+                                    backgroundColor: catBanners.length > 0 ? '#f0fdf4' : '#f8fafc',
+                                    position: 'relative'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>{cat}</span>
+                                      <span style={{
+                                        fontSize: '0.65rem', fontWeight: 800, padding: '1px 6px',
+                                        borderRadius: '4px',
+                                        backgroundColor: catBanners.length > 0 ? '#dcfce7' : '#f1f5f9',
+                                        color: catBanners.length > 0 ? '#15803d' : 'var(--text-muted)'
+                                      }}>
+                                        {catBanners.length} img{catBanners.length !== 1 ? 's' : ''}
+                                      </span>
+                                    </div>
+
+                                    {/* Thumbnail strip */}
+                                    {catBanners.length > 0 && (
+                                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                        {catBanners.map((url, idx) => (
+                                          <div key={idx} style={{ position: 'relative', width: '54px', height: '36px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-light)', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
+                                            <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button
+                                              type="button"
+                                              onClick={() => handleCategoryBannerRemove(cat, idx)}
+                                              style={{ position: 'absolute', top: '1px', right: '1px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                              title="Remove"
+                                            >
+                                              <X size={8} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <label
+                                      htmlFor={`cat-banner-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                        padding: '6px 10px', fontSize: '0.75rem', fontWeight: 700,
+                                        border: '1px dashed var(--primary-lime)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: 'var(--primary-lime)',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
+                                      }}
+                                    >
+                                      <Upload size={11} />
+                                      {catBanners.length > 0 ? '+ Add Another' : 'Upload Banner'}
+                                    </label>
+                                    <input
+                                      type="file"
+                                      id={`cat-banner-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`}
+                                      accept="image/*"
+                                      onChange={e => handleCategoryBannerUpload(cat, e)}
+                                      style={{ display: 'none' }}
+                                    />
+                                    {catBanners.some(img => img.startsWith('temp-media-')) && (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
+                                        {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                          <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
+                  </>
+                )}
+
+              </form>
+            </div>
+          )}
+
+
+          {/* =======================================================
+            TAB: SHOP BANNERS
+            ======================================================= */}
+          {activeTab === 'shop_banners' && (
+            <div style={{ textAlign: 'left' }}>
+
+              {/* Header */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px 28px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '20px',
+                marginBottom: '24px',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                    🛍️
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Shop Page Banner Manager</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Upload a main banner carousel for the Shop header + per-category banners. Images → Cloudflare R2 · URLs → Supabase.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingShopBanners}
+                  onClick={handleSaveShopBanners}
+                  className="btn-lime"
+                  style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingShopBanners ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+                >
+                  {isSavingShopBanners ? 'Saving...' : '💾 Save All Banners'}
+                </button>
+              </div>
+
+              {isLoadingShopBanners ? (
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '80px 0', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <div style={{ width: '36px', height: '36px', border: '3px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Loading shop banner configurations...</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                  {/* ===== MAIN SHOP BANNER CAROUSEL ===== */}
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '28px', boxShadow: 'var(--shadow-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                      <div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Upload size={16} style={{ color: 'var(--primary-lime)' }} />
+                          Main Shop Banner Carousel
+                        </h4>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          These images appear as a full-width carousel at the top of the Shop page. <strong>Recommended: 1920 × 320px</strong> (6:1 ratio, fixed 320px height).
+                        </p>
+                      </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '4px 12px', borderRadius: '8px', backgroundColor: shopMainBanners.length > 0 ? '#dcfce7' : '#f1f5f9', color: shopMainBanners.length > 0 ? '#15803d' : 'var(--text-muted)', flexShrink: 0 }}>
+                        {shopMainBanners.length} slide{shopMainBanners.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Preview */}
+                    {shopMainBanners.length > 0 && (
+                      <div style={{ position: 'relative', height: '160px', borderRadius: 'var(--radius-md)', overflow: 'hidden', backgroundColor: '#1c1917', marginBottom: '16px' }}>
+                        <img
+                          src={shopMainBanners[Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1)]}
+                          alt="Main banner preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, transparent 50%)' }} />
+                        <div style={{ position: 'absolute', bottom: '12px', left: '16px', color: '#fff' }}>
+                          <div style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'uppercase', fontWeight: 700 }}>Preview</div>
+                          <div style={{ fontSize: '1rem', fontWeight: 800 }}>Slide {Math.min(shopBannerPreviewSlide, shopMainBanners.length - 1) + 1} of {shopMainBanners.length}</div>
+                        </div>
+                        {shopMainBanners.length > 1 && (
+                          <div style={{ position: 'absolute', bottom: '12px', right: '12px', display: 'flex', gap: '6px' }}>
+                            <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p - 1 + shopMainBanners.length) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)', width: '28px', height: '28px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900 }}>‹</button>
+                            <button type="button" onClick={() => setShopBannerPreviewSlide(p => (p + 1) % shopMainBanners.length)} style={{ border: 'none', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)', width: '28px', height: '28px', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900 }}>›</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Thumbnail grid */}
+                    {shopMainBanners.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                        {shopMainBanners.map((url, idx) => (
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div
+                              onClick={() => setShopBannerPreviewSlide(idx)}
+                              style={{
+                                position: 'relative',
+                                aspectRatio: '16/5',
+                                borderRadius: 'var(--radius-sm)',
+                                overflow: 'hidden',
+                                border: `2px solid ${idx === shopBannerPreviewSlide ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                                backgroundColor: '#e2e8f0',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                boxShadow: idx === shopBannerPreviewSlide ? '0 0 0 2px rgba(132, 204, 22, 0.2)' : 'none'
+                              }}
+                            >
+                              <img src={resolveMediaUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleShopMainBannerRemove(idx); }}
+                                style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, zIndex: 6 }}
+                                title="Remove slide"
+                              >
+                                <X size={11} />
+                              </button>
+
+                              {/* Reorder Controls */}
+                              <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', gap: '3px', zIndex: 6 }}>
+                                {idx > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'left'); }}
+                                    style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                    title="Move Slide Left"
+                                  >
+                                    ◀
+                                  </button>
+                                )}
+                                {idx < shopMainBanners.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleMoveShopBanner(idx, 'right'); }}
+                                    style={{ border: 'none', background: 'rgba(0,0,0,0.6)', width: '18px', height: '18px', borderRadius: '4px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}
+                                    title="Move Slide Right"
+                                  >
+                                    ▶
+                                  </button>
+                                )}
+                              </div>
+
+                              <div style={{ position: 'absolute', bottom: '3px', left: '5px', fontSize: '0.55rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', padding: '1px 4px', borderRadius: '2px', fontWeight: 700 }}>
+                                Slide {idx + 1}
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="Redirect URL (e.g. /product)"
+                              value={shopMainBannerRedirects[url] || ''}
+                              onChange={(e) => setShopMainBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
+                              style={{
+                                padding: '5px 8px',
+                                fontSize: '0.72rem',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-light)',
+                                outline: 'none',
+                                width: '100%',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upload button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                      <label
+                        htmlFor="shop-main-banner-upload-tab"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '8px',
+                          padding: '11px 20px', fontSize: '0.88rem', fontWeight: 700,
+                          border: '1.5px dashed var(--primary-lime)', borderRadius: 'var(--radius-md)',
+                          color: 'var(--primary-lime)', cursor: 'pointer',
+                          backgroundColor: '#f0fdf4', userSelect: 'none', transition: 'all 0.2s'
+                        }}
+                      >
+                        <Upload size={16} />
+                        + Add Banner Slide
+                      </label>
+                      <input
+                        type="file" id="shop-main-banner-upload-tab" accept="image/*"
+                        onChange={handleShopMainBannerUpload}
+                        style={{ display: 'none' }}
+                      />
+                      {shopMainBanners.some(img => img.startsWith('temp-media-')) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', width: '100%', maxWidth: '450px' }}>
+                          {shopMainBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                            <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                          ))}
+                        </div>
+                      )}
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        You can add multiple slides. Each slide auto-advances every 4.5 seconds on the shop page.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ===== CATEGORY BANNERS GRID ===== */}
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '28px', boxShadow: 'var(--shadow-sm)' }}>
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Layout size={16} style={{ color: 'var(--primary-lime)' }} />
+                        Category-Specific Banners
+                      </h4>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Upload banners for specific categories. They appear as a scrollable strip of cards below the main banner on the Shop page.
+                        <strong> Recommended: 260 × 140px</strong> (13:7 ratio). You can add multiple images per category — they auto-cycle.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                      {shopCategories.map(cat => {
+                        const catBanners = shopCategoryBanners[cat] || [];
+                        const inputId = `cat-tab-upload-${cat.replace(/[^a-z0-9]/gi, '-')}`;
+                        return (
+                          <div key={cat} style={{
+                            border: `1.5px solid ${catBanners.length > 0 ? 'var(--primary-lime)' : 'var(--border-light)'}`,
+                            borderRadius: 'var(--radius-md)',
+                            padding: '16px',
+                            backgroundColor: catBanners.length > 0 ? '#f0fdf4' : '#f9fafb',
+                            transition: 'all 0.2s'
+                          }}>
+                            {/* Category header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{cat}</span>
+                              <span style={{
+                                fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px',
+                                backgroundColor: catBanners.length > 0 ? '#dcfce7' : '#f1f5f9',
+                                color: catBanners.length > 0 ? '#15803d' : 'var(--text-muted)'
+                              }}>
+                                {catBanners.length} image{catBanners.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+
+                            {/* Previews */}
+                            {catBanners.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                                {catBanners.map((url, idx) => (
+                                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                                    <div style={{ position: 'relative', width: '50px', height: '32px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
+                                      <img src={resolveMediaUrl(url)} alt={`${cat} ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      placeholder="Redirect URL (e.g. /product)"
+                                      value={shopCategoryBannerRedirects[url] || ''}
+                                      onChange={(e) => setShopCategoryBannerRedirects(prev => ({ ...prev, [url]: e.target.value }))}
+                                      style={{
+                                        flexGrow: 1,
+                                        padding: '4px 8px',
+                                        fontSize: '0.72rem',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-light)',
+                                        outline: 'none',
+                                        minWidth: 0
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCategoryBannerRemove(cat, idx)}
+                                      style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                      title="Remove"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Upload */}
+                            <label
+                              htmlFor={inputId}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700,
+                                border: '1px dashed var(--primary-lime)',
+                                borderRadius: 'var(--radius-sm)',
+                                color: 'var(--primary-lime)',
+                                cursor: 'pointer',
+                                backgroundColor: '#ffffff', userSelect: 'none', transition: 'all 0.2s'
+                              }}
+                            >
+                              <Upload size={12} />
+                              {catBanners.length > 0 ? '+ Add More' : 'Upload Banner'}
+                            </label>
+                            <input
+                              type="file"
+                              id={inputId}
+                              accept="image/*"
+                              onChange={e => handleCategoryBannerUpload(cat, e)}
+                              style={{ display: 'none' }}
+                            />
+                            {catBanners.some(img => img.startsWith('temp-media-')) && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', width: '100%' }}>
+                                {catBanners.filter(img => img.startsWith('temp-media-')).map(tempId => (
+                                  <CompressionStatusWidget key={tempId} tempId={tempId} mediaQueue={mediaQueue} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Bottom save */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: '24px' }}>
+                    <button
+                      type="button"
+                      disabled={isSavingShopBanners}
+                      onClick={handleSaveShopBanners}
+                      className="btn-lime"
+                      style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingShopBanners ? 'not-allowed' : 'pointer' }}
+                    >
+                      {isSavingShopBanners ? 'Saving to Supabase...' : '💾 Save All Banners'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: WHATSAPP GATEWAY SETTINGS
+            ======================================================= */}
+          {activeTab === 'settings' && (
+            <div style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+
+                {/* Top Accent line */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)'
+                }} />
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                  <div className="flex-center" style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--primary-lime-light)',
+                    color: 'var(--primary-lime)'
+                  }}>
+                    <Settings size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                      WhatsApp API Gateway
+                    </h3>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Secure user authentication using MSG91 OTP infrastructure. (Takes precedence if configured).
+                      Configure credentials for secure phone-verification and login OTP dispatching.
                     </p>
                   </div>
                 </div>
 
                 {/* Encryption Banner */}
                 <div style={{
-                  backgroundColor: 'rgba(234, 88, 12, 0.04)',
-                   border: '1px solid rgba(234, 88, 12, 0.15)',
+                  backgroundColor: 'rgba(194, 65, 12, 0.06)',
+                  border: '1px solid rgba(194, 65, 12, 0.2)',
                   borderRadius: 'var(--radius-md)',
                   padding: '16px',
                   marginBottom: '28px',
@@ -6522,33 +6835,76 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 }}>
                   <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>🔒</span>
                   <div>
-                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Server-Side Encryption with ESG_91 Key
+                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      End-to-End Client-Side Encryption Enabled
                     </h4>
-                    <p style={{ fontSize: '0.78rem', color: '#9a3412', marginTop: '4px', lineHeight: '1.4' }}>
-                      Your Auth Key and Template ID are encrypted on the server using your secret <strong>ENCRYPTION_STRING_KEY_ESG_91</strong>. Only cipher values are stored, and credentials are never exposed back to the client.
+                    <p style={{ fontSize: '0.78rem', color: '#7c2d12', marginTop: '4px', lineHeight: '1.4' }}>
+                      Your secret API tokens are encrypted client-side using the standard <strong>AES-GCM (128-bit)</strong> cryptosystem with the 16-character key from your environment configurations. Only encrypted data reaches the cloud database, securing your communications from third-party interception.
                     </p>
                   </div>
                 </div>
 
                 {isLoadingSettings ? (
-                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Retrieving settings...</p>
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      border: '3px solid var(--border-light)',
+                      borderTopColor: 'var(--primary-lime)',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Retrieving secure server settings...</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSaveMsg91Settings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    
-                    {/* MSG91 Auth Key */}
+                  <form onSubmit={handleSaveWhatsappSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* Endpoint Input */}
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        MSG91 Auth Key *
+                        API Gateway Endpoint URL *
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        placeholder="https://api.whatsapp-gateway.com/v1/send"
+                        value={whatsappEndpoint}
+                        onChange={(e) => setWhatsappEndpoint(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
+                        The endpoint URL used to trigger OTP messages.
+                        <br />
+                        <strong>For BhashSMS:</strong> Provide the gateway URL containing all template parameters except the password parameter, for example:
+                        <code style={{ backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '4px', fontSize: '0.7rem', wordBreak: 'break-all', display: 'inline-block', marginTop: '4px' }}>
+                          https://bhashsms.com/api/sendmsg.php?user=MisCRM&amp;sender=MisCRM&amp;text=service_rejected_hindi&amp;priority=wa&amp;stype=normal
+                        </code>
+                      </span>
+                    </div>
+
+                    {/* Token Input */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Secret Gateway API Key / Token *
                       </label>
                       <input
                         type="password"
                         required
-                        placeholder="Enter MSG91 Auth Key..."
-                        value={msg91AuthKey}
-                        onChange={(e) => setMsg91AuthKey(e.target.value)}
+                        placeholder="Enter secret WhatsApp API key token..."
+                        value={whatsappToken}
+                        onChange={(e) => setWhatsappToken(e.target.value)}
                         style={{
                           width: '100%',
                           padding: '12px 16px',
@@ -6562,64 +6918,17 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
                         onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
-                    </div>
-
-                    {/* MSG91 Template ID */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        MSG91 OTP Template ID / Flow ID *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Enter template ID or Flow ID (e.g. 60d5ec...)"
-                        value={msg91TemplateId}
-                        onChange={(e) => setMsg91TemplateId(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid var(--border-light)',
-                          outline: 'none',
-                          fontSize: '0.88rem',
-                          transition: 'border-color 0.15s',
-                          backgroundColor: '#f9fafb'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                      />
-                    </div>
-
-                    {/* MSG91 Sender ID */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        MSG91 Sender ID / Header *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Enter Sender ID / Header (e.g. SENDER)"
-                        value={msg91SenderId}
-                        onChange={(e) => setMsg91SenderId(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid var(--border-light)',
-                          outline: 'none',
-                          fontSize: '0.88rem',
-                          transition: 'border-color 0.15s',
-                          backgroundColor: '#f9fafb'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
+                        Your secret key or API token. This is encrypted on your device and sent to Supabase in ciphertext representation.
+                        <br />
+                        <strong>For BhashSMS:</strong> Enter your API password (it will be passed securely as the <code style={{ backgroundColor: '#f3f4f6', padding: '1px 3px', borderRadius: '3px' }}>pass</code> query parameter).
+                      </span>
                     </div>
 
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      disabled={isSavingMsg91}
+                      disabled={isSavingSettings}
                       className="btn-lime"
                       style={{
                         padding: '14px 28px',
@@ -6628,918 +6937,198 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         borderRadius: 'var(--radius-md)',
                         width: '100%',
                         marginTop: '8px',
-                        cursor: isSavingMsg91 ? 'not-allowed' : 'pointer',
-                        opacity: isSavingMsg91 ? 0.75 : 1
+                        cursor: isSavingSettings ? 'not-allowed' : 'pointer',
+                        opacity: isSavingSettings ? 0.75 : 1
                       }}
                     >
-                      {isSavingMsg91 ? 'Encrypting & Saving MSG91 Credentials...' : 'Save & Encrypt MSG91 settings'}
+                      {isSavingSettings ? (
+                        <>
+                          <div style={{
+                            width: '16px',
+                            height: '16px',
+                            border: '2px solid #ffffff',
+                            borderTopColor: 'transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 0.6s linear infinite',
+                            marginRight: '8px'
+                          }} />
+                          Encrypting & Saving Credentials...
+                        </>
+                      ) : (
+                        'Save & Encrypt Gateway settings'
+                      )}
                     </button>
 
                   </form>
                 )}
-              </div>
 
-            </div>
-
-            {/* Razorpay Integration Settings Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {/* Top Accent line */}
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, #d97706 0%, #f59e0b 100%)'
-              }} />
-
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="flex-center" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: '#fef3c7',
-                  color: '#d97706'
+                {/* MSG91 OTP Gateway Card */}
+                <div style={{
+                  backgroundColor: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1.5px solid var(--border-light)',
+                  padding: '32px',
+                  boxShadow: 'var(--shadow-sm)',
+                  marginTop: '32px'
                 }}>
-                  <CreditCard size={24} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    Razorpay Payment Gateway API
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Configure Razorpay API Keys and Webhook parameters. Credentials are encrypted and verified server-side.
-                  </p>
-                </div>
-              </div>
-
-              {isLoadingRazorpayConfig ? (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Razorpay config...</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveRazorpaySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
-                  {/* Server Environment Information Banner */}
-                  {paymentEnv && paymentEnv !== 'not_set' && (
-                    <div style={{
-                      padding: '16px',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: paymentEnv === 'live' ? '#fef2f2' : '#eff6ff',
-                      border: '1.5px solid ' + (paymentEnv === 'live' ? '#fecaca' : '#bfdbfe'),
-                      marginBottom: '8px'
-                    }}>
-                      <h4 style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 900,
-                        color: paymentEnv === 'live' ? '#991b1b' : '#1e3a8a',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span style={{
-                          display: 'inline-block',
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: paymentEnv === 'live' ? '#ef4444' : '#3b82f6'
-                        }} />
-                        Server Environment: {paymentEnv.toUpperCase()}
-                      </h4>
-                      <p style={{
-                        fontSize: '0.82rem',
-                        color: paymentEnv === 'live' ? '#7f1d1d' : '#1e40af',
-                        marginTop: '6px',
-                        lineHeight: '1.4'
-                      }}>
-                        {paymentEnv === 'live' ? (
-                          <>
-                            <strong>This server is locked to Razorpay Live credentials.</strong> All payments created from this server will use the Live account.
-                          </>
-                        ) : (
-                          <>
-                            <strong>This server is locked to Razorpay Test credentials.</strong> All payments created from this server will use the Test account.
-                          </>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                          MSG91 OTP Gateway
+                        </h3>
+                        {msg91IsConfigured && (
+                          <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            color: '#065f46',
+                            backgroundColor: '#d1fae5',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            textTransform: 'uppercase'
+                          }}>
+                            Active
+                          </span>
                         )}
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Secure user authentication using MSG91 OTP infrastructure. (Takes precedence if configured).
                       </p>
                     </div>
-                  )}
-
-                  {/* Mode Selection */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Payment Gateway Mode
-                    </label>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setRazorpayMode('test')}
-                        style={{
-                          flex: 1,
-                          padding: '12px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid ' + (razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                          backgroundColor: razorpayMode === 'test' ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          color: razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        Test Mode
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRazorpayMode('live')}
-                        style={{
-                          flex: 1,
-                          padding: '12px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid ' + (razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                          backgroundColor: razorpayMode === 'live' ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          color: razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        Live Mode
-                      </button>
-                    </div>
                   </div>
 
-                  {/* Active Payment Provider Selection */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Active Payment Provider
-                    </label>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setActivePaymentProvider('manual_upi')}
-                        style={{
-                          flex: 1,
-                          padding: '12px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid ' + (activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                          backgroundColor: activePaymentProvider === 'manual_upi' ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          color: activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        Manual UPI QR (Legacy)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivePaymentProvider('razorpay')}
-                        style={{
-                          flex: 1,
-                          padding: '12px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1.5px solid ' + (activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
-                          backgroundColor: activePaymentProvider === 'razorpay' ? '#f0fdf4' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          color: activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        Razorpay Gateway (Online)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Legacy Manual UPI Visibility Toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
-                    <input
-                      type="checkbox"
-                      id="legacyManualUpiEnabled"
-                      checked={legacyManualUpiEnabled}
-                      onChange={(e) => setLegacyManualUpiEnabled(e.target.checked)}
-                      style={{
-                        width: '18px',
-                        height: '18px',
-                        accentColor: 'var(--primary-lime)',
-                        cursor: 'pointer'
-                      }}
-                    />
-                    <label htmlFor="legacyManualUpiEnabled" style={{ fontSize: '0.88rem', fontWeight: 650, color: 'var(--text-dark)', cursor: 'pointer' }}>
-                      Show Legacy Manual UPI Option to customers even when Razorpay is active
-                    </label>
-                  </div>
-
-                  {/* Key ID Input */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Razorpay Key ID *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={razorpayMode === 'live' ? "rzp_live_..." : "rzp_test_..."}
-                      value={razorpayKeyId}
-                      onChange={(e) => setRazorpayKeyId(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                  </div>
-
-                  {/* Key Secret Input */}
-                  <div>
-                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <span>Razorpay Key Secret</span>
-                      {razorpayHasKeySecret && (
-                        <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          Configured ✓
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="password"
-                      placeholder={razorpayHasKeySecret ? "Leave empty to keep existing secret..." : "Enter secret key..."}
-                      value={razorpayKeySecret}
-                      onChange={(e) => setRazorpayKeySecret(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                  </div>
-
-                  {/* Webhook Secret Input */}
-                  <div>
-                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <span>Webhook Secret</span>
-                      {razorpayHasWebhookSecret && (
-                        <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          Configured ✓
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="password"
-                      placeholder={razorpayHasWebhookSecret ? "Leave empty to keep existing webhook secret..." : "Enter webhook secret..."}
-                      value={razorpayWebhookSecret}
-                      onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                  </div>
-
-                  {/* Status Indicator */}
+                  {/* Encryption Banner */}
                   <div style={{
+                    backgroundColor: 'rgba(234, 88, 12, 0.04)',
+                    border: '1px solid rgba(234, 88, 12, 0.15)',
+                    borderRadius: 'var(--radius-md)',
                     padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: '#f3f4f6',
-                    border: '1px solid var(--border-light)',
-                    fontSize: '0.82rem',
+                    marginBottom: '28px',
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px'
+                    gap: '12px'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Connection Status:</span>
-                      <span style={{
-                        fontWeight: 'bold',
-                        color: razorpayConnectionStatus === 'Connected' ? 'green' : razorpayConnectionStatus === 'Failed' ? 'red' : 'orange'
-                      }}>
-                        {razorpayConnectionStatus}
-                      </span>
+                    <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>🔒</span>
+                    <div>
+                      <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Server-Side Encryption with ESG_91 Key
+                      </h4>
+                      <p style={{ fontSize: '0.78rem', color: '#9a3412', marginTop: '4px', lineHeight: '1.4' }}>
+                        Your Auth Key and Template ID are encrypted on the server using your secret <strong>ENCRYPTION_STRING_KEY_ESG_91</strong>. Only cipher values are stored, and credentials are never exposed back to the client.
+                      </p>
                     </div>
-                    {razorpayLastVerifiedAt && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Last Verified:</span>
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          {new Date(razorpayLastVerifiedAt).toLocaleString()}
-                        </span>
+                  </div>
+
+                  {isLoadingSettings ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Retrieving settings...</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveMsg91Settings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                      {/* MSG91 Auth Key */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          MSG91 Auth Key *
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="Enter MSG91 Auth Key..."
+                          value={msg91AuthKey}
+                          onChange={(e) => setMsg91AuthKey(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.88rem',
+                            transition: 'border-color 0.15s',
+                            backgroundColor: '#f9fafb'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                          onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                    <button
-                      type="button"
-                      disabled={isTestingRazorpay || isSavingRazorpay}
-                      onClick={handleTestRazorpayConnection}
-                      style={{
-                        flex: 1,
-                        padding: '14px 20px',
-                        fontSize: '0.9rem',
-                        fontWeight: 700,
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        backgroundColor: '#ffffff',
-                        color: 'var(--text-dark)',
-                        cursor: (isTestingRazorpay || isSavingRazorpay) ? 'not-allowed' : 'pointer',
-                        opacity: (isTestingRazorpay || isSavingRazorpay) ? 0.6 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {isTestingRazorpay ? 'Testing...' : 'Test Connection'}
-                    </button>
-                    
-                    <button
-                      type="submit"
-                      disabled={isSavingRazorpay || isTestingRazorpay}
-                      className="btn-lime"
-                      style={{
-                        flex: 2,
-                        padding: '14px 20px',
-                        fontSize: '0.9rem',
-                        justifyContent: 'center',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: (isSavingRazorpay || isTestingRazorpay) ? 'not-allowed' : 'pointer',
-                        opacity: (isSavingRazorpay || isTestingRazorpay) ? 0.75 : 1
-                      }}
-                    >
-                      {isSavingRazorpay ? 'Saving...' : 'Save Configuration'}
-                    </button>
-                  </div>
+                      {/* MSG91 Template ID */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          MSG91 OTP Template ID / Flow ID *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Enter template ID or Flow ID (e.g. 60d5ec...)"
+                          value={msg91TemplateId}
+                          onChange={(e) => setMsg91TemplateId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.88rem',
+                            transition: 'border-color 0.15s',
+                            backgroundColor: '#f9fafb'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                          onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                        />
+                      </div>
 
-                </form>
-              )}
-            </div>
+                      {/* MSG91 Sender ID */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          MSG91 Sender ID / Header *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Enter Sender ID / Header (e.g. SENDER)"
+                          value={msg91SenderId}
+                          onChange={(e) => setMsg91SenderId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.88rem',
+                            transition: 'border-color 0.15s',
+                            backgroundColor: '#f9fafb'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                          onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                        />
+                      </div>
 
-            {/* Tax & Delivery Settings Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {/* Top Accent line */}
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, #10b981 0%, var(--primary-lime) 100%)'
-              }} />
+                      {/* Submit Button */}
+                      <button
+                        type="submit"
+                        disabled={isSavingMsg91}
+                        className="btn-lime"
+                        style={{
+                          padding: '14px 28px',
+                          fontSize: '0.9rem',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--radius-md)',
+                          width: '100%',
+                          marginTop: '8px',
+                          cursor: isSavingMsg91 ? 'not-allowed' : 'pointer',
+                          opacity: isSavingMsg91 ? 0.75 : 1
+                        }}
+                      >
+                        {isSavingMsg91 ? 'Encrypting & Saving MSG91 Credentials...' : 'Save & Encrypt MSG91 settings'}
+                      </button>
 
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="flex-center" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: '#d1fae5',
-                  color: '#10b981'
-                }}>
-                  <Settings size={24} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    Tax & Delivery Settings
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Manage global GST rates, default shipping fees, and free-delivery subtotal thresholds.
-                  </p>
-                </div>
-              </div>
-
-              {isLoadingSettings ? (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Tax settings...</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveTaxDeliverySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* GST percentage */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Global GST Percent (%) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      max="100"
-                      placeholder="e.g. 18"
-                      value={globalGstPercent}
-                      onChange={(e) => setGlobalGstPercent(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                  </div>
-
-                  {/* Shipping Fee */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Default Delivery Charge (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      placeholder="e.g. 49"
-                      value={globalDeliveryCharge}
-                      onChange={(e) => setGlobalDeliveryCharge(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                  </div>
-
-                  {/* Free Delivery Threshold */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Free Delivery Threshold Subtotal (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      placeholder="e.g. 999"
-                      value={freeDeliveryThreshold}
-                      onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        transition: 'border-color 0.15s',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
-                    />
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
-                      If the cart subtotal reaches or exceeds this threshold, the delivery charge automatically drops to ₹0.
-                    </span>
-                  </div>
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSavingTaxDelivery}
-                    className="btn-lime"
-                    style={{
-                      padding: '14px 28px',
-                      fontSize: '0.9rem',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-md)',
-                      width: '100%',
-                      marginTop: '8px',
-                      cursor: isSavingTaxDelivery ? 'not-allowed' : 'pointer',
-                      opacity: isSavingTaxDelivery ? 0.75 : 1
-                    }}
-                  >
-                    {isSavingTaxDelivery ? 'Saving Settings...' : 'Save Tax & Delivery Settings'}
-                  </button>
-
-                </form>
-              )}
-            </div>
-
-            {/* Bulk Apply Override settings Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {/* Top Accent line */}
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)'
-              }} />
-
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="flex-center" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: '#dbeafe',
-                  color: '#2563eb'
-                }}>
-                  <Package size={24} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    Bulk Product Modifier Tools
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Quickly overwrite GST percentages or delivery charges for all products in the catalog at once.
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                
-                {/* Bulk GST Apply */}
-                <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override GST %</h4>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="Enter GST % (e.g. 18)"
-                      id="bulk-gst-percent-input"
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        width: '180px',
-                        backgroundColor: '#ffffff',
-                        color: 'var(--text-dark)'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const input = document.getElementById('bulk-gst-percent-input') as HTMLInputElement;
-                        if (!input || input.value === '') {
-                          alert('Please enter a percentage value first.');
-                          return;
-                        }
-                        const pct = parseFloat(input.value);
-                        if (isNaN(pct) || pct < 0 || pct > 100) {
-                          alert('Please enter a valid percentage between 0 and 100.');
-                          return;
-                        }
-                        if (confirm(`Are you sure you want to set custom GST override to ${pct}% for ALL pooja products? This will update all items in the database.`)) {
-                          try {
-                            const { error } = await getAdminSupabase()
-                              .from('website_pooja_products')
-                              .update({
-                                gst_override_enabled: true,
-                                custom_gst: pct
-                              })
-                              .neq('id', '00000000-0000-0000-0000-000000000000');
-                            
-                            if (error) throw error;
-                            triggerToast(`Successfully applied ${pct}% GST override to all products!`);
-                            loadPoojaProducts();
-                          } catch (err) {
-                            alert('Bulk update failed: ' + (err as Error).message);
-                          }
-                        }
-                      }}
-                      className="btn-lime"
-                      style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
-                    >
-                      Apply to All Products
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (confirm(`Are you sure you want to REMOVE GST overrides for ALL pooja products? They will revert to inheriting the global GST settings.`)) {
-                          try {
-                            const { error } = await getAdminSupabase()
-                              .from('website_pooja_products')
-                              .update({
-                                gst_override_enabled: false,
-                                custom_gst: null
-                              })
-                              .neq('id', '00000000-0000-0000-0000-000000000000');
-                            
-                            if (error) throw error;
-                            triggerToast(`Successfully removed GST overrides from all products!`);
-                            loadPoojaProducts();
-                          } catch (err) {
-                            alert('Reset failed: ' + (err as Error).message);
-                          }
-                        }
-                      }}
-                      style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                    >
-                      Clear All Overrides
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bulk Delivery Apply */}
-                <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override Shipping Fee</h4>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Enter Delivery (e.g. 80)"
-                      id="bulk-delivery-charge-input"
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1.5px solid var(--border-light)',
-                        outline: 'none',
-                        fontSize: '0.88rem',
-                        width: '180px',
-                        backgroundColor: '#ffffff',
-                        color: 'var(--text-dark)'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const input = document.getElementById('bulk-delivery-charge-input') as HTMLInputElement;
-                        if (!input || input.value === '') {
-                          alert('Please enter a delivery charge value first.');
-                          return;
-                        }
-                        const cost = parseFloat(input.value);
-                        if (isNaN(cost) || cost < 0) {
-                          alert('Please enter a valid positive delivery charge.');
-                          return;
-                        }
-                        if (confirm(`Are you sure you want to set custom delivery override to ₹${cost} for ALL pooja products? This will update all items in the database.`)) {
-                          try {
-                            const { error } = await getAdminSupabase()
-                              .from('website_pooja_products')
-                              .update({
-                                delivery_override_enabled: true,
-                                custom_delivery: cost
-                              })
-                              .neq('id', '00000000-0000-0000-0000-000000000000');
-                            
-                            if (error) throw error;
-                            triggerToast(`Successfully applied ₹${cost} delivery override to all products!`);
-                            loadPoojaProducts();
-                          } catch (err) {
-                            alert('Bulk update failed: ' + (err as Error).message);
-                          }
-                        }
-                      }}
-                      className="btn-lime"
-                      style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
-                    >
-                      Apply to All Products
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (confirm(`Are you sure you want to REMOVE delivery overrides for ALL pooja products? They will revert to inheriting the global delivery settings.`)) {
-                          try {
-                            const { error } = await getAdminSupabase()
-                              .from('website_pooja_products')
-                              .update({
-                                delivery_override_enabled: false,
-                                custom_delivery: null
-                              })
-                              .neq('id', '00000000-0000-0000-0000-000000000000');
-                            
-                            if (error) throw error;
-                            triggerToast(`Successfully removed delivery overrides from all products!`);
-                            loadPoojaProducts();
-                          } catch (err) {
-                            alert('Reset failed: ' + (err as Error).message);
-                          }
-                        }
-                      }}
-                      style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                    >
-                      Clear All Overrides
-                    </button>
-                  </div>
+                    </form>
+                  )}
                 </div>
 
               </div>
-            </div>
 
-            {/* Change Password Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: '4px',
-                background: 'linear-gradient(90deg, #dc2626 0%, #ef4444 100%)'
-              }} />
-
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
-                <div className="flex-center" style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: '#fee2e2',
-                  color: '#dc2626'
-                }}>
-                  <Lock size={24} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                    Change Administrator Password
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Rotate your administrator password. Requires a minimum of 16 characters.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                const currentPassword = (form.elements.namedItem('currentPassword') as HTMLInputElement).value;
-                const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
-                const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
-
-                if (newPassword !== confirmPassword) {
-                  alert('Error: New password and confirm password do not match.');
-                  return;
-                }
-
-                if (newPassword.length < 16) {
-                  alert('Error: New password must be at least 16 characters long.');
-                  return;
-                }
-
-                try {
-                  await callAdminApi('/api/admin/password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currentPassword, newPassword })
-                  });
-                  alert('Password updated successfully! You will be logged out. Please log in again.');
-                  if (onLogout) onLogout();
-                } catch (err: any) {
-                  alert('Error changing password: ' + err.message);
-                }
-              }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Current Password *
-                  </label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    required
-                    placeholder="Enter current administrative password..."
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1.5px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.88rem',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    New Password *
-                  </label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    required
-                    placeholder="Enter new password (minimum 16 characters)..."
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1.5px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.88rem',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Confirm New Password *
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    required
-                    placeholder="Confirm new administrative password..."
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1.5px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.88rem',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn-lime"
-                  style={{
-                    padding: '14px 28px',
-                    fontSize: '0.9rem',
-                    justifyContent: 'center',
-                    borderRadius: 'var(--radius-md)',
-                    width: '100%',
-                    marginTop: '8px',
-                    cursor: 'pointer',
-                    backgroundColor: '#dc2626',
-                    color: '#ffffff'
-                  }}
-                >
-                  Update Admin Password
-                </button>
-              </form>
-            </div>
-
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: DYNAMIC UPI QR SETTINGS
-            ======================================================= */}
-        {activeTab === 'upi_settings' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr',
-            gap: '30px',
-            alignItems: 'start',
-            maxWidth: '1200px',
-            margin: '0 auto',
-            textAlign: 'left'
-          }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '30px'
-            }}>
-              {/* Left Column: Configurations */}
+              {/* Razorpay Integration Settings Card */}
               <div style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid var(--border-light)',
@@ -7547,10 +7136,371 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 padding: '32px',
                 boxShadow: 'var(--shadow-md)',
                 position: 'relative',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '24px'
+                overflow: 'hidden'
+              }}>
+                {/* Top Accent line */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #d97706 0%, #f59e0b 100%)'
+                }} />
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                  <div className="flex-center" style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#fef3c7',
+                    color: '#d97706'
+                  }}>
+                    <CreditCard size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                      Razorpay Payment Gateway API
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Configure Razorpay API Keys and Webhook parameters. Credentials are encrypted and verified server-side.
+                    </p>
+                  </div>
+                </div>
+
+                {isLoadingRazorpayConfig ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Razorpay config...</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveRazorpaySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* Server Environment Information Banner */}
+                    {paymentEnv && paymentEnv !== 'not_set' && (
+                      <div style={{
+                        padding: '16px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: paymentEnv === 'live' ? '#fef2f2' : '#eff6ff',
+                        border: '1.5px solid ' + (paymentEnv === 'live' ? '#fecaca' : '#bfdbfe'),
+                        marginBottom: '8px'
+                      }}>
+                        <h4 style={{
+                          fontSize: '0.85rem',
+                          fontWeight: 900,
+                          color: paymentEnv === 'live' ? '#991b1b' : '#1e3a8a',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: paymentEnv === 'live' ? '#ef4444' : '#3b82f6'
+                          }} />
+                          Server Environment: {paymentEnv.toUpperCase()}
+                        </h4>
+                        <p style={{
+                          fontSize: '0.82rem',
+                          color: paymentEnv === 'live' ? '#7f1d1d' : '#1e40af',
+                          marginTop: '6px',
+                          lineHeight: '1.4'
+                        }}>
+                          {paymentEnv === 'live' ? (
+                            <>
+                              <strong>This server is locked to Razorpay Live credentials.</strong> All payments created from this server will use the Live account.
+                            </>
+                          ) : (
+                            <>
+                              <strong>This server is locked to Razorpay Test credentials.</strong> All payments created from this server will use the Test account.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Mode Selection */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Payment Gateway Mode
+                      </label>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setRazorpayMode('test')}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid ' + (razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                            backgroundColor: razorpayMode === 'test' ? '#f0fdf4' : '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: razorpayMode === 'test' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Test Mode
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRazorpayMode('live')}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid ' + (razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                            backgroundColor: razorpayMode === 'live' ? '#f0fdf4' : '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: razorpayMode === 'live' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Live Mode
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Payment Provider Selection */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Active Payment Provider
+                      </label>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setActivePaymentProvider('manual_upi')}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid ' + (activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                            backgroundColor: activePaymentProvider === 'manual_upi' ? '#f0fdf4' : '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: activePaymentProvider === 'manual_upi' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Manual UPI QR (Legacy)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActivePaymentProvider('razorpay')}
+                          style={{
+                            flex: 1,
+                            padding: '12px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid ' + (activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--border-light)'),
+                            backgroundColor: activePaymentProvider === 'razorpay' ? '#f0fdf4' : '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            color: activePaymentProvider === 'razorpay' ? 'var(--primary-lime)' : 'var(--text-dark)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Razorpay Gateway (Online)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Legacy Manual UPI Visibility Toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        id="legacyManualUpiEnabled"
+                        checked={legacyManualUpiEnabled}
+                        onChange={(e) => setLegacyManualUpiEnabled(e.target.checked)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          accentColor: 'var(--primary-lime)',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <label htmlFor="legacyManualUpiEnabled" style={{ fontSize: '0.88rem', fontWeight: 650, color: 'var(--text-dark)', cursor: 'pointer' }}>
+                        Show Legacy Manual UPI Option to customers even when Razorpay is active
+                      </label>
+                    </div>
+
+                    {/* Key ID Input */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Razorpay Key ID *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder={razorpayMode === 'live' ? "rzp_live_..." : "rzp_test_..."}
+                        value={razorpayKeyId}
+                        onChange={(e) => setRazorpayKeyId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* Key Secret Input */}
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <span>Razorpay Key Secret</span>
+                        {razorpayHasKeySecret && (
+                          <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                            Configured ✓
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={razorpayHasKeySecret ? "Leave empty to keep existing secret..." : "Enter secret key..."}
+                        value={razorpayKeySecret}
+                        onChange={(e) => setRazorpayKeySecret(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* Webhook Secret Input */}
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <span>Webhook Secret</span>
+                        {razorpayHasWebhookSecret && (
+                          <span style={{ color: 'green', textTransform: 'none', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                            Configured ✓
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={razorpayHasWebhookSecret ? "Leave empty to keep existing webhook secret..." : "Enter webhook secret..."}
+                        value={razorpayWebhookSecret}
+                        onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* Status Indicator */}
+                    <div style={{
+                      padding: '16px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid var(--border-light)',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Connection Status:</span>
+                        <span style={{
+                          fontWeight: 'bold',
+                          color: razorpayConnectionStatus === 'Connected' ? 'green' : razorpayConnectionStatus === 'Failed' ? 'red' : 'orange'
+                        }}>
+                          {razorpayConnectionStatus}
+                        </span>
+                      </div>
+                      {razorpayLastVerifiedAt && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontWeight: 800, color: 'var(--text-dark)' }}>Last Verified:</span>
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            {new Date(razorpayLastVerifiedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        disabled={isTestingRazorpay || isSavingRazorpay}
+                        onClick={handleTestRazorpayConnection}
+                        style={{
+                          flex: 1,
+                          padding: '14px 20px',
+                          fontSize: '0.9rem',
+                          fontWeight: 700,
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          backgroundColor: '#ffffff',
+                          color: 'var(--text-dark)',
+                          cursor: (isTestingRazorpay || isSavingRazorpay) ? 'not-allowed' : 'pointer',
+                          opacity: (isTestingRazorpay || isSavingRazorpay) ? 0.6 : 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {isTestingRazorpay ? 'Testing...' : 'Test Connection'}
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isSavingRazorpay || isTestingRazorpay}
+                        className="btn-lime"
+                        style={{
+                          flex: 2,
+                          padding: '14px 20px',
+                          fontSize: '0.9rem',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--radius-md)',
+                          cursor: (isSavingRazorpay || isTestingRazorpay) ? 'not-allowed' : 'pointer',
+                          opacity: (isSavingRazorpay || isTestingRazorpay) ? 0.75 : 1
+                        }}
+                      >
+                        {isSavingRazorpay ? 'Saving...' : 'Save Configuration'}
+                      </button>
+                    </div>
+
+                  </form>
+                )}
+              </div>
+
+              {/* Tax & Delivery Settings Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                position: 'relative',
+                overflow: 'hidden'
               }}>
                 {/* Top Accent line */}
                 <div style={{
@@ -7560,72 +7510,45 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   background: 'linear-gradient(90deg, #10b981 0%, var(--primary-lime) 100%)'
                 }} />
 
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
                   <div className="flex-center" style={{
                     width: '48px',
                     height: '48px',
                     borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--primary-lime-light)',
-                    color: 'var(--primary-lime)'
+                    backgroundColor: '#d1fae5',
+                    color: '#10b981'
                   }}>
-                    <QrCode size={24} />
+                    <Settings size={24} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
-                      Dynamic UPI Payment Gateway
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                      Tax & Delivery Settings
                     </h3>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Configure the shop's UPI address to dynamically generate payment barcodes for checkout.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Information Callout */}
-                <div style={{
-                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                  border: '1px solid rgba(16, 185, 129, 0.15)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px',
-                  display: 'flex',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>✨</span>
-                  <div>
-                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
-                      Dynamic UPI Integration
-                    </h4>
-                    <p style={{ fontSize: '0.78rem', color: '#065f46', marginTop: '4px', lineHeight: '1.4' }}>
-                      Instead of a static image, the system generates an interactive UPI deep-link encoded into a QR code. When scanned, it automatically pre-fills the exact cart amount and order number in apps like GPay, PhonePe, and Paytm.
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Manage global GST rates, default shipping fees, and free-delivery subtotal thresholds.
                     </p>
                   </div>
                 </div>
 
                 {isLoadingSettings ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                    <div className="spinner" style={{
-                      width: '32px',
-                      height: '32px',
-                      border: '3px solid var(--border-light)',
-                      borderTopColor: 'var(--primary-lime)',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite',
-                      margin: '0 auto 16px'
-                    }} />
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Settings...</p>
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Tax settings...</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSaveBarcodeSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* UPI ID VPA Input */}
+                  <form onSubmit={handleSaveTaxDeliverySettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* GST percentage */}
                     <div>
                       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Receiver UPI ID (VPA) *
+                        Global GST Percent (%) *
                       </label>
                       <input
-                        type="text"
+                        type="number"
                         required
-                        placeholder="e.g. name@upi or 7974478098@paytm"
-                        value={adminUpiId}
-                        onChange={(e) => setAdminUpiId(e.target.value)}
+                        min="0"
+                        max="100"
+                        placeholder="e.g. 18"
+                        value={globalGstPercent}
+                        onChange={(e) => setGlobalGstPercent(e.target.value)}
                         style={{
                           width: '100%',
                           padding: '12px 16px',
@@ -7639,62 +7562,69 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
                         onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                        Your UPI Virtual Payment Address (e.g. UPI ID from PhonePe, Google Pay, or Paytm) where customer payments will go.
+                    </div>
+
+                    {/* Shipping Fee */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Default Delivery Charge (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        placeholder="e.g. 49"
+                        value={globalDeliveryCharge}
+                        onChange={(e) => setGlobalDeliveryCharge(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                    </div>
+
+                    {/* Free Delivery Threshold */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Free Delivery Threshold Subtotal (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        placeholder="e.g. 999"
+                        value={freeDeliveryThreshold}
+                        onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#f9fafb'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
+                        If the cart subtotal reaches or exceeds this threshold, the delivery charge automatically drops to ₹0.
                       </span>
                     </div>
 
-                    <div style={{ borderTop: '1px dashed var(--border-light)', margin: '10px 0' }} />
-
-                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>
-                      Live Preview Simulator controls
-                    </h4>
-
-                    {/* Simulator Inputs */}
-                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: '140px' }}>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
-                          Simulated Cart Total (₹)
-                        </label>
-                        <input
-                          type="number"
-                          value={previewAmount}
-                          onChange={(e) => setPreviewAmount(e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-light)',
-                            outline: 'none',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#ffffff'
-                          }}
-                        />
-                      </div>
-                      <div style={{ flex: 1, minWidth: '140px' }}>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
-                          Simulated Order ID
-                        </label>
-                        <input
-                          type="text"
-                          value={previewOrderId}
-                          onChange={(e) => setPreviewOrderId(e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-light)',
-                            outline: 'none',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#ffffff'
-                          }}
-                        />
-                      </div>
-                    </div>
-
+                    {/* Submit Button */}
                     <button
                       type="submit"
-                      disabled={isSavingBarcode}
+                      disabled={isSavingTaxDelivery}
                       className="btn-lime"
                       style={{
                         padding: '14px 28px',
@@ -7702,1980 +7632,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         justifyContent: 'center',
                         borderRadius: 'var(--radius-md)',
                         width: '100%',
-                        marginTop: '12px',
-                        cursor: isSavingBarcode ? 'not-allowed' : 'pointer',
-                        opacity: isSavingBarcode ? 0.75 : 1
+                        marginTop: '8px',
+                        cursor: isSavingTaxDelivery ? 'not-allowed' : 'pointer',
+                        opacity: isSavingTaxDelivery ? 0.75 : 1
                       }}
                     >
-                      {isSavingBarcode ? 'Saving UPI Configurations...' : 'Save UPI Configurations'}
+                      {isSavingTaxDelivery ? 'Saving Settings...' : 'Save Tax & Delivery Settings'}
                     </button>
+
                   </form>
                 )}
               </div>
 
-              {/* Right Column: Customer Checkout Preview Mockup */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Live Customer Checkout Screen Preview
-                </span>
-
-                {/* Mobile Device Container wrapper */}
-                <div style={{
-                  width: '340px',
-                  height: '640px',
-                  border: '12px solid #1e293b',
-                  borderRadius: '36px',
-                  backgroundColor: '#ffffff',
-                  boxShadow: 'var(--shadow-xl)',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}>
-                  {/* Status Bar */}
-                  <div style={{
-                    height: '24px',
-                    backgroundColor: '#1e293b',
-                    padding: '0 20px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    color: '#ffffff',
-                    fontSize: '0.68rem',
-                    fontWeight: 700
-                  }}>
-                    <span>10:30 AM</span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <span>📶</span>
-                      <span>🔋</span>
-                    </div>
-                  </div>
-
-                  {/* Speaker Notch */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '24px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '110px',
-                    height: '14px',
-                    backgroundColor: '#1e293b',
-                    borderRadius: '0 0 10px 10px',
-                    zIndex: 10
-                  }} />
-
-                  {/* App Screen Content */}
-                  <div style={{
-                    flexGrow: 1,
-                    padding: '24px 16px 16px',
-                    backgroundColor: '#f9fafb',
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '14px',
-                    textAlign: 'left'
-                  }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '1.2rem' }}>🕉️</span>
-                      <div>
-                        <h4 style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
-                          Mantra Puja Shop
-                        </h4>
-                        <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Secure Checkout</span>
-                      </div>
-                    </div>
-
-                    <div style={{ borderTop: '1px solid #e5e7eb' }} />
-
-                    {/* Step Title */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Lock size={12} style={{ color: 'var(--primary-lime)' }} />
-                      <span style={{ fontSize: '0.72rem', fontWeight: 900, color: '#1f2937' }}>
-                        Direct Payment Details (UPI)
-                      </span>
-                    </div>
-
-                    {/* Amount Card */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '10px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid var(--primary-lime)',
-                      textAlign: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.62rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
-                      <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
-                        ₹{parseFloat(previewAmount || '0').toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* QR Code container */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      backgroundColor: '#ffffff',
-                      padding: '16px 12px',
-                      borderRadius: '12px',
-                      border: '1px solid #e5e7eb',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                    }}>
-                      {adminUpiId.trim() && adminUpiId.includes('@') ? (
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=Mantra%20Puja&am=${parseFloat(previewAmount || '0').toFixed(2)}&cu=INR&tn=Order%20${previewOrderId}`)}`} 
-                          alt="Dynamic QR Code" 
-                          style={{
-                            width: '130px',
-                            height: '130px',
-                            objectFit: 'contain',
-                            borderRadius: '4px',
-                            border: '1px solid #f3f4f6',
-                            padding: '4px',
-                            marginBottom: '10px'
-                          }}
-                        />
-                      ) : (
-                        <div style={{ width: '130px', height: '130px', backgroundColor: '#fee2e2', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                          <span style={{ fontSize: '0.68rem', color: '#ef4444', textAlign: 'center', fontWeight: 800, padding: '10px' }}>Invalid UPI VPA Configured</span>
-                        </div>
-                      )}
-
-                      <span style={{
-                        fontSize: '0.58rem',
-                        fontWeight: 800,
-                        color: 'var(--primary-lime)',
-                        backgroundColor: 'var(--primary-lime-light)',
-                        padding: '1px 6px',
-                        borderRadius: '999px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginBottom: '8px'
-                      }}>
-                        Scan to Pay
-                      </span>
-
-                      {/* VPA Display & copy */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        backgroundColor: '#f9fafb',
-                        padding: '5px 8px',
-                        borderRadius: '4px',
-                        border: '1px solid #e5e7eb',
-                        width: '100%',
-                        justifyContent: 'space-between'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '0.5rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID</span>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                            {adminUpiId}
-                          </span>
-                        </div>
-                        <button type="button" style={{
-                          backgroundColor: 'var(--primary-lime)',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '4px 6px',
-                          borderRadius: '3px',
-                          fontSize: '0.55rem',
-                          fontWeight: 800,
-                          cursor: 'pointer'
-                        }}>
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Screenshot uploader container */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#374151' }}>
-                        Upload Screenshot proof *
-                      </span>
-                      <div style={{
-                        border: '1.5px dashed #d1d5db',
-                        borderRadius: '6px',
-                        padding: '12px',
-                        textAlign: 'center',
-                        backgroundColor: '#fafafa',
-                        fontSize: '0.62rem',
-                        color: '#6b7280'
-                      }}>
-                        📁 Select image proof
-                      </div>
-                    </div>
-
-                    {/* Place Order button */}
-                    <button type="button" style={{
-                      backgroundColor: 'var(--primary-lime)',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      marginTop: 'auto'
-                    }}>
-                      Submit Order Verification
-                    </button>
-                  </div>
-                </div>
-
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '340px' }}>
-                  This mobile screen is a simulated representation of what the customer sees when checking out on their device.
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: CATEGORIES CUSTOM SEQUENCER (Category Manager)
-            ======================================================= */}
-        {activeTab === 'categories_editor' && (
-          <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Header Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px 28px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '20px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
-                  🗂️
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Category Manager</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Add, edit, delete, hide/unhide, and rearrange the display sequence of product categories.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingCategoriesOrder}
-                onClick={handleSaveCategoriesOrder}
-                className="btn-lime"
-                style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
-              >
-                {isSavingCategoriesOrder ? 'Saving...' : '💾 Save Sequence'}
-              </button>
-            </div>
-
-            {/* Add Category Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px 32px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>➕ Add New Category</h4>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <input
-                  type="text"
-                  placeholder="e.g. Incense Sticks, Copper Pots..."
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-light)',
-                    outline: 'none',
-                    fontSize: '0.88rem'
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddCategory();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCategory}
-                  className="btn-lime"
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '0.88rem',
-                    borderRadius: 'var(--radius-md)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Plus size={16} /> Add Category
-                </button>
-              </div>
-            </div>
-
-            {/* Sorter List Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '24px'
-            }}>
-              <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Manage Category List & Sequence</h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Toggle category visibility (hidden categories won't show in the devotee shop), rename, delete, or change order.
-                </p>
-              </div>
-
-              {/* Scrollable list of categories */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {sortedCategoriesList.map((category, index) => {
-                  const isFirst = index === 0;
-                  const isLast = index === sortedCategoriesList.length - 1;
-                  const categoryInfo = safeCategoriesList.find(c => c.name === category);
-                  const isHidden = categoryInfo ? categoryInfo.hidden : false;
-                  const isAll = category === 'all';
-                  const displayName = isAll ? '✨ All Items' : category;
-
-                  return (
-                    <div
-                      key={category}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '14px 20px',
-                        backgroundColor: isHidden ? '#f3f4f6' : '#f9fafb',
-                        border: '1.5px solid var(--border-light)',
-                        borderRadius: 'var(--radius-md)',
-                        opacity: isHidden ? 0.75 : 1,
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                        <span style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          backgroundColor: isHidden ? 'var(--text-muted)' : 'var(--primary-forest)',
-                          color: '#ffffff',
-                          fontSize: '0.8rem',
-                          fontWeight: 700
-                        }}>
-                          {index + 1}
-                        </span>
-
-                        {editingCategoryName === category ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '300px' }}>
-                            <input
-                              type="text"
-                              value={editingCategoryValue}
-                              onChange={(e) => setEditingCategoryValue(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.88rem',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1.5px solid var(--primary-lime)',
-                                outline: 'none'
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleRenameCategory(category, editingCategoryValue);
-                                } else if (e.key === 'Escape') {
-                                  setEditingCategoryName(null);
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRenameCategory(category, editingCategoryValue)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '30px',
-                                height: '30px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: 'none',
-                                backgroundColor: 'var(--primary-lime)',
-                                color: '#ffffff',
-                                cursor: 'pointer'
-                              }}
-                              title="Save Name"
-                            >
-                              <Save size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingCategoryName(null)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '30px',
-                                height: '30px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                backgroundColor: '#ffffff',
-                                color: 'var(--text-dark)',
-                                cursor: 'pointer'
-                              }}
-                              title="Cancel"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{
-                              fontSize: '0.92rem',
-                              fontWeight: 700,
-                              color: isHidden ? 'var(--text-muted)' : 'var(--text-dark)',
-                              textDecoration: isHidden ? 'line-through' : 'none'
-                            }}>
-                              {displayName}
-                            </span>
-                            {isHidden && (
-                              <span style={{
-                                fontSize: '0.7rem',
-                                padding: '2px 8px',
-                                borderRadius: 'var(--radius-full)',
-                                backgroundColor: '#e5e7eb',
-                                color: '#4b5563',
-                                fontWeight: 700
-                              }}>
-                                Hidden
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        {/* Edit, Delete, Hide Actions */}
-                        {!isAll && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {/* Hide/Unhide Toggle */}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleHideCategory(category)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                backgroundColor: isHidden ? '#e5e7eb' : '#ffffff',
-                                color: isHidden ? '#4b5563' : 'var(--primary-forest)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title={isHidden ? 'Unhide (Show in Store)' : 'Hide (Hide from Store)'}
-                            >
-                              {isHidden ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-
-                            {/* Rename Button */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCategoryName(category);
-                                setEditingCategoryValue(category);
-                              }}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                backgroundColor: '#ffffff',
-                                color: 'var(--text-dark)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title="Rename Category"
-                            >
-                              <Edit3 size={16} />
-                            </button>
-
-                            {/* Delete Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCategory(category)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title="Delete Category"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Position input selector */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pos:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max={sortedCategoriesList.length}
-                            value={index + 1}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              if (!isNaN(val)) {
-                                moveCategoryToPosition(index, val);
-                              }
-                            }}
-                            style={{
-                              width: '54px',
-                              padding: '6px 8px',
-                              fontSize: '0.85rem',
-                              fontWeight: 700,
-                              textAlign: 'center',
-                              borderRadius: 'var(--radius-sm)',
-                              border: '1.5px solid var(--border-light)',
-                              outline: 'none',
-                              backgroundColor: '#ffffff'
-                            }}
-                          />
-                        </div>
-
-                        {/* Arrow Shift Controls */}
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button
-                            type="button"
-                            disabled={isFirst}
-                            onClick={() => moveCategoryUp(index)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: 'var(--radius-sm)',
-                              border: '1px solid var(--border-light)',
-                              backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
-                              color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
-                              cursor: isFirst ? 'not-allowed' : 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <ArrowUp size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isLast}
-                            onClick={() => moveCategoryDown(index)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: 'var(--radius-sm)',
-                              border: '1px solid var(--border-light)',
-                              backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
-                              color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
-                              cursor: isLast ? 'not-allowed' : 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <ArrowDown size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom Actions Row */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
-                <button
-                  type="button"
-                  disabled={isSavingCategoriesOrder}
-                  onClick={handleSaveCategoriesOrder}
-                  className="btn-lime"
-                  style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer' }}
-                >
-                  {isSavingCategoriesOrder ? 'Saving sequence...' : '💾 Save Category Sequence'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: PRODUCTS CARD SEQUENCER
-            ======================================================= */}
-        {activeTab === 'products_sorter' && (
-          <div style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Header Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px 28px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '20px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
-                  📦
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Products Card Sorter</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Select a category and arrange how product cards are numbered/ordered on the shop storefront.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingProductsOrder || sortedProductsList.length === 0}
-                onClick={handleSaveProductsOrder}
-                className="btn-lime"
-                style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
-              >
-                {isSavingProductsOrder ? 'Saving...' : '💾 Save Sequence'}
-              </button>
-            </div>
-
-            {/* Sorter Body Card */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '32px',
-              boxShadow: 'var(--shadow-md)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '24px'
-            }}>
-              {/* Category Pills Scroll Bar */}
-              <div style={{
-                display: 'flex',
-                overflowX: 'auto',
-                gap: '8px',
-                padding: '4px 0',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                borderBottom: '1px solid var(--border-light)',
-                paddingBottom: '20px'
-              }} className="shop-categories-scroll">
-                {sorterCategories.map((cat) => {
-                  const isActive = selectedSorterCategory === cat;
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedSorterCategory(cat)}
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: 'var(--radius-full)',
-                        fontSize: '0.88rem',
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.15s ease',
-                        border: '1.5px solid var(--border-light)',
-                        backgroundColor: isActive ? 'var(--primary-forest)' : '#ffffff',
-                        color: isActive ? '#ffffff' : 'var(--text-muted)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {cat === 'all' ? '✨ All Items' : cat}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Sorter Description */}
-              <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Drag & Drop or Swap Products</h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Drag cards by holding them, or use the position inputs / arrow buttons to arrange their display order.
-                </p>
-              </div>
-
-              {/* Scrollable grid of products */}
-              {sortedProductsList.length === 0 ? (
-                <div style={{
-                  padding: '48px',
-                  textAlign: 'center',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1.5px dashed var(--border-light)'
-                }}>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No products found in this category.</p>
-                </div>
-              ) : (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                  gap: '24px',
-                  marginTop: '16px'
-                }} className="shop-product-grid">
-                  {sortedProductsList.map((product, index) => {
-                    const isFirst = index === 0;
-                    const isLast = index === sortedProductsList.length - 1;
-                    const hasImage = isImageUrl(product.image);
-                    const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
-
-                    return (
-                      <div
-                        key={product.id}
-                        draggable
-                        onDragStart={(e) => handleProductDragStart(e, index)}
-                        onDragOver={handleProductDragOver}
-                        onDrop={(e) => handleProductDrop(e, index)}
-                        style={{
-                          borderRadius: '16px',
-                          border: draggedProductIndex === index ? '2px dashed var(--primary-lime)' : '1px solid var(--border-light)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          position: 'relative',
-                          backgroundColor: draggedProductIndex === index ? '#f3f4f6' : '#ffffff',
-                          boxShadow: 'var(--shadow-sm)',
-                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          padding: '12px',
-                          gap: '12px',
-                          cursor: 'grab',
-                          opacity: draggedProductIndex === index ? 0.6 : 1,
-                          overflow: 'visible'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (draggedProductIndex !== index) {
-                            e.currentTarget.style.transform = 'translateY(-6px)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
-                            e.currentTarget.style.borderColor = 'var(--primary-lime)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (draggedProductIndex !== index) {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            e.currentTarget.style.borderColor = 'var(--border-light)';
-                          }
-                        }}
-                      >
-                        {/* Rank Badge */}
-                        <div style={{
-                          position: 'absolute',
-                          top: '-8px',
-                          left: '-8px',
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--primary-forest)',
-                          color: '#ffffff',
-                          fontSize: '0.85rem',
-                          fontWeight: 900,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '2px solid #ffffff',
-                          boxShadow: 'var(--shadow-sm)',
-                          zIndex: 20
-                        }}>
-                          {index + 1}
-                        </div>
-
-                        {/* Image Box */}
-                        <div
-                          style={{
-                            width: '100%',
-                            aspectRatio: '1 / 1',
-                            borderRadius: '12px',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#f9fafb',
-                            border: '1px solid var(--border-light)'
-                          }}
-                        >
-                          {hasImage ? (
-                            <img
-                              src={getDisplayImageUrl(product.image)}
-                              alt={product.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <span style={{ fontSize: '3.5rem' }}>{product.image}</span>
-                          )}
-
-                          {/* Ribbon Badge */}
-                          {discount > 0 && product.inStock && (
-                            <div style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: '12px',
-                              width: '36px',
-                              padding: '6px 2px 8px 2px',
-                              background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
-                              color: '#ffffff',
-                              fontSize: '0.62rem',
-                              fontWeight: 900,
-                              lineHeight: 1.15,
-                              textAlign: 'center',
-                              clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
-                              zIndex: 10,
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}>
-                              {discount}%<br/>OFF
-                            </div>
-                          )}
-
-                          {/* Out of Stock overlay */}
-                          {!product.inStock && (
-                            <div style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: '12px',
-                              width: '36px',
-                              padding: '6px 2px 8px 2px',
-                              background: '#9ca3af',
-                              color: '#ffffff',
-                              fontSize: '0.55rem',
-                              fontWeight: 900,
-                              lineHeight: 1.15,
-                              textAlign: 'center',
-                              clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
-                              zIndex: 10
-                            }}>
-                              SOLD<br/>OUT
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Title and Price */}
-                        <div style={{
-                          padding: '0 4px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px',
-                          textAlign: 'center',
-                          flexGrow: 1,
-                          justifyContent: 'space-between'
-                        }}>
-                          <div>
-                            <h4 style={{
-                              fontSize: '0.88rem',
-                              fontWeight: 700,
-                              color: 'var(--text-dark)',
-                              margin: 0,
-                              lineHeight: 1.3,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              height: '2.6em'
-                            }}>
-                              {product.name}
-                            </h4>
-
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
-                              <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
-                                ₹{product.price}
-                              </span>
-                              {product.originalPrice && product.originalPrice > product.price && (
-                                <span style={{ fontSize: '0.78rem', color: '#9ca3af', textDecoration: 'line-through' }}>
-                                  ₹{product.originalPrice}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Position overrides overlay */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '6px',
-                              borderTop: '1px solid var(--border-light)',
-                              paddingTop: '8px',
-                              marginTop: '8px'
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="number"
-                              min="1"
-                              max={sortedProductsList.length}
-                              value={index + 1}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                if (!isNaN(val)) {
-                                  moveProductToPosition(index, val);
-                                }
-                              }}
-                              style={{
-                                width: '48px',
-                                padding: '4px 6px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                textAlign: 'center',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                outline: 'none',
-                                backgroundColor: '#ffffff'
-                              }}
-                            />
-                            
-                            <div style={{ display: 'flex', gap: '2px' }}>
-                              <button
-                                type="button"
-                                disabled={isFirst}
-                                onClick={() => moveProductUp(index)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: 'var(--radius-sm)',
-                                  border: '1px solid var(--border-light)',
-                                  backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
-                                  color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
-                                  cursor: isFirst ? 'not-allowed' : 'pointer',
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                <ArrowUp size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isLast}
-                                onClick={() => moveProductDown(index)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: 'var(--radius-sm)',
-                                  border: '1px solid var(--border-light)',
-                                  backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
-                                  color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
-                                  cursor: isLast ? 'not-allowed' : 'pointer',
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                <ArrowDown size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Bottom Actions Row */}
-              {sortedProductsList.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
-                  <button
-                    type="button"
-                    disabled={isSavingProductsOrder}
-                    onClick={handleSaveProductsOrder}
-                    className="btn-lime"
-                    style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer' }}
-                  >
-                    {isSavingProductsOrder ? 'Saving sequence...' : '💾 Save Product Sequence'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: POOJA PRODUCTS MANAGEMENT
-            ======================================================= */}
-        {activeTab === 'pooja_products' && (
-          <div style={{ textAlign: 'left' }}>
-            {!editingPoojaProduct ? (
-              // List View of Pooja Products
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                      Pooja Products Catalog
-                    </h3>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      Manage advanced temple rituals, booking instructions, and Cloudflare R2 media.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    {Object.values(selectedPoojaIds).filter(Boolean).length > 0 && (
-                      <>
-                        <button
-                          onClick={handleBulkGSTApply}
-                          disabled={isBulkGSTApplying}
-                          className="btn-lime"
-                          style={{
-                            fontSize: '0.85rem',
-                            padding: '10px 20px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: '#2563eb',
-                            borderColor: '#2563eb',
-                            color: '#ffffff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {isBulkGSTApplying ? 'Applying GST...' : 'Apply Bulk GST'}
-                        </button>
-                        <button
-                          onClick={handleBulkDeliveryApply}
-                          disabled={isBulkDeliveryApplying}
-                          className="btn-lime"
-                          style={{
-                            fontSize: '0.85rem',
-                            padding: '10px 20px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: '#7c3aed',
-                            borderColor: '#7c3aed',
-                            color: '#ffffff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {isBulkDeliveryApplying ? 'Applying Delivery...' : 'Apply Bulk Delivery'}
-                        </button>
-                        <button
-                          onClick={handleBulkPublishPooja}
-                          disabled={isBulkPublishing}
-                          className="btn-lime"
-                          style={{
-                            fontSize: '0.85rem',
-                            padding: '10px 20px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: 'var(--primary-forest, #15803d)',
-                            borderColor: 'var(--primary-forest, #15803d)',
-                            color: '#ffffff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 4px 6px -1px rgba(21, 128, 61, 0.3)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {isBulkPublishing ? (
-                            <>
-                              <div style={{
-                                width: '12px', height: '12px', border: '2px solid #ffffff',
-                                borderTopColor: 'transparent', borderRadius: '50%',
-                                animation: 'spin 0.6s linear infinite'
-                              }} />
-                              Publishing Selected...
-                            </>
-                          ) : (
-                            <>
-                              🚀 Publish Selected ({Object.values(selectedPoojaIds).filter(Boolean).length})
-                            </>
-                          )}
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => {
-                        setIsNewPoojaProduct(true);
-                        setEditingPoojaProduct({ ...initialPoojaProduct });
-                      }}
-                      className="btn-lime"
-                      style={{ fontSize: '0.85rem', padding: '10px 20px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                    >
-                      <Plus size={16} /> Create Pooja Product
-                    </button>
-                  </div>
-                </div>
-
-                {isLoadingPooja ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                    <div style={{
-                      width: '32px', height: '32px', border: '3px solid var(--border-light)',
-                      borderTopColor: 'var(--primary-lime)', borderRadius: '50%',
-                      animation: 'spin 1s linear infinite', margin: '0 auto 16px'
-                    }} />
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Pooja products...</p>
-                  </div>
-                ) : poojaProducts.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', backgroundColor: '#ffffff' }}>
-                    <span style={{ fontSize: '3rem' }}>🕉️</span>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No Pooja Products Found</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Click "Create Pooja Product" to start building your dynamic catalog.</p>
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto', backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left', backgroundColor: '#f9fafb' }}>
-                          <th style={{ padding: '16px', width: '48px' }}>
-                            <input
-                              type="checkbox"
-                              checked={poojaProducts.length > 0 && poojaProducts.every(p => selectedPoojaIds[p.id])}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                const newSel: Record<string, boolean> = {};
-                                if (checked) {
-                                  poojaProducts.forEach(p => {
-                                    newSel[p.id] = true;
-                                  });
-                                }
-                                setSelectedPoojaIds(newSel);
-                              }}
-                              style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                            />
-                          </th>
-                          <th style={{ padding: '16px' }}>Product</th>
-                          <th style={{ padding: '16px' }}>Category</th>
-                          <th style={{ padding: '16px' }}>Price</th>
-                          <th style={{ padding: '16px' }}>Status</th>
-                          <th style={{ padding: '16px' }}>Featured</th>
-                          <th style={{ padding: '16px', textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {poojaProducts.map(product => {
-                          const isEmoji = !isImageUrl(product.image);
-                          return (
-                            <tr key={product.id} style={{ borderBottom: '1px solid var(--border-light)', fontSize: '0.88rem', backgroundColor: selectedPoojaIds[product.id] ? 'rgba(132, 204, 22, 0.04)' : 'transparent' }}>
-                              <td style={{ padding: '16px', width: '48px' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={!!selectedPoojaIds[product.id]}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setSelectedPoojaIds(prev => ({
-                                      ...prev,
-                                      [product.id]: checked
-                                    }));
-                                  }}
-                                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                                />
-                              </td>
-                              <td style={{ padding: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                  <div style={{
-                                    width: '40px', height: '40px', borderRadius: 'var(--radius-sm)',
-                                    overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    border: '1px solid var(--border-light)', backgroundColor: '#f9fafb'
-                                  }}>
-                                    {isEmoji ? (
-                                      <span style={{ fontSize: '1.5rem' }}>{product.image}</span>
-                                    ) : (
-                                      <img src={getDisplayImageUrl(product.image)} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <span style={{ fontWeight: 800, color: 'var(--text-dark)', display: 'block' }}>{product.name}</span>
-                                    {product.sanskritName && (
-                                      <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--primary-forest)' }}>{product.sanskritName}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: '16px', fontWeight: 600 }}>{product.category}</td>
-                              <td style={{ padding: '16px', fontWeight: 700, color: 'var(--primary-forest)' }}>
-                                ₹{product.price} {product.originalPrice && <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: 'var(--text-muted)', marginLeft: '4px' }}>₹{product.originalPrice}</span>}
-                              </td>
-                              <td style={{ padding: '16px' }}>
-                                <span style={{
-                                  backgroundColor: product.isPublished ? '#dcfce7' : '#fff7ed',
-                                  color: product.isPublished ? '#15803d' : '#c2410c',
-                                  fontSize: '0.72rem', fontWeight: 800, padding: '3px 8px', borderRadius: 'var(--radius-full)'
-                                }}>
-                                  {product.isPublished ? 'Published' : 'Draft'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '16px' }}>
-                                <span style={{ fontSize: '0.85rem' }}>{product.isFeatured ? '⭐ Yes' : 'No'}</span>
-                              </td>
-                              <td style={{ padding: '16px', textAlign: 'right' }}>
-                                <div style={{ display: 'inline-flex', gap: '8px' }}>
-                                  <button
-                                    onClick={() => {
-                                      setIsNewPoojaProduct(false);
-                                      setEditingPoojaProduct(product);
-                                    }}
-                                    style={{
-                                      padding: '6px 12px', border: '1px solid var(--border-light)',
-                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
-                                      color: 'var(--text-dark)', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                      backgroundColor: '#ffffff', cursor: 'pointer'
-                                    }}
-                                  >
-                                    <Edit size={12} /> Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleTogglePublishPoojaProduct(product.id, product.isPublished, product.name)}
-                                    style={{
-                                      padding: '6px 12px', border: product.isPublished ? '1px solid #ffe2e2' : '1px solid #dcfce7',
-                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
-                                      color: product.isPublished ? '#c2410c' : '#15803d', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                      backgroundColor: product.isPublished ? '#fffaf8' : '#f0fdf4', cursor: 'pointer'
-                                    }}
-                                  >
-                                    {product.isPublished ? <EyeOff size={12} /> : <Eye size={12} />}
-                                    {product.isPublished ? 'Hide' : 'Unhide'}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDuplicatePoojaProduct(product)}
-                                    style={{
-                                      padding: '6px 12px', border: '1px solid #e2e8f0',
-                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
-                                      color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                      backgroundColor: '#f8fafc', cursor: 'pointer'
-                                    }}
-                                  >
-                                    <Copy size={12} /> Duplicate
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePoojaProduct(product.id, product.name)}
-                                    style={{
-                                      padding: '6px 12px', border: '1px solid #fed7d7',
-                                      borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
-                                      color: '#e53e3e', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                      backgroundColor: '#fff5f5', cursor: 'pointer'
-                                    }}
-                                  >
-                                    <Trash2 size={12} /> Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // visual editor workspace
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* Visual Editor Workspace Top Control Bar */}
-                <div style={{
-                  position: 'sticky',
-                  top: '70px',
-                  zIndex: 100,
-                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: 'var(--radius-lg, 12px)',
-                  padding: '16px 24px',
-                  boxShadow: 'var(--shadow-lg), 0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  {/* First row: Back, Title, Save/Cancel */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setEditingPoojaProduct(null)}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          color: '#f3f4f6',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          fontSize: '0.82rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                      >
-                        ← Catalog List
-                      </button>
-                      <div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Sparkles size={20} style={{ color: 'var(--primary-lime, #84cc16)' }} /> 
-                          {isNewPoojaProduct ? 'New Pooja Creator' : `Editing: ${editingPoojaProduct.name}`}
-                        </h3>
-                        <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>Visual Builder Workspace • Click text to edit, click images to upload to R2</span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
-                      {isNewPoojaProduct && (
-                        <div style={{ position: 'relative' }}>
-                          <button
-                            type="button"
-                            onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
-                            style={{
-                              padding: '10px 16px',
-                              borderRadius: 'var(--radius-md, 8px)',
-                              border: '1.5px solid var(--primary-lime, #84cc16)',
-                              backgroundColor: 'rgba(132, 204, 22, 0.1)',
-                              color: 'var(--primary-lime, #84cc16)',
-                              fontSize: '0.85rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              transition: 'all 0.15s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.2)'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.1)'}
-                          >
-                            <Sparkles size={14} /> Select Draft Template
-                          </button>
-                          
-                          {showTemplatesDropdown && (
-                            <div style={{
-                              position: 'absolute',
-                              right: 0,
-                              top: 'calc(100% + 8px)',
-                              width: '320px',
-                              backgroundColor: '#1e293b',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: '1px solid rgba(255,255,255,0.1)',
-                              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                              zIndex: 1000,
-                              overflow: 'hidden',
-                              padding: '6px'
-                            }}>
-                              <div style={{ padding: '8px 12px', fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                Pre-made Devotional Drafts
-                              </div>
-                              {poojaTemplates.map((t) => (
-                                <button
-                                  key={t.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingPoojaProduct(t);
-                                    setShowTemplatesDropdown(false);
-                                    triggerToast(`Loaded ${t.name} draft! You can now edit it visually.`);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    borderRadius: '6px',
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: '#ffffff',
-                                    fontSize: '0.82rem',
-                                    fontWeight: 600,
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '10px',
-                                    transition: 'background-color 0.15s'
-                                  }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <span style={{ fontSize: '1.25rem' }}>{t.image}</span>
-                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontWeight: 700 }}>{t.name}</span>
-                                    <span style={{ fontSize: '0.68rem', color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
-                                      {t.subtitle}
-                                    </span>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setEditingPoojaProduct(null)}
-                        style={{
-                          padding: '10px 20px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          backgroundColor: 'transparent',
-                          color: '#d1d5db',
-                          fontSize: '0.85rem',
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleSavePoojaProduct(e)}
-                        disabled={isSavingPooja}
-                        style={{
-                          padding: '10px 24px',
-                          borderRadius: 'var(--radius-md, 8px)',
-                          border: 'none',
-                          backgroundColor: 'var(--primary-lime, #84cc16)',
-                          color: '#0f172a',
-                          fontSize: '0.85rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 6px -1px rgba(132, 204, 22, 0.4)',
-                          opacity: isSavingPooja ? 0.75 : 1
-                        }}
-                      >
-                        {isSavingPooja ? 'Saving to Database...' : 'Save Pooja Product'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Second row: Technical settings bar */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '20px',
-                    flexWrap: 'wrap',
-                    paddingTop: '12px',
-                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: '0.82rem'
-                  }}>
-                    {/* URL Slug input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Slug:</span>
-                      <input
-                        type="text"
-                        value={editingPoojaProduct.slug || ''}
-                        placeholder="e.g. maha-puja"
-                        onChange={(e) => updatePoojaField('slug', e.target.value)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          color: '#ffffff',
-                          outline: '#84cc16',
-                          fontSize: '0.82rem',
-                          width: '180px'
-                        }}
-                      />
-                    </div>
-
-                    {/* Category Dropdown Selector */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Category:</span>
-                      <select
-                        value={editingPoojaProduct.category || 'Rudraksha'}
-                        onChange={(e) => updatePoojaField('category', e.target.value)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: '#1e293b',
-                          color: '#ffffff',
-                          outline: 'none',
-                          fontSize: '0.82rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="Rudraksha">Rudraksha</option>
-                        <option value="Bracelet">Bracelet</option>
-                        <option value="Murti">Murti</option>
-                        <option value="Yantras">Yantras</option>
-                        <option value="Anklet">Anklet</option>
-                        <option value="Frames">Frames</option>
-                        <option value="Rashi">Rashi</option>
-                        <option value="Karungali">Karungali</option>
-                        <option value="Jadi">Jadi</option>
-                        <option value="Pyrite">Pyrite</option>
-                        <option value="Kavach">Kavach</option>
-                        <option value="Siddh Range">Siddh Range</option>
-                        <option value="Gemstones">Gemstones</option>
-                        <option value="Pyramid">Pyramid</option>
-                        <option value="Necklaces/Mala">Necklaces/Mala</option>
-                        <option value="Tower & Tumbles">Tower & Tumbles</option>
-                        <option value="Crystal Dome Trees">Crystal Dome Trees</option>
-                        <option value="Women Bracelets">Women Bracelets</option>
-                        <option value="Evil Eye">Evil Eye</option>
-                        <option value="Gifting">Gifting</option>
-                      </select>
-                    </div>
-
-                    {/* Video URL Input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Video URL:</span>
-                      <input
-                        type="text"
-                        value={editingPoojaProduct.videoUrl || ''}
-                        placeholder="Cloudflare video CDN URL"
-                        onChange={(e) => updatePoojaField('videoUrl', e.target.value)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          color: '#ffffff',
-                          outline: '#84cc16',
-                          fontSize: '0.82rem',
-                          width: '180px'
-                        }}
-                      />
-                    </div>
-
-                    {/* Video Upload Input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Upload Video:</span>
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 12px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px dashed rgba(255, 255, 255, 0.3)',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        color: '#ffffff'
-                      }}>
-                        <Upload size={14} />
-                        Choose Video
-                        <input
-                          type="file"
-                          accept="video/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            try {
-                              await addToMediaQueue(file, 'products/videos', (tempId) => {
-                                updatePoojaField('videoUrl', tempId);
-                              });
-                              triggerToast('Video queued for compression!');
-                            } catch (err) {
-                              console.error(err);
-                              alert('Failed to stage video: ' + (err as Error).message);
-                            } finally {
-                              e.target.value = '';
-                            }
-                          }}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
-                    </div>
-                    {editingPoojaProduct.videoUrl && editingPoojaProduct.videoUrl.startsWith('temp-media-') && (
-                      <div style={{ width: '100%', maxWidth: '300px', marginTop: '4px' }}>
-                        <CompressionStatusWidget tempId={editingPoojaProduct.videoUrl} mediaQueue={mediaQueue} />
-                      </div>
-                    )}
-
-                    {/* Video Thumbnail Input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Thumbnail URL:</span>
-                      <input
-                        type="text"
-                        value={editingPoojaProduct.uiLabels?.videoThumbnail || ''}
-                        placeholder="Video thumbnail URL"
-                        onChange={(e) => {
-                          const existingLabels = editingPoojaProduct.uiLabels || {};
-                          updatePoojaField('uiLabels', {
-                            ...existingLabels,
-                            videoThumbnail: e.target.value
-                          });
-                        }}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          color: '#ffffff',
-                          outline: '#84cc16',
-                          fontSize: '0.82rem',
-                          width: '180px'
-                        }}
-                      />
-                    </div>
-
-                    {/* Switches in a row */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                      <input type="checkbox" checked={editingPoojaProduct.inStock ?? true} onChange={(e) => updatePoojaField('inStock', e.target.checked)} />
-                      In Stock
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                      <input type="checkbox" checked={editingPoojaProduct.isFeatured || false} onChange={(e) => updatePoojaField('isFeatured', e.target.checked)} />
-                      Featured
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                      <input type="checkbox" checked={editingPoojaProduct.isTrending || false} onChange={(e) => updatePoojaField('isTrending', e.target.checked)} />
-                      Trending
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                      <input type="checkbox" checked={editingPoojaProduct.isPublished || false} onChange={(e) => updatePoojaField('isPublished', e.target.checked)} />
-                      Published
-                    </label>
-
-                    {/* Publish Scheduled Date Picker */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Schedule:</span>
-                      <input
-                        type="datetime-local"
-                        value={editingPoojaProduct.publishedAt ? editingPoojaProduct.publishedAt.substring(0, 16) : ''}
-                        onChange={(e) => updatePoojaField('publishedAt', e.target.value ? new Date(e.target.value).toISOString() : null)}
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          color: '#ffffff',
-                          outline: 'none',
-                          fontSize: '0.8rem',
-                          cursor: 'pointer'
-                        }}
-                      />
-                    </div>
-
-                    {/* Purchase Limit Field */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 700 }}>Limit:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="No limit"
-                        value={editingPoojaProduct.purchaseLimit || ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
-                          updatePoojaField('purchaseLimit', val);
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(255,255,255,0.05)',
-                          color: '#ffffff',
-                          outline: 'none',
-                          fontSize: '0.8rem',
-                          width: '90px'
-                        }}
-                      />
-                    </div>
-
-                    {/* GST Override Settings */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                        <input
-                          type="checkbox"
-                          checked={editingPoojaProduct.gstOverrideEnabled || false}
-                          onChange={(e) => {
-                            updatePoojaField('gstOverrideEnabled', e.target.checked);
-                            if (!e.target.checked) {
-                              updatePoojaField('customGst', null);
-                            }
-                          }}
-                        />
-                        Custom GST
-                      </label>
-                      {editingPoojaProduct.gstOverrideEnabled && (
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          placeholder="GST %"
-                          value={editingPoojaProduct.customGst !== undefined && editingPoojaProduct.customGst !== null ? editingPoojaProduct.customGst : ''}
-                          onChange={(e) => {
-                            const val = e.target.value ? parseFloat(e.target.value) : null;
-                            updatePoojaField('customGst', val);
-                          }}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            color: '#ffffff',
-                            outline: 'none',
-                            fontSize: '0.8rem',
-                            width: '70px'
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Delivery Override Settings */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
-                        <input
-                          type="checkbox"
-                          checked={editingPoojaProduct.deliveryOverrideEnabled || false}
-                          onChange={(e) => {
-                            updatePoojaField('deliveryOverrideEnabled', e.target.checked);
-                            if (!e.target.checked) {
-                              updatePoojaField('customDelivery', null);
-                            }
-                          }}
-                        />
-                        Custom Delivery
-                      </label>
-                      {editingPoojaProduct.deliveryOverrideEnabled && (
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="Delivery ₹"
-                          value={editingPoojaProduct.customDelivery !== undefined && editingPoojaProduct.customDelivery !== null ? editingPoojaProduct.customDelivery : ''}
-                          onChange={(e) => {
-                            const val = e.target.value ? parseFloat(e.target.value) : null;
-                            updatePoojaField('customDelivery', val);
-                          }}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            color: '#ffffff',
-                            outline: 'none',
-                            fontSize: '0.8rem',
-                            width: '85px'
-                          }}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main WYSIWYG Workspace Area */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '320px 1fr',
-                  gap: '24px',
-                  alignItems: 'start'
-                }} className="admin-workspace-grid">
-                  {/* Left Column: Product Card Frame */}
-                  <div style={{
-                    position: 'sticky',
-                    top: '220px',
-                    height: 'fit-content'
-                  }}>
-                    <div style={{
-                      backgroundColor: 'rgba(15, 23, 42, 0.05)',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: 'var(--radius-lg)',
-                      padding: '24px 16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Storefront Card View</span>
-                        <span style={{ fontSize: '0.72rem', backgroundColor: '#dbeafe', color: '#1e40af', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>Live Preview</span>
-                      </div>
-                      <ProductCard
-                        product={{
-                          id: editingPoojaProduct.id || 'preview-id',
-                          name: editingPoojaProduct.name || '',
-                          description: editingPoojaProduct.shortDescription || editingPoojaProduct.description || '',
-                          shortDescription: editingPoojaProduct.shortDescription || '',
-                          price: parseFloat((editingPoojaProduct.price || 0).toString()),
-                          originalPrice: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : undefined,
-                          rating: editingPoojaProduct.rating || 4.8,
-                          reviewsCount: editingPoojaProduct.reviewsCount || 1,
-                          image: editingPoojaProduct.image || '📿',
-                          category: editingPoojaProduct.category || 'Rudraksha',
-                          spiritualType: editingPoojaProduct.spiritualType || 'Rituals',
-                          inStock: editingPoojaProduct.inStock ?? true,
-                          popularity: 85,
-                          benefits: editingPoojaProduct.benefits || [],
-                          badges: editingPoojaProduct.badges || [],
-                          sanskritName: editingPoojaProduct.sanskritName || '',
-                        } as any}
-                        onAddToCart={() => {}}
-                        onViewDetails={() => {}}
-                        editable={false}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column: Product Detail Page Frame */}
-                  <div style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: 'var(--radius-lg)',
-                    boxShadow: 'var(--shadow-sm)',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)', padding: '12px 24px' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Pooja Detail Page Editor Workspace</span>
-                      <span style={{ fontSize: '0.72rem', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>Editable Visual Mode</span>
-                    </div>
-                    <div style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-                      <ProductDetailPage
-                        product={{
-                          id: editingPoojaProduct.id || 'preview-id',
-                          name: editingPoojaProduct.name || '',
-                          description: editingPoojaProduct.description || '',
-                          price: parseFloat((editingPoojaProduct.price || 0).toString()),
-                          originalPrice: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : undefined,
-                          rating: editingPoojaProduct.rating || 4.8,
-                          reviewsCount: editingPoojaProduct.reviewsCount || 1,
-                          image: editingPoojaProduct.image || '📿',
-                          category: editingPoojaProduct.category || 'Rudraksha',
-                          spiritualType: editingPoojaProduct.spiritualType || 'Rituals',
-                          inStock: editingPoojaProduct.inStock ?? true,
-                          popularity: 85,
-                          benefits: editingPoojaProduct.benefits || [],
-                          badges: editingPoojaProduct.badges || [],
-                          sanskritName: editingPoojaProduct.sanskritName || '',
-                          subtitle: editingPoojaProduct.subtitle || '',
-                          shortDescription: editingPoojaProduct.shortDescription || '',
-                          spiritualSignificance: editingPoojaProduct.spiritualSignificance !== undefined ? editingPoojaProduct.spiritualSignificance : null,
-                          bookingInstructions: editingPoojaProduct.bookingInstructions !== undefined ? editingPoojaProduct.bookingInstructions : null,
-                          duration: editingPoojaProduct.duration !== undefined ? editingPoojaProduct.duration : null,
-                          templeAssociation: editingPoojaProduct.templeAssociation !== undefined ? editingPoojaProduct.templeAssociation : null,
-                          whoShouldPerform: editingPoojaProduct.whoShouldPerform !== undefined ? editingPoojaProduct.whoShouldPerform : null,
-                          ritualsIncluded: editingPoojaProduct.ritualsIncluded !== undefined ? editingPoojaProduct.ritualsIncluded : null,
-                          samagriList: editingPoojaProduct.samagriList !== undefined ? editingPoojaProduct.samagriList : null,
-                          priestDetails: editingPoojaProduct.priestDetails,
-                          priestImage: editingPoojaProduct.priestImage !== undefined ? editingPoojaProduct.priestImage : null,
-                          certificates: editingPoojaProduct.certificates,
-                          faqs: editingPoojaProduct.faqs,
-                          galleryImages: editingPoojaProduct.galleryImages !== undefined ? editingPoojaProduct.galleryImages : null,
-                          videoUrl: editingPoojaProduct.videoUrl,
-                          material: editingPoojaProduct.material,
-                          weight: editingPoojaProduct.weight,
-                          dimensions: editingPoojaProduct.dimensions,
-                          origin: editingPoojaProduct.origin,
-                          customIcons: (editingPoojaProduct as any).customIcons || {},
-                          relatedProducts: editingPoojaProduct.relatedProducts || [],
-                          testimonials: editingPoojaProduct.testimonials || [],
-                          uiLabels: editingPoojaProduct.uiLabels || {},
-                          translations: editingPoojaProduct.translations || {}
-                        } as any}
-                        products={[...products, ...poojaProducts]}
-                        wishlist={{}}
-                        onAddToCart={() => {}}
-                        onViewDetails={() => {}}
-                        onToggleWishlist={() => {}}
-                        onBackToShop={() => {}}
-                        editable={true}
-                        onUpdate={(fields) => updatePoojaFields(fields)}
-                        cart={[]}
-                        onUpdateQuantity={() => {}}
-                        onFileSelect={async (file, prefix) => {
-                          return await addToMediaQueue(file, prefix, () => {});
-                        }}
-                        mediaQueue={mediaQueue}
-                        resolveMediaUrl={resolveMediaUrl}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: DEVOTIONAL COUPONS MANAGER
-            ======================================================= */}
-        {activeTab === 'coupons' && (
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            
-            {/* Header section with Stats */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                  Devotional Coupons Manager
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Generate and track coupon codes with user usage limits, per-user limits, and product scope restrictions.
-                </p>
-              </div>
-            </div>
-
-            {/* Stats Cards Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)' }}>
-                  <Ticket size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Coupons</span>
-                  <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{coupons.length}</h4>
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#fff7ed', color: '#f97316' }}>
-                  <ShoppingBag size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Redemptions</span>
-                  <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{redemptions.length}</h4>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '30px' }} className="hero-grid-split">
-              
-              {/* Form column: Generate coupon */}
+              {/* Bulk Apply Override settings Card */}
               <div style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid var(--border-light)',
                 borderRadius: 'var(--radius-lg)',
-                padding: '28px',
+                padding: '32px',
                 boxShadow: 'var(--shadow-md)',
-                height: 'fit-content',
                 position: 'relative',
                 overflow: 'hidden'
               }}>
@@ -9684,1043 +7659,2812 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   position: 'absolute',
                   top: 0, left: 0, right: 0,
                   height: '4px',
-                  background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)'
+                  background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)'
                 }} />
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Plus size={18} style={{ color: 'var(--primary-lime)' }} />
-                  Generate New Coupon
-                </h3>
-
-                <form onSubmit={handleCreateCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Coupon Code *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. SHIVA20"
-                      value={newCouponCode}
-                      onChange={(e) => setNewCouponCode(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
-                    />
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                  <div className="flex-center" style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#dbeafe',
+                    color: '#2563eb'
+                  }}>
+                    <Package size={24} />
                   </div>
-
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Discount Percentage *
-                    </label>
-                    <div style={{ position: 'relative' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                      Bulk Product Modifier Tools
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Quickly overwrite GST percentages or delivery charges for all products in the catalog at once.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                  {/* Bulk GST Apply */}
+                  <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override GST %</h4>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                       <input
                         type="number"
-                        required
-                        min={1}
-                        max={100}
-                        placeholder="e.g. 15"
-                        value={newDiscountPercent}
-                        onChange={(e) => setNewDiscountPercent(parseInt(e.target.value, 10) || 0)}
-                        style={{ width: '100%', padding: '10px 30px 10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                        min="0"
+                        max="100"
+                        placeholder="Enter GST % (e.g. 18)"
+                        id="bulk-gst-percent-input"
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          width: '180px',
+                          backgroundColor: '#ffffff',
+                          color: 'var(--text-dark)'
+                        }}
                       />
-                      <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>%</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const input = document.getElementById('bulk-gst-percent-input') as HTMLInputElement;
+                          if (!input || input.value === '') {
+                            alert('Please enter a percentage value first.');
+                            return;
+                          }
+                          const pct = parseFloat(input.value);
+                          if (isNaN(pct) || pct < 0 || pct > 100) {
+                            alert('Please enter a valid percentage between 0 and 100.');
+                            return;
+                          }
+                          if (confirm(`Are you sure you want to set custom GST override to ${pct}% for ALL pooja products? This will update all items in the database.`)) {
+                            try {
+                              const { error } = await getAdminSupabase()
+                                .from('website_pooja_products')
+                                .update({
+                                  gst_override_enabled: true,
+                                  custom_gst: pct
+                                })
+                                .neq('id', '00000000-0000-0000-0000-000000000000');
+
+                              if (error) throw error;
+                              triggerToast(`Successfully applied ${pct}% GST override to all products!`);
+                              loadPoojaProducts();
+                            } catch (err) {
+                              alert('Bulk update failed: ' + (err as Error).message);
+                            }
+                          }
+                        }}
+                        className="btn-lime"
+                        style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        Apply to All Products
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to REMOVE GST overrides for ALL pooja products? They will revert to inheriting the global GST settings.`)) {
+                            try {
+                              const { error } = await getAdminSupabase()
+                                .from('website_pooja_products')
+                                .update({
+                                  gst_override_enabled: false,
+                                  custom_gst: null
+                                })
+                                .neq('id', '00000000-0000-0000-0000-000000000000');
+
+                              if (error) throw error;
+                              triggerToast(`Successfully removed GST overrides from all products!`);
+                              loadPoojaProducts();
+                            } catch (err) {
+                              alert('Reset failed: ' + (err as Error).message);
+                            }
+                          }
+                        }}
+                        style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                      >
+                        Clear All Overrides
+                      </button>
                     </div>
                   </div>
 
+                  {/* Bulk Delivery Apply */}
+                  <div style={{ padding: '16px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', backgroundColor: '#f9fafb' }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-dark)' }}>Bulk Override Shipping Fee</h4>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Enter Delivery (e.g. 80)"
+                        id="bulk-delivery-charge-input"
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid var(--border-light)',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          width: '180px',
+                          backgroundColor: '#ffffff',
+                          color: 'var(--text-dark)'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const input = document.getElementById('bulk-delivery-charge-input') as HTMLInputElement;
+                          if (!input || input.value === '') {
+                            alert('Please enter a delivery charge value first.');
+                            return;
+                          }
+                          const cost = parseFloat(input.value);
+                          if (isNaN(cost) || cost < 0) {
+                            alert('Please enter a valid positive delivery charge.');
+                            return;
+                          }
+                          if (confirm(`Are you sure you want to set custom delivery override to ₹${cost} for ALL pooja products? This will update all items in the database.`)) {
+                            try {
+                              const { error } = await getAdminSupabase()
+                                .from('website_pooja_products')
+                                .update({
+                                  delivery_override_enabled: true,
+                                  custom_delivery: cost
+                                })
+                                .neq('id', '00000000-0000-0000-0000-000000000000');
+
+                              if (error) throw error;
+                              triggerToast(`Successfully applied ₹${cost} delivery override to all products!`);
+                              loadPoojaProducts();
+                            } catch (err) {
+                              alert('Bulk update failed: ' + (err as Error).message);
+                            }
+                          }
+                        }}
+                        className="btn-lime"
+                        style={{ padding: '10px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        Apply to All Products
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to REMOVE delivery overrides for ALL pooja products? They will revert to inheriting the global delivery settings.`)) {
+                            try {
+                              const { error } = await getAdminSupabase()
+                                .from('website_pooja_products')
+                                .update({
+                                  delivery_override_enabled: false,
+                                  custom_delivery: null
+                                })
+                                .neq('id', '00000000-0000-0000-0000-000000000000');
+
+                              if (error) throw error;
+                              triggerToast(`Successfully removed delivery overrides from all products!`);
+                              loadPoojaProducts();
+                            } catch (err) {
+                              alert('Reset failed: ' + (err as Error).message);
+                            }
+                          }
+                        }}
+                        style={{ padding: '10px 14px', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                      >
+                        Clear All Overrides
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Change Password Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #dc2626 0%, #ef4444 100%)'
+                }} />
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                  <div className="flex-center" style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#fee2e2',
+                    color: '#dc2626'
+                  }}>
+                    <Lock size={24} />
+                  </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Usage User Limit
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                      Change Administrator Password
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Rotate your administrator password. Requires a minimum of 16 characters.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const currentPassword = (form.elements.namedItem('currentPassword') as HTMLInputElement).value;
+                  const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
+                  const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
+
+                  if (newPassword !== confirmPassword) {
+                    alert('Error: New password and confirm password do not match.');
+                    return;
+                  }
+
+                  if (newPassword.length < 16) {
+                    alert('Error: New password must be at least 16 characters long.');
+                    return;
+                  }
+
+                  try {
+                    await callAdminApi('/api/admin/password', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ currentPassword, newPassword })
+                    });
+                    alert('Password updated successfully! You will be logged out. Please log in again.');
+                    if (onLogout) onLogout();
+                  } catch (err: any) {
+                    alert('Error changing password: ' + err.message);
+                  }
+                }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Current Password *
                     </label>
                     <input
-                      type="number"
-                      min={1}
-                      placeholder="Unlimited if empty (e.g. 100)"
-                      value={newUserLimit}
-                      onChange={(e) => setNewUserLimit(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                      type="password"
+                      name="currentPassword"
+                      required
+                      placeholder="Enter current administrative password..."
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        backgroundColor: '#f9fafb'
+                      }}
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                      Total number of people allowed to redeem this coupon.
-                    </span>
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Product Applicability
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      New Password *
                     </label>
-                    <select
-                      value={newProductId}
-                      onChange={(e) => setNewProductId(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb', cursor: 'pointer' }}
-                    >
-                      <option value="">All Products</option>
-                      {poojaProducts.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                      Restrict this coupon code to a specific Pooja product.
-                    </span>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      required
+                      placeholder="Enter new password (minimum 16 characters)..."
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        backgroundColor: '#f9fafb'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Confirm New Password *
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      required
+                      placeholder="Confirm new administrative password..."
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.88rem',
+                        backgroundColor: '#f9fafb'
+                      }}
+                    />
                   </div>
 
                   <button
                     type="submit"
                     className="btn-lime"
-                    disabled={isCreatingCoupon}
-                    style={{ width: '100%', padding: '12px', justifyContent: 'center', marginTop: '8px', fontSize: '0.88rem' }}
+                    style={{
+                      padding: '14px 28px',
+                      fontSize: '0.9rem',
+                      justifyContent: 'center',
+                      borderRadius: 'var(--radius-md)',
+                      width: '100%',
+                      marginTop: '8px',
+                      cursor: 'pointer',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff'
+                    }}
                   >
-                    {isCreatingCoupon ? 'Creating...' : 'Create Coupon Code'}
+                    Update Admin Password
                   </button>
                 </form>
               </div>
 
-              {/* Lists column: Active coupons & redemptions logs */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                
-                {/* Active Coupons List */}
-                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Ticket size={16} style={{ color: 'var(--primary-lime)' }} />
-                    Active Coupon Codes ({coupons.length})
-                  </h3>
-
-                  {isLoadingCoupons ? (
-                    <div style={{ textAlign: 'center', padding: '30px 0' }}>
-                      <div style={{ width: '24px', height: '24px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Retrieving active coupons...</p>
-                    </div>
-                  ) : coupons.length === 0 ? (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No active coupons. Generate one using the form on the left.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Code</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Discount</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Applicability</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Usage Status</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {coupons.map((coupon) => (
-                            <tr key={coupon.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '10px 14px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>{coupon.code}</td>
-                              <td style={{ padding: '10px 14px', fontWeight: 700 }}>{coupon.discount_percent}% off</td>
-                              <td style={{ padding: '10px 14px', color: coupon.product ? 'var(--text-dark)' : 'var(--text-muted)' }}>
-                                {coupon.product ? `Only: ${coupon.product.name}` : 'All Products'}
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <span style={{
-                                  padding: '2px 8px',
-                                  borderRadius: '10px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 700,
-                                  backgroundColor: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#fee2e2' : '#f0fdf4',
-                                  color: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#991b1b' : '#166534'
-                                }}>
-                                  {coupon.redemptions_count} / {coupon.user_limit === null ? 'Unlimited' : coupon.user_limit}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                                <button
-                                  onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
-                                  style={{ color: 'var(--text-muted)', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', padding: '4px' }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Coupon Redemptions Logs */}
-                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShoppingBag size={16} style={{ color: 'var(--primary-lime)' }} />
-                    Coupon Redemption Logs ({redemptions.length})
-                  </h3>
-
-                  {redemptions.length === 0 ? (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No coupon redemptions recorded yet.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Name</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Contacts</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Coupon Used</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order ID</th>
-                            <th style={{ padding: '10px 14px', fontWeight: 700 }}>Date Redeemed</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {redemptions.map((log) => (
-                            <tr key={log.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-dark)' }}>{log.user?.full_name || 'N/A'}</td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <p style={{ margin: 0, fontWeight: 500 }}>{log.user?.email || 'N/A'}</p>
-                                <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.user?.phone_number || 'N/A'}</p>
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <span style={{ fontWeight: 'bold', color: 'var(--primary-forest)' }}>{log.coupon?.code || 'DELETED'}</span>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>({log.coupon?.discount_percent || 0}% discount)</span>
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>#{log.order_id}</td>
-                              <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
-                                {new Date(log.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
             </div>
+          )}
 
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: AFFILIATE PARTNERSHIPS
+          {/* =======================================================
+            TAB: DYNAMIC UPI QR SETTINGS
             ======================================================= */}
-        {activeTab === 'affiliates' && (
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            
-            {/* Header section */}
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                Affiliate Partnerships Directory & Settings
-              </h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                View devotee affiliate codes, monitor active/suspended statuses, configure commission tier levels, and review payout/withdrawal queues.
-              </p>
-            </div>
-
-            {/* Sub-tab Navigation */}
-            <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setAffiliateSubTab('directory')}
-                style={{
-                  background: affiliateSubTab === 'directory' ? 'var(--primary-lime-light)' : 'transparent',
-                  border: affiliateSubTab === 'directory' ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                  color: affiliateSubTab === 'directory' ? 'var(--primary-lime)' : 'var(--text-muted)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                👥 Partnerships Directory
-              </button>
-              <button
-                onClick={() => setAffiliateSubTab('tiers')}
-                style={{
-                  background: affiliateSubTab === 'tiers' ? 'var(--primary-lime-light)' : 'transparent',
-                  border: affiliateSubTab === 'tiers' ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                  color: affiliateSubTab === 'tiers' ? 'var(--primary-lime)' : 'var(--text-muted)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                ⚙️ Tiers & Settings
-              </button>
-              <button
-                onClick={() => setAffiliateSubTab('withdrawals')}
-                style={{
-                  background: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime-light)' : 'transparent',
-                  border: affiliateSubTab === 'withdrawals' ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                  color: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime)' : 'var(--text-muted)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                💸 Payouts Queue ({withdrawals.filter(w => w.status === 'pending').length} Pending)
-              </button>
-              <button
-                onClick={() => setAffiliateSubTab('pundits')}
-                style={{
-                  background: affiliateSubTab === 'pundits' ? 'var(--primary-lime-light)' : 'transparent',
-                  border: affiliateSubTab === 'pundits' ? '1px solid var(--primary-lime)' : '1px solid transparent',
-                  color: affiliateSubTab === 'pundits' ? 'var(--primary-lime)' : 'var(--text-muted)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                🕉️ Pandit Manager
-              </button>
-            </div>
-
-            {/* SUBTAB CONTENT: DIRECTORY */}
-            {affiliateSubTab === 'directory' && (
+          {activeTab === 'upi_settings' && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: '30px',
+              alignItems: 'start',
+              maxWidth: '1200px',
+              margin: '0 auto',
+              textAlign: 'left'
+            }}>
               <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-sm)'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '30px'
               }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <User size={16} style={{ color: 'var(--primary-lime)' }} />
-                  Enrolled Affiliate Partners ({affiliates.length})
-                </h3>
-
-                {isLoadingAffiliates ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                    <div style={{ width: '28px', height: '28px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Loading affiliates directory...</p>
-                  </div>
-                ) : affiliates.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                    <span style={{ fontSize: '2.5rem' }}>👥</span>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '12px' }}>No devotee affiliates enrolled yet.</p>
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email & Phone</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Referral Code</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Joined</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {affiliates.map((aff) => (
-                          <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                            <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>{aff.full_name}</td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <p style={{ margin: 0, fontWeight: 500 }}>{aff.email}</p>
-                              <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{aff.phone_number || 'N/A'}</p>
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <code style={{
-                                backgroundColor: 'var(--primary-lime-light)',
-                                color: 'var(--primary-lime)',
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontWeight: 700,
-                                fontFamily: 'monospace'
-                              }}>{aff.affiliate_code}</code>
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <span style={{
-                                padding: '3px 10px',
-                                borderRadius: 'var(--radius-full)',
-                                fontSize: '0.72rem',
-                                fontWeight: 800,
-                                backgroundColor: 
-                                  aff.affiliate_status === 'active' ? '#dcfce7' : 
-                                  aff.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
-                                color: 
-                                  aff.affiliate_status === 'active' ? '#15803d' : 
-                                  aff.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
-                                border: '1px solid ' + (
-                                  aff.affiliate_status === 'active' ? '#bbf7d0' : 
-                                  aff.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
-                                )
-                              }}>
-                                {aff.affiliate_status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                              {aff.affiliate_joined_at ? new Date(aff.affiliate_joined_at).toLocaleDateString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              }) : 'N/A'}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                              <select
-                                value={aff.affiliate_status}
-                                onChange={(e) => handleUpdateAffiliateStatus(aff.id, e.target.value)}
-                                disabled={isUpdatingAffiliateStatus === aff.id}
-                                style={{
-                                  border: '1px solid var(--border-light)',
-                                  padding: '6px 12px',
-                                  borderRadius: 'var(--radius-sm)',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  backgroundColor: 
-                                    aff.affiliate_status === 'active' ? '#dcfce7' : 
-                                    aff.affiliate_status === 'pending' ? '#fef3c7' :
-                                    aff.affiliate_status === 'suspended' ? '#fee2e2' : '#f3f4f6',
-                                  color: 
-                                    aff.affiliate_status === 'active' ? '#15803d' : 
-                                    aff.affiliate_status === 'pending' ? '#b45309' :
-                                    aff.affiliate_status === 'suspended' ? '#dc2626' : '#4b5563'
-                                }}
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="active">Active</option>
-                                <option value="suspended">Suspended</option>
-                                <option value="inactive">Inactive</option>
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SUBTAB CONTENT: TIERS & SETTINGS */}
-            {affiliateSubTab === 'tiers' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }} className="hero-grid-split">
-                {/* Left: Tiers List */}
+                {/* Left Column: Configurations */}
                 <div style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid var(--border-light)',
                   borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
-                  boxShadow: 'var(--shadow-sm)'
+                  padding: '32px',
+                  boxShadow: 'var(--shadow-md)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Layers size={16} style={{ color: 'var(--primary-lime)' }} />
-                      Affiliate Commission Levels / Tiers
-                    </h3>
-                    <button
-                      onClick={() => setEditingLevel({ level_number: '', commission_percentage: '', enabled: true })}
-                      style={{
-                        backgroundColor: 'var(--primary-lime)',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '6px 12px',
-                        borderRadius: 'var(--radius-sm)',
-                        fontWeight: 700,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Plus size={14} /> Add Tier
-                    </button>
+                  {/* Top Accent line */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0,
+                    height: '4px',
+                    background: 'linear-gradient(90deg, #10b981 0%, var(--primary-lime) 100%)'
+                  }} />
+
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <div className="flex-center" style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--primary-lime-light)',
+                      color: 'var(--primary-lime)'
+                    }}>
+                      <QrCode size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
+                        Dynamic UPI Payment Gateway
+                      </h3>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Configure the shop's UPI address to dynamically generate payment barcodes for checkout.
+                      </p>
+                    </div>
                   </div>
 
-                  {isLoadingLevels ? (
-                    <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
-                      Loading tier rates...
+                  {/* Information Callout */}
+                  <div style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px',
+                    display: 'flex',
+                    gap: '12px'
+                  }}>
+                    <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>✨</span>
+                    <div>
+                      <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+                        Dynamic UPI Integration
+                      </h4>
+                      <p style={{ fontSize: '0.78rem', color: '#065f46', marginTop: '4px', lineHeight: '1.4' }}>
+                        Instead of a static image, the system generates an interactive UPI deep-link encoded into a QR code. When scanned, it automatically pre-fills the exact cart amount and order number in apps like GPay, PhonePe, and Paytm.
+                      </p>
                     </div>
-                  ) : affiliateLevels.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '35px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                      No tiers defined yet. Add a level to start.
+                  </div>
+
+                  {isLoadingSettings ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                      <div className="spinner" style={{
+                        width: '32px',
+                        height: '32px',
+                        border: '3px solid var(--border-light)',
+                        borderTopColor: 'var(--primary-lime)',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 16px'
+                      }} />
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Settings...</p>
                     </div>
                   ) : (
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Tier / Level</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Commission Percentage (%)</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {affiliateLevels.map((lvl) => (
-                            <tr key={lvl.level_number} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>{getLevelName(lvl.level_number)}</td>
-                              <td style={{ padding: '12px 16px', color: 'var(--primary-lime)', fontWeight: 800 }}>{lvl.commission_percentage}%</td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <span style={{
-                                  padding: '2px 8px',
-                                  borderRadius: 'var(--radius-full)',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 800,
-                                  backgroundColor: lvl.enabled ? '#dcfce7' : '#fee2e2',
-                                  color: lvl.enabled ? '#15803d' : '#991b1b',
-                                  border: '1px solid ' + (lvl.enabled ? '#bbf7d0' : '#fecaca')
-                                }}>
-                                  {lvl.enabled ? 'ENABLED' : 'DISABLED'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px 16px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button
-                                  onClick={() => setEditingLevel({ level_number: lvl.level_number, commission_percentage: lvl.commission_percentage, enabled: lvl.enabled })}
-                                  style={{
-                                    border: '1px solid var(--border-light)',
-                                    background: '#ffffff',
-                                    color: 'var(--text-dark)',
-                                    padding: '4px 8px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteLevel(lvl.level_number)}
-                                  disabled={isDeletingLevel === lvl.level_number}
-                                  style={{
-                                    border: 'none',
-                                    backgroundColor: '#fee2e2',
-                                    color: '#991b1b',
-                                    padding: '4px 8px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  {isDeletingLevel === lvl.level_number ? 'Deleting...' : 'Delete'}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Level Add/Edit Inline Form panel */}
-                  {editingLevel && (
-                    <div style={{
-                      backgroundColor: '#f9fafb',
-                      border: '1px solid var(--border-light)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '20px',
-                      marginTop: '20px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
-                          {affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? `Edit Rate for ${getLevelName(editingLevel.level_number)}` : 'Add New Tier Rate'}
-                        </h4>
-                        <button
-                          onClick={() => setEditingLevel(null)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <form onSubmit={handleSaveLevel} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Level Number (1=Affiliate, 2=Distributor, 3=Super Dist.)</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="20"
-                            required
-                            disabled={affiliateLevels.some(l => l.level_number === editingLevel.level_number)}
-                            value={editingLevel.level_number}
-                            onChange={(e) => setEditingLevel({ ...editingLevel, level_number: e.target.value })}
-                            style={{
-                              border: '1px solid var(--border-light)',
-                              padding: '8px 12px',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.8rem',
-                              width: '100px',
-                              outline: 'none',
-                              backgroundColor: affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? '#e5e7eb' : '#ffffff'
-                            }}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Commission Rate (%)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            required
-                            value={editingLevel.commission_percentage}
-                            onChange={(e) => setEditingLevel({ ...editingLevel, commission_percentage: e.target.value })}
-                            style={{
-                              border: '1px solid var(--border-light)',
-                              padding: '8px 12px',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.8rem',
-                              width: '150px',
-                              outline: 'none'
-                            }}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '36px' }}>
-                          <input
-                            type="checkbox"
-                            id="levelEnabled"
-                            checked={editingLevel.enabled}
-                            onChange={(e) => setEditingLevel({ ...editingLevel, enabled: e.target.checked })}
-                          />
-                          <label htmlFor="levelEnabled" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', cursor: 'pointer' }}>Enabled</label>
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={isSavingLevel}
+                    <form onSubmit={handleSaveBarcodeSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* UPI ID VPA Input */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Receiver UPI ID (VPA) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. name@upi or 7974478098@paytm"
+                          value={adminUpiId}
+                          onChange={(e) => setAdminUpiId(e.target.value)}
                           style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1.5px solid var(--border-light)',
+                            outline: 'none',
+                            fontSize: '0.88rem',
+                            transition: 'border-color 0.15s',
+                            backgroundColor: '#f9fafb'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = 'var(--primary-lime)'}
+                          onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
+                        />
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                          Your UPI Virtual Payment Address (e.g. UPI ID from PhonePe, Google Pay, or Paytm) where customer payments will go.
+                        </span>
+                      </div>
+
+                      <div style={{ borderTop: '1px dashed var(--border-light)', margin: '10px 0' }} />
+
+                      <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>
+                        Live Preview Simulator controls
+                      </h4>
+
+                      {/* Simulator Inputs */}
+                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '140px' }}>
+                          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
+                            Simulated Cart Total (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={previewAmount}
+                            onChange={(e) => setPreviewAmount(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 14px',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid var(--border-light)',
+                              outline: 'none',
+                              fontSize: '0.85rem',
+                              backgroundColor: '#ffffff'
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: '140px' }}>
+                          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-muted)' }}>
+                            Simulated Order ID
+                          </label>
+                          <input
+                            type="text"
+                            value={previewOrderId}
+                            onChange={(e) => setPreviewOrderId(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 14px',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid var(--border-light)',
+                              outline: 'none',
+                              fontSize: '0.85rem',
+                              backgroundColor: '#ffffff'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSavingBarcode}
+                        className="btn-lime"
+                        style={{
+                          padding: '14px 28px',
+                          fontSize: '0.9rem',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--radius-md)',
+                          width: '100%',
+                          marginTop: '12px',
+                          cursor: isSavingBarcode ? 'not-allowed' : 'pointer',
+                          opacity: isSavingBarcode ? 0.75 : 1
+                        }}
+                      >
+                        {isSavingBarcode ? 'Saving UPI Configurations...' : 'Save UPI Configurations'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Right Column: Customer Checkout Preview Mockup */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Live Customer Checkout Screen Preview
+                  </span>
+
+                  {/* Mobile Device Container wrapper */}
+                  <div style={{
+                    width: '340px',
+                    height: '640px',
+                    border: '12px solid #1e293b',
+                    borderRadius: '36px',
+                    backgroundColor: '#ffffff',
+                    boxShadow: 'var(--shadow-xl)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    {/* Status Bar */}
+                    <div style={{
+                      height: '24px',
+                      backgroundColor: '#1e293b',
+                      padding: '0 20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: 700
+                    }}>
+                      <span>10:30 AM</span>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <span>📶</span>
+                        <span>🔋</span>
+                      </div>
+                    </div>
+
+                    {/* Speaker Notch */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '24px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '110px',
+                      height: '14px',
+                      backgroundColor: '#1e293b',
+                      borderRadius: '0 0 10px 10px',
+                      zIndex: 10
+                    }} />
+
+                    {/* App Screen Content */}
+                    <div style={{
+                      flexGrow: 1,
+                      padding: '24px 16px 16px',
+                      backgroundColor: '#f9fafb',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '14px',
+                      textAlign: 'left'
+                    }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>🕉️</span>
+                        <div>
+                          <h4 style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-dark)', margin: 0 }}>
+                            Mantra Puja Shop
+                          </h4>
+                          <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Secure Checkout</span>
+                        </div>
+                      </div>
+
+                      <div style={{ borderTop: '1px solid #e5e7eb' }} />
+
+                      {/* Step Title */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Lock size={12} style={{ color: 'var(--primary-lime)' }} />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 900, color: '#1f2937' }}>
+                          Direct Payment Details (UPI)
+                        </span>
+                      </div>
+
+                      {/* Amount Card */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--primary-lime-light)',
+                        border: '1px solid var(--primary-lime)',
+                        textAlign: 'center'
+                      }}>
+                        <span style={{ fontSize: '0.62rem', color: '#4b5563', fontWeight: 650 }}>Amount to Pay</span>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                          ₹{parseFloat(previewAmount || '0').toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* QR Code container */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        backgroundColor: '#ffffff',
+                        padding: '16px 12px',
+                        borderRadius: '12px',
+                        border: '1px solid #e5e7eb',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                      }}>
+                        {adminUpiId.trim() && adminUpiId.includes('@') ? (
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=Mantra%20Puja&am=${parseFloat(previewAmount || '0').toFixed(2)}&cu=INR&tn=Order%20${previewOrderId}`)}`}
+                            alt="Dynamic QR Code"
+                            style={{
+                              width: '130px',
+                              height: '130px',
+                              objectFit: 'contain',
+                              borderRadius: '4px',
+                              border: '1px solid #f3f4f6',
+                              padding: '4px',
+                              marginBottom: '10px'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ width: '130px', height: '130px', backgroundColor: '#fee2e2', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '0.68rem', color: '#ef4444', textAlign: 'center', fontWeight: 800, padding: '10px' }}>Invalid UPI VPA Configured</span>
+                          </div>
+                        )}
+
+                        <span style={{
+                          fontSize: '0.58rem',
+                          fontWeight: 800,
+                          color: 'var(--primary-lime)',
+                          backgroundColor: 'var(--primary-lime-light)',
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          marginBottom: '8px'
+                        }}>
+                          Scan to Pay
+                        </span>
+
+                        {/* VPA Display & copy */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          backgroundColor: '#f9fafb',
+                          padding: '5px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #e5e7eb',
+                          width: '100%',
+                          justifyContent: 'space-between'
+                        }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.5rem', color: '#9ca3af', fontWeight: 700 }}>UPI ID</span>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                              {adminUpiId}
+                            </span>
+                          </div>
+                          <button type="button" style={{
                             backgroundColor: 'var(--primary-lime)',
                             color: '#ffffff',
                             border: 'none',
-                            padding: '9px 18px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontWeight: 700,
-                            fontSize: '0.8rem',
+                            padding: '4px 6px',
+                            borderRadius: '3px',
+                            fontSize: '0.55rem',
+                            fontWeight: 800,
                             cursor: 'pointer'
-                          }}
-                        >
-                          {isSavingLevel ? 'Saving...' : 'Save Tier'}
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right: Global Settings Panel */}
-                <div style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
-                  boxShadow: 'var(--shadow-sm)',
-                  height: 'fit-content'
-                }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Settings size={16} style={{ color: 'var(--primary-lime)' }} />
-                    Global Settings
-                  </h3>
-
-                  {isLoadingAffiliateSettings ? (
-                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      Loading settings...
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Program Status</label>
-                        <select
-                          value={affiliateSettings.affiliate_enabled ? 'true' : 'false'}
-                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_enabled: e.target.value === 'true' })}
-                          style={{
-                            border: '1px solid var(--border-light)',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none',
-                            fontWeight: 600
-                          }}
-                        >
-                          <option value="true">🟢 Active & Enabled</option>
-                          <option value="false">🔴 Suspended & Disabled</option>
-                        </select>
+                          }}>
+                            Copy
+                          </button>
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Max Search/Payout Depth</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={affiliateSettings.affiliate_max_depth || 5}
-                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_max_depth: e.target.value })}
-                          style={{
-                            border: '1px solid var(--border-light)',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none'
-                          }}
-                        />
+                      {/* Screenshot uploader container */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#374151' }}>
+                          Upload Screenshot proof *
+                        </span>
+                        <div style={{
+                          border: '1.5px dashed #d1d5db',
+                          borderRadius: '6px',
+                          padding: '12px',
+                          textAlign: 'center',
+                          backgroundColor: '#fafafa',
+                          fontSize: '0.62rem',
+                          color: '#6b7280'
+                        }}>
+                          📁 Select image proof
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Minimum Withdrawal Limit (₹)</label>
-                        <select
-                          value={affiliateSettings.affiliate_min_withdrawal || '1000'}
-                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_min_withdrawal: e.target.value })}
-                          style={{
-                            border: '1px solid var(--border-light)',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none',
-                            fontWeight: 600
-                          }}
-                        >
-                          <option value="100">₹100.00</option>
-                          <option value="500">₹500.00</option>
-                          <option value="1000">₹1,000.00</option>
-                          <option value="2000">₹2,000.00</option>
-                          <option value="5000">₹5,000.00</option>
-                        </select>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Attribution Rule</label>
-                        <select
-                          value={affiliateSettings.affiliate_commission_model || 'last_touch'}
-                          onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_commission_model: e.target.value })}
-                          style={{
-                            border: '1px solid var(--border-light)',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none'
-                          }}
-                        >
-                          <option value="last_touch">Last Touch (Recommended)</option>
-                          <option value="first_touch">First Touch</option>
-                        </select>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isSavingAffiliateSettings}
-                        style={{
-                          backgroundColor: 'var(--primary-lime)',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '10px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontWeight: 700,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          marginTop: '8px'
-                        }}
-                      >
-                        {isSavingAffiliateSettings ? 'Saving...' : 'Save Configuration'}
+                      {/* Place Order button */}
+                      <button type="button" style={{
+                        backgroundColor: 'var(--primary-lime)',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        marginTop: 'auto'
+                      }}>
+                        Submit Order Verification
                       </button>
-                    </form>
-                  )}
+                    </div>
+                  </div>
+
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '340px' }}>
+                    This mobile screen is a simulated representation of what the customer sees when checking out on their device.
+                  </span>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* SUBTAB CONTENT: WITHDRAWAL PAYOUTS QUEUE */}
-            {affiliateSubTab === 'withdrawals' && (
+          {/* =======================================================
+            TAB: CATEGORIES CUSTOM SEQUENCER (Category Manager)
+            ======================================================= */}
+          {activeTab === 'categories_editor' && (
+            <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Header Card */}
               <div style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid var(--border-light)',
                 borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-sm)'
+                padding: '24px 28px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '20px',
+                position: 'relative',
+                overflow: 'hidden'
               }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <DollarSign size={16} style={{ color: 'var(--primary-lime)' }} />
-                  Withdrawals Review Queue
-                </h3>
-
-                {isLoadingWithdrawals ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                    Loading withdrawal requests...
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                    🗂️
                   </div>
-                ) : withdrawals.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                    No withdrawal requests have been submitted.
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Category Manager</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Add, edit, delete, hide/unhide, and rearrange the display sequence of product categories.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingCategoriesOrder}
+                  onClick={handleSaveCategoriesOrder}
+                  className="btn-lime"
+                  style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+                >
+                  {isSavingCategoriesOrder ? 'Saving...' : '💾 Save Sequence'}
+                </button>
+              </div>
+
+              {/* Add Category Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px 32px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>➕ Add New Category</h4>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. Incense Sticks, Copper Pots..."
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      outline: 'none',
+                      fontSize: '0.88rem'
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddCategory();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCategory}
+                    className="btn-lime"
+                    style={{
+                      padding: '10px 20px',
+                      fontSize: '0.88rem',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Plus size={16} /> Add Category
+                  </button>
+                </div>
+              </div>
+
+              {/* Sorter List Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
+              }}>
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Manage Category List & Sequence</h4>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Toggle category visibility (hidden categories won't show in the devotee shop), rename, delete, or change order.
+                  </p>
+                </div>
+
+                {/* Scrollable list of categories */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {sortedCategoriesList.map((category, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === sortedCategoriesList.length - 1;
+                    const categoryInfo = safeCategoriesList.find(c => c.name === category);
+                    const isHidden = categoryInfo ? categoryInfo.hidden : false;
+                    const isAll = category === 'all';
+                    const displayName = isAll ? '✨ All Items' : category;
+
+                    return (
+                      <div
+                        key={category}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 20px',
+                          backgroundColor: isHidden ? '#f3f4f6' : '#f9fafb',
+                          border: '1.5px solid var(--border-light)',
+                          borderRadius: 'var(--radius-md)',
+                          opacity: isHidden ? 0.75 : 1,
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                          <span style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: isHidden ? 'var(--text-muted)' : 'var(--primary-forest)',
+                            color: '#ffffff',
+                            fontSize: '0.8rem',
+                            fontWeight: 700
+                          }}>
+                            {index + 1}
+                          </span>
+
+                          {editingCategoryName === category ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '300px' }}>
+                              <input
+                                type="text"
+                                value={editingCategoryValue}
+                                onChange={(e) => setEditingCategoryValue(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 10px',
+                                  fontSize: '0.88rem',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1.5px solid var(--primary-lime)',
+                                  outline: 'none'
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleRenameCategory(category, editingCategoryValue);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingCategoryName(null);
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRenameCategory(category, editingCategoryValue)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '30px',
+                                  height: '30px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: 'none',
+                                  backgroundColor: 'var(--primary-lime)',
+                                  color: '#ffffff',
+                                  cursor: 'pointer'
+                                }}
+                                title="Save Name"
+                              >
+                                <Save size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCategoryName(null)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '30px',
+                                  height: '30px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: '#ffffff',
+                                  color: 'var(--text-dark)',
+                                  cursor: 'pointer'
+                                }}
+                                title="Cancel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                fontSize: '0.92rem',
+                                fontWeight: 700,
+                                color: isHidden ? 'var(--text-muted)' : 'var(--text-dark)',
+                                textDecoration: isHidden ? 'line-through' : 'none'
+                              }}>
+                                {displayName}
+                              </span>
+                              {isHidden && (
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  padding: '2px 8px',
+                                  borderRadius: 'var(--radius-full)',
+                                  backgroundColor: '#e5e7eb',
+                                  color: '#4b5563',
+                                  fontWeight: 700
+                                }}>
+                                  Hidden
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          {/* Edit, Delete, Hide Actions */}
+                          {!isAll && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {/* Hide/Unhide Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleHideCategory(category)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: isHidden ? '#e5e7eb' : '#ffffff',
+                                  color: isHidden ? '#4b5563' : 'var(--primary-forest)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title={isHidden ? 'Unhide (Show in Store)' : 'Hide (Hide from Store)'}
+                              >
+                                {isHidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+
+                              {/* Rename Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCategoryName(category);
+                                  setEditingCategoryValue(category);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: '#ffffff',
+                                  color: 'var(--text-dark)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Rename Category"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(category)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  backgroundColor: '#fef2f2',
+                                  color: '#dc2626',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Delete Category"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Position input selector */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pos:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              max={sortedCategoriesList.length}
+                              value={index + 1}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!isNaN(val)) {
+                                  moveCategoryToPosition(index, val);
+                                }
+                              }}
+                              style={{
+                                width: '54px',
+                                padding: '6px 8px',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1.5px solid var(--border-light)',
+                                outline: 'none',
+                                backgroundColor: '#ffffff'
+                              }}
+                            />
+                          </div>
+
+                          {/* Arrow Shift Controls */}
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => moveCategoryUp(index)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
+                                color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
+                                cursor: isFirst ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <ArrowUp size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => moveCategoryDown(index)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
+                                color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
+                                cursor: isLast ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <ArrowDown size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bottom Actions Row */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    disabled={isSavingCategoriesOrder}
+                    onClick={handleSaveCategoriesOrder}
+                    className="btn-lime"
+                    style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingCategoriesOrder ? 'not-allowed' : 'pointer' }}
+                  >
+                    {isSavingCategoriesOrder ? 'Saving sequence...' : '💾 Save Category Sequence'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: PRODUCTS CARD SEQUENCER
+            ======================================================= */}
+          {activeTab === 'products_sorter' && (
+            <div style={{ textAlign: 'left', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Header Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px 28px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '20px',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                    📦
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-dark)' }}>Products Card Sorter</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Select a category and arrange how product cards are numbered/ordered on the shop storefront.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingProductsOrder || sortedProductsList.length === 0}
+                  onClick={handleSaveProductsOrder}
+                  className="btn-lime"
+                  style={{ padding: '12px 28px', fontSize: '0.88rem', borderRadius: 'var(--radius-md)', minWidth: '160px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+                >
+                  {isSavingProductsOrder ? 'Saving...' : '💾 Save Sequence'}
+                </button>
+              </div>
+
+              {/* Sorter Body Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px',
+                boxShadow: 'var(--shadow-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
+              }}>
+                {/* Category Pills Scroll Bar */}
+                <div style={{
+                  display: 'flex',
+                  overflowX: 'auto',
+                  gap: '8px',
+                  padding: '4px 0',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  borderBottom: '1px solid var(--border-light)',
+                  paddingBottom: '20px'
+                }} className="shop-categories-scroll">
+                  {sorterCategories.map((cat) => {
+                    const isActive = selectedSorterCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedSorterCategory(cat)}
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: 'var(--radius-full)',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.15s ease',
+                          border: '1.5px solid var(--border-light)',
+                          backgroundColor: isActive ? 'var(--primary-forest)' : '#ffffff',
+                          color: isActive ? '#ffffff' : 'var(--text-muted)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {cat === 'all' ? '✨ All Items' : cat}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Sorter Description */}
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dark)' }}>Drag & Drop or Swap Products</h4>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Drag cards by holding them, or use the position inputs / arrow buttons to arrange their display order.
+                  </p>
+                </div>
+
+                {/* Scrollable grid of products */}
+                {sortedProductsList.length === 0 ? (
+                  <div style={{
+                    padding: '48px',
+                    textAlign: 'center',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1.5px dashed var(--border-light)'
+                  }}>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No products found in this category.</p>
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Details</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Requested Amount</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Payment Method</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Info / Details</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Requested</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {withdrawals.map((w) => (
-                          <tr key={w.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                            <td style={{ padding: '12px 16px' }}>
-                              <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--text-dark)' }}>{w.devotee_name || 'N/A'}</p>
-                              <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{w.devotee_phone || w.devotee_email || 'N/A'}</p>
-                            </td>
-                            <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: '0.88rem', color: 'var(--primary-lime)' }}>
-                              ₹{parseFloat(w.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td style={{ padding: '12px 16px', fontWeight: 700 }}>
-                              <span style={{ textTransform: 'uppercase', backgroundColor: '#eef2f6', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem' }}>
-                                {w.payment_method}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 16px', maxWidth: '250px', whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                              {w.payment_method === 'upi' ? (
-                                <div>
-                                  <p style={{ margin: 0 }}><strong>UPI ID:</strong> {w.payment_details?.upi_id}</p>
-                                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Name: {w.payment_details?.account_holder_name}</p>
-                                </div>
-                              ) : (
-                                <div>
-                                  <p style={{ margin: 0 }}><strong>Bank:</strong> {w.payment_details?.bank_name}</p>
-                                  <p style={{ margin: '2px 0 0 0' }}><strong>A/C:</strong> {w.payment_details?.account_number}</p>
-                                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Holder: {w.payment_details?.account_name} | IFSC: {w.payment_details?.ifsc_code}</p>
-                                </div>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <span style={{
-                                padding: '3px 10px',
-                                borderRadius: 'var(--radius-full)',
-                                fontSize: '0.72rem',
-                                fontWeight: 800,
-                                backgroundColor:
-                                  w.status === 'paid' ? '#dcfce7' :
-                                  w.status === 'approved' ? '#dbeafe' :
-                                  w.status === 'rejected' ? '#fee2e2' : '#fef3c7',
-                                color:
-                                  w.status === 'paid' ? '#15803d' :
-                                  w.status === 'approved' ? '#1d4ed8' :
-                                  w.status === 'rejected' ? '#991b1b' : '#b45309',
-                                border: '1px solid ' + (
-                                  w.status === 'paid' ? '#bbf7d0' :
-                                  w.status === 'approved' ? '#bfdbfe' :
-                                  w.status === 'rejected' ? '#fecaca' : '#fde68a'
-                                )
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: '24px',
+                    marginTop: '16px'
+                  }} className="shop-product-grid">
+                    {sortedProductsList.map((product, index) => {
+                      const isFirst = index === 0;
+                      const isLast = index === sortedProductsList.length - 1;
+                      const hasImage = isImageUrl(product.image);
+                      const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+
+                      return (
+                        <div
+                          key={product.id}
+                          draggable
+                          onDragStart={(e) => handleProductDragStart(e, index)}
+                          onDragOver={handleProductDragOver}
+                          onDrop={(e) => handleProductDrop(e, index)}
+                          style={{
+                            borderRadius: '16px',
+                            border: draggedProductIndex === index ? '2px dashed var(--primary-lime)' : '1px solid var(--border-light)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: 'relative',
+                            backgroundColor: draggedProductIndex === index ? '#f3f4f6' : '#ffffff',
+                            boxShadow: 'var(--shadow-sm)',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            padding: '12px',
+                            gap: '12px',
+                            cursor: 'grab',
+                            opacity: draggedProductIndex === index ? 0.6 : 1,
+                            overflow: 'visible'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (draggedProductIndex !== index) {
+                              e.currentTarget.style.transform = 'translateY(-6px)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                              e.currentTarget.style.borderColor = 'var(--primary-lime)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (draggedProductIndex !== index) {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                              e.currentTarget.style.borderColor = 'var(--border-light)';
+                            }
+                          }}
+                        >
+                          {/* Rank Badge */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            left: '-8px',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--primary-forest)',
+                            color: '#ffffff',
+                            fontSize: '0.85rem',
+                            fontWeight: 900,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '2px solid #ffffff',
+                            boxShadow: 'var(--shadow-sm)',
+                            zIndex: 20
+                          }}>
+                            {index + 1}
+                          </div>
+
+                          {/* Image Box */}
+                          <div
+                            style={{
+                              width: '100%',
+                              aspectRatio: '1 / 1',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#f9fafb',
+                              border: '1px solid var(--border-light)'
+                            }}
+                          >
+                            {hasImage ? (
+                              <img
+                                src={getDisplayImageUrl(product.image)}
+                                alt={product.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <span style={{ fontSize: '3.5rem' }}>{product.image}</span>
+                            )}
+
+                            {/* Ribbon Badge */}
+                            {discount > 0 && product.inStock && (
+                              <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: '12px',
+                                width: '36px',
+                                padding: '6px 2px 8px 2px',
+                                background: 'linear-gradient(135deg, var(--primary-accent), var(--primary-lime))',
+                                color: '#ffffff',
+                                fontSize: '0.62rem',
+                                fontWeight: 900,
+                                lineHeight: 1.15,
+                                textAlign: 'center',
+                                clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
+                                zIndex: 10,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                               }}>
-                                {w.status.toUpperCase()}
-                              </span>
-                              {w.status === 'rejected' && w.admin_notes && (
-                                <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#dc2626' }}>Reason: {w.admin_notes}</p>
-                              )}
-                              {w.status === 'paid' && w.txn_id && (
-                                <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#16a34a', fontFamily: 'monospace' }}>Txn Ref: {w.txn_id}</p>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                              {new Date(w.created_at).toLocaleString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
-                                {w.status === 'pending' && (
-                                  <button
-                                    onClick={() => handleApproveWithdrawal(w.id)}
-                                    disabled={isProcessingWithdrawal === w.id}
-                                    style={{
-                                      backgroundColor: '#dbeafe',
-                                      color: '#1d4ed8',
-                                      border: 'none',
-                                      padding: '5px 10px',
-                                      borderRadius: 'var(--radius-sm)',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 700,
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    Approve
-                                  </button>
-                                )}
-                                {(w.status === 'pending' || w.status === 'approved') && (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setTxnInputId(w.id);
-                                        setTxnRefNumber('');
-                                      }}
-                                      disabled={isProcessingWithdrawal === w.id}
-                                      style={{
-                                        backgroundColor: 'var(--primary-lime)',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        padding: '5px 10px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        cursor: 'pointer'
-                                      }}
-                                    >
-                                      Mark Paid
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setRejectingWithdrawalId(w.id);
-                                        setRejectReason('');
-                                      }}
-                                      disabled={isProcessingWithdrawal === w.id}
-                                      style={{
-                                        backgroundColor: '#fee2e2',
-                                        color: '#991b1b',
-                                        border: 'none',
-                                        padding: '5px 10px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        cursor: 'pointer'
-                                      }}
-                                    >
-                                      Reject
-                                    </button>
-                                  </>
+                                {discount}%<br />OFF
+                              </div>
+                            )}
+
+                            {/* Out of Stock overlay */}
+                            {!product.inStock && (
+                              <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: '12px',
+                                width: '36px',
+                                padding: '6px 2px 8px 2px',
+                                background: '#9ca3af',
+                                color: '#ffffff',
+                                fontSize: '0.55rem',
+                                fontWeight: 900,
+                                lineHeight: 1.15,
+                                textAlign: 'center',
+                                clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%)',
+                                zIndex: 10
+                              }}>
+                                SOLD<br />OUT
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Title and Price */}
+                          <div style={{
+                            padding: '0 4px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            textAlign: 'center',
+                            flexGrow: 1,
+                            justifyContent: 'space-between'
+                          }}>
+                            <div>
+                              <h4 style={{
+                                fontSize: '0.88rem',
+                                fontWeight: 700,
+                                color: 'var(--text-dark)',
+                                margin: 0,
+                                lineHeight: 1.3,
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                height: '2.6em'
+                              }}>
+                                {product.name}
+                              </h4>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                                <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+                                  ₹{product.price}
+                                </span>
+                                {product.originalPrice && product.originalPrice > product.price && (
+                                  <span style={{ fontSize: '0.78rem', color: '#9ca3af', textDecoration: 'line-through' }}>
+                                    ₹{product.originalPrice}
+                                  </span>
                                 )}
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+
+                            {/* Position overrides overlay */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '6px',
+                                borderTop: '1px solid var(--border-light)',
+                                paddingTop: '8px',
+                                marginTop: '8px'
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="number"
+                                min="1"
+                                max={sortedProductsList.length}
+                                value={index + 1}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (!isNaN(val)) {
+                                    moveProductToPosition(index, val);
+                                  }
+                                }}
+                                style={{
+                                  width: '48px',
+                                  padding: '4px 6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  textAlign: 'center',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  outline: 'none',
+                                  backgroundColor: '#ffffff'
+                                }}
+                              />
+
+                              <div style={{ display: 'flex', gap: '2px' }}>
+                                <button
+                                  type="button"
+                                  disabled={isFirst}
+                                  onClick={() => moveProductUp(index)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    border: '1px solid var(--border-light)',
+                                    backgroundColor: isFirst ? '#f3f4f6' : '#ffffff',
+                                    color: isFirst ? 'var(--text-muted)' : 'var(--text-dark)',
+                                    cursor: isFirst ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <ArrowUp size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isLast}
+                                  onClick={() => moveProductDown(index)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    border: '1px solid var(--border-light)',
+                                    backgroundColor: isLast ? '#f3f4f6' : '#ffffff',
+                                    color: isLast ? 'var(--text-muted)' : 'var(--text-dark)',
+                                    cursor: isLast ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <ArrowDown size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
-                {/* Inline Rejection Panel */}
-                {rejectingWithdrawalId && (
-                  <div style={{
-                    backgroundColor: '#fee2e2',
-                    border: '1px solid #fecaca',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '20px',
-                    marginTop: '20px',
-                    textAlign: 'left'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#991b1b' }}>Reject Payout Request</h4>
-                      <button
-                        onClick={() => setRejectingWithdrawalId(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <form onSubmit={handleRejectWithdrawalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b' }}>Reason for Rejection</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Invalid UPI ID details, incorrect account holder name matching..."
-                          value={rejectReason}
-                          onChange={(e) => setRejectReason(e.target.value)}
-                          style={{
-                            border: '1px solid #fecaca',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isProcessingWithdrawal === rejectingWithdrawalId}
-                        style={{
-                          backgroundColor: '#dc2626',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                          width: 'fit-content'
-                        }}
-                      >
-                        Confirm Rejection
-                      </button>
-                    </form>
-                  </div>
-                )}
-
-                {/* Inline Mark Paid Panel */}
-                {txnInputId && (
-                  <div style={{
-                    backgroundColor: 'var(--primary-lime-light)',
-                    border: '1px solid var(--primary-lime)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '20px',
-                    marginTop: '20px',
-                    textAlign: 'left'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-lime)' }}>Enter Transaction Reference Details</h4>
-                      <button
-                        onClick={() => setTxnInputId(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-lime)' }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <form onSubmit={handleMarkWithdrawalPaidSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-lime)' }}>Transaction ID / Reference Number</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. UPI Ref txn hash or Bank IMPS number..."
-                          value={txnRefNumber}
-                          onChange={(e) => setTxnRefNumber(e.target.value)}
-                          style={{
-                            border: '1px solid var(--primary-lime)',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.8rem',
-                            outline: 'none',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isProcessingWithdrawal === txnInputId}
-                        style={{
-                          backgroundColor: 'var(--primary-lime)',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                          width: 'fit-content'
-                        }}
-                      >
-                        Finalize Payout
-                      </button>
-                    </form>
+                {/* Bottom Actions Row */}
+                {sortedProductsList.length > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      disabled={isSavingProductsOrder}
+                      onClick={handleSaveProductsOrder}
+                      className="btn-lime"
+                      style={{ padding: '14px 36px', fontSize: '0.9rem', borderRadius: 'var(--radius-md)', minWidth: '200px', justifyContent: 'center', cursor: isSavingProductsOrder ? 'not-allowed' : 'pointer' }}
+                    >
+                      {isSavingProductsOrder ? 'Saving sequence...' : '💾 Save Product Sequence'}
+                    </button>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* SUBTAB CONTENT: PUNDIT MANAGER */}
-            {affiliateSubTab === 'pundits' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                {/* 1. Create Pundit Form & Success Panel */}
+          {/* =======================================================
+            TAB: POOJA PRODUCTS MANAGEMENT
+            ======================================================= */}
+          {activeTab === 'pooja_products' && (
+            <div style={{ textAlign: 'left' }}>
+              {!editingPoojaProduct ? (
+                // List View of Pooja Products
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                        Pooja Products Catalog
+                      </h3>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        Manage advanced temple rituals, booking instructions, and Cloudflare R2 media.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      {Object.values(selectedPoojaIds).filter(Boolean).length > 0 && (
+                        <>
+                          <button
+                            onClick={handleBulkGSTApply}
+                            disabled={isBulkGSTApplying}
+                            className="btn-lime"
+                            style={{
+                              fontSize: '0.85rem',
+                              padding: '10px 20px',
+                              borderRadius: 'var(--radius-md)',
+                              backgroundColor: '#2563eb',
+                              borderColor: '#2563eb',
+                              color: '#ffffff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isBulkGSTApplying ? 'Applying GST...' : 'Apply Bulk GST'}
+                          </button>
+                          <button
+                            onClick={handleBulkDeliveryApply}
+                            disabled={isBulkDeliveryApplying}
+                            className="btn-lime"
+                            style={{
+                              fontSize: '0.85rem',
+                              padding: '10px 20px',
+                              borderRadius: 'var(--radius-md)',
+                              backgroundColor: '#7c3aed',
+                              borderColor: '#7c3aed',
+                              color: '#ffffff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isBulkDeliveryApplying ? 'Applying Delivery...' : 'Apply Bulk Delivery'}
+                          </button>
+                          <button
+                            onClick={handleBulkPublishPooja}
+                            disabled={isBulkPublishing}
+                            className="btn-lime"
+                            style={{
+                              fontSize: '0.85rem',
+                              padding: '10px 20px',
+                              borderRadius: 'var(--radius-md)',
+                              backgroundColor: 'var(--primary-forest, #15803d)',
+                              borderColor: 'var(--primary-forest, #15803d)',
+                              color: '#ffffff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: '0 4px 6px -1px rgba(21, 128, 61, 0.3)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isBulkPublishing ? (
+                              <>
+                                <div style={{
+                                  width: '12px', height: '12px', border: '2px solid #ffffff',
+                                  borderTopColor: 'transparent', borderRadius: '50%',
+                                  animation: 'spin 0.6s linear infinite'
+                                }} />
+                                Publishing Selected...
+                              </>
+                            ) : (
+                              <>
+                                🚀 Publish Selected ({Object.values(selectedPoojaIds).filter(Boolean).length})
+                              </>
+                            )}
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => {
+                          setIsNewPoojaProduct(true);
+                          setEditingPoojaProduct({ ...initialPoojaProduct });
+                        }}
+                        className="btn-lime"
+                        style={{ fontSize: '0.85rem', padding: '10px 20px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                      >
+                        <Plus size={16} /> Create Pooja Product
+                      </button>
+                    </div>
+                  </div>
+
+                  {isLoadingPooja ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                      <div style={{
+                        width: '32px', height: '32px', border: '3px solid var(--border-light)',
+                        borderTopColor: 'var(--primary-lime)', borderRadius: '50%',
+                        animation: 'spin 1s linear infinite', margin: '0 auto 16px'
+                      }} />
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading Pooja products...</p>
+                    </div>
+                  ) : poojaProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)', backgroundColor: '#ffffff' }}>
+                      <span style={{ fontSize: '3rem' }}>🕉️</span>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '16px', color: 'var(--text-dark)' }}>No Pooja Products Found</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Click "Create Pooja Product" to start building your dynamic catalog.</p>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left', backgroundColor: '#f9fafb' }}>
+                            <th style={{ padding: '16px', width: '48px' }}>
+                              <input
+                                type="checkbox"
+                                checked={poojaProducts.length > 0 && poojaProducts.every(p => selectedPoojaIds[p.id])}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newSel: Record<string, boolean> = {};
+                                  if (checked) {
+                                    poojaProducts.forEach(p => {
+                                      newSel[p.id] = true;
+                                    });
+                                  }
+                                  setSelectedPoojaIds(newSel);
+                                }}
+                                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                              />
+                            </th>
+                            <th style={{ padding: '16px' }}>Product</th>
+                            <th style={{ padding: '16px' }}>Category</th>
+                            <th style={{ padding: '16px' }}>Price</th>
+                            <th style={{ padding: '16px' }}>Status</th>
+                            <th style={{ padding: '16px' }}>Featured</th>
+                            <th style={{ padding: '16px', textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {poojaProducts.map(product => {
+                            const isEmoji = !isImageUrl(product.image);
+                            return (
+                              <tr key={product.id} style={{ borderBottom: '1px solid var(--border-light)', fontSize: '0.88rem', backgroundColor: selectedPoojaIds[product.id] ? 'rgba(132, 204, 22, 0.04)' : 'transparent' }}>
+                                <td style={{ padding: '16px', width: '48px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!selectedPoojaIds[product.id]}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedPoojaIds(prev => ({
+                                        ...prev,
+                                        [product.id]: checked
+                                      }));
+                                    }}
+                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '16px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{
+                                      width: '40px', height: '40px', borderRadius: 'var(--radius-sm)',
+                                      overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      border: '1px solid var(--border-light)', backgroundColor: '#f9fafb'
+                                    }}>
+                                      {isEmoji ? (
+                                        <span style={{ fontSize: '1.5rem' }}>{product.image}</span>
+                                      ) : (
+                                        <img src={getDisplayImageUrl(product.image)} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span style={{ fontWeight: 800, color: 'var(--text-dark)', display: 'block' }}>{product.name}</span>
+                                      {product.sanskritName && (
+                                        <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--primary-forest)' }}>{product.sanskritName}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '16px', fontWeight: 600 }}>{product.category}</td>
+                                <td style={{ padding: '16px', fontWeight: 700, color: 'var(--primary-forest)' }}>
+                                  ₹{product.price} {product.originalPrice && <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: 'var(--text-muted)', marginLeft: '4px' }}>₹{product.originalPrice}</span>}
+                                </td>
+                                <td style={{ padding: '16px' }}>
+                                  <span style={{
+                                    backgroundColor: product.isPublished ? '#dcfce7' : '#fff7ed',
+                                    color: product.isPublished ? '#15803d' : '#c2410c',
+                                    fontSize: '0.72rem', fontWeight: 800, padding: '3px 8px', borderRadius: 'var(--radius-full)'
+                                  }}>
+                                    {product.isPublished ? 'Published' : 'Draft'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '16px' }}>
+                                  <span style={{ fontSize: '0.85rem' }}>{product.isFeatured ? '⭐ Yes' : 'No'}</span>
+                                </td>
+                                <td style={{ padding: '16px', textAlign: 'right' }}>
+                                  <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                    <button
+                                      onClick={() => {
+                                        setIsNewPoojaProduct(false);
+                                        setEditingPoojaProduct(product);
+                                      }}
+                                      style={{
+                                        padding: '6px 12px', border: '1px solid var(--border-light)',
+                                        borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                        color: 'var(--text-dark)', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        backgroundColor: '#ffffff', cursor: 'pointer'
+                                      }}
+                                    >
+                                      <Edit size={12} /> Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleTogglePublishPoojaProduct(product.id, product.isPublished, product.name)}
+                                      style={{
+                                        padding: '6px 12px', border: product.isPublished ? '1px solid #ffe2e2' : '1px solid #dcfce7',
+                                        borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                        color: product.isPublished ? '#c2410c' : '#15803d', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        backgroundColor: product.isPublished ? '#fffaf8' : '#f0fdf4', cursor: 'pointer'
+                                      }}
+                                    >
+                                      {product.isPublished ? <EyeOff size={12} /> : <Eye size={12} />}
+                                      {product.isPublished ? 'Hide' : 'Unhide'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDuplicatePoojaProduct(product)}
+                                      style={{
+                                        padding: '6px 12px', border: '1px solid #e2e8f0',
+                                        borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                        color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        backgroundColor: '#f8fafc', cursor: 'pointer'
+                                      }}
+                                    >
+                                      <Copy size={12} /> Duplicate
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePoojaProduct(product.id, product.name)}
+                                      style={{
+                                        padding: '6px 12px', border: '1px solid #fed7d7',
+                                        borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 700,
+                                        color: '#e53e3e', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        backgroundColor: '#fff5f5', cursor: 'pointer'
+                                      }}
+                                    >
+                                      <Trash2 size={12} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // visual editor workspace
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* Visual Editor Workspace Top Control Bar */}
+                  <div style={{
+                    position: 'sticky',
+                    top: '70px',
+                    zIndex: 100,
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 'var(--radius-lg, 12px)',
+                    padding: '16px 24px',
+                    boxShadow: 'var(--shadow-lg), 0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    {/* First row: Back, Title, Save/Cancel */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPoojaProduct(null)}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-md, 8px)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#f3f4f6',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                        >
+                          ← Catalog List
+                        </button>
+                        <div>
+                          <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Sparkles size={20} style={{ color: 'var(--primary-lime, #84cc16)' }} />
+                            {isNewPoojaProduct ? 'New Pooja Creator' : `Editing: ${editingPoojaProduct.name}`}
+                          </h3>
+                          <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>Visual Builder Workspace • Click text to edit, click images to upload to R2</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+                        {isNewPoojaProduct && (
+                          <div style={{ position: 'relative' }}>
+                            <button
+                              type="button"
+                              onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: 'var(--radius-md, 8px)',
+                                border: '1.5px solid var(--primary-lime, #84cc16)',
+                                backgroundColor: 'rgba(132, 204, 22, 0.1)',
+                                color: 'var(--primary-lime, #84cc16)',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.2)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(132, 204, 22, 0.1)'}
+                            >
+                              <Sparkles size={14} /> Select Draft Template
+                            </button>
+
+                            {showTemplatesDropdown && (
+                              <div style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 'calc(100% + 8px)',
+                                width: '320px',
+                                backgroundColor: '#1e293b',
+                                borderRadius: 'var(--radius-lg, 12px)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                                zIndex: 1000,
+                                overflow: 'hidden',
+                                padding: '6px'
+                              }}>
+                                <div style={{ padding: '8px 12px', fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  Pre-made Devotional Drafts
+                                </div>
+                                {poojaTemplates.map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingPoojaProduct(t);
+                                      setShowTemplatesDropdown(false);
+                                      triggerToast(`Loaded ${t.name} draft! You can now edit it visually.`);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '10px 12px',
+                                      borderRadius: '6px',
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      color: '#ffffff',
+                                      fontSize: '0.82rem',
+                                      fontWeight: 600,
+                                      textAlign: 'left',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '10px',
+                                      transition: 'background-color 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                  >
+                                    <span style={{ fontSize: '1.25rem' }}>{t.image}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      <span style={{ fontWeight: 700 }}>{t.name}</span>
+                                      <span style={{ fontSize: '0.68rem', color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
+                                        {t.subtitle}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingPoojaProduct(null)}
+                          style={{
+                            padding: '10px 20px',
+                            borderRadius: 'var(--radius-md, 8px)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            backgroundColor: 'transparent',
+                            color: '#d1d5db',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleSavePoojaProduct(e)}
+                          disabled={isSavingPooja}
+                          style={{
+                            padding: '10px 24px',
+                            borderRadius: 'var(--radius-md, 8px)',
+                            border: 'none',
+                            backgroundColor: 'var(--primary-lime, #84cc16)',
+                            color: '#0f172a',
+                            fontSize: '0.85rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 6px -1px rgba(132, 204, 22, 0.4)',
+                            opacity: isSavingPooja ? 0.75 : 1
+                          }}
+                        >
+                          {isSavingPooja ? 'Saving to Database...' : 'Save Pooja Product'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Second row: Technical settings bar */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      flexWrap: 'wrap',
+                      paddingTop: '12px',
+                      borderTop: '1px solid rgba(255,255,255,0.1)',
+                      fontSize: '0.82rem'
+                    }}>
+                      {/* URL Slug input */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Slug:</span>
+                        <input
+                          type="text"
+                          value={editingPoojaProduct.slug || ''}
+                          placeholder="e.g. maha-puja"
+                          onChange={(e) => updatePoojaField('slug', e.target.value)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: '#84cc16',
+                            fontSize: '0.82rem',
+                            width: '180px'
+                          }}
+                        />
+                      </div>
+
+                      {/* Category Dropdown Selector */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Category:</span>
+                        <select
+                          value={editingPoojaProduct.category || 'Rudraksha'}
+                          onChange={(e) => updatePoojaField('category', e.target.value)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: '#1e293b',
+                            color: '#ffffff',
+                            outline: 'none',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="Rudraksha">Rudraksha</option>
+                          <option value="Bracelet">Bracelet</option>
+                          <option value="Murti">Murti</option>
+                          <option value="Yantras">Yantras</option>
+                          <option value="Anklet">Anklet</option>
+                          <option value="Frames">Frames</option>
+                          <option value="Rashi">Rashi</option>
+                          <option value="Karungali">Karungali</option>
+                          <option value="Jadi">Jadi</option>
+                          <option value="Pyrite">Pyrite</option>
+                          <option value="Kavach">Kavach</option>
+                          <option value="Siddh Range">Siddh Range</option>
+                          <option value="Gemstones">Gemstones</option>
+                          <option value="Pyramid">Pyramid</option>
+                          <option value="Necklaces/Mala">Necklaces/Mala</option>
+                          <option value="Tower & Tumbles">Tower & Tumbles</option>
+                          <option value="Crystal Dome Trees">Crystal Dome Trees</option>
+                          <option value="Women Bracelets">Women Bracelets</option>
+                          <option value="Evil Eye">Evil Eye</option>
+                          <option value="Gifting">Gifting</option>
+                        </select>
+                      </div>
+
+                      {/* Video URL Input */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Video URL:</span>
+                        <input
+                          type="text"
+                          value={editingPoojaProduct.videoUrl || ''}
+                          placeholder="Cloudflare video CDN URL"
+                          onChange={(e) => updatePoojaField('videoUrl', e.target.value)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: '#84cc16',
+                            fontSize: '0.82rem',
+                            width: '180px'
+                          }}
+                        />
+                      </div>
+
+                      {/* Video Upload Input */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Upload Video:</span>
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px dashed rgba(255, 255, 255, 0.3)',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          color: '#ffffff'
+                        }}>
+                          <Upload size={14} />
+                          Choose Video
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                await addToMediaQueue(file, 'products/videos', (tempId) => {
+                                  updatePoojaField('videoUrl', tempId);
+                                });
+                                triggerToast('Video queued for compression!');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Failed to stage video: ' + (err as Error).message);
+                              } finally {
+                                e.target.value = '';
+                              }
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+                      {editingPoojaProduct.videoUrl && editingPoojaProduct.videoUrl.startsWith('temp-media-') && (
+                        <div style={{ width: '100%', maxWidth: '300px', marginTop: '4px' }}>
+                          <CompressionStatusWidget tempId={editingPoojaProduct.videoUrl} mediaQueue={mediaQueue} />
+                        </div>
+                      )}
+
+                      {/* Video Thumbnail Input */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Thumbnail URL:</span>
+                        <input
+                          type="text"
+                          value={editingPoojaProduct.uiLabels?.videoThumbnail || ''}
+                          placeholder="Video thumbnail URL"
+                          onChange={(e) => {
+                            const existingLabels = editingPoojaProduct.uiLabels || {};
+                            updatePoojaField('uiLabels', {
+                              ...existingLabels,
+                              videoThumbnail: e.target.value
+                            });
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: '#84cc16',
+                            fontSize: '0.82rem',
+                            width: '180px'
+                          }}
+                        />
+                      </div>
+
+                      {/* Switches in a row */}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input type="checkbox" checked={editingPoojaProduct.inStock ?? true} onChange={(e) => updatePoojaField('inStock', e.target.checked)} />
+                        In Stock
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input type="checkbox" checked={editingPoojaProduct.isFeatured || false} onChange={(e) => updatePoojaField('isFeatured', e.target.checked)} />
+                        Featured
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input type="checkbox" checked={editingPoojaProduct.isTrending || false} onChange={(e) => updatePoojaField('isTrending', e.target.checked)} />
+                        Trending
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                        <input type="checkbox" checked={editingPoojaProduct.isPublished || false} onChange={(e) => updatePoojaField('isPublished', e.target.checked)} />
+                        Published
+                      </label>
+
+                      {/* Publish Scheduled Date Picker */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Schedule:</span>
+                        <input
+                          type="datetime-local"
+                          value={editingPoojaProduct.publishedAt ? editingPoojaProduct.publishedAt.substring(0, 16) : ''}
+                          onChange={(e) => updatePoojaField('publishedAt', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: 'none',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        />
+                      </div>
+
+                      {/* Purchase Limit Field */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700 }}>Limit:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="No limit"
+                          value={editingPoojaProduct.purchaseLimit || ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                            updatePoojaField('purchaseLimit', val);
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: '#ffffff',
+                            outline: 'none',
+                            fontSize: '0.8rem',
+                            width: '90px'
+                          }}
+                        />
+                      </div>
+
+                      {/* GST Override Settings */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                          <input
+                            type="checkbox"
+                            checked={editingPoojaProduct.gstOverrideEnabled || false}
+                            onChange={(e) => {
+                              updatePoojaField('gstOverrideEnabled', e.target.checked);
+                              if (!e.target.checked) {
+                                updatePoojaField('customGst', null);
+                              }
+                            }}
+                          />
+                          Custom GST
+                        </label>
+                        {editingPoojaProduct.gstOverrideEnabled && (
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="GST %"
+                            value={editingPoojaProduct.customGst !== undefined && editingPoojaProduct.customGst !== null ? editingPoojaProduct.customGst : ''}
+                            onChange={(e) => {
+                              const val = e.target.value ? parseFloat(e.target.value) : null;
+                              updatePoojaField('customGst', val);
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              backgroundColor: 'rgba(255,255,255,0.05)',
+                              color: '#ffffff',
+                              outline: 'none',
+                              fontSize: '0.8rem',
+                              width: '70px'
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Delivery Override Settings */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                          <input
+                            type="checkbox"
+                            checked={editingPoojaProduct.deliveryOverrideEnabled || false}
+                            onChange={(e) => {
+                              updatePoojaField('deliveryOverrideEnabled', e.target.checked);
+                              if (!e.target.checked) {
+                                updatePoojaField('customDelivery', null);
+                              }
+                            }}
+                          />
+                          Custom Delivery
+                        </label>
+                        {editingPoojaProduct.deliveryOverrideEnabled && (
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Delivery ₹"
+                            value={editingPoojaProduct.customDelivery !== undefined && editingPoojaProduct.customDelivery !== null ? editingPoojaProduct.customDelivery : ''}
+                            onChange={(e) => {
+                              const val = e.target.value ? parseFloat(e.target.value) : null;
+                              updatePoojaField('customDelivery', val);
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              backgroundColor: 'rgba(255,255,255,0.05)',
+                              color: '#ffffff',
+                              outline: 'none',
+                              fontSize: '0.8rem',
+                              width: '85px'
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main WYSIWYG Workspace Area */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '320px 1fr',
+                    gap: '24px',
+                    alignItems: 'start'
+                  }} className="admin-workspace-grid">
+                    {/* Left Column: Product Card Frame */}
+                    <div style={{
+                      position: 'sticky',
+                      top: '220px',
+                      height: 'fit-content'
+                    }}>
+                      <div style={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '24px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Storefront Card View</span>
+                          <span style={{ fontSize: '0.72rem', backgroundColor: '#dbeafe', color: '#1e40af', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>Live Preview</span>
+                        </div>
+                        <ProductCard
+                          product={{
+                            id: editingPoojaProduct.id || 'preview-id',
+                            name: editingPoojaProduct.name || '',
+                            description: editingPoojaProduct.shortDescription || editingPoojaProduct.description || '',
+                            shortDescription: editingPoojaProduct.shortDescription || '',
+                            price: parseFloat((editingPoojaProduct.price || 0).toString()),
+                            originalPrice: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : undefined,
+                            rating: editingPoojaProduct.rating || 4.8,
+                            reviewsCount: editingPoojaProduct.reviewsCount || 1,
+                            image: editingPoojaProduct.image || '📿',
+                            category: editingPoojaProduct.category || 'Rudraksha',
+                            spiritualType: editingPoojaProduct.spiritualType || 'Rituals',
+                            inStock: editingPoojaProduct.inStock ?? true,
+                            popularity: 85,
+                            benefits: editingPoojaProduct.benefits || [],
+                            badges: editingPoojaProduct.badges || [],
+                            sanskritName: editingPoojaProduct.sanskritName || '',
+                          } as any}
+                          onAddToCart={() => { }}
+                          onViewDetails={() => { }}
+                          editable={false}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right Column: Product Detail Page Frame */}
+                    <div style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: 'var(--radius-lg)',
+                      boxShadow: 'var(--shadow-sm)',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)', padding: '12px 24px' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Pooja Detail Page Editor Workspace</span>
+                        <span style={{ fontSize: '0.72rem', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>Editable Visual Mode</span>
+                      </div>
+                      <div style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                        <ProductDetailPage
+                          product={{
+                            id: editingPoojaProduct.id || 'preview-id',
+                            name: editingPoojaProduct.name || '',
+                            description: editingPoojaProduct.description || '',
+                            price: parseFloat((editingPoojaProduct.price || 0).toString()),
+                            originalPrice: editingPoojaProduct.originalPrice ? parseFloat(editingPoojaProduct.originalPrice.toString()) : undefined,
+                            rating: editingPoojaProduct.rating || 4.8,
+                            reviewsCount: editingPoojaProduct.reviewsCount || 1,
+                            image: editingPoojaProduct.image || '📿',
+                            category: editingPoojaProduct.category || 'Rudraksha',
+                            spiritualType: editingPoojaProduct.spiritualType || 'Rituals',
+                            inStock: editingPoojaProduct.inStock ?? true,
+                            popularity: 85,
+                            benefits: editingPoojaProduct.benefits || [],
+                            badges: editingPoojaProduct.badges || [],
+                            sanskritName: editingPoojaProduct.sanskritName || '',
+                            subtitle: editingPoojaProduct.subtitle || '',
+                            shortDescription: editingPoojaProduct.shortDescription || '',
+                            spiritualSignificance: editingPoojaProduct.spiritualSignificance !== undefined ? editingPoojaProduct.spiritualSignificance : null,
+                            bookingInstructions: editingPoojaProduct.bookingInstructions !== undefined ? editingPoojaProduct.bookingInstructions : null,
+                            duration: editingPoojaProduct.duration !== undefined ? editingPoojaProduct.duration : null,
+                            templeAssociation: editingPoojaProduct.templeAssociation !== undefined ? editingPoojaProduct.templeAssociation : null,
+                            whoShouldPerform: editingPoojaProduct.whoShouldPerform !== undefined ? editingPoojaProduct.whoShouldPerform : null,
+                            ritualsIncluded: editingPoojaProduct.ritualsIncluded !== undefined ? editingPoojaProduct.ritualsIncluded : null,
+                            samagriList: editingPoojaProduct.samagriList !== undefined ? editingPoojaProduct.samagriList : null,
+                            priestDetails: editingPoojaProduct.priestDetails,
+                            priestImage: editingPoojaProduct.priestImage !== undefined ? editingPoojaProduct.priestImage : null,
+                            certificates: editingPoojaProduct.certificates,
+                            faqs: editingPoojaProduct.faqs,
+                            galleryImages: editingPoojaProduct.galleryImages !== undefined ? editingPoojaProduct.galleryImages : null,
+                            videoUrl: editingPoojaProduct.videoUrl,
+                            material: editingPoojaProduct.material,
+                            weight: editingPoojaProduct.weight,
+                            dimensions: editingPoojaProduct.dimensions,
+                            origin: editingPoojaProduct.origin,
+                            customIcons: (editingPoojaProduct as any).customIcons || {},
+                            relatedProducts: editingPoojaProduct.relatedProducts || [],
+                            testimonials: editingPoojaProduct.testimonials || [],
+                            uiLabels: editingPoojaProduct.uiLabels || {},
+                            translations: editingPoojaProduct.translations || {}
+                          } as any}
+                          products={[...products, ...poojaProducts]}
+                          wishlist={{}}
+                          onAddToCart={() => { }}
+                          onViewDetails={() => { }}
+                          onToggleWishlist={() => { }}
+                          onBackToShop={() => { }}
+                          editable={true}
+                          onUpdate={(fields) => updatePoojaFields(fields)}
+                          cart={[]}
+                          onUpdateQuantity={() => { }}
+                          onFileSelect={async (file, prefix) => {
+                            return await addToMediaQueue(file, prefix, () => { });
+                          }}
+                          mediaQueue={mediaQueue}
+                          resolveMediaUrl={resolveMediaUrl}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: DEVOTIONAL COUPONS MANAGER
+            ======================================================= */}
+          {activeTab === 'coupons' && (
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+              {/* Header section with Stats */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                    Devotional Coupons Manager
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Generate and track coupon codes with user usage limits, per-user limits, and product scope restrictions.
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats Cards Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-lime-light)', color: 'var(--primary-lime)' }}>
+                    <Ticket size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Coupons</span>
+                    <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{coupons.length}</h4>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '20px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div className="flex-center" style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', backgroundColor: '#fff7ed', color: '#f97316' }}>
+                    <ShoppingBag size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Redemptions</span>
+                    <h4 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-dark)', marginTop: '2px' }}>{redemptions.length}</h4>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '30px' }} className="hero-grid-split">
+
+                {/* Form column: Generate coupon */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '28px',
+                  boxShadow: 'var(--shadow-md)',
+                  height: 'fit-content',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  {/* Top Accent line */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0,
+                    height: '4px',
+                    background: 'linear-gradient(90deg, var(--primary-forest) 0%, var(--primary-lime) 100%)'
+                  }} />
+
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={18} style={{ color: 'var(--primary-lime)' }} />
+                    Generate New Coupon
+                  </h3>
+
+                  <form onSubmit={handleCreateCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Coupon Code *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. SHIVA20"
+                        value={newCouponCode}
+                        onChange={(e) => setNewCouponCode(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Discount Percentage *
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          max={100}
+                          placeholder="e.g. 15"
+                          value={newDiscountPercent}
+                          onChange={(e) => setNewDiscountPercent(parseInt(e.target.value, 10) || 0)}
+                          style={{ width: '100%', padding: '10px 30px 10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                        />
+                        <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Usage User Limit
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="Unlimited if empty (e.g. 100)"
+                        value={newUserLimit}
+                        onChange={(e) => setNewUserLimit(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb' }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                        Total number of people allowed to redeem this coupon.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Product Applicability
+                      </label>
+                      <select
+                        value={newProductId}
+                        onChange={(e) => setNewProductId(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--border-light)', outline: 'none', fontSize: '0.88rem', backgroundColor: '#f9fafb', cursor: 'pointer' }}
+                      >
+                        <option value="">All Products</option>
+                        {poojaProducts.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                        Restrict this coupon code to a specific Pooja product.
+                      </span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn-lime"
+                      disabled={isCreatingCoupon}
+                      style={{ width: '100%', padding: '12px', justifyContent: 'center', marginTop: '8px', fontSize: '0.88rem' }}
+                    >
+                      {isCreatingCoupon ? 'Creating...' : 'Create Coupon Code'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Lists column: Active coupons & redemptions logs */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+                  {/* Active Coupons List */}
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Ticket size={16} style={{ color: 'var(--primary-lime)' }} />
+                      Active Coupon Codes ({coupons.length})
+                    </h3>
+
+                    {isLoadingCoupons ? (
+                      <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                        <div style={{ width: '24px', height: '24px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Retrieving active coupons...</p>
+                      </div>
+                    ) : coupons.length === 0 ? (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No active coupons. Generate one using the form on the left.</p>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Code</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Discount</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Applicability</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Usage Status</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {coupons.map((coupon) => (
+                              <tr key={coupon.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>{coupon.code}</td>
+                                <td style={{ padding: '10px 14px', fontWeight: 700 }}>{coupon.discount_percent}% off</td>
+                                <td style={{ padding: '10px 14px', color: coupon.product ? 'var(--text-dark)' : 'var(--text-muted)' }}>
+                                  {coupon.product ? `Only: ${coupon.product.name}` : 'All Products'}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <span style={{
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    backgroundColor: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#fee2e2' : '#f0fdf4',
+                                    color: coupon.user_limit && coupon.redemptions_count >= coupon.user_limit ? '#991b1b' : '#166534'
+                                  }}>
+                                    {coupon.redemptions_count} / {coupon.user_limit === null ? 'Unlimited' : coupon.user_limit}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                  <button
+                                    onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
+                                    style={{ color: 'var(--text-muted)', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', padding: '4px' }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Coupon Redemptions Logs */}
+                  <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ShoppingBag size={16} style={{ color: 'var(--primary-lime)' }} />
+                      Coupon Redemption Logs ({redemptions.length})
+                    </h3>
+
+                    {redemptions.length === 0 ? (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No coupon redemptions recorded yet.</p>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Name</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>User Contacts</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Coupon Used</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Order ID</th>
+                              <th style={{ padding: '10px 14px', fontWeight: 700 }}>Date Redeemed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {redemptions.map((log) => (
+                              <tr key={log.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-dark)' }}>{log.user?.full_name || 'N/A'}</td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <p style={{ margin: 0, fontWeight: 500 }}>{log.user?.email || 'N/A'}</p>
+                                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.user?.phone_number || 'N/A'}</p>
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <span style={{ fontWeight: 'bold', color: 'var(--primary-forest)' }}>{log.coupon?.code || 'DELETED'}</span>
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>({log.coupon?.discount_percent || 0}% discount)</span>
+                                </td>
+                                <td style={{ padding: '10px 14px', fontWeight: 'bold' }}>#{log.order_id}</td>
+                                <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                  {new Date(log.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: AFFILIATE PARTNERSHIPS
+            ======================================================= */}
+          {activeTab === 'affiliates' && (
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+              {/* Header section */}
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                  Affiliate Partnerships Directory & Settings
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  View devotee affiliate codes, monitor active/suspended statuses, configure commission tier levels, and review payout/withdrawal queues.
+                </p>
+              </div>
+
+              {/* Sub-tab Navigation */}
+              <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setAffiliateSubTab('directory')}
+                  style={{
+                    background: affiliateSubTab === 'directory' ? 'var(--primary-lime-light)' : 'transparent',
+                    border: affiliateSubTab === 'directory' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                    color: affiliateSubTab === 'directory' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  👥 Partnerships Directory
+                </button>
+                <button
+                  onClick={() => setAffiliateSubTab('tiers')}
+                  style={{
+                    background: affiliateSubTab === 'tiers' ? 'var(--primary-lime-light)' : 'transparent',
+                    border: affiliateSubTab === 'tiers' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                    color: affiliateSubTab === 'tiers' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  ⚙️ Tiers & Settings
+                </button>
+                <button
+                  onClick={() => setAffiliateSubTab('withdrawals')}
+                  style={{
+                    background: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime-light)' : 'transparent',
+                    border: affiliateSubTab === 'withdrawals' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                    color: affiliateSubTab === 'withdrawals' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  💸 Payouts Queue ({withdrawals.filter(w => w.status === 'pending').length} Pending)
+                </button>
+                <button
+                  onClick={() => setAffiliateSubTab('pundits')}
+                  style={{
+                    background: affiliateSubTab === 'pundits' ? 'var(--primary-lime-light)' : 'transparent',
+                    border: affiliateSubTab === 'pundits' ? '1px solid var(--primary-lime)' : '1px solid transparent',
+                    color: affiliateSubTab === 'pundits' ? 'var(--primary-lime)' : 'var(--text-muted)',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  🕉️ Pandit Manager
+                </button>
+              </div>
+
+              {/* SUBTAB CONTENT: DIRECTORY */}
+              {affiliateSubTab === 'directory' && (
                 <div style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid var(--border-light)',
@@ -10729,222 +10473,50 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🕉️</span> Create New Pandit Account
-                  </h3>
-                  
-                  {punditError && (
-                    <div style={{
-                      backgroundColor: '#fee2e2',
-                      border: '1px solid #fecaca',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '12px 16px',
-                      color: '#b91c1c',
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      marginBottom: '16px'
-                    }}>
-                      {punditError}
-                    </div>
-                  )}
-
-                  {punditCreationResult ? (
-                    <div style={{
-                      backgroundColor: 'rgba(132, 204, 22, 0.1)',
-                      border: '1px solid var(--primary-lime)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '20px',
-                      marginBottom: '20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h4 style={{ margin: 0, color: 'var(--primary-forest)', fontWeight: 800 }}>🎉 Pandit Profile Created Successfully!</h4>
-                        <button
-                          onClick={() => setPunditCreationResult(null)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--primary-forest)',
-                            fontWeight: 'bold',
-                            fontSize: '0.85rem'
-                          }}
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                        Provide these credentials to <strong>{punditCreationResult.name}</strong> to log in:
-                      </p>
-                      <div style={{
-                        backgroundColor: '#ffffff',
-                        border: '1px solid var(--border-light)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '12px 16px',
-                        fontSize: '0.85rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        fontFamily: 'monospace'
-                      }}>
-                        <div><strong>Phone Number:</strong> {punditCreationResult.phone}</div>
-                        <div><strong>Custom Password:</strong> {punditCreationResult.password}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                          <strong>Login URL:</strong>
-                          <span style={{ color: 'var(--text-muted)' }}>{punditCreationResult.url}</span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(punditCreationResult.url);
-                              alert('Login link copied to clipboard!');
-                            }}
-                            style={{
-                              backgroundColor: 'var(--primary-lime-light)',
-                              color: 'var(--primary-lime)',
-                              border: '1px solid var(--primary-lime)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Copy URL
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleCreatePundit} style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                      gap: '16px',
-                      alignItems: 'end'
-                    }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>FULL NAME *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Shastri Shastri Ji"
-                          value={newPunditName}
-                          onChange={(e) => setNewPunditName(e.target.value)}
-                          style={{
-                            border: '1.5px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '10px 12px',
-                            fontSize: '0.85rem',
-                            outline: 'none'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>WHATSAPP NUMBER *</label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="e.g. +91 98765 43210"
-                          value={newPunditPhone}
-                          onChange={(e) => setNewPunditPhone(e.target.value)}
-                          style={{
-                            border: '1.5px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '10px 12px',
-                            fontSize: '0.85rem',
-                            outline: 'none'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>SECURITY PASSWORD *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Set custom password"
-                          value={newPunditPassword}
-                          onChange={(e) => setNewPunditPassword(e.target.value)}
-                          style={{
-                            border: '1.5px solid var(--border-light)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '10px 12px',
-                            fontSize: '0.85rem',
-                            outline: 'none'
-                          }}
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isCreatingPundit}
-                        style={{
-                          backgroundColor: 'var(--primary-forest)',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: 'var(--radius-md)',
-                          padding: '12px',
-                          fontSize: '0.85rem',
-                          fontWeight: 700,
-                          cursor: isCreatingPundit ? 'not-allowed' : 'pointer',
-                          opacity: isCreatingPundit ? 0.8 : 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          height: '42px'
-                        }}
-                      >
-                        {isCreatingPundit ? 'Creating...' : 'Create Pandit Profile'}
-                      </button>
-                    </form>
-                  )}
-                </div>
-
-                {/* 2. Pundits Directory Table */}
-                <div style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🕉️</span> Pandit Directory & Controls
+                    <User size={16} style={{ color: 'var(--primary-lime)' }} />
+                    Enrolled Affiliate Partners ({affiliates.length})
                   </h3>
 
-                  {isLoadingPundits ? (
-                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                      Loading pandits database...
+                  {isLoadingAffiliates ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                      <div style={{ width: '28px', height: '28px', border: '2px solid var(--border-light)', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Loading affiliates directory...</p>
                     </div>
-                  ) : pundits.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
-                      No pandits registered. Add a pandit above to get started.
+                  ) : affiliates.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <span style={{ fontSize: '2.5rem' }}>👥</span>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '12px' }}>No devotee affiliates enrolled yet.</p>
                     </div>
                   ) : (
                     <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Shastri Details</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Phone</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Code</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email & Phone</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Referral Code</th>
                             <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
-                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Joined Date</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Joined</th>
                             <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {pundits.map((p) => (
-                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
-                                {p.full_name}
+                          {affiliates.map((aff) => (
+                            <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>{aff.full_name}</td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <p style={{ margin: 0, fontWeight: 500 }}>{aff.email}</p>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{aff.phone_number || 'N/A'}</p>
                               </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                {p.phone_number}
-                              </td>
-                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>
-                                <code>{p.affiliate_code}</code>
+                              <td style={{ padding: '12px 16px' }}>
+                                <code style={{
+                                  backgroundColor: 'var(--primary-lime-light)',
+                                  color: 'var(--primary-lime)',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontWeight: 700,
+                                  fontFamily: 'monospace'
+                                }}>{aff.affiliate_code}</code>
                               </td>
                               <td style={{ padding: '12px 16px' }}>
                                 <span style={{
@@ -10953,86 +10525,554 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                   fontSize: '0.72rem',
                                   fontWeight: 800,
                                   backgroundColor:
-                                    p.affiliate_status === 'active' ? '#dcfce7' :
-                                    p.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                    aff.affiliate_status === 'active' ? '#dcfce7' :
+                                      aff.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
                                   color:
-                                    p.affiliate_status === 'active' ? '#15803d' :
-                                    p.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
+                                    aff.affiliate_status === 'active' ? '#15803d' :
+                                      aff.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
                                   border: '1px solid ' + (
-                                    p.affiliate_status === 'active' ? '#bbf7d0' :
-                                    p.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
+                                    aff.affiliate_status === 'active' ? '#bbf7d0' :
+                                      aff.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
                                   )
                                 }}>
-                                  {p.affiliate_status.toUpperCase()}
+                                  {aff.affiliate_status.toUpperCase()}
                                 </span>
                               </td>
                               <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                {new Date(p.affiliate_joined_at || p.created_at).toLocaleDateString('en-IN', {
+                                {aff.affiliate_joined_at ? new Date(aff.affiliate_joined_at).toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric'
+                                }) : 'N/A'}
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                <select
+                                  value={aff.affiliate_status}
+                                  onChange={(e) => handleUpdateAffiliateStatus(aff.id, e.target.value)}
+                                  disabled={isUpdatingAffiliateStatus === aff.id}
+                                  style={{
+                                    border: '1px solid var(--border-light)',
+                                    padding: '6px 12px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    backgroundColor:
+                                      aff.affiliate_status === 'active' ? '#dcfce7' :
+                                        aff.affiliate_status === 'pending' ? '#fef3c7' :
+                                          aff.affiliate_status === 'suspended' ? '#fee2e2' : '#f3f4f6',
+                                    color:
+                                      aff.affiliate_status === 'active' ? '#15803d' :
+                                        aff.affiliate_status === 'pending' ? '#b45309' :
+                                          aff.affiliate_status === 'suspended' ? '#dc2626' : '#4b5563'
+                                  }}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="active">Active</option>
+                                  <option value="suspended">Suspended</option>
+                                  <option value="inactive">Inactive</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUBTAB CONTENT: TIERS & SETTINGS */}
+              {affiliateSubTab === 'tiers' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '30px' }} className="hero-grid-split">
+                  {/* Left: Tiers List */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Layers size={16} style={{ color: 'var(--primary-lime)' }} />
+                        Affiliate Commission Levels / Tiers
+                      </h3>
+                      <button
+                        onClick={() => setEditingLevel({ level_number: '', commission_percentage: '', enabled: true })}
+                        style={{
+                          backgroundColor: 'var(--primary-lime)',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 700,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <Plus size={14} /> Add Tier
+                      </button>
+                    </div>
+
+                    {isLoadingLevels ? (
+                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
+                        Loading tier rates...
+                      </div>
+                    ) : affiliateLevels.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '35px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                        No tiers defined yet. Add a level to start.
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Tier / Level</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Commission Percentage (%)</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {affiliateLevels.map((lvl) => (
+                              <tr key={lvl.level_number} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>{getLevelName(lvl.level_number)}</td>
+                                <td style={{ padding: '12px 16px', color: 'var(--primary-lime)', fontWeight: 800 }}>{lvl.commission_percentage}%</td>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <span style={{
+                                    padding: '2px 8px',
+                                    borderRadius: 'var(--radius-full)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    backgroundColor: lvl.enabled ? '#dcfce7' : '#fee2e2',
+                                    color: lvl.enabled ? '#15803d' : '#991b1b',
+                                    border: '1px solid ' + (lvl.enabled ? '#bbf7d0' : '#fecaca')
+                                  }}>
+                                    {lvl.enabled ? 'ENABLED' : 'DISABLED'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                  <button
+                                    onClick={() => setEditingLevel({ level_number: lvl.level_number, commission_percentage: lvl.commission_percentage, enabled: lvl.enabled })}
+                                    style={{
+                                      border: '1px solid var(--border-light)',
+                                      background: '#ffffff',
+                                      color: 'var(--text-dark)',
+                                      padding: '4px 8px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteLevel(lvl.level_number)}
+                                    disabled={isDeletingLevel === lvl.level_number}
+                                    style={{
+                                      border: 'none',
+                                      backgroundColor: '#fee2e2',
+                                      color: '#991b1b',
+                                      padding: '4px 8px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {isDeletingLevel === lvl.level_number ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Level Add/Edit Inline Form panel */}
+                    {editingLevel && (
+                      <div style={{
+                        backgroundColor: '#f9fafb',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '20px',
+                        marginTop: '20px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                          <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                            {affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? `Edit Rate for ${getLevelName(editingLevel.level_number)}` : 'Add New Tier Rate'}
+                          </h4>
+                          <button
+                            onClick={() => setEditingLevel(null)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <form onSubmit={handleSaveLevel} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Level Number (1=Affiliate, 2=Distributor, 3=Super Dist.)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="20"
+                              required
+                              disabled={affiliateLevels.some(l => l.level_number === editingLevel.level_number)}
+                              value={editingLevel.level_number}
+                              onChange={(e) => setEditingLevel({ ...editingLevel, level_number: e.target.value })}
+                              style={{
+                                border: '1px solid var(--border-light)',
+                                padding: '8px 12px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.8rem',
+                                width: '100px',
+                                outline: 'none',
+                                backgroundColor: affiliateLevels.some(l => l.level_number === editingLevel.level_number) ? '#e5e7eb' : '#ffffff'
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Commission Rate (%)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              required
+                              value={editingLevel.commission_percentage}
+                              onChange={(e) => setEditingLevel({ ...editingLevel, commission_percentage: e.target.value })}
+                              style={{
+                                border: '1px solid var(--border-light)',
+                                padding: '8px 12px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.8rem',
+                                width: '150px',
+                                outline: 'none'
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '36px' }}>
+                            <input
+                              type="checkbox"
+                              id="levelEnabled"
+                              checked={editingLevel.enabled}
+                              onChange={(e) => setEditingLevel({ ...editingLevel, enabled: e.target.checked })}
+                            />
+                            <label htmlFor="levelEnabled" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', cursor: 'pointer' }}>Enabled</label>
+                          </div>
+                          <button
+                            type="submit"
+                            disabled={isSavingLevel}
+                            style={{
+                              backgroundColor: 'var(--primary-lime)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '9px 18px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isSavingLevel ? 'Saving...' : 'Save Tier'}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Global Settings Panel */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px',
+                    boxShadow: 'var(--shadow-sm)',
+                    height: 'fit-content'
+                  }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Settings size={16} style={{ color: 'var(--primary-lime)' }} />
+                      Global Settings
+                    </h3>
+
+                    {isLoadingAffiliateSettings ? (
+                      <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        Loading settings...
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Program Status</label>
+                          <select
+                            value={affiliateSettings.affiliate_enabled ? 'true' : 'false'}
+                            onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_enabled: e.target.value === 'true' })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              outline: 'none',
+                              fontWeight: 600
+                            }}
+                          >
+                            <option value="true">🟢 Active & Enabled</option>
+                            <option value="false">🔴 Suspended & Disabled</option>
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Max Search/Payout Depth</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={affiliateSettings.affiliate_max_depth || 5}
+                            onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_max_depth: e.target.value })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Minimum Withdrawal Limit (₹)</label>
+                          <select
+                            value={affiliateSettings.affiliate_min_withdrawal || '1000'}
+                            onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_min_withdrawal: e.target.value })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              outline: 'none',
+                              fontWeight: 600
+                            }}
+                          >
+                            <option value="100">₹100.00</option>
+                            <option value="500">₹500.00</option>
+                            <option value="1000">₹1,000.00</option>
+                            <option value="2000">₹2,000.00</option>
+                            <option value="5000">₹5,000.00</option>
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Attribution Rule</label>
+                          <select
+                            value={affiliateSettings.affiliate_commission_model || 'last_touch'}
+                            onChange={(e) => setAffiliateSettings({ ...affiliateSettings, affiliate_commission_model: e.target.value })}
+                            style={{
+                              border: '1px solid var(--border-light)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="last_touch">Last Touch (Recommended)</option>
+                            <option value="first_touch">First Touch</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isSavingAffiliateSettings}
+                          style={{
+                            backgroundColor: 'var(--primary-lime)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '10px 16px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            marginTop: '8px'
+                          }}
+                        >
+                          {isSavingAffiliateSettings ? 'Saving...' : 'Save Configuration'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB CONTENT: WITHDRAWAL PAYOUTS QUEUE */}
+              {affiliateSubTab === 'withdrawals' && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <DollarSign size={16} style={{ color: 'var(--primary-lime)' }} />
+                    Withdrawals Review Queue
+                  </h3>
+
+                  {isLoadingWithdrawals ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                      Loading withdrawal requests...
+                    </div>
+                  ) : withdrawals.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                      No withdrawal requests have been submitted.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Details</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Requested Amount</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Payment Method</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Info / Details</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700 }}>Date Requested</th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {withdrawals.map((w) => (
+                            <tr key={w.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '12px 16px' }}>
+                                <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--text-dark)' }}>{w.devotee_name || 'N/A'}</p>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{w.devotee_phone || w.devotee_email || 'N/A'}</p>
+                              </td>
+                              <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: '0.88rem', color: 'var(--primary-lime)' }}>
+                                ₹{parseFloat(w.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                                <span style={{ textTransform: 'uppercase', backgroundColor: '#eef2f6', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem' }}>
+                                  {w.payment_method}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', maxWidth: '250px', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                                {w.payment_method === 'upi' ? (
+                                  <div>
+                                    <p style={{ margin: 0 }}><strong>UPI ID:</strong> {w.payment_details?.upi_id}</p>
+                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Name: {w.payment_details?.account_holder_name}</p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <p style={{ margin: 0 }}><strong>Bank:</strong> {w.payment_details?.bank_name}</p>
+                                    <p style={{ margin: '2px 0 0 0' }}><strong>A/C:</strong> {w.payment_details?.account_number}</p>
+                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Holder: {w.payment_details?.account_name} | IFSC: {w.payment_details?.ifsc_code}</p>
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{
+                                  padding: '3px 10px',
+                                  borderRadius: 'var(--radius-full)',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  backgroundColor:
+                                    w.status === 'paid' ? '#dcfce7' :
+                                      w.status === 'approved' ? '#dbeafe' :
+                                        w.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+                                  color:
+                                    w.status === 'paid' ? '#15803d' :
+                                      w.status === 'approved' ? '#1d4ed8' :
+                                        w.status === 'rejected' ? '#991b1b' : '#b45309',
+                                  border: '1px solid ' + (
+                                    w.status === 'paid' ? '#bbf7d0' :
+                                      w.status === 'approved' ? '#bfdbfe' :
+                                        w.status === 'rejected' ? '#fecaca' : '#fde68a'
+                                  )
+                                }}>
+                                  {w.status.toUpperCase()}
+                                </span>
+                                {w.status === 'rejected' && w.admin_notes && (
+                                  <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#dc2626' }}>Reason: {w.admin_notes}</p>
+                                )}
+                                {w.status === 'paid' && w.txn_id && (
+                                  <p style={{ margin: '4px 0 0 0', fontSize: '0.7rem', color: '#16a34a', fontFamily: 'monospace' }}>Txn Ref: {w.txn_id}</p>
+                                )}
+                              </td>
+                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                {new Date(w.created_at).toLocaleString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
                                 })}
                               </td>
                               <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
-                                  <button
-                                    onClick={() => {
-                                      const loginUrl = `${window.location.origin}/pundit-login`;
-                                      navigator.clipboard.writeText(loginUrl);
-                                      alert('Shastri custom login URL copied!');
-                                    }}
-                                    style={{
-                                      backgroundColor: '#f1f5f9',
-                                      color: '#334155',
-                                      border: '1px solid #cbd5e1',
-                                      padding: '4px 8px',
-                                      borderRadius: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 700,
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    Copy Link
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const nextStatus = p.affiliate_status === 'active' ? 'suspended' : 'active';
-                                      handleUpdateAffiliateStatus(p.id, nextStatus).then(() => {
-                                        // Update pundit list local state too
-                                        setPundits(prev => prev.map(x => x.id === p.id ? { ...x, affiliate_status: nextStatus } : x));
-                                      });
-                                    }}
-                                    style={{
-                                      backgroundColor: p.affiliate_status === 'active' ? '#fee2e2' : '#dcfce7',
-                                      color: p.affiliate_status === 'active' ? '#dc2626' : '#16a34a',
-                                      border: 'none',
-                                      padding: '4px 8px',
-                                      borderRadius: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 700,
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    {p.affiliate_status === 'active' ? 'Suspend' : 'Activate'}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setResetPunditId(p.id);
-                                      setResetPunditPassword('');
-                                    }}
-                                    style={{
-                                      backgroundColor: 'var(--primary-forest)',
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      padding: '4px 8px',
-                                      borderRadius: '4px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: 700,
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    Reset Password
-                                  </button>
+                                  {w.status === 'pending' && (
+                                    <button
+                                      onClick={() => handleApproveWithdrawal(w.id)}
+                                      disabled={isProcessingWithdrawal === w.id}
+                                      style={{
+                                        backgroundColor: '#dbeafe',
+                                        color: '#1d4ed8',
+                                        border: 'none',
+                                        padding: '5px 10px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Approve
+                                    </button>
+                                  )}
+                                  {(w.status === 'pending' || w.status === 'approved') && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setTxnInputId(w.id);
+                                          setTxnRefNumber('');
+                                        }}
+                                        disabled={isProcessingWithdrawal === w.id}
+                                        style={{
+                                          backgroundColor: 'var(--primary-lime)',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          padding: '5px 10px',
+                                          borderRadius: 'var(--radius-sm)',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        Mark Paid
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setRejectingWithdrawalId(w.id);
+                                          setRejectReason('');
+                                        }}
+                                        disabled={isProcessingWithdrawal === w.id}
+                                        style={{
+                                          backgroundColor: '#fee2e2',
+                                          color: '#991b1b',
+                                          border: 'none',
+                                          padding: '5px 10px',
+                                          borderRadius: 'var(--radius-sm)',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -11042,479 +11082,926 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     </div>
                   )}
 
-                  {/* Password Reset Section */}
-                  {resetPunditId && (
+                  {/* Inline Rejection Panel */}
+                  {rejectingWithdrawalId && (
                     <div style={{
-                      backgroundColor: 'rgba(45, 20, 14, 0.03)',
-                      border: '1.5px dashed var(--primary-forest)',
+                      backgroundColor: '#fee2e2',
+                      border: '1px solid #fecaca',
                       borderRadius: 'var(--radius-md)',
                       padding: '20px',
                       marginTop: '20px',
                       textAlign: 'left'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-forest)', margin: 0 }}>
-                          Reset Shastri Password
-                        </h4>
+                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: '#991b1b' }}>Reject Payout Request</h4>
                         <button
-                          onClick={() => setResetPunditId(null)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 'bold' }}
+                          onClick={() => setRejectingWithdrawalId(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}
                         >
-                          Cancel
+                          <X size={16} />
                         </button>
                       </div>
-                      <form onSubmit={handleResetPunditPassword} style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px', flex: 1 }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-dark)' }}>NEW CUSTOM SECURITY PASSWORD</label>
+                      <form onSubmit={handleRejectWithdrawalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b' }}>Reason for Rejection</label>
                           <input
                             type="text"
                             required
-                            placeholder="Enter new custom password"
-                            value={resetPunditPassword}
-                            onChange={(e) => setResetPunditPassword(e.target.value)}
+                            placeholder="e.g. Invalid UPI ID details, incorrect account holder name matching..."
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
                             style={{
-                              border: '1.5px solid var(--border-light)',
-                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid #fecaca',
                               padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
                               fontSize: '0.8rem',
-                              outline: 'none'
+                              outline: 'none',
+                              width: '100%',
+                              boxSizing: 'border-box'
                             }}
                           />
                         </div>
                         <button
                           type="submit"
-                          disabled={isResettingPassword}
+                          disabled={isProcessingWithdrawal === rejectingWithdrawalId}
+                          style={{
+                            backgroundColor: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            width: 'fit-content'
+                          }}
+                        >
+                          Confirm Rejection
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Inline Mark Paid Panel */}
+                  {txnInputId && (
+                    <div style={{
+                      backgroundColor: 'var(--primary-lime-light)',
+                      border: '1px solid var(--primary-lime)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '20px',
+                      marginTop: '20px',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-lime)' }}>Enter Transaction Reference Details</h4>
+                        <button
+                          onClick={() => setTxnInputId(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-lime)' }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <form onSubmit={handleMarkWithdrawalPaidSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-lime)' }}>Transaction ID / Reference Number</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. UPI Ref txn hash or Bank IMPS number..."
+                            value={txnRefNumber}
+                            onChange={(e) => setTxnRefNumber(e.target.value)}
+                            style={{
+                              border: '1px solid var(--primary-lime)',
+                              padding: '8px 12px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              outline: 'none',
+                              width: '100%',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isProcessingWithdrawal === txnInputId}
                           style={{
                             backgroundColor: 'var(--primary-lime)',
                             color: '#ffffff',
                             border: 'none',
-                            padding: '9px 16px',
+                            padding: '8px 16px',
                             borderRadius: 'var(--radius-sm)',
                             fontWeight: 700,
                             fontSize: '0.8rem',
-                            cursor: isResettingPassword ? 'not-allowed' : 'pointer',
-                            opacity: isResettingPassword ? 0.7 : 1,
-                            height: '35px'
+                            cursor: 'pointer',
+                            width: 'fit-content'
                           }}
                         >
-                          {isResettingPassword ? 'Updating...' : 'Update Password'}
+                          Finalize Payout
                         </button>
                       </form>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* =======================================================
-            TAB: DEVOTEE DIRECTORY
-            ======================================================= */}
-        {activeTab === 'users' && (
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            
-            {/* Header section */}
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                Devotee Directory
-              </h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                View all registered devotee profiles, verify their accounts, monitor status, temporarily suspend, or permanently cascade delete devotee information.
-              </p>
-            </div>
-
-            {/* Directory controls */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px'
-            }}>
-              
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '16px'
-              }}>
-                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search devotees by name, phone, or email..."
-                    value={searchUserQuery}
-                    onChange={(e) => setSearchUserQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '8px',
-                      border: '1.5px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.85rem'
-                    }}
-                  />
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
-                    <Search size={16} />
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  Total Devotees: {usersState.length}
-                </div>
-              </div>
-
-              {isLoadingUsers ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                  <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                  <span>Loading devotee registry database...</span>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Number</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email Address</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Registration Date</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Status</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usersState.filter(user => {
-                        const q = searchUserQuery.toLowerCase();
-                        return (user.full_name || '').toLowerCase().includes(q) ||
-                               (user.phone_number || '').toLowerCase().includes(q) ||
-                               (user.email || '').toLowerCase().includes(q);
-                      }).length === 0 ? (
-                        <tr>
-                          <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            No devotee profiles match your search criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        usersState
-                          .filter(user => {
-                            const q = searchUserQuery.toLowerCase();
-                            return (user.full_name || '').toLowerCase().includes(q) ||
-                                   (user.phone_number || '').toLowerCase().includes(q) ||
-                                   (user.email || '').toLowerCase().includes(q);
-                          })
-                          .map((user) => (
-                            <tr key={user.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '1.25rem' }}>{user.is_pundit ? '🕉️' : '👤'}</span>
-                                  <div>
-                                    <span>{user.full_name}</span>
-                                    {user.is_pundit && (
-                                      <span style={{
-                                        marginLeft: '6px',
-                                        fontSize: '0.62rem',
-                                        backgroundColor: 'var(--primary-lime-light)',
-                                        color: 'var(--primary-lime)',
-                                        padding: '1.5px 5px',
-                                        borderRadius: '4px',
-                                        fontWeight: 800
-                                      }}>
-                                        PUNDIT
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                {user.phone_number}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                {user.email || 'N/A'}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                {new Date(user.created_at).toLocaleDateString('en-IN', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <span style={{
-                                  padding: '3px 10px',
-                                  borderRadius: 'var(--radius-full)',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 800,
-                                  backgroundColor: user.is_suspended ? '#fee2e2' : '#dcfce7',
-                                  color: user.is_suspended ? '#991b1b' : '#15803d',
-                                  border: '1px solid ' + (user.is_suspended ? '#fecaca' : '#bbf7d0')
-                                }}>
-                                  {user.is_suspended ? 'SUSPENDED' : 'ACTIVE'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                  <button
-                                    onClick={() => handleToggleSuspendUser(user.id, !!user.is_suspended)}
-                                    disabled={isSuspendingUser === user.id}
-                                    style={{
-                                      backgroundColor: user.is_suspended ? '#dcfce7' : '#fee2e2',
-                                      color: user.is_suspended ? '#15803d' : '#dc2626',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      cursor: isSuspendingUser === user.id ? 'not-allowed' : 'pointer',
-                                      opacity: isSuspendingUser === user.id ? 0.7 : 1,
-                                      width: '80px',
-                                      textAlign: 'center'
-                                    }}
-                                  >
-                                    {isSuspendingUser === user.id ? '...' : (user.is_suspended ? 'Activate' : 'Suspend')}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(user.id, user.full_name)}
-                                    disabled={isDeletingUser === user.id}
-                                    style={{
-                                      backgroundColor: '#dc2626',
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      padding: '6px 12px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      cursor: isDeletingUser === user.id ? 'not-allowed' : 'pointer',
-                                      opacity: isDeletingUser === user.id ? 0.7 : 1
-                                    }}
-                                  >
-                                    {isDeletingUser === user.id ? 'Deleting...' : 'Delete'}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* =======================================================
-            TAB: ASTROLOGER REGISTRY
-            ======================================================= */}
-        {activeTab === 'astrologers' && (
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            
-            {/* Header section */}
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
-                Astrologer Registry
-              </h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Manage all registered Astrologers, monitor online status, suspend access, or permanently delete profiles.
-              </p>
-            </div>
+              {/* SUBTAB CONTENT: PUNDIT MANAGER */}
+              {affiliateSubTab === 'pundits' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                  {/* 1. Create Pundit Form & Success Panel */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🕉️</span> Create New Pandit Account
+                    </h3>
 
-            {/* Directory controls */}
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px'
-            }}>
-              
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '16px'
-              }}>
-                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search astrologers by name, title, or city..."
-                    value={searchAstrologerQuery}
-                    onChange={(e) => setSearchAstrologerQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '8px',
-                      border: '1.5px solid var(--border-light)',
-                      outline: 'none',
-                      fontSize: '0.85rem'
-                    }}
-                  />
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
-                    <Search size={16} />
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  Total Astrologers: {astrologersState.length}
-                </div>
-              </div>
+                    {punditError && (
+                      <div style={{
+                        backgroundColor: '#fee2e2',
+                        border: '1px solid #fecaca',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '12px 16px',
+                        color: '#b91c1c',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        marginBottom: '16px'
+                      }}>
+                        {punditError}
+                      </div>
+                    )}
 
-              {isLoadingAstrologers ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                  <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                  <span>Loading astrologers registry...</span>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Astrologer</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Rate & Consults</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Specialties</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>City & State</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {astrologersState.filter(ast => {
-                        const q = searchAstrologerQuery.toLowerCase();
-                        return (ast.full_name || '').toLowerCase().includes(q) ||
-                               (ast.spiritual_title || '').toLowerCase().includes(q) ||
-                               (ast.city || '').toLowerCase().includes(q) ||
-                               (ast.state || '').toLowerCase().includes(q);
-                      }).length === 0 ? (
-                        <tr>
-                          <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            No astrologer profiles match your search criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        astrologersState
-                          .filter(ast => {
-                            const q = searchAstrologerQuery.toLowerCase();
-                            return (ast.full_name || '').toLowerCase().includes(q) ||
-                                   (ast.spiritual_title || '').toLowerCase().includes(q) ||
-                                   (ast.city || '').toLowerCase().includes(q) ||
-                                   (ast.state || '').toLowerCase().includes(q);
-                          })
-                          .map((ast) => {
-                            const isSuspended = ast.user?.is_suspended || false;
-                            return (
-                              <tr key={ast.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                                <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <img 
-                                      src={ast.profile_photo || `https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(ast.full_name)}`} 
-                                      alt={ast.full_name} 
-                                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--border-light)' }} 
-                                    />
-                                    <div>
-                                      <div style={{ fontWeight: 'bold' }}>{ast.full_name}</div>
-                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.spiritual_title || 'Astrologer'} • {ast.experience_years} yrs exp</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
-                                  <div><span style={{ fontWeight: 700, color: '#b45309' }}>{ast.charge_per_min} coins/m</span></div>
-                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.readings_count}+ readings ({ast.rating} ⭐)</div>
-                                </td>
-                                <td style={{ padding: '12px 16px' }}>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
-                                    {(ast.specialties || []).slice(0, 3).map((s: string) => (
-                                      <span key={s} style={{ fontSize: '0.65rem', backgroundColor: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                                        {s}
-                                      </span>
-                                    ))}
-                                    {(ast.specialties || []).length > 3 && (
-                                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+{ast.specialties.length - 3} more</span>
-                                    )}
-                                  </div>
+                    {punditCreationResult ? (
+                      <div style={{
+                        backgroundColor: 'rgba(132, 204, 22, 0.1)',
+                        border: '1px solid var(--primary-lime)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '20px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ margin: 0, color: 'var(--primary-forest)', fontWeight: 800 }}>🎉 Pandit Profile Created Successfully!</h4>
+                          <button
+                            onClick={() => setPunditCreationResult(null)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: 'var(--primary-forest)',
+                              fontWeight: 'bold',
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                          Provide these credentials to <strong>{punditCreationResult.name}</strong> to log in:
+                        </p>
+                        <div style={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '12px 16px',
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          fontFamily: 'monospace'
+                        }}>
+                          <div><strong>Phone Number:</strong> {punditCreationResult.phone}</div>
+                          <div><strong>Custom Password:</strong> {punditCreationResult.password}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            <strong>Login URL:</strong>
+                            <span style={{ color: 'var(--text-muted)' }}>{punditCreationResult.url}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(punditCreationResult.url);
+                                alert('Login link copied to clipboard!');
+                              }}
+                              style={{
+                                backgroundColor: 'var(--primary-lime-light)',
+                                color: 'var(--primary-lime)',
+                                border: '1px solid var(--primary-lime)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Copy URL
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleCreatePundit} style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '16px',
+                        alignItems: 'end'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>FULL NAME *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Shastri Shastri Ji"
+                            value={newPunditName}
+                            onChange={(e) => setNewPunditName(e.target.value)}
+                            style={{
+                              border: '1.5px solid var(--border-light)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '10px 12px',
+                              fontSize: '0.85rem',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>WHATSAPP NUMBER *</label>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="e.g. +91 98765 43210"
+                            value={newPunditPhone}
+                            onChange={(e) => setNewPunditPhone(e.target.value)}
+                            style={{
+                              border: '1.5px solid var(--border-light)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '10px 12px',
+                              fontSize: '0.85rem',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-dark)' }}>SECURITY PASSWORD *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Set custom password"
+                            value={newPunditPassword}
+                            onChange={(e) => setNewPunditPassword(e.target.value)}
+                            style={{
+                              border: '1.5px solid var(--border-light)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '10px 12px',
+                              fontSize: '0.85rem',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isCreatingPundit}
+                          style={{
+                            backgroundColor: 'var(--primary-forest)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: isCreatingPundit ? 'not-allowed' : 'pointer',
+                            opacity: isCreatingPundit ? 0.8 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            height: '42px'
+                          }}
+                        >
+                          {isCreatingPundit ? 'Creating...' : 'Create Pandit Profile'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* 2. Pundits Directory Table */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🕉️</span> Pandit Directory & Controls
+                    </h3>
+
+                    {isLoadingPundits ? (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                        Loading pandits database...
+                      </div>
+                    ) : pundits.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '40px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)' }}>
+                        No pandits registered. Add a pandit above to get started.
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Shastri Details</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Phone</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Affiliate Code</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700 }}>Joined Date</th>
+                              <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pundits.map((p) => (
+                              <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                                  {p.full_name}
                                 </td>
                                 <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                                  {ast.city || 'N/A'}, {ast.state || 'N/A'}
+                                  {p.phone_number}
+                                </td>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--primary-forest)' }}>
+                                  <code>{p.affiliate_code}</code>
                                 </td>
                                 <td style={{ padding: '12px 16px' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <span style={{
-                                      display: 'inline-block',
-                                      fontSize: '0.68rem',
-                                      backgroundColor: isSuspended ? '#fee2e2' : '#dcfce7',
-                                      color: isSuspended ? '#991b1b' : '#166534',
-                                      padding: '3px 8px',
-                                      borderRadius: '9999px',
-                                      fontWeight: 800,
-                                      width: 'fit-content'
-                                    }}>
-                                      {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
-                                    </span>
-                                    <span style={{
-                                      fontSize: '0.65rem',
-                                      color: ast.is_online ? '#16a34a' : '#64748b',
-                                      fontWeight: 600
-                                    }}>
-                                      {ast.is_online ? '● Online' : '○ Offline'}
-                                    </span>
-                                  </div>
+                                  <span style={{
+                                    padding: '3px 10px',
+                                    borderRadius: 'var(--radius-full)',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    backgroundColor:
+                                      p.affiliate_status === 'active' ? '#dcfce7' :
+                                        p.affiliate_status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                    color:
+                                      p.affiliate_status === 'active' ? '#15803d' :
+                                        p.affiliate_status === 'pending' ? '#b45309' : '#991b1b',
+                                    border: '1px solid ' + (
+                                      p.affiliate_status === 'active' ? '#bbf7d0' :
+                                        p.affiliate_status === 'pending' ? '#fde68a' : '#fecaca'
+                                    )
+                                  }}>
+                                    {p.affiliate_status.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                  {new Date(p.affiliate_joined_at || p.created_at).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
                                 </td>
                                 <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
                                     <button
-                                      type="button"
-                                      disabled={isSuspendingAstrologer === ast.id}
-                                      onClick={() => handleToggleSuspendAstrologer(ast)}
+                                      onClick={() => {
+                                        const loginUrl = `${window.location.origin}/pundit-login`;
+                                        navigator.clipboard.writeText(loginUrl);
+                                        alert('Shastri custom login URL copied!');
+                                      }}
                                       style={{
-                                        padding: '6px 12px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        backgroundColor: isSuspended ? '#dcfce7' : '#fee2e2',
-                                        color: isSuspended ? '#15803d' : '#b91c1c',
+                                        backgroundColor: '#f1f5f9',
+                                        color: '#334155',
+                                        border: '1px solid #cbd5e1',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
                                         fontWeight: 700,
-                                        fontSize: '0.75rem',
                                         cursor: 'pointer'
                                       }}
                                     >
-                                      {isSuspended ? 'Unsuspend' : 'Suspend'}
+                                      Copy Link
                                     </button>
                                     <button
-                                      type="button"
-                                      disabled={isDeletingAstrologer === ast.id}
-                                      onClick={() => handleDeleteAstrologer(ast)}
-                                      style={{
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        border: 'none',
-                                        backgroundColor: '#fee2e2',
-                                        color: '#991b1b',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
+                                      onClick={() => {
+                                        const nextStatus = p.affiliate_status === 'active' ? 'suspended' : 'active';
+                                        handleUpdateAffiliateStatus(p.id, nextStatus).then(() => {
+                                          // Update pundit list local state too
+                                          setPundits(prev => prev.map(x => x.id === p.id ? { ...x, affiliate_status: nextStatus } : x));
+                                        });
                                       }}
-                                      title="Delete Astrologer Profile"
+                                      style={{
+                                        backgroundColor: p.affiliate_status === 'active' ? '#fee2e2' : '#dcfce7',
+                                        color: p.affiliate_status === 'active' ? '#dc2626' : '#16a34a',
+                                        border: 'none',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
                                     >
-                                      <Trash2 size={14} />
+                                      {p.affiliate_status === 'active' ? 'Suspend' : 'Activate'}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setResetPunditId(p.id);
+                                        setResetPunditPassword('');
+                                      }}
+                                      style={{
+                                        backgroundColor: 'var(--primary-forest)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Reset Password
                                     </button>
                                   </div>
                                 </td>
                               </tr>
-                            );
-                          })
-                      )}
-                    </tbody>
-                  </table>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Password Reset Section */}
+                    {resetPunditId && (
+                      <div style={{
+                        backgroundColor: 'rgba(45, 20, 14, 0.03)',
+                        border: '1.5px dashed var(--primary-forest)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '20px',
+                        marginTop: '20px',
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary-forest)', margin: 0 }}>
+                            Reset Shastri Password
+                          </h4>
+                          <button
+                            onClick={() => setResetPunditId(null)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 'bold' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <form onSubmit={handleResetPunditPassword} style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px', flex: 1 }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-dark)' }}>NEW CUSTOM SECURITY PASSWORD</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter new custom password"
+                              value={resetPunditPassword}
+                              onChange={(e) => setResetPunditPassword(e.target.value)}
+                              style={{
+                                border: '1.5px solid var(--border-light)',
+                                borderRadius: 'var(--radius-sm)',
+                                padding: '8px 12px',
+                                fontSize: '0.8rem',
+                                outline: 'none'
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            disabled={isResettingPassword}
+                            style={{
+                              backgroundColor: 'var(--primary-lime)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '9px 16px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              cursor: isResettingPassword ? 'not-allowed' : 'pointer',
+                              opacity: isResettingPassword ? 0.7 : 1,
+                              height: '35px'
+                            }}
+                          >
+                            {isResettingPassword ? 'Updating...' : 'Update Password'}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
             </div>
-          </div>
-        )}
+          )}
+
+          {/* =======================================================
+            TAB: DEVOTEE DIRECTORY
+            ======================================================= */}
+          {activeTab === 'users' && (
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+              {/* Header section */}
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                  Devotee Directory
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  View all registered devotee profiles, verify their accounts, monitor status, temporarily suspend, or permanently cascade delete devotee information.
+                </p>
+              </div>
+
+              {/* Directory controls */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px'
+              }}>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
+                  <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                    <input
+                      type="text"
+                      placeholder="Search devotees by name, phone, or email..."
+                      value={searchUserQuery}
+                      onChange={(e) => setSearchUserQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.85rem'
+                      }}
+                    />
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                      <Search size={16} />
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    Total Devotees: {usersState.length}
+                  </div>
+                </div>
+
+                {isLoadingUsers ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                    <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                    <span>Loading devotee registry database...</span>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Devotee Name</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>WhatsApp Number</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Email Address</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Registration Date</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Account Status</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {usersState.filter(user => {
+                          const q = searchUserQuery.toLowerCase();
+                          return (user.full_name || '').toLowerCase().includes(q) ||
+                            (user.phone_number || '').toLowerCase().includes(q) ||
+                            (user.email || '').toLowerCase().includes(q);
+                        }).length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              No devotee profiles match your search criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          usersState
+                            .filter(user => {
+                              const q = searchUserQuery.toLowerCase();
+                              return (user.full_name || '').toLowerCase().includes(q) ||
+                                (user.phone_number || '').toLowerCase().includes(q) ||
+                                (user.email || '').toLowerCase().includes(q);
+                            })
+                            .map((user) => (
+                              <tr key={user.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.25rem' }}>{user.is_pundit ? '🕉️' : '👤'}</span>
+                                    <div>
+                                      <span>{user.full_name}</span>
+                                      {user.is_pundit && (
+                                        <span style={{
+                                          marginLeft: '6px',
+                                          fontSize: '0.62rem',
+                                          backgroundColor: 'var(--primary-lime-light)',
+                                          color: 'var(--primary-lime)',
+                                          padding: '1.5px 5px',
+                                          borderRadius: '4px',
+                                          fontWeight: 800
+                                        }}>
+                                          PUNDIT
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                  {user.phone_number}
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                  {user.email || 'N/A'}
+                                </td>
+                                <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                  {new Date(user.created_at).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </td>
+                                <td style={{ padding: '12px 16px' }}>
+                                  <span style={{
+                                    padding: '3px 10px',
+                                    borderRadius: 'var(--radius-full)',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    backgroundColor: user.is_suspended ? '#fee2e2' : '#dcfce7',
+                                    color: user.is_suspended ? '#991b1b' : '#15803d',
+                                    border: '1px solid ' + (user.is_suspended ? '#fecaca' : '#bbf7d0')
+                                  }}>
+                                    {user.is_suspended ? 'SUSPENDED' : 'ACTIVE'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button
+                                      onClick={() => handleToggleSuspendUser(user.id, !!user.is_suspended)}
+                                      disabled={isSuspendingUser === user.id}
+                                      style={{
+                                        backgroundColor: user.is_suspended ? '#dcfce7' : '#fee2e2',
+                                        color: user.is_suspended ? '#15803d' : '#dc2626',
+                                        border: 'none',
+                                        padding: '6px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: isSuspendingUser === user.id ? 'not-allowed' : 'pointer',
+                                        opacity: isSuspendingUser === user.id ? 0.7 : 1,
+                                        width: '80px',
+                                        textAlign: 'center'
+                                      }}
+                                    >
+                                      {isSuspendingUser === user.id ? '...' : (user.is_suspended ? 'Activate' : 'Suspend')}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteUser(user.id, user.full_name)}
+                                      disabled={isDeletingUser === user.id}
+                                      style={{
+                                        backgroundColor: '#dc2626',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '6px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: isDeletingUser === user.id ? 'not-allowed' : 'pointer',
+                                        opacity: isDeletingUser === user.id ? 0.7 : 1
+                                      }}
+                                    >
+                                      {isDeletingUser === user.id ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* =======================================================
+            TAB: ASTROLOGER REGISTRY
+            ======================================================= */}
+          {activeTab === 'astrologers' && (
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+              {/* Header section */}
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)' }}>
+                  Astrologer Registry
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Manage all registered Astrologers, monitor online status, suspend access, or permanently delete profiles.
+                </p>
+              </div>
+
+              {/* Directory controls */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px'
+              }}>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
+                  <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                    <input
+                      type="text"
+                      placeholder="Search astrologers by name, title, or city..."
+                      value={searchAstrologerQuery}
+                      onChange={(e) => setSearchAstrologerQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-light)',
+                        outline: 'none',
+                        fontSize: '0.85rem'
+                      }}
+                    />
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                      <Search size={16} />
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    Total Astrologers: {astrologersState.length}
+                  </div>
+                </div>
+
+                {isLoadingAstrologers ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                    <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: 'var(--primary-lime)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                    <span>Loading astrologers registry...</span>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border-light)' }}>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Astrologer</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Rate & Consults</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Specialties</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>City & State</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>Controls</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {astrologersState.filter(ast => {
+                          const q = searchAstrologerQuery.toLowerCase();
+                          return (ast.full_name || '').toLowerCase().includes(q) ||
+                            (ast.spiritual_title || '').toLowerCase().includes(q) ||
+                            (ast.city || '').toLowerCase().includes(q) ||
+                            (ast.state || '').toLowerCase().includes(q);
+                        }).length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              No astrologer profiles match your search criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          astrologersState
+                            .filter(ast => {
+                              const q = searchAstrologerQuery.toLowerCase();
+                              return (ast.full_name || '').toLowerCase().includes(q) ||
+                                (ast.spiritual_title || '').toLowerCase().includes(q) ||
+                                (ast.city || '').toLowerCase().includes(q) ||
+                                (ast.state || '').toLowerCase().includes(q);
+                            })
+                            .map((ast) => {
+                              const isSuspended = ast.user?.is_suspended || false;
+                              return (
+                                <tr key={ast.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <img
+                                        src={ast.profile_photo || `https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(ast.full_name)}`}
+                                        alt={ast.full_name}
+                                        style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--border-light)' }}
+                                      />
+                                      <div>
+                                        <div style={{ fontWeight: 'bold' }}>{ast.full_name}</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.spiritual_title || 'Astrologer'} • {ast.experience_years} yrs exp</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-dark)' }}>
+                                    <div><span style={{ fontWeight: 700, color: '#b45309' }}>{ast.charge_per_min} coins/m</span></div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ast.readings_count}+ readings ({ast.rating} ⭐)</div>
+                                  </td>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
+                                      {(ast.specialties || []).slice(0, 3).map((s: string) => (
+                                        <span key={s} style={{ fontSize: '0.65rem', backgroundColor: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                          {s}
+                                        </span>
+                                      ))}
+                                      {(ast.specialties || []).length > 3 && (
+                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+{ast.specialties.length - 3} more</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                                    {ast.city || 'N/A'}, {ast.state || 'N/A'}
+                                  </td>
+                                  <td style={{ padding: '12px 16px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                      <span style={{
+                                        display: 'inline-block',
+                                        fontSize: '0.68rem',
+                                        backgroundColor: isSuspended ? '#fee2e2' : '#dcfce7',
+                                        color: isSuspended ? '#991b1b' : '#166534',
+                                        padding: '3px 8px',
+                                        borderRadius: '9999px',
+                                        fontWeight: 800,
+                                        width: 'fit-content'
+                                      }}>
+                                        {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '0.65rem',
+                                        color: ast.is_online ? '#16a34a' : '#64748b',
+                                        fontWeight: 600
+                                      }}>
+                                        {ast.is_online ? '● Online' : '○ Offline'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                      <button
+                                        type="button"
+                                        disabled={isSuspendingAstrologer === ast.id}
+                                        onClick={() => handleToggleSuspendAstrologer(ast)}
+                                        style={{
+                                          padding: '6px 12px',
+                                          borderRadius: '6px',
+                                          border: '1px solid #d1d5db',
+                                          backgroundColor: isSuspended ? '#dcfce7' : '#fee2e2',
+                                          color: isSuspended ? '#15803d' : '#b91c1c',
+                                          fontWeight: 700,
+                                          fontSize: '0.75rem',
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        {isSuspended ? 'Unsuspend' : 'Suspend'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={isDeletingAstrologer === ast.id}
+                                        onClick={() => handleDeleteAstrologer(ast)}
+                                        style={{
+                                          padding: '6px 10px',
+                                          borderRadius: '6px',
+                                          border: 'none',
+                                          backgroundColor: '#fee2e2',
+                                          color: '#991b1b',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                        title="Delete Astrologer Profile"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         </div>
       </main>
@@ -11596,7 +12083,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
             {/* Modal Body Form */}
             <form onSubmit={editingProduct ? handleSaveEditProduct : handleAddProduct} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '16px' }}>
                 {/* Name */}
                 <div>
@@ -11814,7 +12301,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             textAlign: 'left',
             animation: 'slideUp 0.25s ease-out'
           }}>
-            
+
             {/* Header */}
             <div style={{
               padding: '20px 24px',
@@ -11835,10 +12322,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
             {/* Content */}
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
+
               {/* Address details grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="form-grid-2col">
-                
+
                 {/* Delivery address */}
                 <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f9fafb' }}>
                   <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
@@ -12065,22 +12552,22 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       </button>
                     </div>
                   )}
-                  <div style={{ 
-                    position: 'relative', 
-                    overflow: 'hidden', 
-                    borderRadius: 'var(--radius-sm)', 
-                    border: '1px solid var(--border-light)', 
-                    backgroundColor: '#ffffff', 
-                    textAlign: 'center', 
-                    padding: '8px' 
+                  <div style={{
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-light)',
+                    backgroundColor: '#ffffff',
+                    textAlign: 'center',
+                    padding: '8px'
                   }}>
-                    <img 
-                      src={selectedOrderDetails.paymentScreenshot} 
-                      alt="Payment Screenshot Proof" 
-                      style={{ 
-                        maxWidth: '100%', 
-                        maxHeight: '220px', 
-                        objectFit: 'contain', 
+                    <img
+                      src={selectedOrderDetails.paymentScreenshot}
+                      alt="Payment Screenshot Proof"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '220px',
+                        objectFit: 'contain',
                         borderRadius: '4px',
                         cursor: 'pointer',
                         transition: 'transform 0.2s ease-in-out'
@@ -12090,13 +12577,13 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
                     />
                     <div style={{ marginTop: '8px', fontSize: '0.78rem' }}>
-                      <a 
-                        href={selectedOrderDetails.paymentScreenshot} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        style={{ 
-                          color: 'var(--primary-forest)', 
-                          fontWeight: 700, 
+                      <a
+                        href={selectedOrderDetails.paymentScreenshot}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: 'var(--primary-forest)',
+                          fontWeight: 700,
                           textDecoration: 'underline',
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -12181,13 +12668,53 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 </div>
               </div>
 
+              {/* Action Downloads */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}>
+                <button
+                  onClick={() => handleDownloadInvoice(selectedOrderDetails)}
+                  className="btn-lime"
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <ArrowDown size={14} /> Invoice PDF
+                </button>
+                <button
+                  onClick={() => handleDownloadShippingLabel(selectedOrderDetails)}
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: '#ea580c',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#c2410c')}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                >
+                  <Truck size={14} /> Shipping Sticker (4x4)
+                </button>
+              </div>
+
               {/* Close Button */}
               <button
                 onClick={() => setSelectedOrderDetails(null)}
                 className="btn-lime"
-                style={{ width: '100%', padding: '12px', justifyContent: 'center' }}
+                style={{ width: '100%', padding: '12px', justifyContent: 'center', backgroundColor: '#f3f4f6', color: 'var(--text-dark)', border: '1px solid var(--border-light)', marginTop: '8px' }}
               >
-                Close Order Invoice
+                Close
               </button>
 
             </div>
@@ -12239,7 +12766,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 <Upload size={32} />
               </div>
             </div>
-            
+
             <div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>
                 Uploading & Saving Assets
@@ -12271,7 +12798,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 </div>
               )}
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.82rem', color: '#4b5563' }}>
               <span style={{
                 width: '16px',
@@ -12317,3 +12844,4 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     </div>
   );
 };
+_the
