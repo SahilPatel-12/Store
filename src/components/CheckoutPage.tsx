@@ -538,7 +538,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     // Sync order to shared public.orders / public.order_items linking to mobile app_users ID
     handleWebsiteCheckout({
-      phone: phone || loggedInUser?.phoneNumber || '',
+      phone: phone || loggedInUser?.phoneNumber || (loggedInUser as any)?.phone_number || (loggedInUser as any)?.phone || '',
       orderType: 'product',
       totalAmount: finalCalculatedTotal,
       subtotal: subtotalVal,

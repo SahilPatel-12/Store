@@ -57,16 +57,18 @@ export interface WebsiteCheckoutData {
 
 export async function handleWebsiteCheckout(
   checkoutData: WebsiteCheckoutData,
-  webAuthUser?: { id: string } | null
+  webAuthUser?: any
 ) {
-  const customerPhone = normalizePhone(checkoutData.phone);
+  const rawPhone = checkoutData.phone || webAuthUser?.phoneNumber || webAuthUser?.phone_number || webAuthUser?.phone || '';
+  const customerPhone = normalizePhone(rawPhone);
   if (!customerPhone) {
-    console.warn('[crossPlatformSync] Cannot handle website checkout: phone missing or invalid.');
+    console.warn('[crossPlatformSync] Cannot handle website checkout: phone missing or invalid.', { checkoutData, webAuthUser });
     return null;
   }
 
   try {
     // 1. Look up app_users ID matching customer phone
+    let targetUserId: string | null = null;
     const { data: appUser, error: appUserError } = await supabase
       .from('app_users')
       .select('id')
@@ -77,8 +79,38 @@ export async function handleWebsiteCheckout(
       console.warn('[crossPlatformSync] Error querying app_users:', appUserError);
     }
 
-    // Use appUser.id if found, else fallback to webAuthUser.id
-    const targetUserId = appUser ? appUser.id : (webAuthUser?.id || null);
+    if (appUser?.id) {
+      targetUserId = appUser.id;
+    } else {
+      // Provision user dynamically in app_users to satisfy FK constraint
+      console.log('[crossPlatformSync] Provisioning user in app_users dynamically for phone:', customerPhone);
+      const userName = webAuthUser?.fullName || webAuthUser?.full_name || webAuthUser?.name || 'Devotee';
+      const userEmail = webAuthUser?.email || null;
+      const { data: newUser, error: upsertErr } = await supabase
+        .from('app_users')
+        .upsert(
+          {
+            phone: customerPhone,
+            name: userName,
+            email: userEmail,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'phone' }
+        )
+        .select('id')
+        .maybeSingle();
+
+      if (!upsertErr && newUser?.id) {
+        targetUserId = newUser.id;
+      } else if (webAuthUser?.id) {
+        targetUserId = webAuthUser.id;
+      }
+    }
+
+    if (!targetUserId) {
+      console.error('[crossPlatformSync] Failed to resolve targetUserId for order placement.');
+      return null;
+    }
 
     const totalAmount = Number(checkoutData.totalAmount || 0);
     const subtotal = Number(checkoutData.subtotal !== undefined ? checkoutData.subtotal : totalAmount);

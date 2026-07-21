@@ -223,7 +223,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, warning: 'Captured payment received for Cancelled order.' });
     }
 
-    // 7. Update order state parameters
+    // 7. Update order state parameters in website_store_orders and public.orders
     const { error: updateErr } = await supabaseAdmin
       .from('website_store_orders')
       .update({
@@ -238,6 +238,19 @@ export default async function handler(req, res) {
 
     if (updateErr) {
       throw updateErr;
+    }
+
+    // Sync status update to public.orders for React Native Mobile App
+    try {
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          payment_status: 'completed',
+          order_status: 'Confirmed'
+        })
+        .eq('id', order.order_id);
+    } catch (syncErr) {
+      console.warn('[Webhook] Syncing status to public.orders warning:', syncErr);
     }
 
     // Update webhook event to processed

@@ -4924,7 +4924,7 @@ function App() {
             const sessionToken = localStorage.getItem('session_token') || '';
 
             handleWebsiteCheckout({
-              phone: details.phoneNumber || loggedInUser?.phoneNumber || '',
+              phone: details.phoneNumber || loggedInUser?.phoneNumber || (loggedInUser as any)?.phone_number || (loggedInUser as any)?.phone || '',
               orderType: 'product',
               totalAmount: details.total,
               subtotal: details.subtotal,
@@ -5769,7 +5769,7 @@ function App() {
           const sessionToken = localStorage.getItem('session_token') || '';
 
           handleWebsiteCheckout({
-            phone: details.phoneNumber || loggedInUser?.phoneNumber || '',
+            phone: details.phoneNumber || loggedInUser?.phoneNumber || (loggedInUser as any)?.phone_number || (loggedInUser as any)?.phone || '',
             orderType: 'product',
             totalAmount: details.total,
             subtotal: details.subtotal,

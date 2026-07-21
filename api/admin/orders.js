@@ -155,6 +155,15 @@ export default async function handler(req, res) {
           return res.status(401).json({ error: 'Incorrect Super Admin password. Deletion unauthorized.' });
         }
 
+        // Delete from public.order_items, public.shipping_addresses, and public.orders (Mobile App tables)
+        try {
+          await supabaseAdmin.from('order_items').delete().in('order_id', targetIds);
+          await supabaseAdmin.from('shipping_addresses').delete().in('order_id', targetIds);
+          await supabaseAdmin.from('orders').delete().in('id', targetIds);
+        } catch (syncErr) {
+          console.warn('[Admin Delete Orders] Error purging shared public.orders:', syncErr);
+        }
+
         // Delete from website_store_orders
         const { data: deletedOrders, error: deleteErr } = await supabaseAdmin
           .from('website_store_orders')

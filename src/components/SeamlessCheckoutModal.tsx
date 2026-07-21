@@ -705,7 +705,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     const initialPaymentStatus = (paymentLabel === 'Scan & Pay (UPI)' || paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery') ? 'Pending' : 'Confirmed';
     // Sync order to shared public.orders / public.order_items linking to mobile app_users ID
     handleWebsiteCheckout({
-      phone: phone || loggedInUser?.phoneNumber || '',
+      phone: phone || loggedInUser?.phoneNumber || (loggedInUser as any)?.phone_number || (loggedInUser as any)?.phone || '',
       orderType: 'product',
       totalAmount: finalTotal,
       subtotal: subtotal,

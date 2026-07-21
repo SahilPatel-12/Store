@@ -257,14 +257,17 @@ export default async function handler(req, res) {
 
         const targetUserId = appUser ? appUser.id : userId;
 
+        const isCod = paymentMethod === 'COD' || paymentMethod === 'Cash on Delivery';
+        const initialOrderStatus = (paymentMethod === 'Razorpay' || paymentMethod === 'Online') ? 'Draft' : 'Confirmed';
+
         const { data: syncedOrder, error: orderSyncError } = await supabaseAdmin
           .from('orders')
           .insert({
             user_id: targetUserId,
             order_type: 'product',
             total_amount: Number(insertedOrder.total),
-            payment_status: isCod ? 'pending' : 'completed',
-            order_status: 'Confirmed',
+            payment_status: isCod ? 'pending' : (initialOrderStatus === 'Confirmed' ? 'completed' : 'pending'),
+            order_status: initialOrderStatus,
             subtotal: Number(insertedOrder.subtotal),
             discount: Number(insertedOrder.discount || 0),
             tax: Number(insertedOrder.tax || 0),
