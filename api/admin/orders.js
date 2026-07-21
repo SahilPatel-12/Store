@@ -126,29 +126,32 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Super Admin password is required to delete orders.' });
         }
 
-        // Fetch current admin account to verify password
-        const { data: adminUser, error: adminErr } = await supabaseAdmin
+        // Fetch active admin users to verify password against Super Admin accounts
+        const { data: adminUsers, error: adminErr } = await supabaseAdmin
           .from('website_store_admin')
           .select('*')
-          .eq('id', adminSession.admin_id)
-          .maybeSingle();
+          .neq('is_active', false);
 
-        if (adminErr || !adminUser) {
+        if (adminErr || !adminUsers || adminUsers.length === 0) {
           return res.status(500).json({ error: 'Failed to verify admin credentials.' });
         }
 
-        const storedHash = adminUser.password_hash || '';
-        const parts = storedHash.split('$');
-        if (parts[0] !== 'scrypt') {
-          return res.status(500).json({ error: 'Invalid password hashing scheme in system.' });
+        let isAuthorized = false;
+        for (const u of adminUsers) {
+          const storedHash = u.password_hash || '';
+          const parts = storedHash.split('$');
+          if (parts[0] === 'scrypt') {
+            const salt = parts[1];
+            const keyHex = parts[2];
+            const derivedKey = await scrypt(password, salt, 64, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+            if (safeCompare(derivedKey.toString('hex'), keyHex)) {
+              isAuthorized = true;
+              break;
+            }
+          }
         }
 
-        const salt = parts[1];
-        const keyHex = parts[2];
-        const derivedKey = await scrypt(password, salt, 64, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
-
-        const match = safeCompare(derivedKey.toString('hex'), keyHex);
-        if (!match) {
+        if (!isAuthorized) {
           return res.status(401).json({ error: 'Incorrect Super Admin password. Deletion unauthorized.' });
         }
 
