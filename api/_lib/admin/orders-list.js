@@ -23,7 +23,6 @@ export default async function handler(req, res) {
     const { data, error } = await supabaseAdmin
       .from('website_store_orders')
       .select('*')
-      .or('status.neq.Payment Pending,payment_method.eq.COD,payment_method.eq.Cash on Delivery')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
