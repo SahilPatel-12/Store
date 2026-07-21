@@ -233,7 +233,7 @@ export function useRazorpayCheckout({
         },
         modal: {
           ondismiss: async function () {
-            console.log('[Razorpay Dialog] Dismissed by Devotee. Cancelling internal order:', checkoutAttemptId);
+            console.log('[Razorpay Dialog] Dismissed by Devotee. Cancelling internal order:', internalOrderId);
             setIsPlacingOrder(false);
             if (onPaymentCancel) {
               onPaymentCancel();
@@ -242,7 +242,7 @@ export function useRazorpayCheckout({
               await fetch('/api/orders/cancel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: checkoutAttemptId, sessionToken })
+                body: JSON.stringify({ orderId: internalOrderId, sessionToken })
               });
             } catch (cancelErr) {
               console.warn('Failed to auto-cancel pending checkout order:', cancelErr);
