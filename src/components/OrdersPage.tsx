@@ -895,6 +895,27 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                            {order.fullName}
                          </span>
                        </div>
+                       <div>
+                         <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                           {isMobile ? 'PAYMENT' : t('orders.paymentMethod', { defaultValue: 'PAYMENT METHOD' })}
+                         </span>
+                         <span style={{
+                           fontSize: isMobile ? '0.70rem' : '0.78rem',
+                           fontWeight: 800,
+                           color: (order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery') ? '#c2410c' : '#0369a1',
+                           backgroundColor: (order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery') ? '#fff7ed' : '#f0f9ff',
+                           border: (order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery') ? '1px solid #ffedd5' : '1px solid #e0f2fe',
+                           padding: '2px 8px',
+                           borderRadius: '4px',
+                           display: 'inline-block',
+                           marginTop: '2px',
+                           whiteSpace: 'nowrap'
+                         }}>
+                           {(order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery')
+                             ? 'COD'
+                             : (order.paymentMethod === 'Scan & Pay (UPI)' ? 'UPI' : (order.paymentMethod || 'Razorpay'))}
+                         </span>
+                       </div>
                      </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1657,6 +1678,18 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
                        </div>
                      )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('orders.paymentMethod', { defaultValue: 'Payment Method' })}</span>
+                      <span style={{
+                        fontWeight: 800,
+                        color: (selectedDetailsOrder.paymentMethod === 'COD' || selectedDetailsOrder.paymentMethod === 'Cash on Delivery') ? '#c2410c' : '#0369a1'
+                      }}>
+                        {(selectedDetailsOrder.paymentMethod === 'COD' || selectedDetailsOrder.paymentMethod === 'Cash on Delivery')
+                          ? 'Cash on Delivery (COD)'
+                          : (selectedDetailsOrder.paymentMethod === 'Scan & Pay (UPI)' ? 'Scan & Pay (UPI)' : (selectedDetailsOrder.paymentMethod || 'Razorpay'))}
+                        {selectedDetailsOrder.paymentStatus ? ` (${selectedDetailsOrder.paymentStatus})` : ''}
+                      </span>
+                    </div>
                     <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '6px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '1rem', fontWeight: 900 }}>
                       <span>{t('orders.grandTotal', { defaultValue: 'Grand Total' })}</span>

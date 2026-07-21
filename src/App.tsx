@@ -944,7 +944,8 @@ function App() {
   const [taxDeliverySettings, setTaxDeliverySettings] = React.useState({
     globalGstPercent: 8,
     globalDeliveryCharge: 49,
-    freeDeliveryThreshold: 999
+    freeDeliveryThreshold: 999,
+    codFee: 0
   });
 
   const [globalAlert, setGlobalAlert] = React.useState<{
@@ -1936,7 +1937,8 @@ function App() {
         setTaxDeliverySettings({
           globalGstPercent: Number(data.value.global_gst_percent) ?? 8,
           globalDeliveryCharge: Number(data.value.global_delivery_charge) ?? 49,
-          freeDeliveryThreshold: Number(data.value.free_delivery_threshold) ?? 999
+          freeDeliveryThreshold: Number(data.value.free_delivery_threshold) ?? 999,
+          codFee: Number(data.value.cod_fee ?? data.value.cod_charge ?? 0)
         });
       }
     } catch (err) {
@@ -5226,7 +5228,14 @@ function App() {
           productsOrder={productsOrder}
           onUpdateProductsOrder={setProductsOrder}
           taxDeliverySettings={taxDeliverySettings}
-          onUpdateTaxDeliverySettings={setTaxDeliverySettings}
+          onUpdateTaxDeliverySettings={(newSettings) => {
+            setTaxDeliverySettings({
+              globalGstPercent: newSettings.globalGstPercent,
+              globalDeliveryCharge: newSettings.globalDeliveryCharge,
+              freeDeliveryThreshold: newSettings.freeDeliveryThreshold,
+              codFee: newSettings.codFee ?? 0
+            });
+          }}
         />
       ) : currentPage === 'pundit-login' ? (
         <PunditLoginPage

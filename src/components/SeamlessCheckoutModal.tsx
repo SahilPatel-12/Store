@@ -13,15 +13,13 @@ import {
   MapPin, 
   ArrowRight,
   Gift,
-  Check,
-  Copy,
-  Upload
+  CreditCard,
+  Truck
 } from 'lucide-react';
 import type { CartItem, Product } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
-import { uploadToR2 } from '../lib/cloudflare/r2';
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
 import { useLanguage } from '../lib/i18n';
 import { useTranslation } from 'react-i18next';
@@ -56,6 +54,7 @@ interface SeamlessCheckoutModalProps {
     globalGstPercent: number;
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
+    codFee?: number;
   };
   paymentActivation?: {
     activePaymentProvider: 'manual_upi' | 'razorpay';
@@ -66,7 +65,6 @@ interface SeamlessCheckoutModalProps {
 }
 
 type Step = 'login' | 'otp' | 'address' | 'payment';
-type PaymentMethod = 'upi' | 'card' | 'cod' | 'netbanking';
 
 export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   isOpen,
@@ -85,7 +83,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 }) => {
   // Modal Navigation & active step state
   const [step, setStep] = React.useState<Step>('login');
-  const [paymentMethod] = React.useState<PaymentMethod>('upi');
   const { language } = useLanguage();
   const { t } = useTranslation('seamlessCheckout');
   const [isReady, setIsReady] = React.useState(false);
@@ -100,12 +97,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
   }, [language, isOpen]);
 
-  // Barcode / UPI QR direct payment states
-  const [barcodeSettings, setBarcodeSettings] = React.useState<{ upiId?: string; barcodeUrl?: string } | null>(null);
+  // Payment states
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = React.useState('');
-  const [isUploadingScreenshot, setIsUploadingScreenshot] = React.useState(false);
-  const [copiedUpi, setCopiedUpi] = React.useState(false);
-  const [selectedPaymentOption, setSelectedPaymentOption] = React.useState<'razorpay' | 'manual_upi'>('razorpay');
+  const [selectedPaymentOption, setSelectedPaymentOption] = React.useState<'razorpay' | 'cod'>('razorpay');
 
   React.useEffect(() => {
     setSelectedPaymentOption('razorpay');
@@ -179,7 +173,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
 
   // Payment fields
-  const [paymentErrors, setPaymentErrors] = React.useState<Record<string, string>>({});
   const [isPlacingOrder, setIsPlacingOrder] = React.useState(false);
 
   // Settings
@@ -211,14 +204,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       // Generate a brand new order ID for this checkout session
       setOrderId(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
       
-      // Reset UPI and Screenshot states
+      // Reset Screenshot state
       setPaymentScreenshotUrl('');
-      setIsUploadingScreenshot(false);
-      setCopiedUpi(false);
       
       // Reset placement/error states
       setIsPlacingOrder(false);
-      setPaymentErrors({});
       setAddressErrors({});
       setAuthError('');
 
@@ -252,27 +242,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   }, [step, otpCountdown]);
 
   // Fetch configs and addresses on mount/auth change
-  React.useEffect(() => {
-    if (!isOpen) return;
 
-    async function loadConfig() {
-      try {
-        const { data: barcodeData } = await supabase
-          .from('website_settings')
-          .select('value')
-          .eq('key', 'payment_barcode_settings')
-          .single();
-        if (barcodeData && barcodeData.value) {
-          const val = barcodeData.value as { upi_id?: string; barcode_url?: string };
-          setBarcodeSettings({ upiId: val.upi_id, barcodeUrl: val.barcode_url });
-        }
-      } catch (err) {
-        console.error('Barcode settings load error:', err);
-      }
-    }
-
-    loadConfig();
-  }, [isOpen]);
 
   React.useEffect(() => {
     if (!isOpen || !loggedInUser) {
@@ -670,7 +640,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
   }, 0);
 
-  const finalTotal = subtotal - discountAmount + shippingCost + tax;
+  const baseTotal = subtotal - discountAmount + shippingCost + tax;
+  const activeCodFee = selectedPaymentOption === 'cod' ? (taxDeliverySettings.codFee || 0) : 0;
+  const finalTotal = baseTotal + activeCodFee;
 
   // Address updates
   const handleSelectSavedAddress = (id: string) => {
@@ -706,69 +678,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
   };
 
-  const getQrCodeUrl = () => {
-    const upi = barcodeSettings?.upiId || '7974478098@paytm';
-    const upiUri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUri)}`;
-  };
-
-  const handleCopyUpi = () => {
-    const upi = barcodeSettings?.upiId || '7974478098@paytm';
-    try {
-      navigator.clipboard.writeText(upi);
-      setCopiedUpi(true);
-      setTimeout(() => setCopiedUpi(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy UPI ID:', err);
-    }
-  };
-
-  const handleUpiRedirect = () => {
-    const upi = barcodeSettings?.upiId || '7974478098@paytm';
-    const uri = `upi://pay?pa=${upi}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`;
-
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.location.href = uri;
-    } else {
-      alert(t('payment.upi.mobileAlert', { amount: finalTotal.toFixed(2) }));
-    }
-  };
-
-  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingScreenshot(true);
-    setPaymentErrors(prev => {
-      const copy = { ...prev };
-      delete copy.screenshot;
-      return copy;
-    });
-
-    try {
-      const url = await uploadToR2(file, 'orders/proofs');
-      setPaymentScreenshotUrl(url);
-    } catch (err) {
-      console.error('Failed to upload proof of payment:', err);
-      alert(t('payment.upi.uploadError'));
-    } finally {
-      setIsUploadingScreenshot(false);
-    }
-  };
-
-  // Payment validations & order creation
-  const validatePaymentFields = () => {
-    const errs: Record<string, string> = {};
-    if (paymentMethod === 'upi') {
-      if (!paymentScreenshotUrl) {
-        errs.screenshot = t('payment.upi.validationError');
-      }
-    }
-    setPaymentErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
   const handleCloseModal = () => {
     if (step === 'payment') {
       if (!window.confirm(t('payment.cancelConfirm'))) {
@@ -776,15 +685,14 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       }
     }
     setPaymentScreenshotUrl('');
-    setIsUploadingScreenshot(false);
-    setCopiedUpi(false);
-    setPaymentErrors({});
     setAddressErrors({});
     onClose();
   };
 
   const executeOrderSave = (paymentLabel: string, razorpayPaymentId?: string) => {
     const isFreeEligible = (subtotal - discountAmount) >= taxDeliverySettings.freeDeliveryThreshold;
+    const initialPaymentStatus = (paymentLabel === 'Scan & Pay (UPI)' || paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery') ? 'Pending' : 'Confirmed';
+
     onOrderSuccess({
       orderId,
       items: cart,
@@ -810,8 +718,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       gstPercentSnapshot: taxDeliverySettings.globalGstPercent,
       gstAmountSnapshot: tax,
       deliveryAmountSnapshot: shippingCost,
+      codFee: paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery' ? (taxDeliverySettings.codFee || 0) : 0,
       freeDeliveryEligibleSnapshot: isFreeEligible,
-      paymentStatus: paymentLabel === 'Scan & Pay (UPI)' ? 'Pending' : 'Confirmed',
+      paymentStatus: initialPaymentStatus,
       status: 'Being Packed'
     });
 
@@ -819,9 +728,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     
     // Close modal directly without triggering the cancel-checkout confirmation dialog
     setPaymentScreenshotUrl('');
-    setIsUploadingScreenshot(false);
-    setCopiedUpi(false);
-    setPaymentErrors({});
     setAddressErrors({});
     onClose();
   };
@@ -831,18 +737,12 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     if (selectedPaymentOption === 'razorpay') {
       await handleRazorpayPayment(orderId);
     } else {
-      if (!validatePaymentFields()) return;
-
       setIsPlacingOrder(true);
       try {
-        if (paymentMethod === 'upi') {
-          executeOrderSave('Scan & Pay (UPI)');
-        } else {
-          executeOrderSave('Cash on Delivery');
-        }
+        executeOrderSave('COD');
       } catch (err) {
         console.error(err);
-        alert(t('payment.errorPlaceOrder'));
+        alert(t('payment.errorPlaceOrder', { defaultValue: 'Failed to place COD order. Please try again.' }));
       } finally {
         setIsPlacingOrder(false);
       }
@@ -1110,6 +1010,12 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
                       <span>{t('summary.tax')}</span>
                       <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {activeCodFee > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c2410c', fontWeight: 750 }}>
+                      <span>COD Handling Charge</span>
+                      <span>+₹{activeCodFee.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -1551,299 +1457,196 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           ══════════════════════════════════════ */}
           {step === 'payment' && (
             <div style={{ textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
                 <Lock size={18} style={{ color: 'var(--primary-lime)' }} />
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 950, color: '#1f2937', margin: 0 }}>
-                  {selectedPaymentOption === 'razorpay' ? t('payment.titleOnline') : t('payment.titleUpi')}
+                  {selectedPaymentOption === 'razorpay'
+                    ? t('payment.titleOnline', { defaultValue: 'Secure Online Payment' })
+                    : (selectedPaymentOption === 'cod'
+                      ? 'Cash on Delivery (COD)'
+                      : t('payment.titleUpi', { defaultValue: 'Manual UPI Payment' }))}
                 </h3>
               </div>
 
+              {/* Payment Method Selector Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentOption('razorpay')}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: '8px',
+                    border: selectedPaymentOption === 'razorpay' ? '2px solid #ea580c' : '1px solid #d1d5db',
+                    backgroundColor: selectedPaymentOption === 'razorpay' ? '#fff7ed' : '#ffffff',
+                    color: selectedPaymentOption === 'razorpay' ? '#9a3412' : '#374151',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <CreditCard size={18} style={{ color: selectedPaymentOption === 'razorpay' ? '#ea580c' : '#6b7280' }} />
+                  <span>Online Payment</span>
+                  <span style={{ fontSize: '0.64rem', color: '#6b7280', fontWeight: 600 }}>Razorpay (UPI, Cards)</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentOption('cod')}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: '8px',
+                    border: selectedPaymentOption === 'cod' ? '2px solid #ea580c' : '1px solid #d1d5db',
+                    backgroundColor: selectedPaymentOption === 'cod' ? '#fff7ed' : '#ffffff',
+                    color: selectedPaymentOption === 'cod' ? '#9a3412' : '#374151',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Truck size={18} style={{ color: selectedPaymentOption === 'cod' ? '#ea580c' : '#6b7280' }} />
+                  <span>Cash on Delivery</span>
+                  <span style={{ fontSize: '0.64rem', color: '#6b7280', fontWeight: 600 }}>Pay cash upon delivery</span>
+                </button>
+              </div>
 
               {/* Conditional Payment Flow */}
-              {paymentMethod === 'upi' && (
-                selectedPaymentOption === 'razorpay' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {/* Amount to be Paid Badge */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid var(--primary-lime)',
-                      textAlign: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
-                      <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
-                        ₹{finalTotal.toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Razorpay Banner Info */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '20px 14px',
-                      borderRadius: '12px',
-                      backgroundColor: '#f9fafb',
-                      border: '1px solid #e5e7eb',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        backgroundColor: '#ecfdf5',
-                        color: '#059669'
-                      }}>
-                        <ShieldCheck size={24} />
-                      </div>
-                      <div>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111827', margin: '0 0 2px 0' }}>{t('payment.razorpay.title')}</h4>
-                        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0, lineHeight: 1.4 }}>
-                          {t('payment.razorpay.description')}
-                        </p>
-                      </div>
-                    </div>
+              {selectedPaymentOption === 'razorpay' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Amount to be Paid Badge */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--primary-lime-light)',
+                    border: '1px solid var(--primary-lime)',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
+                    <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                      ₹{finalTotal.toFixed(2)}
+                    </span>
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {/* Amount to be Paid Badge */}
+
+                  {/* Razorpay Banner Info */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '20px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    textAlign: 'center'
+                  }}>
                     <div style={{
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid var(--primary-lime)',
-                      textAlign: 'center'
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ecfdf5',
+                      color: '#059669'
                     }}>
-                      <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
-                      <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
-                        ₹{finalTotal.toFixed(2)}
-                      </span>
+                      <ShieldCheck size={24} />
                     </div>
-
-                    {/* QR Code Container with sleek card styling */}
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      backgroundColor: '#ffffff',
-                      padding: '18px 12px',
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                      border: '1px solid #e5e7eb',
-                      position: 'relative'
-                    }}>
-                      <img 
-                        src={getQrCodeUrl()} 
-                        alt={t('payment.upi.scanToPay')} 
-                        style={{
-                          width: '170px',
-                          height: '170px',
-                          objectFit: 'contain',
-                          borderRadius: '6px',
-                          border: '1px solid #f3f4f6',
-                          padding: '6px',
-                          marginBottom: '10px'
-                        }}
-                      />
-
-                      <span style={{
-                        fontSize: '0.62rem',
-                        fontWeight: 800,
-                        color: 'var(--primary-lime)',
-                        backgroundColor: 'var(--primary-lime-light)',
-                        padding: '2px 10px',
-                        borderRadius: '999px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginBottom: '10px'
-                      }}>
-                        {t('payment.upi.scanToPay')}
-                      </span>
-
-                      {/* UPI ID display & copy button */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: '#f9fafb',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #e5e7eb',
-                        width: '100%',
-                        justifyContent: 'space-between'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                          <span style={{ fontSize: '0.6rem', color: '#9ca3af', fontWeight: 700 }}>{t('payment.upi.upiIdLabel')}</span>
-                          <a
-                            href={`upi://pay?pa=${barcodeSettings?.upiId || '7974478098@paytm'}&pn=Mantra%20Puja&am=${finalTotal.toFixed(2)}&cu=INR&tn=Order%20${orderId}`}
-                            style={{
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              color: 'var(--primary-lime, #15803d)',
-                              fontFamily: 'monospace',
-                              textDecoration: 'underline',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {barcodeSettings?.upiId || '7974478098@paytm'}
-                          </a>
-                        </div>
-                        <button
-                          onClick={handleCopyUpi}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            backgroundColor: copiedUpi ? '#10b981' : 'var(--primary-lime)',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '6px 10px',
-                            borderRadius: '4px',
-                            fontSize: '0.65rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            transition: 'background-color 0.2s'
-                          }}
-                        >
-                          {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
-                          {copiedUpi ? t('payment.upi.copied') : t('payment.upi.copy')}
-                        </button>
-                      </div>
-
-                      {/* Pay via UPI App Button */}
-                      <div style={{
-                        marginTop: '12px',
-                        width: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px'
-                      }}>
-                        <button
-                          onClick={handleUpiRedirect}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            backgroundColor: 'var(--primary-lime)',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '0.9rem',
-                            fontWeight: 800,
-                            transition: 'background-color 0.2s',
-                            boxShadow: 'var(--shadow-sm)',
-                            textAlign: 'center',
-                            gap: '6px',
-                            cursor: 'pointer'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--primary-forest)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--primary-lime)'}
-                        >
-                          {t('payment.upi.payViaApp')}
-                        </button>
-                        <p style={{
-                          fontSize: '0.62rem',
-                          color: '#9ca3af',
-                          textAlign: 'center',
-                          margin: 0,
-                          lineHeight: 1.2
-                        }}>
-                          {t('payment.upi.helpText')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Screenshot Uploader Area */}
                     <div>
-                      <label style={{ ...labelStyle, marginBottom: '6px', display: 'block' }}>
-                        {t('payment.upi.uploadLabel')}
-                      </label>
-                      
-                      <div style={{
-                        position: 'relative',
-                        border: `2px dashed ${paymentErrors.screenshot ? '#ef4444' : (paymentScreenshotUrl ? '#10b981' : '#d1d5db')}`,
-                        borderRadius: '8px',
-                        padding: '20px 14px',
-                        textAlign: 'center',
-                        backgroundColor: paymentScreenshotUrl ? '#f0fdf4' : '#fafafa',
-                        cursor: isUploadingScreenshot ? 'wait' : 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleScreenshotUpload}
-                          disabled={isUploadingScreenshot}
-                          style={{
-                            position: 'absolute',
-                            top: 0, left: 0, width: '100%', height: '100%',
-                            opacity: 0, cursor: 'pointer'
-                          }}
-                        />
-
-                        {isUploadingScreenshot ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                            <div className="spinner" style={{
-                              width: '24px', height: '24px',
-                              border: '3px solid #e5e7eb',
-                              borderTop: '3px solid var(--primary-lime)',
-                              borderRadius: '50%'
-                            }} />
-                            <span style={{ fontSize: '0.74rem', color: '#6b7280', fontWeight: 700 }}>
-                              {t('payment.upi.uploading')}
-                            </span>
-                          </div>
-                        ) : paymentScreenshotUrl ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '32px', height: '32px',
-                              borderRadius: '50%',
-                              backgroundColor: '#dcfce7',
-                              color: '#15803d'
-                            }}>
-                              <Check size={18} />
-                            </div>
-                            <span style={{ fontSize: '0.76rem', color: '#166534', fontWeight: 800 }}>
-                              {t('payment.upi.uploaded')}
-                            </span>
-                            <span style={{ fontSize: '0.64rem', color: '#6b7280', textDecoration: 'underline' }}>
-                              {t('payment.upi.changeImage')}
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <Upload size={24} style={{ color: '#9ca3af', marginBottom: '2px' }} />
-                            <span style={{ fontSize: '0.78rem', color: '#374151', fontWeight: 800 }}>
-                              {t('payment.upi.selectScreenshot')}
-                            </span>
-                            <span style={{ fontSize: '0.64rem', color: '#9ca3af' }}>
-                              PNG, JPG, or WEBP confirmation image
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {paymentErrors.screenshot && (
-                        <p style={{ ...errorTextStyle, marginTop: '4px' }}>{paymentErrors.screenshot}</p>
-                      )}
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111827', margin: '0 0 2px 0' }}>{t('payment.razorpay.title')}</h4>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0, lineHeight: 1.4 }}>
+                        {t('payment.razorpay.description')}
+                      </p>
                     </div>
                   </div>
-                )
+                </div>
+              ) : selectedPaymentOption === 'cod' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Amount to be Paid Badge */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#fff7ed',
+                    border: '1px solid #fed7aa',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
+                    <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ea580c' }}>
+                      ₹{finalTotal.toFixed(2)}
+                    </span>
+                    {activeCodFee > 0 && (
+                      <span style={{ fontSize: '0.72rem', color: '#c2410c', fontWeight: 800, marginTop: '2px' }}>
+                        (Includes ₹{activeCodFee.toFixed(2)} Cash on Delivery charge)
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '20px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#fafafa',
+                    border: '1px solid #e5e7eb',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      backgroundColor: '#fff7ed',
+                      color: '#ea580c'
+                    }}>
+                      <Truck size={24} />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#111827', margin: '0 0 4px 0' }}>Cash on Delivery (COD)</h4>
+                      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: 0, lineHeight: 1.45 }}>
+                        Pay <strong>₹{finalTotal.toFixed(2)}</strong> in cash when your sacred package is delivered to your address.{activeCodFee > 0 ? ` Includes an extra ₹${activeCodFee.toFixed(2)} COD handling charge.` : ''} Payment status will be confirmed upon delivery.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Amount to be Paid Badge */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--primary-lime-light)',
+                    border: '1px solid var(--primary-lime)',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 650 }}>{t('payment.amountToPay')}</span>
+                    <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--primary-lime)' }}>
+                      ₹{finalTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
               )}
 
               {/* Secure strip */}
@@ -1859,7 +1662,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 className="btn-lime"
                 style={{ width: '100%', padding: '14px', marginTop: '16px', justifyContent: 'center', borderRadius: '8px', fontSize: '1rem', fontWeight: 900 }}
               >
-                {isPlacingOrder ? t('payment.processing') : (selectedPaymentOption === 'razorpay' ? t('payment.placeOrderOnline', { amount: finalTotal.toFixed(2) }) : t('payment.placeOrderUpi', { amount: finalTotal.toFixed(2) }))}
+                {isPlacingOrder
+                  ? t('payment.processing')
+                  : (selectedPaymentOption === 'razorpay'
+                    ? t('payment.placeOrderOnline', { amount: finalTotal.toFixed(2) })
+                    : (selectedPaymentOption === 'cod'
+                      ? `Place Order via COD — ₹${finalTotal.toFixed(2)}`
+                      : t('payment.placeOrderUpi', { amount: finalTotal.toFixed(2) })))}
               </button>
             </div>
           )}

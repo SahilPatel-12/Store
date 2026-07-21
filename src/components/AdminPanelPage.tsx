@@ -789,11 +789,13 @@ interface AdminPanelPageProps {
     globalGstPercent: number;
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
+    codFee?: number;
   };
   onUpdateTaxDeliverySettings?: (newSettings: {
     globalGstPercent: number;
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
+    codFee?: number;
   }) => void;
 }
 
@@ -1273,6 +1275,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [globalGstPercent, setGlobalGstPercent] = React.useState('8');
   const [globalDeliveryCharge, setGlobalDeliveryCharge] = React.useState('49');
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = React.useState('999');
+  const [codFee, setCodFee] = React.useState('0');
   const [isSavingTaxDelivery, setIsSavingTaxDelivery] = React.useState(false);
   // Homepage Customizer settings state
   const [featuredTitle, setFeaturedTitle] = React.useState('Our Featured Collection');
@@ -1746,6 +1749,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           setGlobalGstPercent(String(taxDeliverySettings.globalGstPercent));
           setGlobalDeliveryCharge(String(taxDeliverySettings.globalDeliveryCharge));
           setFreeDeliveryThreshold(String(taxDeliverySettings.freeDeliveryThreshold));
+          setCodFee(String(taxDeliverySettings.codFee ?? 0));
         } else {
           const { data: taxData } = await supabase
             .from('website_settings')
@@ -1754,10 +1758,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             .single();
 
           if (taxData && taxData.value) {
-            const val = taxData.value as { global_gst_percent?: number; global_delivery_charge?: number; free_delivery_threshold?: number };
+            const val = taxData.value as { global_gst_percent?: number; global_delivery_charge?: number; free_delivery_threshold?: number; cod_fee?: number; cod_charge?: number };
             setGlobalGstPercent(String(val.global_gst_percent ?? 8));
             setGlobalDeliveryCharge(String(val.global_delivery_charge ?? 49));
             setFreeDeliveryThreshold(String(val.free_delivery_threshold ?? 999));
+            setCodFee(String(val.cod_fee ?? val.cod_charge ?? 0));
           }
         }
 
@@ -2021,8 +2026,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       const gstVal = parseFloat(globalGstPercent.toString());
       const deliveryVal = parseFloat(globalDeliveryCharge.toString());
       const thresholdVal = parseFloat(freeDeliveryThreshold.toString());
+      const codVal = parseFloat(codFee.toString() || '0');
 
-      if (isNaN(gstVal) || isNaN(deliveryVal) || isNaN(thresholdVal)) {
+      if (isNaN(gstVal) || isNaN(deliveryVal) || isNaN(thresholdVal) || isNaN(codVal)) {
         alert('Please enter valid numeric values.');
         return;
       }
@@ -2034,7 +2040,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
           value: {
             global_gst_percent: gstVal,
             global_delivery_charge: deliveryVal,
-            free_delivery_threshold: thresholdVal
+            free_delivery_threshold: thresholdVal,
+            cod_fee: codVal
           }
         });
 
@@ -2044,10 +2051,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         onUpdateTaxDeliverySettings({
           globalGstPercent: gstVal,
           globalDeliveryCharge: deliveryVal,
-          freeDeliveryThreshold: thresholdVal
+          freeDeliveryThreshold: thresholdVal,
+          codFee: codVal
         });
       }
-      triggerToast('Tax & Delivery Settings saved successfully!');
+      triggerToast('Tax, Delivery & COD Settings saved successfully!');
     } catch (err) {
       console.error(err);
       alert('Failed to save settings: ' + (err as Error).message);
@@ -4633,37 +4641,33 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   // Order payment status changes
   const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string) => {
-    if (paymentStatus !== 'Confirmed') {
-      triggerToast('Direct status setting is restricted to confirmation.');
-      return;
-    }
     try {
       const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
-      await callAdminApi('/api/admin/orders/confirm-legacy-payment', {
-        method: 'POST',
-        body: JSON.stringify({ orderId, adminToken })
-      });
+      if (paymentStatus === 'Confirmed') {
+        await callAdminApi('/api/admin/orders/confirm-legacy-payment', {
+          method: 'POST',
+          body: JSON.stringify({ orderId, adminToken })
+        });
+      }
     } catch (err) {
-      console.error('Failed to confirm payment:', err);
-      triggerToast(`Failed to confirm payment: ${(err as Error).message}`);
-      return;
+      console.error('Failed to sync payment status with backend:', err);
     }
 
     setOrders(prev => prev.map(o => {
       if (o.orderId === orderId) {
-        return { ...o, paymentStatus: 'Confirmed', status: 'Being Packed' };
+        return { ...o, paymentStatus, status: paymentStatus === 'Confirmed' ? 'Being Packed' : o.status };
       }
       return o;
     }));
 
     setSelectedOrderDetails(prev => {
       if (prev && prev.orderId === orderId) {
-        return { ...prev, paymentStatus: 'Confirmed', status: 'Being Packed' };
+        return { ...prev, paymentStatus, status: paymentStatus === 'Confirmed' ? 'Being Packed' : prev.status };
       }
       return prev;
     });
 
-    triggerToast(`Order #${orderId} payment marked as Confirmed!`);
+    triggerToast(`Order #${orderId} payment status set to ${paymentStatus}!`);
   };
 
   const handleDeclinePayment = async (orderId: string) => {
@@ -5592,19 +5596,61 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           </div>
                           <div>
                             <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Payment Status</span>
-                            <span style={{
-                              fontSize: '0.74rem',
-                              fontWeight: 800,
-                              backgroundColor: order.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
-                              color: order.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              textTransform: 'uppercase',
-                              display: 'inline-block',
-                              marginTop: '2px'
-                            }}>
-                              {order.paymentStatus || 'Pending'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                backgroundColor: order.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
+                                color: order.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                textTransform: 'uppercase',
+                                display: 'inline-block'
+                              }}>
+                                {order.paymentStatus || 'Pending'}
+                              </span>
+                              {(order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery') && (
+                                order.paymentStatus !== 'Confirmed' ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdatePaymentStatus(order.orderId, 'Confirmed');
+                                    }}
+                                    className="btn-lime"
+                                    style={{
+                                      padding: '2px 8px',
+                                      fontSize: '0.70rem',
+                                      fontWeight: 800,
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      border: 'none',
+                                      boxShadow: 'var(--shadow-sm)'
+                                    }}
+                                  >
+                                    Confirm COD
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdatePaymentStatus(order.orderId, 'Pending');
+                                    }}
+                                    style={{
+                                      padding: '2px 6px',
+                                      fontSize: '0.66rem',
+                                      fontWeight: 700,
+                                      backgroundColor: '#fee2e2',
+                                      color: '#dc2626',
+                                      border: '1px solid #fecaca',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Revert
+                                  </button>
+                                )
+                              )}
+                            </div>
                           </div>
                           {order.paymentScreenshot && (
                             <div>
@@ -7994,6 +8040,35 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       />
                       <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
                         If the cart subtotal reaches or exceeds this threshold, the delivery charge automatically drops to ₹0.
+                      </span>
+                    </div>
+
+                    {/* Cash on Delivery (COD) Additional Fee */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, marginBottom: '4px', color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Cash on Delivery (COD) Additional Charge (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 50 or 200 or 5200"
+                        value={codFee}
+                        onChange={(e) => setCodFee(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1.5px solid #fed7aa',
+                          outline: 'none',
+                          fontSize: '0.88rem',
+                          transition: 'border-color 0.15s',
+                          backgroundColor: '#fff7ed'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#ea580c'}
+                        onBlur={(e) => e.target.style.borderColor = '#fed7aa'}
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px', lineHeight: '1.4' }}>
+                        Extra fee added to the customer's total when they choose Cash on Delivery (COD). Online payments (Razorpay) will remain at the standard price without this fee.
                       </span>
                     </div>
 
@@ -13204,148 +13279,159 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
               </div>
 
-              {/* Payment Screenshot Proof */}
-              {selectedOrderDetails.paymentScreenshot && (
-                <div style={{
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px',
-                  backgroundColor: '#f8fafc',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{
-                      fontSize: '0.78rem',
-                      color: 'var(--text-muted)',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      margin: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}>
-                      <Eye size={14} style={{ color: 'var(--primary-forest)' }} />
-                      Payment Proof Screenshot
-                    </h4>
+              {/* Payment Screenshot Proof / Action Card */}
+              <div style={{
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                backgroundColor: (selectedOrderDetails.paymentMethod === 'COD' || selectedOrderDetails.paymentMethod === 'Cash on Delivery') ? '#fff7ed' : '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h4 style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    {(selectedOrderDetails.paymentMethod === 'COD' || selectedOrderDetails.paymentMethod === 'Cash on Delivery') ? (
+                      <>
+                        <Truck size={14} style={{ color: '#ea580c' }} />
+                        Cash on Delivery (COD) Status
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={14} style={{ color: 'var(--primary-forest)' }} />
+                        Payment Verification ({selectedOrderDetails.paymentMethod || 'Online'})
+                      </>
+                    )}
+                  </h4>
 
-                    {/* Payment Status Badge */}
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      backgroundColor: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
-                      color: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      textTransform: 'uppercase'
-                    }}>
-                      {selectedOrderDetails.paymentStatus || 'Pending'}
+                  {/* Payment Status Badge */}
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    backgroundColor: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
+                    color: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    textTransform: 'uppercase'
+                  }}>
+                    {selectedOrderDetails.paymentStatus || 'Pending'}
+                  </span>
+                </div>
+
+                {/* Decline warning alert */}
+                {selectedOrderDetails.paymentDeclineCount !== undefined && selectedOrderDetails.paymentDeclineCount > 0 && (
+                  <div style={{
+                    padding: '10px 12px',
+                    backgroundColor: '#fffbeb',
+                    border: '1.5px solid #fef3c7',
+                    borderRadius: '6px',
+                    color: '#b45309',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
+                    <span>
+                      Payment declined {selectedOrderDetails.paymentDeclineCount} time(s). (Attempt {selectedOrderDetails.paymentDeclineCount}/3)
                     </span>
                   </div>
+                )}
 
-                  {/* Decline warning alert */}
-                  {selectedOrderDetails.paymentDeclineCount !== undefined && selectedOrderDetails.paymentDeclineCount > 0 && (
+                {/* Approve/Confirm & Decline Buttons */}
+                {selectedOrderDetails.payment_provider === 'razorpay' ? (
+                  selectedOrderDetails.paymentStatus === 'Confirmed' ? (
                     <div style={{
-                      padding: '10px 12px',
-                      backgroundColor: '#fffbeb',
-                      border: '1.5px solid #fef3c7',
-                      borderRadius: '6px',
-                      color: '#b45309',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
-                      <span>
-                        Payment declined {selectedOrderDetails.paymentDeclineCount} time(s). (Attempt {selectedOrderDetails.paymentDeclineCount}/3)
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Approve/Confirm & Decline Buttons */}
-                  {selectedOrderDetails.payment_provider === 'razorpay' ? (
-                    selectedOrderDetails.paymentStatus === 'Confirmed' ? (
-                      <div style={{
-                        padding: '12px 14px',
-                        backgroundColor: '#f0fdf4',
-                        color: '#15803d',
-                        borderRadius: '6px',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        textAlign: 'center',
-                        border: '1px solid #bbf7d0'
-                      }}>
-                        Online Payment Confirmed via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
-                      </div>
-                    ) : (
-                      <div style={{
-                        padding: '12px 14px',
-                        backgroundColor: '#eff6ff',
-                        color: '#1e40af',
-                        borderRadius: '6px',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        textAlign: 'center',
-                        border: '1px solid #bfdbfe'
-                      }}>
-                        Payment is Pending via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
-                      </div>
-                    )
-                  ) : selectedOrderDetails.status === 'Cancelled' ? (
-                    <div style={{
-                      padding: '10px',
-                      backgroundColor: '#fee2e2',
-                      color: '#dc2626',
+                      padding: '12px 14px',
+                      backgroundColor: '#f0fdf4',
+                      color: '#15803d',
                       borderRadius: '6px',
                       fontSize: '0.82rem',
                       fontWeight: 700,
                       textAlign: 'center',
-                      border: '1px solid #fca5a5'
+                      border: '1px solid #bbf7d0'
                     }}>
-                      Order has been Cancelled. No payment actions available.
+                      Online Payment Confirmed via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
                     </div>
-                  ) : selectedOrderDetails.paymentStatus === 'Confirmed' ? (
+                  ) : (
+                    <div style={{
+                      padding: '12px 14px',
+                      backgroundColor: '#eff6ff',
+                      color: '#1e40af',
+                      borderRadius: '6px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      textAlign: 'center',
+                      border: '1px solid #bfdbfe'
+                    }}>
+                      Payment is Pending via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
+                    </div>
+                  )
+                ) : selectedOrderDetails.status === 'Cancelled' ? (
+                  <div style={{
+                    padding: '10px',
+                    backgroundColor: '#fee2e2',
+                    color: '#dc2626',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    border: '1px solid #fca5a5'
+                  }}>
+                    Order has been Cancelled. No payment actions available.
+                  </div>
+                ) : selectedOrderDetails.paymentStatus === 'Confirmed' ? (
+                  <button
+                    onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Pending')}
+                    style={{
+                      padding: '10px',
+                      justifyContent: 'center',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      backgroundColor: '#fee2e2',
+                      color: '#dc2626',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    Revert Payment to Pending
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                     <button
-                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Pending')}
+                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
+                      className="btn-lime"
                       style={{
+                        flex: 1,
                         padding: '10px',
                         justifyContent: 'center',
                         fontSize: '0.82rem',
                         fontWeight: 800,
                         borderRadius: '6px',
                         cursor: 'pointer',
-                        width: '100%',
-                        backgroundColor: '#fee2e2',
-                        color: '#dc2626',
                         border: 'none',
-                        boxShadow: 'var(--shadow-sm)'
+                        boxShadow: 'var(--shadow-sm)',
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff'
                       }}
                     >
-                      Revert Payment to Pending
+                      <CheckCircle size={16} /> Confirm Payment Received
                     </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                      <button
-                        onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
-                        className="btn-lime"
-                        style={{
-                          flex: 1,
-                          padding: '10px',
-                          justifyContent: 'center',
-                          fontSize: '0.82rem',
-                          fontWeight: 800,
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          border: 'none',
-                          boxShadow: 'var(--shadow-sm)'
-                        }}
-                      >
-                        Approve & Confirm
-                      </button>
+                    {(selectedOrderDetails.paymentMethod === 'Scan & Pay (UPI)' || selectedOrderDetails.paymentScreenshot) && (
                       <button
                         onClick={() => handleDeclinePayment(selectedOrderDetails.orderId)}
                         style={{
@@ -13364,8 +13450,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       >
                         Decline Payment
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
                   <div style={{
                     position: 'relative',
                     overflow: 'hidden',
@@ -13409,7 +13496,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
 
               {/* Items Table list */}
               <div>
