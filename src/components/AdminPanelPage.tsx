@@ -1,5 +1,4 @@
 import React from 'react';
-import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import logo from '../assets/My_logo/Frame 16.png';
@@ -61,8 +60,8 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
   }
 };
 
-const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
-  const doc = new jsPDF({
+const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
+  const doc = targetDoc || new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
@@ -364,8 +363,8 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   return doc;
 };
 
-const generateShippingLabelDoc = async (order: LocalOrder): Promise<jsPDF> => {
-  const doc = new jsPDF({
+const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
+  const doc = targetDoc || new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: [101.6, 101.6]
@@ -4377,25 +4376,23 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
     setIsBulkDownloading(true);
     try {
-      const zip = new JSZip();
-      for (const order of selectedOrdersList) {
-        const doc = await generateInvoiceDoc(order);
-        const pdfArrayBuffer = doc.output('arraybuffer');
-        zip.file(`Invoice-${order.orderId}.pdf`, pdfArrayBuffer);
+      let masterDoc: jsPDF | null = null;
+      for (let i = 0; i < selectedOrdersList.length; i++) {
+        const order = selectedOrdersList[i];
+        if (i === 0) {
+          masterDoc = await generateInvoiceDoc(order);
+        } else if (masterDoc) {
+          masterDoc.addPage('a4', 'portrait');
+          await generateInvoiceDoc(order, masterDoc);
+        }
       }
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Invoices_Bulk_${new Date().toISOString().slice(0, 10)}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      triggerToast(`Downloaded ${selectedOrdersList.length} invoice(s) as ZIP archive!`);
+      if (masterDoc) {
+        masterDoc.save(`Bulk_Invoices_${selectedOrdersList.length}_Orders_${new Date().toISOString().slice(0, 10)}.pdf`);
+        triggerToast(`Downloaded single PDF containing ${selectedOrdersList.length} page(s) of invoices!`);
+      }
     } catch (err) {
       console.error('Bulk invoice generation error:', err);
-      alert('Failed to generate invoices ZIP: ' + (err as Error).message);
+      alert('Failed to generate multi-page invoice PDF: ' + (err as Error).message);
     } finally {
       setIsBulkDownloading(false);
     }
@@ -4409,25 +4406,23 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
     setIsBulkDownloading(true);
     try {
-      const zip = new JSZip();
-      for (const order of selectedOrdersList) {
-        const doc = await generateShippingLabelDoc(order);
-        const pdfArrayBuffer = doc.output('arraybuffer');
-        zip.file(`Shipping-Sticker-${order.orderId}.pdf`, pdfArrayBuffer);
+      let masterDoc: jsPDF | null = null;
+      for (let i = 0; i < selectedOrdersList.length; i++) {
+        const order = selectedOrdersList[i];
+        if (i === 0) {
+          masterDoc = await generateShippingLabelDoc(order);
+        } else if (masterDoc) {
+          masterDoc.addPage([101.6, 101.6], 'portrait');
+          await generateShippingLabelDoc(order, masterDoc);
+        }
       }
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Shipping_Stickers_Bulk_${new Date().toISOString().slice(0, 10)}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      triggerToast(`Downloaded ${selectedOrdersList.length} shipping sticker(s) as ZIP archive!`);
+      if (masterDoc) {
+        masterDoc.save(`Bulk_Shipping_Stickers_${selectedOrdersList.length}_Orders_${new Date().toISOString().slice(0, 10)}.pdf`);
+        triggerToast(`Downloaded single PDF containing ${selectedOrdersList.length} page(s) of shipping stickers!`);
+      }
     } catch (err) {
       console.error('Bulk shipping sticker generation error:', err);
-      alert('Failed to generate shipping stickers ZIP: ' + (err as Error).message);
+      alert('Failed to generate multi-page shipping sticker PDF: ' + (err as Error).message);
     } finally {
       setIsBulkDownloading(false);
     }
@@ -5494,7 +5489,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       }}
                     >
                       <ArrowDown size={15} />
-                      <span>{isBulkDownloading ? 'Generating ZIP...' : `Download Invoices (${selectedOrderIds.length} ZIP)`}</span>
+                      <span>{isBulkDownloading ? 'Generating PDF...' : `Download Invoices (${selectedOrderIds.length} PDF)`}</span>
                     </button>
 
                     <button
@@ -5519,7 +5514,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
                     >
                       <Truck size={15} />
-                      <span>{isBulkDownloading ? 'Generating ZIP...' : `Download Shipping Stickers (${selectedOrderIds.length} ZIP)`}</span>
+                      <span>{isBulkDownloading ? 'Generating PDF...' : `Download Shipping Stickers (${selectedOrderIds.length} PDF)`}</span>
                     </button>
 
                     <button
