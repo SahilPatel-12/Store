@@ -51,6 +51,7 @@ interface CheckoutPageProps {
     globalGstPercent: number;
     globalDeliveryCharge: number;
     freeDeliveryThreshold: number;
+    codFee?: number;
   };
   paymentActivation?: {
     activePaymentProvider: 'manual_upi' | 'razorpay';
@@ -318,7 +319,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
   }, 0);
 
-  const finalTotal = subtotal - discountAmount + shippingCost + tax;
+  const activeCodFee = ((paymentMethod as string) === 'cod' || (paymentMethod as string) === 'COD' || (paymentMethod as string) === 'Cash on Delivery') ? (taxDeliverySettings.codFee || 0) : 0;
+  const finalTotal = subtotal - discountAmount + shippingCost + tax + activeCodFee;
 
   const handleApplyCoupon = async () => {
     const formattedCode = couponCode.trim().toUpperCase();
@@ -533,8 +535,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }, 0);
 
     const isFreeEligible = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold;
-    const finalCalculatedTotal = subtotalVal - discountAmt + shippingVal + taxVal;
-    const isConfirmedPayment = paymentLabel !== 'Scan & Pay (UPI)' && paymentLabel !== 'COD' && paymentLabel !== 'Cash on Delivery';
+    const isCodSelected = (paymentLabel as string) === 'COD' || (paymentLabel as string) === 'Cash on Delivery' || (paymentLabel as string) === 'cod';
+    const activeCodFee = isCodSelected ? (taxDeliverySettings.codFee || 0) : 0;
+    const finalCalculatedTotal = subtotalVal - discountAmt + shippingVal + taxVal + activeCodFee;
+    const isConfirmedPayment = paymentLabel !== 'Scan & Pay (UPI)' && !isCodSelected;
 
     // Sync order to shared public.orders / public.order_items linking to mobile app_users ID
     handleWebsiteCheckout({
@@ -566,7 +570,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       discountPercent,
       shipping: shippingVal,
       tax: taxVal,
-      total: subtotalVal - discountAmt + shippingVal + taxVal,
+      total: finalCalculatedTotal,
       paymentMethod: paymentLabel,
       deliveryCity: city,
       deliveryState: state,
@@ -580,7 +584,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       razorpayPaymentId,
       paymentScreenshot: paymentScreenshotUrl || undefined,
       appliedCouponCode: appliedCouponCode || undefined,
-      paymentStatus: paymentLabel === 'Scan & Pay (UPI)' ? 'Pending' : 'Confirmed',
+      codFee: activeCodFee,
+      paymentStatus: isCodSelected ? 'Pending' : (paymentLabel === 'Scan & Pay (UPI)' ? 'Pending' : 'Confirmed'),
       status: 'Being Packed',
       gstPercentSnapshot: taxDeliverySettings.globalGstPercent,
       gstAmountSnapshot: taxVal,

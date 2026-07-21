@@ -211,7 +211,7 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   doc.text(order.shipping === 0 ? t('pdf.free') : `${t('pdf.currency')} ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
 
-  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
   if (codFeeAmount > 0) {
     doc.setTextColor(234, 88, 12); // Orange / Amber
     doc.setFont('helvetica', 'bold');
@@ -222,6 +222,8 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
     y += 6;
   }
 
+  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
+
   // Draw line for total
   doc.setLineWidth(0.5);
   doc.line(130, y, 196, y);
@@ -231,7 +233,7 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   doc.setFontSize(11);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text(t('pdf.totalCharged'), labelX, y);
-  doc.text(`${t('pdf.currency')} ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+  doc.text(`${t('pdf.currency')} ${pdfDisplayTotal.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 15;
 
   // Footer Blessings Box
@@ -936,27 +938,35 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                 display: 'flex', flexDirection: 'column', gap: '8px',
                 backgroundColor: '#fafafa',
               }}>
-                {[
-                  { label: t('price.subtotal'), value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
-                  ...(order.discount > 0 ? [{ label: t('price.discount', { percent: order.discountPercent }), value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
-                  { label: t('price.shipping'), value: order.shipping === 0 ? t('price.free') : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
-                  ...(order.tax > 0 ? [{ label: t('price.tax', { percent: order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8 }), value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' }] : []),
-                  ...(order.codFee && order.codFee > 0 ? [{ label: 'COD Handling Charge', value: `+₹${order.codFee.toFixed(2)}`, color: '#c2410c' }] : []),
-                ].map(row => (
-                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
-                    <span style={{ fontWeight: 700, color: row.color }}>{row.value}</span>
-                  </div>
-                ))}
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                  borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px',
-                }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 900 }}>{t('price.total')}</span>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
-                    ₹{order.total.toFixed(2)}
-                  </span>
-                </div>
+                {(() => {
+                  const codFeeVal = (order as any).codFee || (order as any).cod_fee || ((order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery') ? 50 : 0);
+                  const displayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeVal || 0)));
+                  return (
+                    <>
+                      {[
+                        { label: t('price.subtotal'), value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
+                        ...(order.discount > 0 ? [{ label: t('price.discount', { percent: order.discountPercent }), value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
+                        { label: t('price.shipping'), value: order.shipping === 0 ? t('price.free') : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
+                        ...(order.tax > 0 ? [{ label: t('price.tax', { percent: order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8 }), value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' }] : []),
+                        ...(codFeeVal > 0 ? [{ label: 'COD Handling Charge', value: `+₹${Number(codFeeVal).toFixed(2)}`, color: '#c2410c' }] : []),
+                      ].map(row => (
+                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                          <span style={{ fontWeight: 700, color: row.color }}>{row.value}</span>
+                        </div>
+                      ))}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                        borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px',
+                      }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 900 }}>{t('price.total')}</span>
+                        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-forest)' }}>
+                          ₹{displayTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

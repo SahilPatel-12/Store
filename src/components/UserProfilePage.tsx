@@ -277,7 +277,7 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   doc.text('Delivery Charge:', 150, y, { align: 'right' });
   doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, 194, y, { align: 'right' });
 
-  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
   if (codFeeAmount > 0) {
     y += 6;
     doc.setTextColor(234, 88, 12); // Orange / Amber
@@ -288,13 +288,15 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   }
 
+  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
+
   // Total Row
   y += 8;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('Grand Total:', 150, y, { align: 'right' });
-  doc.text(`Rs. ${order.total.toFixed(2)}`, 194, y, { align: 'right' });
+  doc.text(`Rs. ${pdfDisplayTotal.toFixed(2)}`, 194, y, { align: 'right' });
 
   // Center aligned Footer (divider + quotes)
   doc.setDrawColor(217, 119, 6); // Gold line color

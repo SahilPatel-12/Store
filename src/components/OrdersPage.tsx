@@ -209,7 +209,7 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
 
-  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
   if (codFeeAmount > 0) {
     doc.setTextColor(234, 88, 12); // Orange / Amber
     doc.setFont('helvetica', 'bold');
@@ -220,6 +220,8 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
     y += 6;
   }
 
+  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
+
   // Draw line for total
   doc.setLineWidth(0.5);
   doc.line(130, y, 196, y);
@@ -229,7 +231,7 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   doc.setFontSize(11);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('Total Charged:', labelX, y);
-  doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
+  doc.text(`Rs. ${pdfDisplayTotal.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 15;
 
   // Footer Blessings Box
