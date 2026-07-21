@@ -4983,7 +4983,18 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     return orders.filter(o => {
       const matchesSearch = o.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.orderId.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+      
+      let matchesStatus = false;
+      if (statusFilter === 'All') {
+        matchesStatus = true;
+      } else if (statusFilter === 'Failed') {
+        matchesStatus = o.status === 'Cancelled' && o.paymentStatus === 'Failed';
+      } else if (statusFilter === 'Cancelled') {
+        matchesStatus = o.status === 'Cancelled' && o.paymentStatus !== 'Failed';
+      } else {
+        matchesStatus = o.status === statusFilter;
+      }
+
       return matchesSearch && matchesStatus;
     });
   }, [orders, searchQuery, statusFilter]);
@@ -5637,7 +5648,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               {/* Status Tabs filters */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled'].map(status => (
+                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed'].map(status => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
