@@ -4991,6 +4991,10 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         matchesStatus = (o.status === 'Cancelled' && o.paymentStatus === 'Failed') || (o.status === 'Payment Pending' && o.paymentMethod === 'Razorpay');
       } else if (statusFilter === 'Cancelled') {
         matchesStatus = o.status === 'Cancelled' && o.paymentStatus !== 'Failed';
+      } else if (statusFilter === 'Online Success') {
+        matchesStatus = o.paymentMethod === 'Razorpay' && o.paymentStatus === 'Confirmed';
+      } else if (statusFilter === 'COD') {
+        matchesStatus = o.paymentMethod === 'COD' || o.paymentMethod === 'Cash on Delivery';
       } else {
         matchesStatus = o.status === statusFilter;
       }
@@ -5650,7 +5654,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               {/* Status Tabs filters */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed'].map(status => (
+                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed', 'Online Success', 'COD'].map(status => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
