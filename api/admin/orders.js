@@ -51,9 +51,12 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Forbidden: CSRF verification failed.' });
     }
 
-    const { action, orderId, status } = req.body;
-    if (!action || !orderId) {
-      return res.status(400).json({ error: 'Missing action or orderId parameter.' });
+    const { action, orderId, orderIds, status } = req.body;
+    if (!action) {
+      return res.status(400).json({ error: 'Missing action parameter.' });
+    }
+    if (action !== 'delete-orders' && !orderId) {
+      return res.status(400).json({ error: 'Missing orderId parameter.' });
     }
 
     try {
