@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         status: 'Cancelled',
         payment_status: 'Failed'
       })
-      .eq('order_id', orderId)
+      .or(`order_id.eq.${orderId},checkout_attempt_id.eq.${orderId}`)
       .eq('user_id', userId)
       .eq('status', 'Payment Pending')
       .select('*')
