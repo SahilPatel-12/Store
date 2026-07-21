@@ -19,7 +19,7 @@ async function main() {
     .from('website_store_orders')
     .select('order_id, phone_number, status, payment_method, payment_status, total, created_at')
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(30);
 
   if (error) {
     console.error('Error fetching orders:', error);

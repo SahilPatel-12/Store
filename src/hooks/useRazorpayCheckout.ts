@@ -24,6 +24,7 @@ interface UseRazorpayCheckoutProps {
   setIsPlacingOrder: (loading: boolean) => void;
   setStep?: (step: any) => void;
   onPaymentSuccess?: () => void;
+  onPaymentCancel?: () => void;
 }
 
 export function useRazorpayCheckout({
@@ -43,7 +44,8 @@ export function useRazorpayCheckout({
   onOrderComplete,
   setIsPlacingOrder,
   setStep,
-  onPaymentSuccess
+  onPaymentSuccess,
+  onPaymentCancel
 }: UseRazorpayCheckoutProps) {
 
   const handleRazorpayPayment = async (checkoutAttemptId: string) => {
@@ -230,9 +232,21 @@ export function useRazorpayCheckout({
           color: '#84cc16' // Mantra Brand color
         },
         modal: {
-          ondismiss: function () {
-            console.log('[Razorpay Dialog] Dismissed by Devotee.');
+          ondismiss: async function () {
+            console.log('[Razorpay Dialog] Dismissed by Devotee. Cancelling internal order:', checkoutAttemptId);
             setIsPlacingOrder(false);
+            if (onPaymentCancel) {
+              onPaymentCancel();
+            }
+            try {
+              await fetch('/api/orders/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: checkoutAttemptId, sessionToken })
+              });
+            } catch (cancelErr) {
+              console.warn('Failed to auto-cancel pending checkout order:', cancelErr);
+            }
           }
         }
       };

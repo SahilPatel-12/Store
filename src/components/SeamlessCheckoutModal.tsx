@@ -196,7 +196,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     onOrderSuccess,
     onOrderComplete,
     setIsPlacingOrder,
-    onPaymentSuccess: onClose
+    onPaymentSuccess: onClose,
+    onPaymentCancel: () => {
+      setOrderId(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
+    }
   });
 
   // Direct login checking to route user to correct step initially and reset form states
@@ -1504,7 +1507,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 <button
                   type="button"
-                  onClick={() => setSelectedPaymentOption('razorpay')}
+                  onClick={() => {
+                    const oldOption = selectedPaymentOption;
+                    setSelectedPaymentOption('razorpay');
+                    if (oldOption !== 'razorpay') {
+                      setOrderId(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
+                    }
+                  }}
                   style={{
                     padding: '12px 10px',
                     borderRadius: '8px',
@@ -1529,7 +1538,25 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setSelectedPaymentOption('cod')}
+                  onClick={async () => {
+                    const oldOption = selectedPaymentOption;
+                    setSelectedPaymentOption('cod');
+                    if (oldOption === 'razorpay') {
+                      const sessionToken = localStorage.getItem('session_token') || '';
+                      const previousOrderId = orderId;
+                      // Regenerate orderId to avoid idempotency matching of Razorpay pending attempt
+                      setOrderId(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
+                      try {
+                        await fetch('/api/orders/cancel', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ orderId: previousOrderId, sessionToken })
+                        });
+                      } catch (err) {
+                        console.warn('Failed to cancel previous Razorpay order attempt:', err);
+                      }
+                    }
+                  }}
                   style={{
                     padding: '12px 10px',
                     borderRadius: '8px',

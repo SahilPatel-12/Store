@@ -175,7 +175,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     onOrderSuccess,
     onOrderComplete,
     setIsPlacingOrder,
-    setStep
+    setStep,
+    onPaymentCancel: () => {
+      setOrderId(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
+    }
   });
 
 
@@ -190,7 +193,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   }, [appliedCouponCode, discountPercent, isReady, t]);
 
   // Order ID generated once for confirmation
-  const [orderId] = React.useState(`MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [orderId, setOrderId] = React.useState(() => `MANTRA-${Math.floor(100000 + Math.random() * 900000)}`);
 
   React.useEffect(() => {
     async function loadConfigs() {
