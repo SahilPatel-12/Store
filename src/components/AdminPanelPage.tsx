@@ -250,7 +250,118 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('Total Charged:', labelX, y);
   doc.text(`Rs. ${order.total.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 15;
+  y += 10;
+
+  // Check if order contains Vidya Rudraksh item
+  const hasVidyaRudraksha = order.items.some(item => {
+    const itemName = (item.product?.name || '').toLowerCase();
+    return itemName.includes('vidya') || itemName.includes('विद्या');
+  });
+
+  if (hasVidyaRudraksha) {
+    // 1. Vidya Rudraksha Dharan Vidhi Box (Rendered via html2canvas for Devanagari & Diya Emoji perfection)
+    const vidyaDiv = document.createElement('div');
+    vidyaDiv.style.position = 'absolute';
+    vidyaDiv.style.left = '-9999px';
+    vidyaDiv.style.top = '-9999px';
+    vidyaDiv.style.width = '760px';
+    vidyaDiv.innerHTML = `
+      <div id="invoice-vidya-rudraksha-capture" style="
+        width: 760px;
+        font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+        background-color: #fffdfa;
+        border: 2px solid #f59e0b;
+        border-radius: 10px;
+        padding: 14px 18px;
+        color: #374151;
+        box-sizing: border-box;
+        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.1);
+      ">
+        <!-- Title Header -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; border-bottom: 1.5px dashed #fcd34d; padding-bottom: 6px;">
+          <span style="font-size: 18px;">🕉️</span>
+          <span style="font-size: 18px; font-weight: 800; color: #9a3412; letter-spacing: 0.5px;">विद्या रुद्राक्ष धारण विधि</span>
+          <span style="font-size: 18px;">🪔</span>
+        </div>
+
+        <!-- Steps List -->
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.45;">
+          <!-- Step 1 -->
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
+            <div>
+              <strong style="color: #c2410c; font-size: 13px;">अष्टमी, नवमी और दशमी के दिन:</strong>
+              <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को शुद्ध देसी गाय के घी में रखें। (तीन दिन तक)</span>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
+            <div>
+              <strong style="color: #c2410c; font-size: 13px;">एकादशी के दिन:</strong>
+              <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को गंगाजल से धो लें और शुद्ध एवं स्वच्छ कपड़े से पोंछ लें। इसके बाद श्रद्धा भाव से रुद्राक्ष को धारण करें।</span>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
+            <div style="width: 100%;">
+              <strong style="color: #c2410c; font-size: 13px;">मंत्र जाप करें:</strong>
+              <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को हाथ में लेकर 11, 21 या 108 बार नीचे दिए गए मंत्र का जाप करें:</span>
+              <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 4px 10px; margin-top: 4px; font-weight: bold; color: #9a3412; font-size: 13.5px; text-align: center;">
+                ॐ ह्रीं नमः । ॐ रुद्राय नमः । ॐ नमः शिवाय ॥
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
+            <div>
+              <strong style="color: #c2410c; font-size: 13px;">लाल धागे में धारण करें:</strong>
+              <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को लाल धागे में पिरोकर तैयार करें।</span>
+            </div>
+          </div>
+
+          <!-- Step 5 -->
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
+            <div>
+              <strong style="color: #c2410c; font-size: 13px;">बच्चे को धारण कराएं:</strong>
+              <span style="color: #374151; margin-left: 4px;">एकादशी के शुभ दिन बच्चे के गले में श्रद्धा और विश्वास के साथ विद्या रुद्राक्ष पहनाएं।</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(vidyaDiv);
+
+    try {
+      const vidyaCanvas = await html2canvas(vidyaDiv.querySelector('#invoice-vidya-rudraksha-capture') as HTMLElement, {
+        scale: 2.5,
+        useCORS: true,
+        logging: false
+      });
+      const vidyaImgData = vidyaCanvas.toDataURL('image/png');
+      const vidyaMmWidth = 182;
+      const vidyaMmHeight = (vidyaCanvas.height * vidyaMmWidth) / vidyaCanvas.width;
+
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y + vidyaMmHeight > pageHeight - 50) {
+        doc.addPage();
+        y = 15;
+      }
+
+      doc.addImage(vidyaImgData, 'PNG', 14, y, vidyaMmWidth, vidyaMmHeight);
+      y += vidyaMmHeight + 8;
+    } catch (e) {
+      console.error("Failed to render Vidya Rudraksha Dharan Vidhi box:", e);
+    } finally {
+      document.body.removeChild(vidyaDiv);
+    }
+  }
 
   // Footer Blessings Box (Captures beautifully styled Hindi text & emojis via html2canvas)
   let footerQrDataUrl = '';
