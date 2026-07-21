@@ -4988,7 +4988,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       if (statusFilter === 'All') {
         matchesStatus = true;
       } else if (statusFilter === 'Failed') {
-        matchesStatus = o.status === 'Cancelled' && o.paymentStatus === 'Failed';
+        matchesStatus = (o.status === 'Cancelled' && o.paymentStatus === 'Failed') || (o.status === 'Payment Pending' && o.paymentMethod === 'Razorpay');
       } else if (statusFilter === 'Cancelled') {
         matchesStatus = o.status === 'Cancelled' && o.paymentStatus !== 'Failed';
       } else {
@@ -5004,6 +5004,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       case 'Delivered':
         return { bg: '#dcfce7', text: '#15803d' };
       case 'Cancelled':
+        return { bg: '#fee2e2', text: '#dc2626' };
+      case 'Payment Pending':
         return { bg: '#fee2e2', text: '#dc2626' };
       case 'Shipped':
         return { bg: '#dbeafe', text: '#1d4ed8' };
@@ -5995,6 +5997,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                 opacity: order.paymentMethod === 'Scan & Pay (UPI)' && order.paymentStatus !== 'Confirmed' ? 0.6 : 1
                               }}
                             >
+                              {order.status === 'Payment Pending' && (
+                                <option value="Payment Pending">Payment Pending / Failed</option>
+                              )}
                               <option value="Being Packed">Preparing Package</option>
                               <option value="Shipped">Shipped / In Transit</option>
                               <option value="Delivered">Delivered</option>
