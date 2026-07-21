@@ -167,6 +167,11 @@ export default async function handler(req, res) {
     const uniqueNum = Math.floor(100000 + Math.random() * 900000);
     const orderId = `MANTRA-${uniqueNum}`;
 
+    const isCod = paymentMethod === 'COD' || paymentMethod === 'Cash on Delivery';
+    const initialStatus = isCod ? 'Being Packed' : 'Payment Pending';
+    const paymentProvider = paymentMethod === 'Razorpay' ? 'razorpay' : (isCod ? 'cod' : 'manual_upi');
+    const codFee = isCod ? Number(req.body.codFee || 0) : 0;
+
     // 7. Secure Insertion into public.website_store_orders
     const { data: insertedOrder, error: insertError } = await supabaseAdmin
       .from('website_store_orders')
@@ -179,7 +184,7 @@ export default async function handler(req, res) {
         discount_percent: discountPercent,
         shipping: shippingCostPaise / 100,
         tax: taxTotalPaise / 100,
-        total: finalTotalPaise / 100,
+        total: (finalTotalPaise / 100) + codFee,
         payment_method: paymentMethod,
         delivery_city: shippingAddress.city,
         delivery_state: shippingAddress.state,
@@ -189,10 +194,11 @@ export default async function handler(req, res) {
         address_line2: shippingAddress.addressLine2 || null,
         pincode: shippingAddress.pincode,
         phone_number: shippingAddress.phoneNumber,
-        status: 'Payment Pending',
+        status: initialStatus,
         payment_status: 'Pending',
         payment_screenshot: req.body.paymentScreenshot || null,
-        payment_provider: paymentMethod === 'Razorpay' ? 'razorpay' : 'manual_upi',
+        payment_provider: paymentProvider,
+        cod_fee: codFee,
         checkout_attempt_id: checkoutAttemptId,
         gst_percent_snapshot: settings.global_gst_percent,
         gst_amount_snapshot: taxTotalPaise / 100,

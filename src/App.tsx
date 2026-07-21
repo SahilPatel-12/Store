@@ -2302,11 +2302,12 @@ function App() {
           addressLine1: o.address_line1,
           addressLine2: o.address_line2 || undefined,
           pincode: o.pincode,
-          status: o.status,
+          status: ((o.payment_method === 'COD' || o.payment_method === 'Cash on Delivery') && o.status === 'Payment Pending') ? 'Being Packed' : o.status,
           items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
           razorpayPaymentId: o.razorpay_payment_id || undefined,
           paymentScreenshot: o.payment_screenshot || undefined,
           paymentStatus: o.payment_status || 'Pending',
+          codFee: typeof o.cod_fee === 'string' ? parseFloat(o.cod_fee) : (o.cod_fee || 0),
           paymentDeclineCount: o.payment_decline_count || 0
         }));
         setOrdersState(mappedOrders);
@@ -4932,7 +4933,8 @@ function App() {
                     couponCode: details.appliedCouponCode || '',
                     checkoutAttemptId,
                     sessionToken,
-                    paymentScreenshot: details.paymentScreenshot || null
+                    paymentScreenshot: details.paymentScreenshot || null,
+                    codFee: details.codFee || 0
                   })
                 });
 
@@ -4944,12 +4946,13 @@ function App() {
                 const result = await res.json();
                 console.log('[Checkout App] Secure order created:', result.orderId);
 
+                const isCod = details.paymentMethod === 'COD' || details.paymentMethod === 'Cash on Delivery';
                 newOrder = {
                   ...details,
                   orderId: result.orderId,
                   userId: loggedInUser?.id,
-                  status: 'Payment Pending',
-                  paymentStatus: 'Pending',
+                  status: isCod ? 'Being Packed' : (details.status || 'Payment Pending'),
+                  paymentStatus: details.paymentStatus || 'Pending',
                   subtotal: result.subtotal,
                   discount: result.discount,
                   shipping: result.shipping,
@@ -5754,7 +5757,8 @@ function App() {
                   couponCode: details.appliedCouponCode || '',
                   checkoutAttemptId,
                   sessionToken,
-                  paymentScreenshot: details.paymentScreenshot || null
+                  paymentScreenshot: details.paymentScreenshot || null,
+                  codFee: details.codFee || 0
                 })
               });
 
@@ -5766,11 +5770,12 @@ function App() {
               const result = await res.json();
               console.log('[Checkout App] Secure order created (Seamless):', result.orderId);
 
+              const isCod = details.paymentMethod === 'COD' || details.paymentMethod === 'Cash on Delivery';
               newOrder = {
                 ...details,
                 orderId: result.orderId,
                 userId: loggedInUser?.id,
-                status: details.status || 'Payment Pending',
+                status: isCod ? 'Being Packed' : (details.status || 'Payment Pending'),
                 paymentStatus: details.paymentStatus || 'Pending',
                 subtotal: result.subtotal,
                 discount: result.discount,
