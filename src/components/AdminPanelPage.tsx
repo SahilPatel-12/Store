@@ -400,70 +400,121 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): P
   doc.setLineWidth(1.0);
   doc.rect(2, 2, 97.6, 97.6); // 2mm margin all around
 
-  // Header Brand & Logo (Properly sized 2:1 aspect ratio landscape logo aligned on the left)
+  // Header Brand & Logo
   try {
     const logoDataUrl = await getAssetAsDataUrl(logo);
-    doc.addImage(logoDataUrl, 'PNG', 6, 4.5, 24, 12);
+    doc.addImage(logoDataUrl, 'PNG', 5, 4.5, 20, 10);
   } catch (e) {
     console.error("Failed to load logo in shipping label:", e);
   }
 
-  // Capitalized brand title and tagline vertically centered next to the logo on the right
+  // Brand title and tagline
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
+  doc.setFontSize(13);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('MANTRA PUJA', 32, 9.5);
+  doc.text('MANTRA PUJA', 27, 8.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.5);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text('- SACRED BLESSINGS -', 32, 14);
+  doc.text('- SACRED BLESSINGS -', 27, 12.5);
+
+  // Top Right Order Info
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`#${order.orderId}`, 96.6, 8.5, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 114, 128);
+  doc.text(new Date(order.placedAt).toLocaleDateString('en-IN'), 96.6, 12.5, { align: 'right' });
 
   // Divider Line 1
   doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
   doc.setLineWidth(0.5);
-  doc.line(2, 20, 99.6, 20);
+  doc.line(2, 16, 99.6, 16);
 
-  // Receiver Section (Clean layout starting at x = 5)
+  // Receiver Section
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-  doc.text('DELIVER TO (RECEIVER):', 5, 25);
+  doc.text('DELIVER TO (RECEIVER):', 5, 20.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(11.5);
   doc.setTextColor(0, 0, 0); // Solid black for readability
-  doc.text(order.fullName, 5, 31);
+  doc.text(order.fullName, 5, 25.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
   const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
   const splitAddress = doc.splitTextToSize(addressText, 91.6);
-  doc.text(splitAddress, 5, 36);
+  doc.text(splitAddress, 5, 29.5);
+
+  // Calculate position after address lines
+  let addressY = 29.5 + (splitAddress.length * 3.8);
 
   // Phone number (Bold for shipping courier)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Phone: ${order.phoneNumber}`, 5, 47.5);
+  doc.text(`Phone: ${order.phoneNumber}`, 5, addressY);
+  addressY += 4;
 
-  // Handling instructions text (Drawn directly on the white background, left-aligned at x = 5)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-  doc.text('HANDLE WITH GENTLE CARE & DEVOTION', 5, 57);
-
+  // Items summary line
+  const itemsText = `Items (${order.items.length}): ` + order.items.map(i => `${i.product.name} (x${i.quantity})`).join(', ');
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text('Contains spiritually energized items. Keep in a clean & pure space.', 5, 61.5);
+  doc.setFontSize(7.5);
+  doc.setTextColor(75, 85, 99);
+  const truncatedItems = doc.splitTextToSize(itemsText, 91.6);
+  doc.text(truncatedItems.slice(0, 1), 5, addressY);
 
-  // Divider Line below Warning Banner
+  // Payment & COD Cash Collection Box
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+  const boxY = 49.5;
+  const boxHeight = 15;
+
+  if (isCodOrder) {
+    // High-visibility COD Amber/Red Box
+    doc.setFillColor(254, 242, 242); // Light red/amber tint (#fef2f2)
+    doc.setDrawColor(220, 38, 38); // Red border (#dc2626)
+    doc.setLineWidth(0.8);
+    doc.rect(4, boxY, 93.6, boxHeight, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(185, 28, 28); // Red-700
+    doc.text('CASH ON DELIVERY (COD) ORDER', 7, boxY + 5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(185, 28, 28);
+    doc.text(`PLEASE COLLECT IN CASH: Rs. ${order.total.toFixed(2)}`, 7, boxY + 11);
+  } else {
+    // Prepaid Order Green Box
+    doc.setFillColor(240, 253, 244); // Light green (#f0fdf4)
+    doc.setDrawColor(22, 163, 74); // Green border (#16a34a)
+    doc.setLineWidth(0.6);
+    doc.rect(4, boxY, 93.6, boxHeight, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(21, 128, 61); // Green-700
+    doc.text('PREPAID ORDER (PAID ONLINE)', 7, boxY + 5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(55, 65, 81);
+    doc.text('Do NOT collect any cash upon delivery (Rs. 0.00)', 7, boxY + 11);
+  }
+
+  // Divider Line below Warning / Payment Box
   doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
   doc.setLineWidth(0.5);
-  doc.line(2, 66, 99.6, 66);
+  doc.line(2, 67, 99.6, 67);
 
   // Bottom half partition (Sender Left, QR Right)
   const bottomSectionY = 71;
@@ -493,10 +544,10 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): P
   doc.setTextColor(0, 0, 0);
   doc.text(`Support: +91 90090 46430`, 5, bottomSectionY + 21.5);
 
-  // Vertical Separator (Matches the full bottom half height)
+  // Vertical Separator
   doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
   doc.setLineWidth(0.3);
-  doc.line(60, 66, 60, 99.6);
+  doc.line(60, 67, 60, 99.6);
 
   // Right side: QR Code
   doc.setFont('helvetica', 'bold');
@@ -504,13 +555,12 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): P
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('SCAN TO SHOP:', 79.8, bottomSectionY, { align: 'center' });
 
-  // QR Code Image fetch & render (Centered horizontally in the right column)
+  // QR Code Image fetch & render
   try {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
     const qrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
     doc.addImage(qrDataUrl, 'PNG', 71.3, bottomSectionY + 2, 17, 17);
   } catch (e) {
-    // Fallback text if QR code image generation fails
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
