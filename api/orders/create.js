@@ -239,6 +239,55 @@ export default async function handler(req, res) {
         .is('order_id', null);
     }
 
+    // 8. Universal Store Order Creation (Sync to public.orders & public.order_items for React Native Mobile App)
+    try {
+      let rawPhone = shippingAddress.phoneNumber || '';
+      let digits = String(rawPhone).replace(/[^0-9]/g, '');
+      let customerPhone = digits;
+      if (digits.length === 10) customerPhone = '+91' + digits;
+      else if (digits.length > 10 && !rawPhone.startsWith('+')) customerPhone = '+' + digits;
+      else customerPhone = rawPhone;
+
+      if (customerPhone) {
+        const { data: appUser } = await supabaseAdmin
+          .from('app_users')
+          .select('id')
+          .or(`phone.eq.${customerPhone},phone.eq.${customerPhone.replace('+', '')}`)
+          .maybeSingle();
+
+        const targetUserId = appUser ? appUser.id : userId;
+
+        const { data: syncedOrder, error: orderSyncError } = await supabaseAdmin
+          .from('orders')
+          .insert({
+            user_id: targetUserId,
+            order_type: 'product',
+            total_amount: Number(insertedOrder.total),
+            payment_status: isCod ? 'pending' : 'completed',
+            order_status: 'Confirmed',
+            subtotal: Number(insertedOrder.subtotal),
+            discount: Number(insertedOrder.discount || 0),
+            tax: Number(insertedOrder.tax || 0),
+            shipping_cost: Number(insertedOrder.shipping || 0)
+          })
+          .select()
+          .single();
+
+        if (!orderSyncError && syncedOrder && items && items.length > 0) {
+          const orderItemsPayload = items.map(item => ({
+            order_id: syncedOrder.id,
+            item_type: 'product',
+            item_id: String(item.productId),
+            quantity: Number(item.quantity || 1),
+            price: Number(dbItems.find(di => di.product.id === item.productId)?.product.price || 0)
+          }));
+          await supabaseAdmin.from('order_items').insert(orderItemsPayload);
+        }
+      }
+    } catch (syncErr) {
+      console.warn('[Create Order] Universal orders table sync warning:', syncErr);
+    }
+
     return res.status(200).json({
       success: true,
       orderId: insertedOrder.order_id,

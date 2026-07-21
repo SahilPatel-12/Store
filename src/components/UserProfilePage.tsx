@@ -30,6 +30,7 @@ import {
 import type { Product, LocalOrder } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { fetchUserProfile } from '../lib/crossPlatformSync';
 import { createReferralShareCard, uploadReferralShareCard, createProductShareCard } from '../lib/shareHelper';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { jsPDF } from 'jspdf';
@@ -350,6 +351,27 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
       setMobileShowMenu(true);
     }
   }, [initialTab]);
+
+  React.useEffect(() => {
+    if (!loggedInUser?.phoneNumber) return;
+    let isSubscribed = true;
+    (async () => {
+      try {
+        const profile = await fetchUserProfile(loggedInUser.phoneNumber);
+        if (isSubscribed && profile && profile.full_name && profile.full_name !== loggedInUser.fullName) {
+          const updated = {
+            ...loggedInUser,
+            fullName: profile.full_name,
+            email: profile.email || loggedInUser.email
+          };
+          onProfileUpdate?.(updated);
+        }
+      } catch (err) {
+        console.warn('[UserProfilePage] Profile sync warning:', err);
+      }
+    })();
+    return () => { isSubscribed = false; };
+  }, [loggedInUser?.phoneNumber]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;

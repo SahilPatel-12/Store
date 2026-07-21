@@ -6,6 +6,7 @@ import { SeamlessCheckoutModal } from './components/SeamlessCheckoutModal';
 import type { OrderDetails } from './components/OrderSuccessPage';
 import type { Product, CartItem, LocalOrder } from './types';
 import { supabase } from './lib/supabase';
+import { fetchUserProfile, handleWebsiteCheckout } from './lib/crossPlatformSync';
 import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
 import logo from './assets/My_logo/Frame 16.png';
 import { getSpiritualTypeForProduct } from './lib/spiritualTypeHelper';
@@ -1025,6 +1026,30 @@ function App() {
       } catch (e) {}
     })();
   }, []);
+
+  // Sync loggedInUser full_name from public.profiles by phone number
+  React.useEffect(() => {
+    if (!loggedInUser?.phoneNumber) return;
+    let isSubscribed = true;
+    (async () => {
+      try {
+        const profile = await fetchUserProfile(loggedInUser.phoneNumber);
+        if (isSubscribed && profile && profile.full_name && profile.full_name !== loggedInUser.fullName) {
+          setLoggedInUser(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, fullName: profile.full_name, email: profile.email || prev.email };
+            try {
+              localStorage.setItem('mantra_user_session', JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+        }
+      } catch (err) {
+        console.warn('[App] Session profile sync warning:', err);
+      }
+    })();
+    return () => { isSubscribed = false; };
+  }, [loggedInUser?.phoneNumber]);
 
   // Lifted stateful catalog products
   const [productsState, setProductsState] = React.useState<Product[]>(() => {
@@ -4898,6 +4923,27 @@ function App() {
             const checkoutAttemptId = details.orderId;
             const sessionToken = localStorage.getItem('session_token') || '';
 
+            handleWebsiteCheckout({
+              phone: details.phoneNumber || loggedInUser?.phoneNumber || '',
+              orderType: 'product',
+              totalAmount: details.total,
+              subtotal: details.subtotal,
+              discount: details.discount,
+              tax: details.tax,
+              shippingCost: details.shipping,
+              paymentStatus: details.paymentStatus === 'Confirmed' ? 'completed' : 'pending',
+              orderStatus: 'Confirmed',
+              items: details.items.map((i: any) => ({
+                id: i.product.id,
+                productId: i.product.id,
+                item_type: 'product',
+                quantity: i.quantity,
+                price: i.product.price
+              }))
+            }, loggedInUser).catch(err => {
+              console.warn('[App] handleWebsiteCheckout error:', err);
+            });
+
             try {
               let newOrder: LocalOrder;
 
@@ -5721,6 +5767,27 @@ function App() {
         onOrderSuccess={async (details) => {
           const checkoutAttemptId = details.orderId;
           const sessionToken = localStorage.getItem('session_token') || '';
+
+          handleWebsiteCheckout({
+            phone: details.phoneNumber || loggedInUser?.phoneNumber || '',
+            orderType: 'product',
+            totalAmount: details.total,
+            subtotal: details.subtotal,
+            discount: details.discount,
+            tax: details.tax,
+            shippingCost: details.shipping,
+            paymentStatus: details.paymentStatus === 'Confirmed' ? 'completed' : 'pending',
+            orderStatus: 'Confirmed',
+            items: details.items.map((i: any) => ({
+              id: i.product.id,
+              productId: i.product.id,
+              item_type: 'product',
+              quantity: i.quantity,
+              price: i.product.price
+            }))
+          }, loggedInUser).catch(err => {
+            console.warn('[App] handleWebsiteCheckout error:', err);
+          });
 
           try {
             let newOrder: LocalOrder;

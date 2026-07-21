@@ -18,6 +18,7 @@ import type { CartItem, Product } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { handleWebsiteCheckout } from '../lib/crossPlatformSync';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
 import { useLanguage } from '../lib/i18n';
@@ -532,6 +533,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }, 0);
 
     const isFreeEligible = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold;
+    const finalCalculatedTotal = subtotalVal - discountAmt + shippingVal + taxVal;
+    const isConfirmedPayment = paymentLabel !== 'Scan & Pay (UPI)' && paymentLabel !== 'COD' && paymentLabel !== 'Cash on Delivery';
+
+    // Sync order to shared public.orders / public.order_items linking to mobile app_users ID
+    handleWebsiteCheckout({
+      phone: phone || loggedInUser?.phoneNumber || '',
+      orderType: 'product',
+      totalAmount: finalCalculatedTotal,
+      subtotal: subtotalVal,
+      discount: discountAmt,
+      tax: taxVal,
+      shippingCost: shippingVal,
+      paymentStatus: isConfirmedPayment ? 'completed' : 'pending',
+      orderStatus: 'Confirmed',
+      items: cart.map(item => ({
+        id: item.product.id,
+        productId: item.product.id,
+        item_type: 'product',
+        quantity: item.quantity,
+        price: item.product.price
+      }))
+    }, loggedInUser).catch(err => {
+      console.warn('[CheckoutPage] handleWebsiteCheckout error:', err);
+    });
 
     await onOrderSuccess({
       orderId,

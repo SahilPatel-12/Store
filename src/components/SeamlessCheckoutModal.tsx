@@ -20,6 +20,7 @@ import type { CartItem, Product } from '../types';
 import type { OrderDetails } from './OrderSuccessPage';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
+import { fetchUserProfile, handleWebsiteCheckout } from '../lib/crossPlatformSync';
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
 import { useLanguage } from '../lib/i18n';
 import { useTranslation } from 'react-i18next';
@@ -494,11 +495,21 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       if (authErr) throw authErr;
       if (data && data.length > 0) {
         const row = data[0];
+        let resolvedFullName = row.full_name || '';
+        try {
+          const profile = await fetchUserProfile(row.phone_number || otpTargetPhone);
+          if (profile && profile.full_name) {
+            resolvedFullName = profile.full_name;
+          }
+        } catch (pErr) {
+          console.warn('[SeamlessCheckoutModal] Profile resolution error:', pErr);
+        }
+
         onLoginSuccess({
           id: row.user_id,
-          fullName: row.full_name || '',
+          fullName: resolvedFullName,
           email: row.email || '',
-          phoneNumber: row.phone_number
+          phoneNumber: row.phone_number || otpTargetPhone
         }, row.session_token);
 
         // State changes to address filling automatically
@@ -692,6 +703,27 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const executeOrderSave = (paymentLabel: string, razorpayPaymentId?: string) => {
     const isFreeEligible = (subtotal - discountAmount) >= taxDeliverySettings.freeDeliveryThreshold;
     const initialPaymentStatus = (paymentLabel === 'Scan & Pay (UPI)' || paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery') ? 'Pending' : 'Confirmed';
+    // Sync order to shared public.orders / public.order_items linking to mobile app_users ID
+    handleWebsiteCheckout({
+      phone: phone || loggedInUser?.phoneNumber || '',
+      orderType: 'product',
+      totalAmount: finalTotal,
+      subtotal: subtotal,
+      discount: discountAmount,
+      tax: tax,
+      shippingCost: shippingCost,
+      paymentStatus: initialPaymentStatus === 'Confirmed' ? 'completed' : 'pending',
+      orderStatus: 'Confirmed',
+      items: cart.map(item => ({
+        id: item.product.id,
+        productId: item.product.id,
+        item_type: 'product',
+        quantity: item.quantity,
+        price: item.product.price
+      }))
+    }, loggedInUser).catch(err => {
+      console.warn('[SeamlessCheckoutModal] handleWebsiteCheckout error:', err);
+    });
 
     onOrderSuccess({
       orderId,

@@ -7,6 +7,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { fetchUserProfile } from '../lib/crossPlatformSync';
 
 interface UserAuthPageProps {
   onNavigateToHome: () => void;
@@ -244,11 +245,22 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       if (data && data.length > 0) {
         const row = data[0];
         triggerToast(isNewUser ? 'Account registered successfully!' : 'Authenticated successfully!');
+
+        let resolvedFullName = row.full_name || '';
+        try {
+          const profile = await fetchUserProfile(row.phone_number || otpTargetPhone);
+          if (profile && profile.full_name) {
+            resolvedFullName = profile.full_name;
+          }
+        } catch (pErr) {
+          console.warn('[UserAuthPage] Profile resolution error:', pErr);
+        }
+
         onLoginSuccess({
           id: row.user_id,
-          fullName: row.full_name || '',
+          fullName: resolvedFullName,
           email: row.email || '',
-          phoneNumber: row.phone_number
+          phoneNumber: row.phone_number || otpTargetPhone
         }, row.session_token);
       } else {
         throw new Error('No devotee account session established.');
