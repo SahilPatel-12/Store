@@ -158,6 +158,15 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
   }
   doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
 
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+  if (isCodOrder) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(217, 119, 6); // Amber/Orange
+    doc.text(`Order payment detail: Please collect Rs. ${order.total.toFixed(2)} in Cash`, 120, 64);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  }
+
   // Table header background block
   let y = 85;
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -198,7 +207,7 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
   y += 8;
 
   // Pricing calculations block
-  const labelX = 140;
+  const labelX = 135;
   const valueX = 190;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
@@ -219,6 +228,17 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
   doc.text('Shipping:', labelX, y);
   doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
+
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  if (codFeeAmount > 0) {
+    doc.setTextColor(234, 88, 12); // Orange / Amber
+    doc.setFont('helvetica', 'bold');
+    doc.text('COD Handling Charge:', labelX, y);
+    doc.text(`+Rs. ${Number(codFeeAmount).toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    y += 6;
+  }
 
   // Draw line for total
   doc.setLineWidth(0.5);
@@ -4360,6 +4380,72 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [selectedOrderIds, setSelectedOrderIds] = React.useState<string[]>([]);
   const [isBulkDownloading, setIsBulkDownloading] = React.useState(false);
 
+  // Order Deletion & Password Authorization State
+  const [showDeleteOrderModal, setShowDeleteOrderModal] = React.useState(false);
+  const [ordersToDelete, setOrdersToDelete] = React.useState<string[]>([]);
+  const [deleteOrderPassword, setDeleteOrderPassword] = React.useState('');
+  const [isDeletingOrders, setIsDeletingOrders] = React.useState(false);
+  const [deleteOrderError, setDeleteOrderError] = React.useState('');
+
+  const handleOpenDeleteModal = (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setOrdersToDelete(ids);
+    setDeleteOrderPassword('');
+    setDeleteOrderError('');
+    setShowDeleteOrderModal(true);
+  };
+
+  const handleConfirmDeleteOrders = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!deleteOrderPassword.trim()) {
+      setDeleteOrderError('Please enter your Super Admin password.');
+      return;
+    }
+    if (ordersToDelete.length === 0) return;
+
+    setIsDeletingOrders(true);
+    setDeleteOrderError('');
+
+    try {
+      const res = await callAdminApi('/api/admin/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete-orders',
+          orderIds: ordersToDelete,
+          password: deleteOrderPassword
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete order(s).');
+      }
+
+      // Remove deleted order IDs from selection state
+      setSelectedOrderIds(prev => prev.filter(id => !ordersToDelete.includes(id)));
+      
+      // Close modal and reset state
+      setShowDeleteOrderModal(false);
+      setOrdersToDelete([]);
+      setDeleteOrderPassword('');
+
+      // If details modal is open for a deleted order, close it
+      if (selectedOrderDetails && ordersToDelete.includes(selectedOrderDetails.orderId)) {
+        setSelectedOrderDetails(null);
+      }
+
+      // Trigger refresh & toast notification
+      if (onRefreshOrders) onRefreshOrders();
+      triggerToast(`Successfully deleted ${ordersToDelete.length} order(s).`);
+    } catch (err: any) {
+      console.error('[Admin Orders Delete] Failed:', err);
+      setDeleteOrderError(err.message || 'Authorization failed. Check your password.');
+    } finally {
+      setIsDeletingOrders(false);
+    }
+  };
+
   const toggleSelectOrder = (orderId: string) => {
     setSelectedOrderIds(prev =>
       prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
@@ -5522,6 +5608,29 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     </button>
 
                     <button
+                      onClick={() => handleOpenDeleteModal(selectedOrderIds)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        backgroundColor: '#dc2626',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                    >
+                      <Trash2 size={15} />
+                      <span>Delete Selected ({selectedOrderIds.length})</span>
+                    </button>
+
+                    <button
                       onClick={() => setSelectedOrderIds([])}
                       style={{
                         fontSize: '0.8rem',
@@ -5719,23 +5828,58 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             </select>
                           </div>
 
-                          <button
-                            onClick={() => setSelectedOrderDetails(order)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '8px 16px',
-                              backgroundColor: '#f3f4f6',
-                              borderRadius: 'var(--radius-md)',
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
-                              color: 'var(--text-dark)',
-                              marginTop: '16px'
-                            }}
-                          >
-                            <Eye size={14} /> View Details
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+                            <button
+                              onClick={() => setSelectedOrderDetails(order)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '8px 16px',
+                                backgroundColor: '#f3f4f6',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                color: 'var(--text-dark)',
+                                border: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Eye size={14} /> View Details
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDeleteModal([order.orderId]);
+                              }}
+                              title="Delete this order"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                padding: '8px 14px',
+                                backgroundColor: '#fef2f2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dc2626';
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.backgroundColor = '#fef2f2';
+                                e.currentTarget.style.color = '#dc2626';
+                              }}
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </div>
                         </div>
 
                       </div>
@@ -13571,7 +13715,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               </div>
 
               {/* Action Downloads */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '4px' }}>
                 <button
                   onClick={() => handleDownloadInvoice(selectedOrderDetails)}
                   className="btn-lime"
@@ -13606,7 +13750,35 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#c2410c')}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
                 >
-                  <Truck size={14} /> Shipping Sticker (4x4)
+                  <Truck size={14} /> Shipping Sticker
+                </button>
+                <button
+                  onClick={() => handleOpenDeleteModal([selectedOrderDetails.orderId])}
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: '#fee2e2',
+                    color: '#dc2626',
+                    border: '1px solid #fecaca',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#dc2626';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fee2e2';
+                    e.currentTarget.style.color = '#dc2626';
+                  }}
+                >
+                  <Trash2 size={14} /> Delete Order
                 </button>
               </div>
 
@@ -13712,6 +13884,189 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               }} />
               <span>Finalizing updates, do not close this window...</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Authorization Modal for Order Deletion */}
+      {showDeleteOrderModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            textAlign: 'left',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                backgroundColor: '#fef2f2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Trash2 size={24} style={{ color: '#dc2626' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#111827', margin: 0 }}>
+                  Confirm Order Deletion
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '2px 0 0 0' }}>
+                  Super Admin Authorization Required
+                </p>
+              </div>
+            </div>
+
+            {/* Alert Banner */}
+            <div style={{
+              backgroundColor: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '20px',
+              fontSize: '0.82rem',
+              color: '#9f1239',
+              lineHeight: 1.45
+            }}>
+              <strong>⚠️ Permanent Action:</strong> You are about to permanently delete <strong>{ordersToDelete.length}</strong> order(s):
+              <div style={{
+                marginTop: '6px',
+                fontWeight: 800,
+                color: '#e11d48',
+                fontFamily: 'monospace',
+                fontSize: '0.8rem',
+                wordBreak: 'break-all'
+              }}>
+                {ordersToDelete.map(id => `#${id}`).join(', ')}
+              </div>
+            </div>
+
+            {/* Error Banner if any */}
+            {deleteOrderError && (
+              <div style={{
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#b91c1c',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                marginBottom: '16px'
+              }}>
+                ⚠️ {deleteOrderError}
+              </div>
+            )}
+
+            {/* Password Form */}
+            <form onSubmit={handleConfirmDeleteOrders}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  color: '#374151',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Super Admin Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  placeholder="Enter administrator password..."
+                  value={deleteOrderPassword}
+                  onChange={(e) => setDeleteOrderPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #d1d5db',
+                    outline: 'none',
+                    fontSize: '0.9rem',
+                    transition: 'border-color 0.15s'
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = '#dc2626')}
+                  onBlur={(e) => (e.target.style.borderColor = '#d1d5db')}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  disabled={isDeletingOrders}
+                  onClick={() => {
+                    setShowDeleteOrderModal(false);
+                    setOrdersToDelete([]);
+                    setDeleteOrderPassword('');
+                    setDeleteOrderError('');
+                  }}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: '#ffffff',
+                    color: '#374151',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: isDeletingOrders ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDeletingOrders || !deleteOrderPassword.trim()}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    cursor: (isDeletingOrders || !deleteOrderPassword.trim()) ? 'not-allowed' : 'pointer',
+                    opacity: (isDeletingOrders || !deleteOrderPassword.trim()) ? 0.65 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {isDeletingOrders ? (
+                    <>
+                      <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={14} /> Confirm & Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -141,6 +141,15 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   const translatedStatus = displayPaymentStatus === 'Confirmed' ? t('tracking.confirmed.time') : t('tracking.confirmedAwaiting.time');
   doc.text(t('pdf.status', { status: translatedStatus }), 120, 59);
 
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+  if (isCodOrder) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(217, 119, 6); // Amber/Orange
+    doc.text(`Order payment detail: Please collect Rs. ${order.total.toFixed(2)} in Cash`, 120, 64);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  }
+
   // Table header background block
   let y = 85;
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -181,7 +190,7 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   y += 8;
 
   // Pricing calculations block
-  const labelX = 140;
+  const labelX = 135;
   const valueX = 190;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
@@ -201,6 +210,17 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   doc.text(t('pdf.shipping'), labelX, y);
   doc.text(order.shipping === 0 ? t('pdf.free') : `${t('pdf.currency')} ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
   y += 6;
+
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  if (codFeeAmount > 0) {
+    doc.setTextColor(234, 88, 12); // Orange / Amber
+    doc.setFont('helvetica', 'bold');
+    doc.text('COD Handling Charge:', labelX, y);
+    doc.text(`+${t('pdf.currency')} ${Number(codFeeAmount).toFixed(2)}`, valueX, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    y += 6;
+  }
 
   // Draw line for total
   doc.setLineWidth(0.5);

@@ -1,5 +1,23 @@
 import { supabaseAdmin } from '../_lib/supabase-admin.js';
 import { verifyAdmin, verifyCsrf, injectSecurityHeaders, logAdminAction } from '../_lib/admin/auth.js';
+import crypto from 'crypto';
+import { promisify } from 'util';
+
+const scrypt = promisify(crypto.scrypt);
+
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+
+function safeCompare(a, b) {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) {
+    crypto.timingSafeEqual(aBuf, aBuf);
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
 
 export default async function handler(req, res) {
   injectSecurityHeaders(res);
@@ -92,6 +110,59 @@ export default async function handler(req, res) {
 
         await logAdminAction(adminSession.admin_id, req, 'ORDER_DECLINE_PAYMENT', { orderId });
         return res.status(200).json({ success: true, order: updatedOrder });
+      }
+
+      if (action === 'delete-orders') {
+        const { orderIds, password } = req.body;
+        const targetIds = Array.isArray(orderIds) ? orderIds : (req.body.orderId ? [req.body.orderId] : []);
+        if (targetIds.length === 0) {
+          return res.status(400).json({ error: 'No order IDs specified for deletion.' });
+        }
+
+        if (!password) {
+          return res.status(400).json({ error: 'Super Admin password is required to delete orders.' });
+        }
+
+        // Fetch current admin account to verify password
+        const { data: adminUser, error: adminErr } = await supabaseAdmin
+          .from('website_store_admin')
+          .select('*')
+          .eq('id', adminSession.admin_id)
+          .maybeSingle();
+
+        if (adminErr || !adminUser) {
+          return res.status(500).json({ error: 'Failed to verify admin credentials.' });
+        }
+
+        const storedHash = adminUser.password_hash || '';
+        const parts = storedHash.split('$');
+        if (parts[0] !== 'scrypt') {
+          return res.status(500).json({ error: 'Invalid password hashing scheme in system.' });
+        }
+
+        const salt = parts[1];
+        const keyHex = parts[2];
+        const derivedKey = await scrypt(password, salt, 64, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+
+        const match = safeCompare(derivedKey.toString('hex'), keyHex);
+        if (!match) {
+          return res.status(401).json({ error: 'Incorrect Super Admin password. Deletion unauthorized.' });
+        }
+
+        // Delete from website_store_orders
+        const { data: deletedOrders, error: deleteErr } = await supabaseAdmin
+          .from('website_store_orders')
+          .delete()
+          .in('order_id', targetIds)
+          .select('order_id');
+
+        if (deleteErr) {
+          console.error('[Admin Delete Orders] DB Delete Error:', deleteErr);
+          throw deleteErr;
+        }
+
+        await logAdminAction(adminSession.admin_id, req, 'ORDER_DELETE', { count: targetIds.length, targetIds });
+        return res.status(200).json({ success: true, count: targetIds.length, deletedOrderIds: targetIds });
       }
 
       return res.status(400).json({ error: `Invalid action "${action}"` });

@@ -173,45 +173,62 @@ export default async function handler(req, res) {
     const codFee = isCod ? Number(req.body.codFee || 0) : 0;
 
     // 7. Secure Insertion into public.website_store_orders
-    const { data: insertedOrder, error: insertError } = await supabaseAdmin
+    const orderPayload = {
+      order_id: orderId,
+      user_id: userId,
+      items: dbItems,
+      subtotal: subtotalPaise / 100,
+      discount: discountAmountPaise / 100,
+      discount_percent: discountPercent,
+      shipping: shippingCostPaise / 100,
+      tax: taxTotalPaise / 100,
+      total: (finalTotalPaise / 100) + codFee,
+      payment_method: paymentMethod,
+      delivery_city: shippingAddress.city,
+      delivery_state: shippingAddress.state,
+      full_name: shippingAddress.fullName,
+      email: shippingAddress.email,
+      address_line1: shippingAddress.addressLine1,
+      address_line2: shippingAddress.addressLine2 || null,
+      pincode: shippingAddress.pincode,
+      phone_number: shippingAddress.phoneNumber,
+      status: initialStatus,
+      payment_status: 'Pending',
+      payment_screenshot: req.body.paymentScreenshot || null,
+      payment_provider: paymentProvider,
+      cod_fee: codFee,
+      checkout_attempt_id: checkoutAttemptId,
+      gst_percent_snapshot: settings.global_gst_percent,
+      gst_amount_snapshot: taxTotalPaise / 100,
+      delivery_amount_snapshot: shippingCostPaise / 100,
+      free_delivery_eligible_snapshot: discountedSubtotalPaise >= thresholdPaise
+    };
+
+    let insertedOrder;
+    let { data, error: insertError } = await supabaseAdmin
       .from('website_store_orders')
-      .insert({
-        order_id: orderId,
-        user_id: userId,
-        items: dbItems,
-        subtotal: subtotalPaise / 100,
-        discount: discountAmountPaise / 100,
-        discount_percent: discountPercent,
-        shipping: shippingCostPaise / 100,
-        tax: taxTotalPaise / 100,
-        total: (finalTotalPaise / 100) + codFee,
-        payment_method: paymentMethod,
-        delivery_city: shippingAddress.city,
-        delivery_state: shippingAddress.state,
-        full_name: shippingAddress.fullName,
-        email: shippingAddress.email,
-        address_line1: shippingAddress.addressLine1,
-        address_line2: shippingAddress.addressLine2 || null,
-        pincode: shippingAddress.pincode,
-        phone_number: shippingAddress.phoneNumber,
-        status: initialStatus,
-        payment_status: 'Pending',
-        payment_screenshot: req.body.paymentScreenshot || null,
-        payment_provider: paymentProvider,
-        cod_fee: codFee,
-        checkout_attempt_id: checkoutAttemptId,
-        gst_percent_snapshot: settings.global_gst_percent,
-        gst_amount_snapshot: taxTotalPaise / 100,
-        delivery_amount_snapshot: shippingCostPaise / 100,
-        free_delivery_eligible_snapshot: discountedSubtotalPaise >= thresholdPaise
-      })
+      .insert(orderPayload)
       .select('*')
       .single();
+
+    if (insertError && insertError.message && insertError.message.includes('cod_fee')) {
+      console.warn('[Create Order] cod_fee column missing in website_store_orders, retrying without cod_fee column...');
+      delete orderPayload.cod_fee;
+      const retryRes = await supabaseAdmin
+        .from('website_store_orders')
+        .insert(orderPayload)
+        .select('*')
+        .single();
+      data = retryRes.data;
+      insertError = retryRes.error;
+    }
 
     if (insertError) {
       console.error('[Create Order] DB Insert Error:', insertError);
       throw insertError;
     }
+
+    insertedOrder = data;
 
     // Link coupon redemption to created order_id
     if (couponCode) {

@@ -208,6 +208,15 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   }
   doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
 
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+  if (isCodOrder) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(217, 119, 6); // Amber/Orange
+    doc.text(`Order payment detail: Please collect Rs. ${order.total.toFixed(2)} in Cash`, 120, 64);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  }
+
   // Table header background block
   doc.setFillColor(249, 250, 251); // gray-50
   doc.rect(14, 90, 182, 8, 'F');
@@ -266,6 +275,17 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   y += 6;
   doc.text('Delivery Charge:', 150, y, { align: 'right' });
   doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, 194, y, { align: 'right' });
+
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? Math.max(0, order.total - (order.subtotal - order.discount + order.shipping + order.tax)) : 0);
+  if (codFeeAmount > 0) {
+    y += 6;
+    doc.setTextColor(234, 88, 12); // Orange / Amber
+    doc.setFont('helvetica', 'bold');
+    doc.text('COD Handling Charge:', 150, y, { align: 'right' });
+    doc.text(`+Rs. ${Number(codFeeAmount).toFixed(2)}`, 194, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  }
 
   // Total Row
   y += 8;
