@@ -986,7 +986,14 @@ function App() {
   const [pendingWishlistToggle, setPendingWishlistToggle] = React.useState<string | null>(null);
   const [pendingAddToCart, setPendingAddToCart] = React.useState<{ product: Product; qty: number } | null>(null);
 
-  const [currentAdmin, setCurrentAdmin] = React.useState<{ username: string; loginTime: string; token: string | null } | null>(null);
+  const [currentAdmin, setCurrentAdmin] = React.useState<{
+    id?: string;
+    username: string;
+    displayName?: string;
+    role?: string;
+    loginTime: string;
+    token: string | null;
+  } | null>(null);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState<boolean>(false);
 
@@ -999,11 +1006,18 @@ function App() {
         if (token) {
           headers['x-admin-token'] = token;
         }
-        const response = await fetch('/api/admin/session', { headers });
+        const response = await fetch('/api/admin/session', { credentials: 'include', headers });
         const data = await response.json();
         if (data.authenticated) {
           setIsAdminAuthenticated(true);
-          setCurrentAdmin({ username: data.username, loginTime: new Date().toISOString(), token: token || null });
+          setCurrentAdmin({
+            id: data.id,
+            username: data.username,
+            displayName: data.display_name,
+            role: data.role,
+            loginTime: new Date().toISOString(),
+            token: token || null
+          });
         } else {
           localStorage.removeItem('admin_session_token');
         }
@@ -5166,8 +5180,15 @@ function App() {
         />
       ) : currentPage === 'admin-login' ? (
         <AdminLoginPage
-          onLoginSuccess={(username, token) => {
-            setCurrentAdmin({ username, loginTime: new Date().toISOString(), token });
+          onLoginSuccess={(adminData, token) => {
+            setCurrentAdmin({
+              id: adminData.id,
+              username: adminData.username,
+              displayName: adminData.displayName || adminData.username,
+              role: adminData.role || 'super_admin',
+              loginTime: new Date().toISOString(),
+              token: token
+            });
             if (token) {
               localStorage.setItem('admin_session_token', token);
             }

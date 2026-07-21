@@ -69,13 +69,48 @@ export async function verifyAdmin(req) {
       computedHashBuf.length === dbHashBuf.length &&
       crypto.timingSafeEqual(computedHashBuf, dbHashBuf)
     ) {
-      // Touch last activity
-      await supabaseAdmin
-        .from('admin_sessions')
-        .update({ last_activity: new Date().toISOString() })
-        .eq('id', session.id);
+      // Load administrative user details & verify status (resilient to schema cache)
+      let adminUser = null;
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('website_store_admin')
+          .select('*')
+          .eq('id', session.admin_id)
+          .maybeSingle();
+        if (!error && data) adminUser = data;
+      } catch (e) {}
 
-      return { id: session.id, admin_id: session.admin_id };
+      if (!adminUser) {
+        const { data } = await supabaseAdmin
+          .from('website_store_admin')
+          .select('id, username')
+          .eq('id', session.admin_id)
+          .maybeSingle();
+        adminUser = data;
+      }
+
+      if (!adminUser || adminUser.is_active === false) {
+        return null;
+      }
+
+      // Touch last activity
+      try {
+        await supabaseAdmin
+          .from('admin_sessions')
+          .update({ last_activity: new Date().toISOString() })
+          .eq('id', session.id);
+      } catch (e) {}
+
+      return {
+        session_id: session.id,
+        admin_id: adminUser.id,
+        username: adminUser.username,
+        display_name: adminUser.display_name || adminUser.username,
+        role: (adminUser.role === 'manager' || adminUser.role === 'editor') ? adminUser.role : 'super_admin',
+        is_active: adminUser.is_active !== false,
+        // Legacy compatibility alias
+        id: session.id
+      };
     }
   }
 

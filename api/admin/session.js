@@ -15,19 +15,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ authenticated: false });
     }
 
-    // Retrieve username for frontend context matching
-    const { data: adminUser } = await supabaseAdmin
-      .from('website_store_admin')
-      .select('username')
-      .eq('id', adminSession.admin_id)
-      .maybeSingle();
-
-    const username = adminUser ? adminUser.username : 'admin';
-
-    // Strictly conforms to security guidelines: zero token exposure to client-side JS
     return res.status(200).json({ 
       authenticated: true, 
-      username
+      id: adminSession.admin_id,
+      username: adminSession.username,
+      display_name: adminSession.display_name,
+      role: adminSession.role,
+      is_active: adminSession.is_active,
+      session_id: adminSession.session_id
     });
   } catch (err) {
     console.error('[Admin Session Verification Exception]:', err);

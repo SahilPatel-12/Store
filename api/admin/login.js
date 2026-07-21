@@ -69,6 +69,12 @@ export default async function handler(req, res) {
     let isSuccess = false;
 
     if (!adminErr && adminUser) {
+      // Check if account is active
+      if (adminUser.is_active === false) {
+        await logAdminAction(adminUser.id, req, 'LOGIN_FAILED_DISABLED', { username: normalizedUsername });
+        return res.status(403).json({ error: 'This administrative account has been disabled. Please contact a Super Admin.' });
+      }
+
       const storedHash = adminUser.password_hash;
       const parts = storedHash.split('$');
       if (parts[0] === 'scrypt') {
@@ -89,31 +95,53 @@ export default async function handler(req, res) {
           .eq('ip_address', clientIp);
       }
 
-      // 4. Session Fixation Protection: Revoke all old active sessions of this admin user
-      await supabaseAdmin
-        .from('admin_sessions')
-        .delete()
-        .eq('admin_id', adminUser.id);
-
-      // 5. Generate secure 64-byte token and insert SHA-256 hash
+      // 4. Generate secure 64-byte token and insert SHA-256 hash (Supports concurrent multi-device logins)
       const token = crypto.randomBytes(64).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours session validity
 
-      const { error: sessionError } = await supabaseAdmin
+      // Format clean device label from user agent
+      const deviceLabel = userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop Browser';
+
+      let { error: sessionError } = await supabaseAdmin
         .from('admin_sessions')
         .insert({
           admin_id: adminUser.id,
           session_token_hash: tokenHash,
           ip_address: clientIp,
           user_agent: userAgent,
+          device_label: deviceLabel,
           expires_at: expiresAt
         });
 
-      if (sessionError) throw sessionError;
+      // Fallback insert without device_label if PostgREST schema cache hasn't loaded the column yet
+      if (sessionError && (sessionError.code === 'PGRST204' || sessionError.message?.includes('device_label'))) {
+        console.warn('[Admin Login API] Fallback session insert without device_label:', sessionError.message);
+        const { error: fallbackErr } = await supabaseAdmin
+          .from('admin_sessions')
+          .insert({
+            admin_id: adminUser.id,
+            session_token_hash: tokenHash,
+            ip_address: clientIp,
+            user_agent: userAgent,
+            expires_at: expiresAt
+          });
+        if (fallbackErr) throw fallbackErr;
+      } else if (sessionError) {
+        throw sessionError;
+      }
+
+      // 5. Update last_login_at timestamp (safely)
+      try {
+        await supabaseAdmin
+          .from('website_store_admin')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', adminUser.id);
+      } catch (err) {
+        console.warn('[Admin Login API] Ignore last_login_at update:', err);
+      }
 
       // 6. Set Host-admin_session HttpOnly cookie
-      // Excludes Domain attribute, enforces root Path=/ and Secure/SameSite parameters
       res.setHeader(
         'Set-Cookie',
         `__Host-admin_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`
@@ -123,7 +151,14 @@ export default async function handler(req, res) {
       await logAdminAction(adminUser.id, req, 'LOGIN_SUCCESS', { username: normalizedUsername });
       await cleanupExpiredSessions();
 
-      return res.status(200).json({ success: true, username: adminUser.username, token: token });
+      return res.status(200).json({ 
+        success: true, 
+        id: adminUser.id,
+        username: adminUser.username, 
+        display_name: adminUser.display_name || adminUser.username,
+        role: adminUser.role || 'super_admin',
+        token: token 
+      });
     } else {
       // 8. Record failed login attempt and trigger rate lockout if count >= 5
       const currentFailed = (lockoutRecord?.failed_count || 0) + 1;

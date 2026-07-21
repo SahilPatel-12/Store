@@ -1651,10 +1651,12 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                         {selectedDetailsOrder.shipping === 0 ? t('checkout:free', { defaultValue: 'FREE' }) : `₹${selectedDetailsOrder.shipping.toFixed(2)}`}
                       </span>
                     </div>
-                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{t('orders.vedicTax', { defaultValue: 'Vedic Services Tax' })} ({selectedDetailsOrder.gstPercentSnapshot !== undefined && selectedDetailsOrder.gstPercentSnapshot !== null ? selectedDetailsOrder.gstPercentSnapshot : 8}%)</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
-                    </div>
+                     {selectedDetailsOrder.tax > 0 && (
+                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('orders.vedicTax', { defaultValue: 'Vedic Services Tax' })} ({selectedDetailsOrder.gstPercentSnapshot !== undefined && selectedDetailsOrder.gstPercentSnapshot !== null ? selectedDetailsOrder.gstPercentSnapshot : 8}%)</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>₹{selectedDetailsOrder.tax.toFixed(2)}</span>
+                       </div>
+                     )}
                     <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '6px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '1rem', fontWeight: 900 }}>
                       <span>{t('orders.grandTotal', { defaultValue: 'Grand Total' })}</span>

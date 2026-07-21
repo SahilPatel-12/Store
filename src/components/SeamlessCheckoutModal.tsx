@@ -1106,10 +1106,12 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     <span>{t('summary.shipping')}</span>
                     <span style={{ fontWeight: 700 }}>{shippingCost === 0 ? t('summary.free') : `₹${shippingCost.toFixed(2)}`}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
-                    <span>{t('summary.tax')}</span>
-                    <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
-                  </div>
+                  {tax > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
+                      <span>{t('summary.tax')}</span>
+                      <span style={{ fontWeight: 700 }}>₹{tax.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

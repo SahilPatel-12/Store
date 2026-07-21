@@ -919,7 +919,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                   { label: t('price.subtotal'), value: `₹${order.subtotal.toFixed(2)}`, color: 'var(--text-dark)' },
                   ...(order.discount > 0 ? [{ label: t('price.discount', { percent: order.discountPercent }), value: `−₹${order.discount.toFixed(2)}`, color: '#10b981' }] : []),
                   { label: t('price.shipping'), value: order.shipping === 0 ? t('price.free') : `₹${order.shipping.toFixed(2)}`, color: order.shipping === 0 ? '#10b981' : 'var(--text-dark)' },
-                  { label: t('price.tax', { percent: order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8 }), value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' },
+                  ...(order.tax > 0 ? [{ label: t('price.tax', { percent: order.gstPercentSnapshot !== undefined && order.gstPercentSnapshot !== null ? order.gstPercentSnapshot : 8 }), value: `₹${order.tax.toFixed(2)}`, color: 'var(--text-dark)' }] : []),
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
 
 interface AdminLoginPageProps {
-  onLoginSuccess: (username: string, token: string | null) => void;
+  onLoginSuccess: (adminData: { id: string; username: string; displayName?: string; role?: string }, token: string | null) => void;
   onNavigateToHome: () => void;
 }
 
@@ -36,6 +36,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
+          credentials: 'include',
           body: JSON.stringify({
             username: usernameInput,
             password: password
@@ -50,7 +51,12 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           return;
         }
 
-        onLoginSuccess(data.username, data.token || null);
+        onLoginSuccess({
+          id: data.id,
+          username: data.username,
+          displayName: data.display_name,
+          role: data.role
+        }, data.token || null);
       } catch (err) {
         console.error(err);
         setIsSubmitting(false);

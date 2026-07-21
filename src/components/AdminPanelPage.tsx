@@ -1,4 +1,5 @@
 import React from 'react';
+import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import logo from '../assets/My_logo/Frame 16.png';
@@ -37,7 +38,8 @@ import {
   QrCode,
   Lock,
   AlertTriangle,
-  Compass
+  Compass,
+  Shield
 } from 'lucide-react';
 import type { Product, PoojaProduct, LocalOrder } from '../types';
 import { supabase, callAdminApi } from '../lib/supabase';
@@ -776,7 +778,7 @@ interface AdminPanelPageProps {
   onNavigateToHome: () => void;
   onNavigateToShop: () => void;
   onLogout?: () => void;
-  adminSession?: { username: string; loginTime: string; token: string | null } | null;
+  adminSession?: { id?: string; username: string; displayName?: string; role?: string; loginTime: string; token: string | null } | null;
   onRefreshOrders?: () => Promise<void>;
   categoriesOrder?: string[];
   categoriesList?: { name: string; hidden: boolean }[];
@@ -796,7 +798,7 @@ interface AdminPanelPageProps {
   }) => void;
 }
 
-type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings' | 'users' | 'astrologers';
+type Tab = 'analytics' | 'products' | 'orders' | 'settings' | 'pooja_products' | 'homepage_editor' | 'shop_banners' | 'categories_editor' | 'products_sorter' | 'coupons' | 'affiliates' | 'upi_settings' | 'users' | 'astrologers' | 'admin_users';
 
 export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   products,
@@ -3085,7 +3087,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       }
 
       const hashedPw = await hashPassword(newPunditPassword);
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
 
       const { data, error } = await supabase.rpc('admin_create_pundit', {
         p_admin_token: adminToken,
@@ -3124,7 +3126,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setIsResettingPassword(true);
     try {
       const hashedPw = await hashPassword(resetPunditPassword);
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
 
       const { error } = await supabase.rpc('admin_update_pundit_password', {
         p_admin_token: adminToken,
@@ -3145,7 +3147,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   const handleUpdateAffiliateStatus = async (targetUserId: string, newStatus: string) => {
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529'; // session token fallback
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
 
     setIsUpdatingAffiliateStatus(targetUserId);
     try {
@@ -3299,7 +3301,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
     setIsDeletingUser(userId);
     try {
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
       const { data, error } = await supabase.rpc('admin_delete_user_cascade', {
         p_admin_token: adminToken,
         p_target_user_id: userId
@@ -3470,7 +3472,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
       // 2. Delete corresponding user account via cascade delete RPC (if exists)
       if (astrologer.user_id) {
-        const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+        const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
         const { error: userErr } = await supabase.rpc('admin_delete_user_cascade', {
           p_admin_token: adminToken,
           p_target_user_id: astrologer.user_id
@@ -3494,7 +3496,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   const loadAffiliateLevels = async () => {
     setIsLoadingLevels(true);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_get_all_affiliate_levels', {
         p_admin_token: adminToken
@@ -3510,7 +3512,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   const loadAffiliateSettings = async () => {
     setIsLoadingAffiliateSettings(true);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_get_all_affiliate_settings', {
         p_admin_token: adminToken
@@ -3543,7 +3545,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
 
   const loadWithdrawals = async () => {
     setIsLoadingWithdrawals(true);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_get_all_withdrawals', {
         p_admin_token: adminToken
@@ -3560,7 +3562,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingAffiliateSettings(true);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const maxDepth = parseInt(affiliateSettings.affiliate_max_depth, 10);
       if (isNaN(maxDepth) || maxDepth < 1 || maxDepth > 10) {
@@ -3599,7 +3601,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     e.preventDefault();
     if (!editingLevel) return;
     setIsSavingLevel(true);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const levelNum = parseInt(editingLevel.level_number, 10);
       const rate = parseFloat(editingLevel.commission_percentage);
@@ -3637,7 +3639,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleDeleteLevel = async (levelNumber: number) => {
     if (!confirm(`Are you sure you want to delete Tier "${getLevelName(levelNumber)}"?`)) return;
     setIsDeletingLevel(levelNumber);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_delete_affiliate_level', {
         p_admin_token: adminToken,
@@ -3659,7 +3661,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const handleApproveWithdrawal = async (requestId: string) => {
     if (!confirm('Are you sure you want to approve this withdrawal request?')) return;
     setIsProcessingWithdrawal(requestId);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_approve_withdrawal', {
         p_admin_token: adminToken,
@@ -3682,7 +3684,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     e.preventDefault();
     if (!rejectingWithdrawalId || !rejectReason.trim()) return;
     setIsProcessingWithdrawal(rejectingWithdrawalId);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_reject_withdrawal', {
         p_admin_token: adminToken,
@@ -3708,7 +3710,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     e.preventDefault();
     if (!txnInputId || !txnRefNumber.trim()) return;
     setIsProcessingWithdrawal(txnInputId);
-    const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+    const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
     try {
       const { data, error } = await supabase.rpc('admin_mark_withdrawal_paid', {
         p_admin_token: adminToken,
@@ -3827,6 +3829,191 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       loadAstrologers();
     }
   }, [activeTab]);
+
+  // State & Handlers for Super Admin Governance
+  const [adminUsersList, setAdminUsersList] = React.useState<any[]>([]);
+  const [isLoadingAdminUsers, setIsLoadingAdminUsers] = React.useState(false);
+  const [showCreateAdminModal, setShowCreateAdminModal] = React.useState(false);
+  const [newAdminUsername, setNewAdminUsername] = React.useState('');
+  const [newAdminDisplayName, setNewAdminDisplayName] = React.useState('');
+  const [newAdminPassword, setNewAdminPassword] = React.useState('');
+  const [newAdminRole, setNewAdminRole] = React.useState<'admin' | 'manager' | 'editor'>('admin');
+  const [isCreatingAdmin, setIsCreatingAdmin] = React.useState(false);
+  const [createAdminError, setCreateAdminError] = React.useState('');
+
+  const [resetAdminModalTarget, setResetAdminModalTarget] = React.useState<any | null>(null);
+  const [adminResetNewPassword, setAdminResetNewPassword] = React.useState('');
+  const [isResettingAdminPassword, setIsResettingAdminPassword] = React.useState(false);
+
+  const loadAdminUsers = async () => {
+    setIsLoadingAdminUsers(true);
+    try {
+      const data = await callAdminApi('/api/admin/users');
+      if (data.success && data.admins) {
+        setAdminUsersList(data.admins);
+      }
+    } catch (err) {
+      console.error('Failed to load admin users:', err);
+    } finally {
+      setIsLoadingAdminUsers(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'admin_users') {
+      loadAdminUsers();
+    }
+  }, [activeTab]);
+
+  const handleCreateAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateAdminError('');
+    if (!newAdminUsername.trim() || !newAdminPassword.trim()) {
+      setCreateAdminError('Username and Password are required.');
+      return;
+    }
+    setIsCreatingAdmin(true);
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create',
+          username: newAdminUsername.trim(),
+          displayName: newAdminDisplayName.trim() || newAdminUsername.trim(),
+          password: newAdminPassword.trim(),
+          role: newAdminRole
+        })
+      });
+      triggerToast(`Admin user "${newAdminUsername}" created successfully!`);
+      setNewAdminUsername('');
+      setNewAdminDisplayName('');
+      setNewAdminPassword('');
+      setShowCreateAdminModal(false);
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      setCreateAdminError((err as Error).message);
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
+
+  const handleToggleAdminStatus = async (adminUser: any) => {
+    const nextStatus = !adminUser.is_active;
+    if (!confirm(`Are you sure you want to ${nextStatus ? 'enable' : 'disable'} admin account "${adminUser.username}"?`)) return;
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'toggle-status',
+          targetAdminId: adminUser.id,
+          isActive: nextStatus
+        })
+      });
+      triggerToast(`Admin account "${adminUser.username}" is now ${nextStatus ? 'Active' : 'Disabled'}.`);
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update status: ' + (err as Error).message);
+    }
+  };
+
+  const handleChangeAdminRole = async (adminUser: any, newRole: string) => {
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'change-role',
+          targetAdminId: adminUser.id,
+          role: newRole
+        })
+      });
+      triggerToast(`Role for "${adminUser.username}" updated to ${newRole.toUpperCase()}.`);
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to change role: ' + (err as Error).message);
+    }
+  };
+
+  const handleResetAdminPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetAdminModalTarget || !adminResetNewPassword.trim()) return;
+    setIsResettingAdminPassword(true);
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'reset-password',
+          targetAdminId: resetAdminModalTarget.id,
+          newPassword: adminResetNewPassword.trim()
+        })
+      });
+      triggerToast(`Password reset successfully for "${resetAdminModalTarget.username}". All active sessions revoked.`);
+      setResetAdminModalTarget(null);
+      setAdminResetNewPassword('');
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Password reset failed: ' + (err as Error).message);
+    } finally {
+      setIsResettingAdminPassword(false);
+    }
+  };
+
+  const handleRevokeSingleSession = async (sessionId: string, username: string) => {
+    if (!confirm(`Revoke this active session for admin "${username}"?`)) return;
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'revoke-session',
+          targetSessionId: sessionId
+        })
+      });
+      triggerToast('Session revoked successfully.');
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to revoke session: ' + (err as Error).message);
+    }
+  };
+
+  const handleRevokeAllAdminSessions = async (adminUser: any) => {
+    if (!confirm(`Revoke ALL active sessions for admin account "${adminUser.username}"?`)) return;
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'revoke-all-sessions',
+          targetAdminId: adminUser.id
+        })
+      });
+      triggerToast(`All active sessions for "${adminUser.username}" revoked successfully.`);
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to revoke sessions: ' + (err as Error).message);
+    }
+  };
+
+  const handleDeleteAdminAccount = async (adminUser: any) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE admin account "${adminUser.username}"? This action cannot be undone.`)) return;
+    try {
+      await callAdminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'delete',
+          targetAdminId: adminUser.id
+        })
+      });
+      triggerToast(`Admin account "${adminUser.username}" deleted successfully.`);
+      loadAdminUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete account: ' + (err as Error).message);
+    }
+  };
 
   const updatePoojaField = (field: keyof PoojaProduct, value: any) => {
     setEditingPoojaProduct(prev => {
@@ -4162,6 +4349,90 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
+  // Bulk Order Selection & ZIP Download State
+  const [selectedOrderIds, setSelectedOrderIds] = React.useState<string[]>([]);
+  const [isBulkDownloading, setIsBulkDownloading] = React.useState(false);
+
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const toggleSelectAllOrders = () => {
+    const visibleOrderIds = filteredOrders.map(o => o.orderId);
+    const allSelected = visibleOrderIds.length > 0 && visibleOrderIds.every(id => selectedOrderIds.includes(id));
+    if (allSelected) {
+      setSelectedOrderIds(prev => prev.filter(id => !visibleOrderIds.includes(id)));
+    } else {
+      setSelectedOrderIds(prev => Array.from(new Set([...prev, ...visibleOrderIds])));
+    }
+  };
+
+  const handleBulkDownloadInvoices = async () => {
+    const selectedOrdersList = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    if (selectedOrdersList.length === 0) {
+      alert('Please select at least one order to download invoices.');
+      return;
+    }
+    setIsBulkDownloading(true);
+    try {
+      const zip = new JSZip();
+      for (const order of selectedOrdersList) {
+        const doc = await generateInvoiceDoc(order);
+        const pdfArrayBuffer = doc.output('arraybuffer');
+        zip.file(`Invoice-${order.orderId}.pdf`, pdfArrayBuffer);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoices_Bulk_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      triggerToast(`Downloaded ${selectedOrdersList.length} invoice(s) as ZIP archive!`);
+    } catch (err) {
+      console.error('Bulk invoice generation error:', err);
+      alert('Failed to generate invoices ZIP: ' + (err as Error).message);
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
+  const handleBulkDownloadShippingLabels = async () => {
+    const selectedOrdersList = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    if (selectedOrdersList.length === 0) {
+      alert('Please select at least one order to download shipping stickers.');
+      return;
+    }
+    setIsBulkDownloading(true);
+    try {
+      const zip = new JSZip();
+      for (const order of selectedOrdersList) {
+        const doc = await generateShippingLabelDoc(order);
+        const pdfArrayBuffer = doc.output('arraybuffer');
+        zip.file(`Shipping-Sticker-${order.orderId}.pdf`, pdfArrayBuffer);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Shipping_Stickers_Bulk_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      triggerToast(`Downloaded ${selectedOrdersList.length} shipping sticker(s) as ZIP archive!`);
+    } catch (err) {
+      console.error('Bulk shipping sticker generation error:', err);
+      alert('Failed to generate shipping stickers ZIP: ' + (err as Error).message);
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
   // Product Form state
   const [productForm, setProductForm] = React.useState({
     name: '',
@@ -4345,7 +4616,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   // Order status changes
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
       await callAdminApi('/api/admin/orders/update-delivery-status', {
         method: 'POST',
         body: JSON.stringify({ orderId, status, adminToken })
@@ -4372,7 +4643,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       return;
     }
     try {
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
       await callAdminApi('/api/admin/orders/confirm-legacy-payment', {
         method: 'POST',
         body: JSON.stringify({ orderId, adminToken })
@@ -4405,7 +4676,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     if (!order) return;
 
     try {
-      const adminToken = adminSession?.token || localStorage.getItem('session_token') || '260529';
+      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
       const resData = await callAdminApi('/api/admin/orders/decline-legacy-payment', {
         method: 'POST',
         body: JSON.stringify({ orderId, adminToken })
@@ -4544,7 +4815,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             { id: 'coupons' as Tab, label: 'Devotional Coupons', icon: <Ticket size={18} /> },
             { id: 'affiliates' as Tab, label: 'Affiliate Partnerships', icon: <User size={18} /> },
             { id: 'users' as Tab, label: 'Devotee Directory', icon: <User size={18} /> },
-            { id: 'astrologers' as Tab, label: 'Astrologer Registry', icon: <Compass size={18} /> }
+            { id: 'astrologers' as Tab, label: 'Astrologer Registry', icon: <Compass size={18} /> },
+            ...(adminSession?.role !== 'manager' && adminSession?.role !== 'editor' ? [{ id: 'admin_users' as Tab, label: 'Admin Governance', icon: <Shield size={18} /> }] : [])
           ].map(tab => {
             const isActive = activeTab === tab.id;
             return (
@@ -5167,6 +5439,107 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                 )}
               </div>
 
+              {/* Bulk Selection Action Bar */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: selectedOrderIds.length > 0 ? '#fff7ed' : '#f8fafc',
+                border: selectedOrderIds.length > 0 ? '1.5px solid #ffedd5' : '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '12px 20px',
+                flexWrap: 'wrap',
+                gap: '12px',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-dark)' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredOrders.length > 0 && filteredOrders.every(o => selectedOrderIds.includes(o.orderId))}
+                      onChange={toggleSelectAllOrders}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ea580c' }}
+                    />
+                    Select All ({filteredOrders.length})
+                  </label>
+                  {selectedOrderIds.length > 0 && (
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      backgroundColor: '#ea580c',
+                      color: '#ffffff',
+                      padding: '3px 10px',
+                      borderRadius: '999px'
+                    }}>
+                      {selectedOrderIds.length} Selected
+                    </span>
+                  )}
+                </div>
+
+                {selectedOrderIds.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={handleBulkDownloadInvoices}
+                      disabled={isBulkDownloading}
+                      className="btn-lime"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        cursor: isBulkDownloading ? 'wait' : 'pointer',
+                        opacity: isBulkDownloading ? 0.7 : 1
+                      }}
+                    >
+                      <ArrowDown size={15} />
+                      <span>{isBulkDownloading ? 'Generating ZIP...' : `Download Invoices (${selectedOrderIds.length} ZIP)`}</span>
+                    </button>
+
+                    <button
+                      onClick={handleBulkDownloadShippingLabels}
+                      disabled={isBulkDownloading}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        backgroundColor: '#ea580c',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: isBulkDownloading ? 'wait' : 'pointer',
+                        opacity: isBulkDownloading ? 0.7 : 1,
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#c2410c')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                    >
+                      <Truck size={15} />
+                      <span>{isBulkDownloading ? 'Generating ZIP...' : `Download Shipping Stickers (${selectedOrderIds.length} ZIP)`}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedOrderIds([])}
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: '#64748b',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {filteredOrders.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-lg)' }}>
                   <span style={{ fontSize: '3rem' }}>📦</span>
@@ -5182,7 +5555,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         key={order.orderId}
                         style={{
                           backgroundColor: '#ffffff',
-                          border: '1px solid var(--border-light)',
+                          border: selectedOrderIds.includes(order.orderId) ? '2px solid #ea580c' : '1px solid var(--border-light)',
                           borderRadius: 'var(--radius-lg)',
                           padding: '20px 24px',
                           boxShadow: 'var(--shadow-sm)',
@@ -5195,10 +5568,18 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         }}
                       >
                         {/* Left: Customer & Meta */}
-                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                          <div>
-                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
-                            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
+                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.includes(order.orderId)}
+                              onChange={() => toggleSelectOrder(order.orderId)}
+                              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ea580c', flexShrink: 0 }}
+                            />
+                            <div>
+                              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
+                              <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
+                            </div>
                           </div>
                           <div>
                             <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Placed At</span>
@@ -12003,6 +12384,444 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             </div>
           )}
 
+          {/* =======================================================
+            TAB: ADMIN USERS & CONCURRENT SESSIONS GOVERNANCE
+            ======================================================= */}
+          {activeTab === 'admin_users' && adminSession?.role !== 'manager' && adminSession?.role !== 'editor' && (
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+              {/* Header section */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Shield size={20} style={{ color: 'var(--primary-lime)' }} />
+                    Admin Accounts Governance & Concurrent Sessions
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Manage administrator accounts, assign access roles, revoke active device sessions, and reset credentials.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateAdminModal(true)}
+                  style={{
+                    backgroundColor: 'var(--primary-forest)',
+                    color: '#ffffff',
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <Plus size={16} /> Create New Admin
+                </button>
+              </div>
+
+              {/* Admins Table */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                {isLoadingAdminUsers ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                    <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
+                    <p>Loading admin accounts database...</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                          <th style={{ padding: '12px 16px' }}>Admin Identity</th>
+                          <th style={{ padding: '12px 16px' }}>Role</th>
+                          <th style={{ padding: '12px 16px' }}>Status</th>
+                          <th style={{ padding: '12px 16px' }}>Last Login</th>
+                          <th style={{ padding: '12px 16px' }}>Active Sessions</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminUsersList.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                              No administrator accounts found.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminUsersList.map(admin => {
+                            const isRootAdmin = admin.username === 'admin';
+                            const isSelf = admin.id === adminSession?.id || admin.username === adminSession?.username;
+                            const isSuperAdminAccount = admin.role === 'super_admin' || admin.username === 'admin' || admin.username === 'nimda_shop_sahil' || (!admin.role && admin.username === 'nimda_shop_sahil');
+                            const activeSessionsCount = admin.sessions ? admin.sessions.length : 0;
+
+                            return (
+                              <React.Fragment key={admin.id}>
+                                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <div style={{ fontWeight: 800, color: 'var(--text-dark)' }}>{admin.display_name || admin.username}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>@{admin.username}</div>
+                                  </td>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 800,
+                                      textTransform: 'uppercase',
+                                      backgroundColor: isSuperAdminAccount ? '#fef3c7' : '#e0f2fe',
+                                      color: isSuperAdminAccount ? '#92400e' : '#0369a1'
+                                    }}>
+                                      {isSuperAdminAccount ? 'SUPER ADMIN' : (admin.role ? admin.role.replace('_', ' ') : 'ADMIN')}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      backgroundColor: admin.is_active ? '#dcfce7' : '#fee2e2',
+                                      color: admin.is_active ? '#166534' : '#991b1b'
+                                    }}>
+                                      {admin.is_active ? 'Active' : 'Disabled'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '14px 16px', fontSize: '0.78rem', color: '#64748b' }}>
+                                    {admin.last_login_at ? new Date(admin.last_login_at).toLocaleString() : 'Never logged in'}
+                                  </td>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <span style={{ fontWeight: 700, color: activeSessionsCount > 0 ? '#166534' : '#64748b' }}>
+                                      {activeSessionsCount} active device{activeSessionsCount !== 1 ? 's' : ''}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                      {!isSuperAdminAccount && (
+                                        <select
+                                          value={admin.role || 'admin'}
+                                          onChange={(e) => handleChangeAdminRole(admin, e.target.value)}
+                                          style={{
+                                            padding: '5px 8px',
+                                            borderRadius: '6px',
+                                            border: '1px solid var(--border-light)',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            backgroundColor: '#f8fafc',
+                                            color: '#334155',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          <option value="super_admin">Super Admin</option>
+                                          <option value="admin">Admin</option>
+                                          <option value="manager">Manager</option>
+                                          <option value="editor">Editor</option>
+                                        </select>
+                                      )}
+                                      {!isSuperAdminAccount && (
+                                        <button
+                                          onClick={() => handleToggleAdminStatus(admin)}
+                                          style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid var(--border-light)',
+                                            backgroundColor: admin.is_active ? '#fff1f2' : '#f0fdf4',
+                                            color: admin.is_active ? '#be123c' : '#15803d',
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          {admin.is_active ? 'Disable' : 'Enable'}
+                                        </button>
+                                      )}
+                                      {(isSelf || !isSuperAdminAccount) && (
+                                        <button
+                                          onClick={() => {
+                                            setResetAdminModalTarget(admin);
+                                            setAdminResetNewPassword('');
+                                          }}
+                                          style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid var(--border-light)',
+                                            backgroundColor: '#f8fafc',
+                                            color: '#334155',
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          Reset Password
+                                        </button>
+                                      )}
+                                      {activeSessionsCount > 0 && (
+                                        <button
+                                          onClick={() => handleRevokeAllAdminSessions(admin)}
+                                          style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #fed7aa',
+                                            backgroundColor: '#fff7ed',
+                                            color: '#c2410c',
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          Revoke All Sessions
+                                        </button>
+                                      )}
+                                      {!isRootAdmin && !isSelf && (
+                                        <button
+                                          onClick={() => handleDeleteAdminAccount(admin)}
+                                          style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            backgroundColor: '#fee2e2',
+                                            color: '#991b1b',
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {/* Expanded Active Sessions Inspector */}
+                                {admin.sessions && admin.sessions.length > 0 && (
+                                  <tr style={{ backgroundColor: '#f8fafc' }}>
+                                    <td colSpan={6} style={{ padding: '12px 24px', borderBottom: '2px solid #e2e8f0' }}>
+                                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginBottom: '8px' }}>
+                                        ACTIVE DEVICE SESSIONS FOR {admin.username.toUpperCase()}:
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {admin.sessions.map((sess: any) => (
+                                          <div key={sess.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            backgroundColor: '#ffffff',
+                                            padding: '8px 14px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #e2e8f0',
+                                            fontSize: '0.76rem'
+                                          }}>
+                                            <div>
+                                              <strong>Device:</strong> {sess.device_label || 'Browser Session'} | <strong>IP:</strong> {sess.ip_address || 'Internal'} | <strong>Last Active:</strong> {new Date(sess.last_activity || sess.created_at).toLocaleString()}
+                                            </div>
+                                            <button
+                                              onClick={() => handleRevokeSingleSession(sess.id, admin.username)}
+                                              style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '4px',
+                                                border: '1px solid #fca5a5',
+                                                backgroundColor: '#fff1f2',
+                                                color: '#be123c',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              Revoke Device
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+          {/* Create Admin Modal */}
+          {showCreateAdminModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0, right: 0, bottom: 0, left: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 600,
+              padding: '24px'
+            }}>
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                width: '100%',
+                maxWidth: '480px',
+                padding: '28px',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '16px' }}>
+                  Create Administrator Account
+                </h3>
+                {createAdminError && (
+                  <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: '6px', fontSize: '0.82rem', marginBottom: '16px' }}>
+                    {createAdminError}
+                  </div>
+                )}
+                <form onSubmit={handleCreateAdminSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                      Username *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newAdminUsername}
+                      onChange={(e) => setNewAdminUsername(e.target.value)}
+                      placeholder="e.g. manager_rahul"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdminDisplayName}
+                      onChange={(e) => setNewAdminDisplayName(e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                      Security Password *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={newAdminPassword}
+                      onChange={(e) => setNewAdminPassword(e.target.value)}
+                      placeholder="Enter strong password..."
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                      Account Role
+                    </label>
+                    <select
+                      value={newAdminRole}
+                      onChange={(e) => setNewAdminRole(e.target.value as any)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    >
+                      <option value="admin">Admin (Standard)</option>
+                      <option value="manager">Manager</option>
+                      <option value="editor">Editor</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateAdminModal(false)}
+                      style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreatingAdmin}
+                      style={{ padding: '8px 18px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--primary-forest)', color: '#ffffff', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}
+                    >
+                      {isCreatingAdmin ? 'Creating...' : 'Create Account'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Reset Admin Password Modal */}
+          {resetAdminModalTarget && (
+            <div style={{
+              position: 'fixed',
+              top: 0, right: 0, bottom: 0, left: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 600,
+              padding: '24px'
+            }}>
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                width: '100%',
+                maxWidth: '440px',
+                padding: '28px',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '8px' }}>
+                  Reset Admin Password
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '16px' }}>
+                  Reset password for account <strong>@{resetAdminModalTarget.username}</strong>. Resetting password will automatically terminate all active sessions for this account across all devices.
+                </p>
+                <form onSubmit={handleResetAdminPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                      New Security Password *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={adminResetNewPassword}
+                      onChange={(e) => setAdminResetNewPassword(e.target.value)}
+                      placeholder="Enter new password..."
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setResetAdminModalTarget(null)}
+                      style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isResettingAdminPassword}
+                      style={{ padding: '8px 18px', borderRadius: '6px', border: 'none', backgroundColor: '#dc2626', color: '#ffffff', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}
+                    >
+                      {isResettingAdminPassword ? 'Resetting...' : 'Reset & Revoke Sessions'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
 
@@ -12658,10 +13477,12 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   <span style={{ color: 'var(--text-muted)' }}>Sacred Shipping</span>
                   <span style={{ fontWeight: 700 }}>{selectedOrderDetails.shipping === 0 ? 'FREE' : `₹${selectedOrderDetails.shipping.toFixed(2)}`}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Tax (8%)</span>
-                  <span style={{ fontWeight: 700 }}>₹{selectedOrderDetails.tax.toFixed(2)}</span>
-                </div>
+                {selectedOrderDetails.tax > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Tax ({selectedOrderDetails.gstPercentSnapshot !== undefined && selectedOrderDetails.gstPercentSnapshot !== null ? selectedOrderDetails.gstPercentSnapshot : 8}%)</span>
+                    <span style={{ fontWeight: 700 }}>₹{selectedOrderDetails.tax.toFixed(2)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
                   <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>Grand Total Charged</span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{selectedOrderDetails.total.toFixed(2)}</span>
