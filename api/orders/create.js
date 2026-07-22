@@ -258,7 +258,7 @@ export default async function handler(req, res) {
         const targetUserId = appUser ? appUser.id : userId;
 
         const isCod = paymentMethod === 'COD' || paymentMethod === 'Cash on Delivery';
-        const initialOrderStatus = (paymentMethod === 'Razorpay' || paymentMethod === 'Online') ? 'Draft' : 'Confirmed';
+        const initialOrderStatus = (paymentMethod === 'Razorpay' || paymentMethod === 'Online') ? 'Pending' : 'Confirmed';
 
         const { data: syncedOrder, error: orderSyncError } = await supabaseAdmin
           .from('orders')
@@ -288,7 +288,6 @@ export default async function handler(req, res) {
             await supabaseAdmin.from('order_items').insert(orderItemsPayload);
           }
 
-          // Sync shipping address, embedding the human-friendly orderId in address_line_2 for status updates & admin deletions
           const shippingPayload = {
             order_id: syncedOrder.id,
             full_name: shippingAddress.fullName || 'Customer',
@@ -297,8 +296,7 @@ export default async function handler(req, res) {
             address_line_2: `${shippingAddress.addressLine2 || ''} | ${orderId}`.trim(),
             city: shippingAddress.city || '',
             state: shippingAddress.state || '',
-            pincode: shippingAddress.pincode || '',
-            country: 'India'
+            pincode: shippingAddress.pincode || ''
           };
           await supabaseAdmin.from('shipping_addresses').insert(shippingPayload);
         }

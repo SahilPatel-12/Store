@@ -2297,7 +2297,8 @@ function App() {
       if (isAdminAuthenticated) {
         const res = await fetch('/api/admin/orders', { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch admin orders');
-        data = await res.json();
+        const resData = await res.json();
+        data = resData.orders || [];
       } else if (loggedInUser) {
         const sessionToken = localStorage.getItem('session_token') || '';
         const res = await fetch(`/api/customer/orders?sessionToken=${sessionToken}`);

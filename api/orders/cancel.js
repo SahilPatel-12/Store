@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         .eq('user_id', targetUserId)
         .eq('order_type', 'product')
         .eq('total_amount', Number(cancelledOrder.total))
-        .eq('order_status', 'Draft')
+        .in('order_status', ['Pending', 'Draft'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
