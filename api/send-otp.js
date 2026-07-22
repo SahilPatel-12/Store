@@ -154,7 +154,14 @@ export default async function handler(req, res) {
           bhashPhone = bhashPhone.substring(2);
         }
         urlObj.searchParams.set('phone', bhashPhone);
-        urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
+        
+        // Dynamically set Params based on template name
+        const textParam = urlObj.searchParams.get('text') || '';
+        if (textParam === 'service_rejected_hindi') {
+          urlObj.searchParams.set('Params', `${otp},Low CIBIL Score`);
+        } else {
+          urlObj.searchParams.set('Params', otp);
+        }
 
         console.log('[send-otp] Firing BhashSMS gateway request');
         
