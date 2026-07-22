@@ -318,6 +318,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     };
   }, [isOpen]);
 
+  React.useEffect(() => {
+    console.log('[OTP] Active channel state updated:', otpChannel);
+  }, [otpChannel]);
+
   if (!isOpen) return null;
 
   if (!isReady) {
@@ -361,10 +365,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
     return cleaned;
   };
-
-  React.useEffect(() => {
-    console.log('[OTP] Active channel state updated:', otpChannel);
-  }, [otpChannel]);
 
   // Gateway Sender via backend endpoint
   const sendOtp = async (targetPhone: string) => {
