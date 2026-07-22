@@ -322,7 +322,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     return totalTax + (itemDiscountedSubtotal * (itemGstPercent / 100));
   }, 0);
 
-  const activeCodFee = ((paymentMethod as string) === 'cod' || (paymentMethod as string) === 'COD' || (paymentMethod as string) === 'Cash on Delivery') ? (taxDeliverySettings.codFee || 0) : 0;
+  const totalQty = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const activeCodFee = ((paymentMethod as string) === 'cod' || (paymentMethod as string) === 'COD' || (paymentMethod as string) === 'Cash on Delivery') ? (taxDeliverySettings.codFee || 50) * totalQty : 0;
   const finalTotal = subtotal - discountAmount + shippingCost + tax + activeCodFee;
 
   const handleApplyCoupon = async () => {
@@ -539,7 +540,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     const isFreeEligible = (subtotalVal - discountAmt) >= taxDeliverySettings.freeDeliveryThreshold;
     const isCodSelected = (paymentLabel as string) === 'COD' || (paymentLabel as string) === 'Cash on Delivery' || (paymentLabel as string) === 'cod';
-    const activeCodFee = isCodSelected ? (taxDeliverySettings.codFee || 0) : 0;
+    const totalQtyVal = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const activeCodFee = isCodSelected ? (taxDeliverySettings.codFee || 50) * totalQtyVal : 0;
     const finalCalculatedTotal = subtotalVal - discountAmt + shippingVal + taxVal + activeCodFee;
     const isConfirmedPayment = paymentLabel !== 'Scan & Pay (UPI)' && !isCodSelected;
 

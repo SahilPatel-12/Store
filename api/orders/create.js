@@ -170,7 +170,9 @@ export default async function handler(req, res) {
     const isCod = paymentMethod === 'COD' || paymentMethod === 'Cash on Delivery';
     const initialStatus = isCod ? 'Being Packed' : 'Payment Pending';
     const paymentProvider = paymentMethod === 'Razorpay' ? 'razorpay' : (isCod ? 'cod' : 'manual_upi');
-    const codFee = isCod ? Number(req.body.codFee || 0) : 0;
+    const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const baseCodFee = Number(settings.cod_fee ?? settings.cod_charge ?? settings.codFee ?? 50);
+    const codFee = isCod ? (baseCodFee * totalQuantity) : 0;
 
     // 7. Secure Insertion into public.website_store_orders
     const orderPayload = {

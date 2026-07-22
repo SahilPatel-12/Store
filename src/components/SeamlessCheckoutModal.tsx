@@ -655,7 +655,8 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   }, 0);
 
   const baseTotal = subtotal - discountAmount + shippingCost + tax;
-  const activeCodFee = selectedPaymentOption === 'cod' ? (taxDeliverySettings.codFee || 0) : 0;
+  const totalQty = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const activeCodFee = selectedPaymentOption === 'cod' ? (taxDeliverySettings.codFee || 50) * totalQty : 0;
   const finalTotal = baseTotal + activeCodFee;
 
   // Address updates
@@ -753,7 +754,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       gstPercentSnapshot: taxDeliverySettings.globalGstPercent,
       gstAmountSnapshot: tax,
       deliveryAmountSnapshot: shippingCost,
-      codFee: paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery' ? (taxDeliverySettings.codFee || 0) : 0,
+      codFee: paymentLabel === 'COD' || paymentLabel === 'Cash on Delivery' ? (taxDeliverySettings.codFee || 50) * totalQty : 0,
       freeDeliveryEligibleSnapshot: isFreeEligible,
       paymentStatus: initialPaymentStatus,
       status: 'Being Packed'

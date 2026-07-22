@@ -341,8 +341,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 if (!item || !item.product) return null;
                 const isGift = false;
                 const isOneRupeeProd = item.product.price === 1 || 
-                  (item.product.name?.toLowerCase().includes('vidya') && 
-                   (item.product.name?.toLowerCase().includes('rudraksh') || item.product.category?.toLowerCase() === 'rudraksha'));
+                  (item.product as any).slug === 'vidya-rudraksh' ||
+                  ((item.product as any).slug || '').toLowerCase() === 'vidya-rudraksha' ||
+                  ((item.product as any).slug || '').toLowerCase() === 'विद्या-रुद्राक्ष';
                 const originalPrice = item.product.originalPrice || item.product.price;
                 const hasDiscount = !!item.product.originalPrice && item.product.originalPrice > item.product.price;
                 const discountPct = hasDiscount ? Math.round(((originalPrice - item.product.price) / originalPrice) * 100) : 0;
