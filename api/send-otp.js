@@ -32,13 +32,15 @@ export default async function handler(req, res) {
   const isDevProfile = formattedPhone.includes('9999999999');
   const generatedOtp = isDevProfile ? '111111' : crypto.randomInt(100000, 999999).toString();
 
-  // Save the generated OTP to the database website_store_otps table
+  // Save the generated OTP to the database website_store_msg91_test_otps table
   try {
     const { error: dbErr } = await supabaseAdmin
-      .from('website_store_otps')
+      .from('website_store_msg91_test_otps')
       .insert({
         phone_number: formattedPhone,
-        otp_code: generatedOtp
+        otp_hash: generatedOtp,
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        attempt_count: 0
       });
     if (dbErr) {
       console.error('[send-otp] Failed to save OTP in database:', dbErr);

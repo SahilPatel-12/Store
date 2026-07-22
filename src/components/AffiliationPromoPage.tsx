@@ -329,30 +329,34 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
         }
       }
 
-      const { data, error } = await supabase.rpc('authenticate_user_otp', {
-        p_phone: otpTargetPhone,
-        p_otp_entered: userEnteredOtp,
-        p_device_id: 'browser_client',
-        p_ip: '127.0.0.1',
-        p_user_agent: navigator.userAgent
+      const response = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone: otpTargetPhone,
+          otp: userEnteredOtp,
+          device_id: 'browser_client'
+        })
       });
-      
-      if (error) throw error;
-      if (data && data.length > 0) {
-        const row = data[0];
-        triggerToast(isNewUser ? 'Account registered successfully!' : 'Logged in successfully!');
-        
-        const userSession = {
-          id: row.user_id,
-          fullName: row.full_name || '',
-          email: row.email || '',
-          phoneNumber: row.phone_number
-        };
-        
-        onLoginSuccess(userSession, row.session_token);
-      } else {
-        throw new Error('No devotee account session established.');
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
+
+      const row = await response.json();
+      triggerToast(isNewUser ? 'Account registered successfully!' : 'Logged in successfully!');
+      
+      const userSession = {
+        id: row.user_id,
+        fullName: row.full_name || '',
+        email: row.email || '',
+        phoneNumber: row.phone_number
+      };
+      
+      onLoginSuccess(userSession, row.session_token);
     } catch (err) {
       setOtpError((err as Error).message);
     } finally {

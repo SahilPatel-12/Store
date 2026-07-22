@@ -475,40 +475,44 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         }
       }
 
-      // Login token RPC session call
-      const { data, error: authErr } = await supabase.rpc('authenticate_user_otp', {
-        p_phone: otpTargetPhone,
-        p_otp_entered: userEnteredOtp,
-        p_device_id: 'browser_client',
-        p_ip: '127.0.0.1',
-        p_user_agent: navigator.userAgent
+      // Login token serverless session call
+      const response = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone: otpTargetPhone,
+          otp: userEnteredOtp,
+          device_id: 'browser_client'
+        })
       });
 
-      if (authErr) throw authErr;
-      if (data && data.length > 0) {
-        const row = data[0];
-        let resolvedFullName = row.full_name || '';
-        try {
-          const profile = await fetchUserProfile(row.phone_number || otpTargetPhone);
-          if (profile && profile.full_name) {
-            resolvedFullName = profile.full_name;
-          }
-        } catch (pErr) {
-          console.warn('[SeamlessCheckoutModal] Profile resolution error:', pErr);
-        }
-
-        onLoginSuccess({
-          id: row.user_id,
-          fullName: resolvedFullName,
-          email: row.email || '',
-          phoneNumber: row.phone_number || otpTargetPhone
-        }, row.session_token);
-
-        // State changes to address filling automatically
-        setStep('address');
-      } else {
-        throw new Error(t('otp.error.sessionFailed'));
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
+
+      const row = await response.json();
+      let resolvedFullName = row.full_name || '';
+      try {
+        const profile = await fetchUserProfile(row.phone_number || otpTargetPhone);
+        if (profile && profile.full_name) {
+          resolvedFullName = profile.full_name;
+        }
+      } catch (pErr) {
+        console.warn('[SeamlessCheckoutModal] Profile resolution error:', pErr);
+      }
+
+      onLoginSuccess({
+        id: row.user_id,
+        fullName: resolvedFullName,
+        email: row.email || '',
+        phoneNumber: row.phone_number || otpTargetPhone
+      }, row.session_token);
+
+      // State changes to address filling automatically
+      setStep('address');
     } catch (err) {
       console.error(err);
       setAuthError((err as Error).message);
