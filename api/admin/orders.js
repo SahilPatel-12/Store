@@ -19,6 +19,47 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
+async function syncOrderStatusToPublicOrders(orderId, websiteStatus, websitePaymentStatus) {
+  try {
+    const { data: addressRecord } = await supabaseAdmin
+      .from('shipping_addresses')
+      .select('order_id')
+      .like('address_line_2', `%${orderId}%`)
+      .maybeSingle();
+
+    if (addressRecord?.order_id) {
+      const updateData = {};
+      if (websiteStatus) {
+        if (websiteStatus === 'Being Packed') {
+          updateData.order_status = 'Confirmed';
+        } else if (websiteStatus === 'Shipped') {
+          updateData.order_status = 'Shipped';
+        } else if (websiteStatus === 'Delivered') {
+          updateData.order_status = 'Delivered';
+        } else if (websiteStatus === 'Cancelled') {
+          updateData.order_status = 'Cancelled';
+        }
+      }
+      if (websitePaymentStatus) {
+        if (websitePaymentStatus === 'Confirmed' || websitePaymentStatus === 'Paid') {
+          updateData.payment_status = 'completed';
+        } else if (websitePaymentStatus === 'Failed') {
+          updateData.payment_status = 'failed';
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await supabaseAdmin
+          .from('orders')
+          .update(updateData)
+          .eq('id', addressRecord.order_id);
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync Status] Failed to update public.orders:', err);
+  }
+}
+
 export default async function handler(req, res) {
   injectSecurityHeaders(res);
 
@@ -37,7 +78,7 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return res.status(200).json(data);
+      return res.status(200).json({ success: true, orders: data });
     } catch (err) {
       console.error('[Admin Orders API GET Error]:', err);
       return res.status(500).json({ error: 'Failed to retrieve orders list.' });
@@ -74,6 +115,9 @@ export default async function handler(req, res) {
 
         if (updateErr) throw updateErr;
 
+        // Sync status to public.orders for React Native Mobile App
+        await syncOrderStatusToPublicOrders(orderId, status);
+
         await logAdminAction(adminSession.admin_id, req, 'ORDER_UPDATE_STATUS', { orderId, status });
         return res.status(200).json({ success: true, order: updatedOrder });
       }
@@ -92,6 +136,9 @@ export default async function handler(req, res) {
 
         if (confirmErr) throw confirmErr;
 
+        // Sync payment and status to public.orders for React Native Mobile App
+        await syncOrderStatusToPublicOrders(orderId, 'Being Packed', 'Confirmed');
+
         await logAdminAction(adminSession.admin_id, req, 'ORDER_CONFIRM_PAYMENT', { orderId });
         return res.status(200).json({ success: true, order: updatedOrder });
       }
@@ -109,6 +156,9 @@ export default async function handler(req, res) {
           .single();
 
         if (declineErr) throw declineErr;
+
+        // Sync decline and cancellation to public.orders for React Native Mobile App
+        await syncOrderStatusToPublicOrders(orderId, 'Cancelled', 'Failed');
 
         await logAdminAction(adminSession.admin_id, req, 'ORDER_DECLINE_PAYMENT', { orderId });
         return res.status(200).json({ success: true, order: updatedOrder });
@@ -156,9 +206,27 @@ export default async function handler(req, res) {
 
         // Delete from public.order_items, public.shipping_addresses, and public.orders (Mobile App tables)
         try {
-          await supabaseAdmin.from('order_items').delete().in('order_id', targetIds);
-          await supabaseAdmin.from('shipping_addresses').delete().in('order_id', targetIds);
-          await supabaseAdmin.from('orders').delete().in('id', targetIds);
+          // Look up matching public.orders UUIDs by matching the human-friendly website orderId in shipping_addresses.address_line_2
+          const matchUuids = [];
+          for (const orderId of targetIds) {
+            const { data: addressRecords } = await supabaseAdmin
+              .from('shipping_addresses')
+              .select('order_id')
+              .like('address_line_2', `%${orderId}%`);
+            
+            if (addressRecords && addressRecords.length > 0) {
+              addressRecords.forEach(r => {
+                if (r.order_id) matchUuids.push(r.order_id);
+              });
+            }
+          }
+
+          if (matchUuids.length > 0) {
+            // Delete child records first, then delete orders using matched UUIDs
+            await supabaseAdmin.from('order_items').delete().in('order_id', matchUuids);
+            await supabaseAdmin.from('shipping_addresses').delete().in('order_id', matchUuids);
+            await supabaseAdmin.from('orders').delete().in('id', matchUuids);
+          }
         } catch (syncErr) {
           console.warn('[Admin Delete Orders] Error purging shared public.orders:', syncErr);
         }

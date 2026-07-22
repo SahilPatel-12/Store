@@ -276,15 +276,31 @@ export default async function handler(req, res) {
           .select()
           .single();
 
-        if (!orderSyncError && syncedOrder && items && items.length > 0) {
-          const orderItemsPayload = items.map(item => ({
+        if (!orderSyncError && syncedOrder) {
+          if (items && items.length > 0) {
+            const orderItemsPayload = items.map(item => ({
+              order_id: syncedOrder.id,
+              item_type: 'product',
+              item_id: String(item.productId),
+              quantity: Number(item.quantity || 1),
+              price: Number(dbItems.find(di => di.product.id === item.productId)?.product.price || 0)
+            }));
+            await supabaseAdmin.from('order_items').insert(orderItemsPayload);
+          }
+
+          // Sync shipping address, embedding the human-friendly orderId in address_line_2 for status updates & admin deletions
+          const shippingPayload = {
             order_id: syncedOrder.id,
-            item_type: 'product',
-            item_id: String(item.productId),
-            quantity: Number(item.quantity || 1),
-            price: Number(dbItems.find(di => di.product.id === item.productId)?.product.price || 0)
-          }));
-          await supabaseAdmin.from('order_items').insert(orderItemsPayload);
+            full_name: shippingAddress.fullName || 'Customer',
+            phone: shippingAddress.phoneNumber || '',
+            address_line_1: shippingAddress.addressLine1 || '',
+            address_line_2: `${shippingAddress.addressLine2 || ''} | ${orderId}`.trim(),
+            city: shippingAddress.city || '',
+            state: shippingAddress.state || '',
+            pincode: shippingAddress.pincode || '',
+            country: 'India'
+          };
+          await supabaseAdmin.from('shipping_addresses').insert(shippingPayload);
         }
       }
     } catch (syncErr) {

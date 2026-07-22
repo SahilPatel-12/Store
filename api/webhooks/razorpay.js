@@ -242,13 +242,21 @@ export default async function handler(req, res) {
 
     // Sync status update to public.orders for React Native Mobile App
     try {
-      await supabaseAdmin
-        .from('orders')
-        .update({
-          payment_status: 'completed',
-          order_status: 'Confirmed'
-        })
-        .eq('id', order.order_id);
+      const { data: addressRecord } = await supabaseAdmin
+        .from('shipping_addresses')
+        .select('order_id')
+        .like('address_line_2', `%${order.order_id}%`)
+        .maybeSingle();
+
+      if (addressRecord?.order_id) {
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            payment_status: 'completed',
+            order_status: 'Confirmed'
+          })
+          .eq('id', addressRecord.order_id);
+      }
     } catch (syncErr) {
       console.warn('[Webhook] Syncing status to public.orders warning:', syncErr);
     }
