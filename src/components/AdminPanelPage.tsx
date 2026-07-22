@@ -4570,7 +4570,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setDeleteOrderError('');
 
     try {
-      const res = await callAdminApi('/api/admin/orders', {
+      const data = await callAdminApi('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4580,9 +4580,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to delete order(s).');
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Failed to delete order(s).');
       }
 
       // Remove deleted order IDs from selection state
@@ -4991,10 +4990,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         matchesStatus = (o.status === 'Cancelled' && o.paymentStatus === 'Failed') || (o.status === 'Payment Pending' && o.paymentMethod === 'Razorpay');
       } else if (statusFilter === 'Cancelled') {
         matchesStatus = o.status === 'Cancelled' && o.paymentStatus !== 'Failed';
-      } else if (statusFilter === 'Online Success') {
-        matchesStatus = o.paymentMethod === 'Razorpay' && o.paymentStatus === 'Confirmed';
-      } else if (statusFilter === 'COD') {
-        matchesStatus = o.paymentMethod === 'COD' || o.paymentMethod === 'Cash on Delivery';
+      } else if (statusFilter === 'Confirmed') {
+        matchesStatus = (o.paymentMethod === 'COD' || o.paymentMethod === 'Cash on Delivery' || o.paymentStatus === 'Confirmed') && o.status !== 'Cancelled';
       } else {
         matchesStatus = o.status === statusFilter;
       }
@@ -5654,7 +5651,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               {/* Status Tabs filters */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed', 'Online Success', 'COD'].map(status => (
+                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed', 'Confirmed'].map(status => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -5871,8 +5868,11 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                           </div>
                           <div>
                             <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Placed At</span>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)' }}>
-                              {order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-dark)', display: 'flex', flexDirection: 'column' }}>
+                              <span>{order.placedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {order.placedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </span>
                             </span>
                           </div>
                           <div>
