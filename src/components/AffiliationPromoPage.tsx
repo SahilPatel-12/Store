@@ -180,8 +180,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     return cleaned;
   };
 
-  // WhatsApp OTP Gateway
-  const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
+  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
+
+  // OTP Gateway
+  const sendOtp = async (targetPhone: string, otp: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -198,8 +200,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
+      return await response.json();
     } catch (err) {
-      console.error('[WhatsApp Service] OTP send failed:', err);
+      console.error('[OTP Service] OTP send failed:', err);
       throw err;
     }
   };
@@ -234,16 +237,23 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otp);
 
-      // Async fire WhatsApp call to prevent thread blocking
+      // Async send OTP
       if (!isDevProfile) {
-        sendWhatsAppOtp(formatted, otp).catch(err => {
-          console.error('[WhatsApp Service] Background send failed:', err);
+        sendOtp(formatted, otp).then(res => {
+          const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
+          setOtpChannel(channel);
+          triggerToast(`OTP code sent to ${formatted} via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
+        }).catch(err => {
+          console.error('[OTP Service] Background send failed:', err);
+          triggerToast(`OTP code sent to ${formatted}!`);
         });
+      } else {
+        setOtpChannel('whatsapp');
+        triggerToast(`OTP code sent to ${formatted} via WhatsApp!`);
       }
 
       setVerificationStep('otp');
       setOtpCountdown(60);
-      triggerToast(`OTP code sent to ${formatted} via WhatsApp!`);
     } catch (err) {
       setOtpError((err as Error).message);
     } finally {
@@ -260,13 +270,20 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendWhatsAppOtp(otpTargetPhone, otp).catch(err => {
-          console.error('[WhatsApp Service] Background resend failed:', err);
+        sendOtp(otpTargetPhone, otp).then(res => {
+          const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
+          setOtpChannel(channel);
+          triggerToast(`OTP code resent successfully via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
+        }).catch(err => {
+          console.error('[OTP Service] Background resend failed:', err);
+          triggerToast('OTP code resent successfully!');
         });
+      } else {
+        setOtpChannel('whatsapp');
+        triggerToast('OTP code resent successfully via WhatsApp!');
       }
 
       setOtpCountdown(60);
-      triggerToast('OTP code resent successfully via WhatsApp!');
     } catch (err) {
       setOtpError((err as Error).message);
     }
@@ -277,7 +294,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     const isBypassAllowed = !import.meta.env.PROD;
     const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
     if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
-      setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
+      setOtpError(`Invalid OTP code. Please check your ${otpChannel === 'sms' ? 'SMS' : 'WhatsApp'} or resend.`);
       return;
     }
 

@@ -85,6 +85,83 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Try MSG91 gateway first if configured
+    const { data: msg91Data } = await supabaseAdmin
+      .from('website_settings')
+      .select('value')
+      .eq('key', 'msg91_settings')
+      .maybeSingle();
+
+    if (msg91Data?.value) {
+      const msg91Val = msg91Data.value;
+      if (msg91Val.encrypted_auth_key && msg91Val.encrypted_template_id) {
+        const rawKey = process.env.ENCRYPTION_STRING_KEY_ESG_91 || 'gk4ukWKg78THpQ170x0XY0aPl9';
+        let decryptedAuthKey, decryptedTemplateId;
+        try {
+          decryptedAuthKey = decryptTextWithCustomKey(msg91Val.encrypted_auth_key, msg91Val.auth_key_iv, msg91Val.auth_key_tag, rawKey);
+          decryptedTemplateId = decryptTextWithCustomKey(msg91Val.encrypted_template_id, msg91Val.template_id_iv, msg91Val.template_id_tag, rawKey);
+
+          console.log('[send-otp] MSG91 OTP request received, calling Flow API');
+          const response = await fetch('https://control.msg91.com/api/v5/flow/', {
+            method: 'POST',
+            headers: {
+              'authkey': decryptedAuthKey,
+              'Content-Type': 'application/json',
+              'accept': 'application/json'
+            },
+            body: JSON.stringify({
+              template_id: decryptedTemplateId,
+              recipients: [
+                {
+                  mobiles: formattedPhone,
+                  VAR1: otp
+                }
+              ]
+            })
+          });
+
+          const responseStatus = response.status;
+          const responseBody = await response.text();
+          console.log(`[send-otp] MSG91 request completed. Status: ${responseStatus}`);
+
+          let parsedResponse;
+          let isSuccess = false;
+          try {
+            parsedResponse = JSON.parse(responseBody);
+            if (responseStatus === 200 && (parsedResponse.type === 'success' || parsedResponse.request_status === 'success' || parsedResponse.has_error === false)) {
+              isSuccess = true;
+            }
+          } catch (parseErr) {
+            if (responseStatus === 200 && responseBody.toLowerCase().includes('success')) {
+              isSuccess = true;
+            }
+          }
+
+          if (isSuccess) {
+            logOtpRequest(formattedPhone, ipAddress).catch(err => {
+              console.warn('[send-otp] Background log update failed:', err.message);
+            });
+
+            return res.status(200).json({
+              success: true,
+              gatewayStatus: responseStatus,
+              message: 'OTP request processed via MSG91 gateway.',
+              channel: 'sms',
+              detail: responseBody
+            });
+          } else {
+            console.warn('[send-otp] MSG91 gateway rejected request, falling back to WhatsApp:', responseBody);
+          }
+        } catch (decErr) {
+          console.error('[send-otp] MSG91 processing/decryption failed, falling back to WhatsApp:', decErr);
+        }
+      }
+    }
+  } catch (msg91Error) {
+    console.error('[send-otp] MSG91 check exception, falling back to WhatsApp:', msg91Error);
+  }
+
+  try {
     // ==========================================
     // 1. WhatsApp Settings Config (Primary & Exclusive Gateway)
     // ==========================================
@@ -220,6 +297,7 @@ export default async function handler(req, res) {
       success: true,
       gatewayStatus,
       message: 'OTP request processed via WhatsApp gateway.',
+      channel: 'whatsapp',
       detail: gatewayResponseText
     });
 

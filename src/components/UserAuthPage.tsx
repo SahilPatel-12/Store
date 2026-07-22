@@ -75,8 +75,10 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     return cleaned;
   };
 
+  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
+
   // Triggers secure server-side OTP sending via backend endpoint
-  const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
+  const sendOtp = async (targetPhone: string, otp: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -93,8 +95,9 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
+      return await response.json();
     } catch (err) {
-      console.error('[WhatsApp Service] OTP send failed:', err);
+      console.error('[OTP Service] OTP send failed:', err);
       throw err;
     }
   };
@@ -131,16 +134,23 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otp);
 
-      // Send the OTP via WhatsApp in the background to prevent UI blocking
+      // Send the OTP in the background to prevent UI blocking
       if (!isDevProfile) {
-        sendWhatsAppOtp(formatted, otp).catch(err => {
-          console.error('[WhatsApp Service] Background send failed:', err);
+        sendOtp(formatted, otp).then(res => {
+          const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
+          setOtpChannel(channel);
+          triggerToast(`Verification code sent to ${formatted} via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
+        }).catch(err => {
+          console.error('[OTP Service] Background send failed:', err);
+          triggerToast(`Verification code sent to ${formatted}!`);
         });
+      } else {
+        setOtpChannel('whatsapp');
+        triggerToast(`Verification code sent to ${formatted} via WhatsApp!`);
       }
 
       setVerificationStep('otp');
       setOtpCountdown(60);
-      triggerToast(`Verification code sent to ${formatted} via WhatsApp!`);
     } catch (err) {
       console.error(err);
       setOtpError((err as Error).message);
@@ -159,13 +169,20 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendWhatsAppOtp(otpTargetPhone, otp).catch(err => {
-          console.error('[WhatsApp Service] Background resend failed:', err);
+        sendOtp(otpTargetPhone, otp).then(res => {
+          const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
+          setOtpChannel(channel);
+          triggerToast(`A fresh verification code has been dispatched via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
+        }).catch(err => {
+          console.error('[OTP Service] Background resend failed:', err);
+          triggerToast('A fresh verification code has been dispatched!');
         });
+      } else {
+        setOtpChannel('whatsapp');
+        triggerToast('A fresh verification code has been dispatched via WhatsApp!');
       }
 
       setOtpCountdown(60);
-      triggerToast('A fresh verification code has been dispatched via WhatsApp!');
     } catch (err) {
       console.error(err);
       setOtpError((err as Error).message);
@@ -178,8 +195,8 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     e.preventDefault();
     const isBypassAllowed = !import.meta.env.PROD;
     const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
-    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) { // Backdoor bypass in case sandbox lacks live network
-      setOtpError('Invalid OTP code. Please check your WhatsApp or resend.');
+    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
+      setOtpError(`Invalid OTP code. Please check your ${otpChannel === 'sms' ? 'SMS' : 'WhatsApp'} or resend.`);
       return;
     }
 
@@ -405,7 +422,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               <form onSubmit={handleSendOtpTrigger} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary, #111827)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    WhatsApp Phone Number *
+                    Phone Number *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
@@ -430,7 +447,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
                     <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
                   </div>
                   <span style={{ fontSize: '0.7rem', color: '#6b7280', display: 'block', marginTop: '6px' }}>
-                    We will send a secure 6-digit OTP code to this number via WhatsApp.
+                    We will send a secure 6-digit verification code to this number.
                   </span>
                 </div>
 
@@ -493,10 +510,10 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               </div>
 
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary, #111827)', fontFamily: 'var(--font-serif, serif)' }}>
-                WhatsApp Verification
+                OTP Verification
               </h3>
               <p style={{ fontSize: '0.84rem', color: '#6b7280', marginTop: '6px', lineHeight: '1.4' }}>
-                We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via WhatsApp.
+                We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via {otpChannel === 'sms' ? 'SMS' : 'WhatsApp'}.
                 {!import.meta.env.PROD && (
                   <span style={{ display: 'block', color: 'var(--primary-accent, #ea580c)', fontWeight: 800, marginTop: '8px', fontSize: '0.9rem' }}>
                     [DEV MODE] Generated OTP: {generatedOtp} (or use backdoor: 260529)
@@ -593,7 +610,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
                         cursor: 'pointer'
                       }}
                     >
-                      Resend via WhatsApp
+                      Resend OTP
                     </button>
                   )}
                 </div>

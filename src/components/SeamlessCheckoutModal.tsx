@@ -362,8 +362,14 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     return cleaned;
   };
 
-  // WhatsApp Gateway Sender via backend endpoint
-  const sendWhatsAppOtp = async (targetPhone: string, otp: string) => {
+  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
+
+  React.useEffect(() => {
+    console.log('[OTP] Active channel state updated:', otpChannel);
+  }, [otpChannel]);
+
+  // Gateway Sender via backend endpoint
+  const sendOtp = async (targetPhone: string, otp: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -380,8 +386,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP error! Status: ${response.status}`);
       }
+      return await response.json();
     } catch (err) {
-      console.error('[WhatsApp Service] OTP send failed:', err);
+      console.error('[OTP Service] OTP send failed:', err);
       throw err;
     }
   };
@@ -415,9 +422,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendWhatsAppOtp(formatted, otp).catch(err => {
-          console.error('[WhatsApp Service] Background send failed:', err);
+        sendOtp(formatted, otp).then(res => {
+          setOtpChannel(res.channel === 'sms' ? 'sms' : 'whatsapp');
+        }).catch(err => {
+          console.error('[OTP Service] Background send failed:', err);
         });
+      } else {
+        setOtpChannel('whatsapp');
       }
 
       setStep('otp');
@@ -528,9 +539,13 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otp);
       if (!isDevProfile) {
-        sendWhatsAppOtp(otpTargetPhone, otp).catch(err => {
-          console.error('[WhatsApp Service] Background resend failed:', err);
+        sendOtp(otpTargetPhone, otp).then(res => {
+          setOtpChannel(res.channel === 'sms' ? 'sms' : 'whatsapp');
+        }).catch(err => {
+          console.error('[OTP Service] Background resend failed:', err);
         });
+      } else {
+        setOtpChannel('whatsapp');
       }
       setOtpCountdown(60);
       setAuthError('');
