@@ -82,12 +82,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = React.useState(false);
   const [enrollmentError, setEnrollmentError] = React.useState('');
 
-  // Login Form states
   const [phoneNumber, setPhoneNumber] = React.useState('');
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(false);
   const [isNewUser, setIsNewUser] = React.useState(false);
   const [verificationStep, setVerificationStep] = React.useState<'form' | 'otp'>('form');
-  const [generatedOtp, setGeneratedOtp] = React.useState('');
   const [userEnteredOtp, setUserEnteredOtp] = React.useState('');
   const [otpCountdown, setOtpCountdown] = React.useState(60);
   const [otpError, setOtpError] = React.useState('');
@@ -183,7 +181,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
 
   // OTP Gateway
-  const sendOtp = async (targetPhone: string, otp: string) => {
+  const sendOtp = async (targetPhone: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -191,8 +189,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          phone: targetPhone,
-          otp: otp
+          phone: targetPhone
         })
       });
 
@@ -234,12 +231,10 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       setOtpTargetPhone(formatted);
 
       const isDevProfile = formatted.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
 
       // Async send OTP
       if (!isDevProfile) {
-        sendOtp(formatted, otp).then(res => {
+        sendOtp(formatted).then(res => {
           const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
           setOtpChannel(channel);
           triggerToast(`OTP code sent to ${formatted} via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
@@ -266,11 +261,9 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     setOtpError('');
     try {
       const isDevProfile = otpTargetPhone.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendOtp(otpTargetPhone, otp).then(res => {
+        sendOtp(otpTargetPhone).then(res => {
           const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
           setOtpChannel(channel);
           triggerToast(`OTP code resent successfully via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
@@ -291,13 +284,6 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isBypassAllowed = !import.meta.env.PROD;
-    const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
-    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
-      setOtpError(`Invalid OTP code. Please check your ${otpChannel === 'sms' ? 'SMS' : 'WhatsApp'} or resend.`);
-      return;
-    }
-
     setIsLoadingAuth(true);
     setOtpError('');
     try {
@@ -346,7 +332,6 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
       const { data, error } = await supabase.rpc('authenticate_user_otp', {
         p_phone: otpTargetPhone,
         p_otp_entered: userEnteredOtp,
-        p_otp_generated: generatedOtp,
         p_device_id: 'browser_client',
         p_ip: '127.0.0.1',
         p_user_agent: navigator.userAgent
@@ -938,7 +923,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
               ) : (
                 <form onSubmit={handleVerifyOtpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', borderBottom: '1px solid #f2e7e3', paddingBottom: '12px' }}>
-                    <span style={{ color: '#6b5a55' }}>{t('auth.sentTo')} <strong>{otpTargetPhone}</strong></span>
+                    <span style={{ color: '#6b5a55' }}>{t('auth.sentTo')} <strong>{otpTargetPhone}</strong> via {otpChannel === 'sms' ? 'SMS' : 'WhatsApp'}</span>
                     <button
                       type="button"
                       onClick={() => setVerificationStep('form')}

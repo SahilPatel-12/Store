@@ -112,7 +112,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   // Auth States
   const [phoneNumber, setPhoneNumber] = React.useState('');
   const [isNewUser, setIsNewUser] = React.useState(false);
-  const [generatedOtp, setGeneratedOtp] = React.useState('');
   const [userEnteredOtp, setUserEnteredOtp] = React.useState('');
   const [otpCountdown, setOtpCountdown] = React.useState(60);
   const [otpTargetPhone, setOtpTargetPhone] = React.useState('');
@@ -369,7 +368,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   }, [otpChannel]);
 
   // Gateway Sender via backend endpoint
-  const sendOtp = async (targetPhone: string, otp: string) => {
+  const sendOtp = async (targetPhone: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -377,8 +376,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          phone: targetPhone,
-          otp: otp
+          phone: targetPhone
         })
       });
 
@@ -416,13 +414,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       setIsNewUser(!existingUser);
       setOtpTargetPhone(formatted);
 
-      // Generate 6 digit OTP
       const isDevProfile = formatted.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendOtp(formatted, otp).then(res => {
+        sendOtp(formatted).then(res => {
           setOtpChannel(res.channel === 'sms' ? 'sms' : 'whatsapp');
         }).catch(err => {
           console.error('[OTP Service] Background send failed:', err);
@@ -444,13 +439,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    const isBypassAllowed = !import.meta.env.PROD;
-    const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
-    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
-      setAuthError(t('otp.error.invalidOtp'));
-      return;
-    }
-
     setIsAuthLoading(true);
     try {
       if (isNewUser) {
@@ -491,7 +479,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       const { data, error: authErr } = await supabase.rpc('authenticate_user_otp', {
         p_phone: otpTargetPhone,
         p_otp_entered: userEnteredOtp,
-        p_otp_generated: generatedOtp,
         p_device_id: 'browser_client',
         p_ip: '127.0.0.1',
         p_user_agent: navigator.userAgent
@@ -536,10 +523,8 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     setIsAuthLoading(true);
     try {
       const isDevProfile = otpTargetPhone.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
       if (!isDevProfile) {
-        sendOtp(otpTargetPhone, otp).then(res => {
+        sendOtp(otpTargetPhone).then(res => {
           setOtpChannel(res.channel === 'sms' ? 'sms' : 'whatsapp');
         }).catch(err => {
           console.error('[OTP Service] Background resend failed:', err);

@@ -29,7 +29,6 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
 
   // Verification states
   const [verificationStep, setVerificationStep] = React.useState<'form' | 'otp'>('form');
-  const [generatedOtp, setGeneratedOtp] = React.useState('');
   const [userEnteredOtp, setUserEnteredOtp] = React.useState('');
   const [otpCountdown, setOtpCountdown] = React.useState(60);
   const [otpError, setOtpError] = React.useState('');
@@ -78,7 +77,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
   const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
 
   // Triggers secure server-side OTP sending via backend endpoint
-  const sendOtp = async (targetPhone: string, otp: string) => {
+  const sendOtp = async (targetPhone: string) => {
     try {
       const response = await fetch('/api/send-otp', {
         method: 'POST',
@@ -86,8 +85,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          phone: targetPhone,
-          otp: otp
+          phone: targetPhone
         })
       });
 
@@ -129,14 +127,11 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       setIsNewUser(!existingUser);
       setOtpTargetPhone(formatted);
 
-      // Generate secure 6 digit OTP
       const isDevProfile = formatted.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
 
       // Send the OTP in the background to prevent UI blocking
       if (!isDevProfile) {
-        sendOtp(formatted, otp).then(res => {
+        sendOtp(formatted).then(res => {
           const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
           setOtpChannel(channel);
           triggerToast(`Verification code sent to ${formatted} via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
@@ -165,11 +160,9 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
     setOtpError('');
     try {
       const isDevProfile = otpTargetPhone.includes('9999999999');
-      const otp = isDevProfile ? '111111' : Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
 
       if (!isDevProfile) {
-        sendOtp(otpTargetPhone, otp).then(res => {
+        sendOtp(otpTargetPhone).then(res => {
           const channel = res.channel === 'sms' ? 'sms' : 'whatsapp';
           setOtpChannel(channel);
           triggerToast(`A fresh verification code has been dispatched via ${channel === 'sms' ? 'SMS' : 'WhatsApp'}!`);
@@ -193,13 +186,6 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
 
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isBypassAllowed = !import.meta.env.PROD;
-    const isBackdoorOtp = isBypassAllowed && (userEnteredOtp === '260529' || userEnteredOtp === '111111');
-    if (userEnteredOtp !== generatedOtp && !isBackdoorOtp) {
-      setOtpError(`Invalid OTP code. Please check your ${otpChannel === 'sms' ? 'SMS' : 'WhatsApp'} or resend.`);
-      return;
-    }
-
     setIsLoading(true);
     setOtpError('');
     try {
@@ -253,7 +239,6 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
       const { data, error } = await supabase.rpc('authenticate_user_otp', {
         p_phone: otpTargetPhone,
         p_otp_entered: userEnteredOtp,
-        p_otp_generated: generatedOtp,
         p_device_id: 'browser_client',
         p_ip: '127.0.0.1',
         p_user_agent: navigator.userAgent
@@ -516,7 +501,7 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
                 We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via {otpChannel === 'sms' ? 'SMS' : 'WhatsApp'}.
                 {!import.meta.env.PROD && (
                   <span style={{ display: 'block', color: 'var(--primary-accent, #ea580c)', fontWeight: 800, marginTop: '8px', fontSize: '0.9rem' }}>
-                    [DEV MODE] Generated OTP: {generatedOtp} (or use backdoor: 260529)
+                    [DEV MODE] Use test number (+91 99999 99999) with code 111111 for offline login.
                   </span>
                 )}
               </p>
