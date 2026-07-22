@@ -42,6 +42,25 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
   }
 };
 
+const parseAddressLine2 = (addrLine2: string) => {
+  if (!addrLine2) return { flat: '', landmark: '', altPhone: '', addressLine2: '' };
+  
+  let cleaned = addrLine2;
+  const parts = addrLine2.split(' | ');
+  if (parts.length > 1 && parts[parts.length - 1].startsWith('MANTRA-')) {
+    cleaned = parts.slice(0, -1).join(' | ');
+  }
+  
+  if (cleaned.startsWith('__STRUCTURED_ADDR__:')) {
+    try {
+      return JSON.parse(cleaned.substring(20));
+    } catch (e) {
+      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+    }
+  }
+  return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+};
+
 const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -112,15 +131,28 @@ const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> =
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.text(order.fullName, 14, 55);
 
+  // Format long address nicely
+  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat);
+    parts.push(order.addressLine1);
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
+    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
+  } else {
+    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  }
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(75, 85, 99); // gray-600
-  doc.text(t('pdf.phone', { phone: order.phoneNumber }), 14, 60);
+  doc.text(t('pdf.phone', { phone: order.phoneNumber }) + (altPhone ? ` / Alt: ${altPhone}` : ''), 14, 60);
   doc.text(t('pdf.emailLabel', { email: order.email }), 14, 64);
   
-  // Format long address nicely
-  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  const splitAddress = doc.splitTextToSize(addressText, 80);
+  const splitAddress = doc.splitTextToSize(displayAddressText, 80);
   doc.text(splitAddress, 14, 68);
 
   // Payment details (Right side)
@@ -1058,15 +1090,25 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
                 <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-dark)' }}>{t('delivery.title')}</span>
               </div>
               <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[
+                {([
                   { label: t('delivery.name'), value: order.fullName },
                   { label: t('delivery.email'), value: order.email },
-                  { label: t('delivery.address'), value: `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}` },
+                  (() => {
+                    const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+                    const addrVal = parsedAddr.flat
+                      ? `${parsedAddr.flat}, ${order.addressLine1}${parsedAddr.landmark ? ` (Landmark: ${parsedAddr.landmark})` : ''}`
+                      : `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}`;
+                    return { label: t('delivery.address'), value: addrVal };
+                  })(),
+                  (() => {
+                    const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+                    return parsedAddr.altPhone ? { label: language === 'hi' ? 'वैकल्पिक फ़ोन नंबर' : 'Alternative Phone', value: parsedAddr.altPhone } : null;
+                  })(),
                   { label: t('delivery.city'), value: `${order.deliveryCity}, ${order.deliveryState}` },
                   { label: t('delivery.pincode'), value: order.pincode },
                   { label: t('delivery.payment'), value: order.paymentMethod },
                   { label: t('delivery.estDelivery'), value: estimatedDelivery },
-                ].map(row => (
+                ].filter(Boolean) as { label: string; value: string }[]).map(row => (
                   <div key={row.label}>
                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{row.label}</p>
                     <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-dark)', marginTop: '2px' }}>{row.value}</p>

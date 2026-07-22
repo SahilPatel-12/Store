@@ -19,6 +19,32 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
+async function verifySuperAdminPassword(password) {
+  if (!password) return false;
+  const { data: adminUsers, error: adminErr } = await supabaseAdmin
+    .from('website_store_admin')
+    .select('*')
+    .neq('is_active', false);
+
+  if (adminErr || !adminUsers || adminUsers.length === 0) {
+    return false;
+  }
+
+  for (const u of adminUsers) {
+    const storedHash = u.password_hash || '';
+    const parts = storedHash.split('$');
+    if (parts[0] === 'scrypt') {
+      const salt = parts[1];
+      const keyHex = parts[2];
+      const derivedKey = await scrypt(password, salt, 64, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+      if (safeCompare(derivedKey.toString('hex'), keyHex)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 async function syncOrderStatusToPublicOrders(orderId, websiteStatus, websitePaymentStatus) {
   try {
     const { data: addressRecord } = await supabaseAdmin
@@ -123,6 +149,28 @@ export default async function handler(req, res) {
       }
 
       if (action === 'confirm-legacy-payment') {
+        const { password } = req.body;
+        
+        // Fetch order details to check if it's COD
+        const { data: orderToCheck, error: fetchErr } = await supabaseAdmin
+          .from('website_store_orders')
+          .select('payment_method')
+          .eq('order_id', orderId)
+          .single();
+          
+        if (fetchErr) throw fetchErr;
+        
+        const isCod = orderToCheck && (orderToCheck.payment_method === 'COD' || orderToCheck.payment_method === 'Cash on Delivery');
+        if (isCod) {
+          if (!password) {
+            return res.status(400).json({ error: 'Super Admin password is required to confirm COD orders.' });
+          }
+          const isAuthorized = await verifySuperAdminPassword(password);
+          if (!isAuthorized) {
+            return res.status(401).json({ error: 'Incorrect Super Admin password. Action unauthorized.' });
+          }
+        }
+
         const { data: updatedOrder, error: confirmErr } = await supabaseAdmin
           .from('website_store_orders')
           .update({
@@ -140,6 +188,48 @@ export default async function handler(req, res) {
         await syncOrderStatusToPublicOrders(orderId, 'Being Packed', 'Confirmed');
 
         await logAdminAction(adminSession.admin_id, req, 'ORDER_CONFIRM_PAYMENT', { orderId });
+        return res.status(200).json({ success: true, order: updatedOrder });
+      }
+
+      if (action === 'revert-legacy-payment') {
+        const { password } = req.body;
+        
+        // Fetch order details to check if it's COD
+        const { data: orderToCheck, error: fetchErr } = await supabaseAdmin
+          .from('website_store_orders')
+          .select('payment_method')
+          .eq('order_id', orderId)
+          .single();
+          
+        if (fetchErr) throw fetchErr;
+        
+        const isCod = orderToCheck && (orderToCheck.payment_method === 'COD' || orderToCheck.payment_method === 'Cash on Delivery');
+        if (isCod) {
+          if (!password) {
+            return res.status(400).json({ error: 'Super Admin password is required to revert COD orders.' });
+          }
+          const isAuthorized = await verifySuperAdminPassword(password);
+          if (!isAuthorized) {
+            return res.status(401).json({ error: 'Incorrect Super Admin password. Action unauthorized.' });
+          }
+        }
+
+        const { data: updatedOrder, error: revertErr } = await supabaseAdmin
+          .from('website_store_orders')
+          .update({
+            payment_status: 'Pending',
+            payment_verified_at: null
+          })
+          .eq('order_id', orderId)
+          .select('*')
+          .single();
+
+        if (revertErr) throw revertErr;
+
+        // Sync payment and status to public.orders for React Native Mobile App
+        await syncOrderStatusToPublicOrders(orderId, updatedOrder.status, 'Pending');
+
+        await logAdminAction(adminSession.admin_id, req, 'ORDER_REVERT_PAYMENT', { orderId });
         return res.status(200).json({ success: true, order: updatedOrder });
       }
 

@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     const isCod = order && (order.payment_method === 'COD' || order.payment_method === 'Cash on Delivery');
     if (isCod) {
       if (!password) {
-        return res.status(400).json({ error: 'Super Admin password is required to confirm COD orders.' });
+        return res.status(400).json({ error: 'Super Admin password is required to revert COD orders.' });
       }
       const isAuthorized = await verifySuperAdminPassword(password);
       if (!isAuthorized) {
@@ -85,19 +85,14 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Security validation (Omitted check to allow admin manual override for stuck Razorpay orders)
-
-    // 3. Confirm only Pending or Declined legacy payments
-    if (order.payment_status === 'Confirmed') {
-      return res.status(400).json({ error: 'Order payment is already confirmed.' });
-    }
-
-    // 4. Update order to confirmed and set packing status
+    // 2. Update order payment status to Pending, set packing status to initial (Being Packed for COD, Payment Pending for UPI)
+    const newStatus = isCod ? 'Being Packed' : 'Payment Pending';
     const { data: updatedOrder, error: updateErr } = await supabaseAdmin
       .from('website_store_orders')
       .update({
-        payment_status: 'Confirmed',
-        status: 'Being Packed'
+        payment_status: 'Pending',
+        status: newStatus,
+        payment_verified_at: null
       })
       .eq('order_id', orderId)
       .select('*')
@@ -105,10 +100,10 @@ export default async function handler(req, res) {
 
     if (updateErr) throw updateErr;
 
-    console.log(`[Admin Legacy Confirm] Order ${orderId} confirmed successfully by admin.`);
+    console.log(`[Admin Legacy Revert] Order ${orderId} reverted successfully by admin.`);
     return res.status(200).json({ success: true, order: updatedOrder });
   } catch (err) {
-    console.error('[Admin Legacy Confirm] Exception:', err);
-    return res.status(500).json({ error: 'Failed to confirm legacy order payment: ' + err.message });
+    console.error('[Admin Legacy Revert] Exception:', err);
+    return res.status(500).json({ error: 'Failed to revert legacy order payment: ' + err.message });
   }
 }

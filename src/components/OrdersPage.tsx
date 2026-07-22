@@ -41,6 +41,25 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
   }
 };
 
+const parseAddressLine2 = (addrLine2: string) => {
+  if (!addrLine2) return { flat: '', landmark: '', altPhone: '', addressLine2: '' };
+  
+  let cleaned = addrLine2;
+  const parts = addrLine2.split(' | ');
+  if (parts.length > 1 && parts[parts.length - 1].startsWith('MANTRA-')) {
+    cleaned = parts.slice(0, -1).join(' | ');
+  }
+  
+  if (cleaned.startsWith('__STRUCTURED_ADDR__:')) {
+    try {
+      return JSON.parse(cleaned.substring(20));
+    } catch (e) {
+      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+    }
+  }
+  return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+};
+
 const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -111,15 +130,25 @@ const generateInvoiceDoc = async (order: LocalOrder): Promise<jsPDF> => {
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.text(order.fullName, 14, 55);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(75, 85, 99); // gray-600
-  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
+  // Format long address nicely
+  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat);
+    parts.push(order.addressLine1);
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
+    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
+  } else {
+    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  }
+
+  doc.text(`Phone: ${order.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}`, 14, 60);
   doc.text(`Email: ${order.email}`, 14, 64);
   
-  // Format long address nicely
-  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  const splitAddress = doc.splitTextToSize(addressText, 80);
+  const splitAddress = doc.splitTextToSize(displayAddressText, 80);
   doc.text(splitAddress, 14, 68);
 
   // Payment details (Right side)
@@ -1643,12 +1672,36 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 <div style={{ backgroundColor: '#fafafa', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
                   <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{selectedDetailsOrder.fullName}</p>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>Email: {selectedDetailsOrder.email}</p>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-dark)', marginTop: '6px', lineHeight: 1.4 }}>
-                    {selectedDetailsOrder.addressLine1}
-                    {selectedDetailsOrder.addressLine2 ? `, ${selectedDetailsOrder.addressLine2}` : ''}
-                    <br />
-                    {selectedDetailsOrder.deliveryCity}, {selectedDetailsOrder.deliveryState} - {selectedDetailsOrder.pincode}
-                  </p>
+                  {(() => {
+                    const parsedAddr = parseAddressLine2(selectedDetailsOrder.addressLine2 || '');
+                    return (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Phone: {selectedDetailsOrder.phoneNumber}
+                        {parsedAddr.altPhone ? ` / Alt: ${parsedAddr.altPhone}` : ''}
+                      </p>
+                    );
+                  })()}
+                  {(() => {
+                    const parsedAddr = parseAddressLine2(selectedDetailsOrder.addressLine2 || '');
+                    if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+                      return (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-dark)', marginTop: '6px', lineHeight: 1.4 }}>
+                          {parsedAddr.flat ? `${parsedAddr.flat}, ` : ''}{selectedDetailsOrder.addressLine1}
+                          {parsedAddr.landmark && <><br />Landmark: {parsedAddr.landmark}</>}
+                          <br />
+                          {selectedDetailsOrder.deliveryCity}, {selectedDetailsOrder.deliveryState} - {selectedDetailsOrder.pincode}
+                        </p>
+                      );
+                    }
+                    return (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-dark)', marginTop: '6px', lineHeight: 1.4 }}>
+                        {selectedDetailsOrder.addressLine1}
+                        {selectedDetailsOrder.addressLine2 ? `, ${selectedDetailsOrder.addressLine2}` : ''}
+                        <br />
+                        {selectedDetailsOrder.deliveryCity}, {selectedDetailsOrder.deliveryState} - {selectedDetailsOrder.pincode}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 

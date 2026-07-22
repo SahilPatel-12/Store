@@ -107,6 +107,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [email, setEmail] = React.useState('');
   const [addressLine1, setAddressLine1] = React.useState('');
   const [addressLine2, setAddressLine2] = React.useState('');
+  const [flatHouseBuilding, setFlatHouseBuilding] = React.useState('');
+  const [alternativePhone, setAlternativePhone] = React.useState('');
+  const [landmark, setLandmark] = React.useState('');
   const [city, setCity] = React.useState('');
   const [state, setState] = React.useState('');
   const [pincode, setPincode] = React.useState('');
@@ -290,7 +293,27 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     if (addr) {
       setFullName(addr.name);
       setPhone(addr.phone);
-      setAddressLine1(addr.street);
+      
+      if (addr.street && addr.street.startsWith('__STRUCTURED_ADDR__:')) {
+        try {
+          const parsed = JSON.parse(addr.street.substring(20));
+          setFlatHouseBuilding(parsed.flat || '');
+          setAddressLine1(parsed.street || '');
+          setLandmark(parsed.landmark || '');
+          setAlternativePhone(parsed.altPhone || '');
+        } catch (e) {
+          setFlatHouseBuilding('');
+          setAddressLine1(addr.street);
+          setLandmark('');
+          setAlternativePhone('');
+        }
+      } else {
+        setFlatHouseBuilding('');
+        setAddressLine1(addr.street);
+        setLandmark('');
+        setAlternativePhone('');
+      }
+
       setAddressLine2('');
       setCity(addr.city);
       setState(addr.state);
@@ -417,6 +440,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     if (!fullName.trim()) errs.fullName = t('address.validation.fullName');
     if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = t('address.validation.phone');
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = t('address.validation.email');
+    if (!flatHouseBuilding.trim()) errs.flatHouseBuilding = language === 'hi' ? 'फ्लैट, हाउस नंबर, बिल्डिंग का नाम/नंबर आवश्यक है' : 'Flat, House, Building name/number is required';
     if (!addressLine1.trim()) errs.addressLine1 = t('address.validation.addressLine1');
     if (!city.trim()) errs.city = t('address.validation.city');
     if (!state.trim()) errs.state = t('address.validation.state');
@@ -583,7 +607,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       email,
       phoneNumber: phone,
       addressLine1,
-      addressLine2,
+      addressLine2: `__STRUCTURED_ADDR__:${JSON.stringify({
+        flat: flatHouseBuilding,
+        landmark: landmark,
+        altPhone: alternativePhone,
+        addressLine2: addressLine2
+      })}`,
       pincode,
       placedAt: new Date(),
       razorpayPaymentId,
@@ -831,6 +860,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           setPhone('');
                           setAddressLine1('');
                           setAddressLine2('');
+                          setFlatHouseBuilding('');
+                          setLandmark('');
+                          setAlternativePhone('');
                           setCity('');
                           setState('');
                           setPincode('');
@@ -904,6 +936,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     {addressErrors.email && <p style={errorStyle}>{addressErrors.email}</p>}
                   </div>
 
+                  {/* Flat, House, Building */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>{language === 'hi' ? 'फ्लैट, हाउस नंबर, बिल्डिंग का नाम/नंबर *' : 'Flat, House, Building, Name or Number *'}</label>
+                    <input
+                      id="checkout-flat"
+                      style={{ ...inputStyle, borderColor: addressErrors.flatHouseBuilding ? '#ef4444' : 'var(--border-light)' }}
+                      placeholder={language === 'hi' ? 'उदा. फ्लैट 402, शांति अपार्टमेंट' : 'e.g. Flat 402, Shanti Apartments'}
+                      value={flatHouseBuilding}
+                      onChange={e => setFlatHouseBuilding(e.target.value)}
+                      onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
+                      onBlur={e => (e.target.style.borderColor = addressErrors.flatHouseBuilding ? '#ef4444' : 'var(--border-light)')}
+                    />
+                    {addressErrors.flatHouseBuilding && <p style={errorStyle}>{addressErrors.flatHouseBuilding}</p>}
+                  </div>
+
                   {/* Address Line 1 */}
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={labelStyle}>{t('address.form.addr1')}</label>
@@ -928,6 +975,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       placeholder={t('address.form.addr2Placeholder')}
                       value={addressLine2}
                       onChange={e => setAddressLine2(e.target.value)}
+                      onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
+                      onBlur={e => (e.target.style.borderColor = 'var(--border-light)')}
+                    />
+                  </div>
+
+                  {/* Landmark & Alternative Phone */}
+                  <div>
+                    <label style={labelStyle}>{language === 'hi' ? 'लैंडमार्क (वैकल्पिक)' : 'Landmark (Optional)'}</label>
+                    <input
+                      id="checkout-landmark"
+                      style={inputStyle}
+                      placeholder={language === 'hi' ? 'उदा. शिव मंदिर के पास' : 'e.g. Near Shiv Temple'}
+                      value={landmark}
+                      onChange={e => setLandmark(e.target.value)}
+                      onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
+                      onBlur={e => (e.target.style.borderColor = 'var(--border-light)')}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>{language === 'hi' ? 'वैकल्पिक फ़ोन नंबर (वैकल्पिक)' : 'Alternative Phone Number (Optional)'}</label>
+                    <input
+                      id="checkout-alt-phone"
+                      style={inputStyle}
+                      placeholder={language === 'hi' ? 'वैकल्पिक फ़ोन' : 'Alternative Phone'}
+                      value={alternativePhone}
+                      onChange={e => setAlternativePhone(e.target.value)}
                       onFocus={e => (e.target.style.borderColor = 'var(--primary-lime)')}
                       onBlur={e => (e.target.style.borderColor = 'var(--border-light)')}
                     />

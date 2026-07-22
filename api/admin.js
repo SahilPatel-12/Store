@@ -6,6 +6,7 @@ import ordersConfirm from './_lib/admin/orders-confirm.js';
 import ordersDecline from './_lib/admin/orders-decline.js';
 import ordersList from './_lib/admin/orders-list.js';
 import msg91Config from './_lib/admin/msg91-config.js';
+import ordersRevert from './_lib/admin/orders-revert.js';
 
 export default async function handler(req, res) {
   const action = req.query.action;
@@ -25,6 +26,8 @@ export default async function handler(req, res) {
       return ordersConfirm(req, res);
     case 'orders-decline':
       return ordersDecline(req, res);
+    case 'orders-revert':
+      return ordersRevert(req, res);
     case 'orders-list':
       return ordersList(req, res);
     default:

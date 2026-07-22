@@ -60,6 +60,25 @@ const getAssetAsDataUrl = async (url: string): Promise<string> => {
   }
 };
 
+const parseAddressLine2 = (addrLine2: string) => {
+  if (!addrLine2) return { flat: '', landmark: '', altPhone: '', addressLine2: '' };
+  
+  let cleaned = addrLine2;
+  const parts = addrLine2.split(' | ');
+  if (parts.length > 1 && parts[parts.length - 1].startsWith('MANTRA-')) {
+    cleaned = parts.slice(0, -1).join(' | ');
+  }
+  
+  if (cleaned.startsWith('__STRUCTURED_ADDR__:')) {
+    try {
+      return JSON.parse(cleaned.substring(20));
+    } catch (e) {
+      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+    }
+  }
+  return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+};
+
 const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
   const doc = targetDoc || new jsPDF({
     orientation: 'portrait',
@@ -130,15 +149,25 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.text(order.fullName, 14, 55);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(75, 85, 99); // gray-600
-  doc.text(`Phone: ${order.phoneNumber}`, 14, 60);
-  doc.text(`Email: ${order.email}`, 14, 64);
-
   // Format long address nicely
-  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  const splitAddress = doc.splitTextToSize(addressText, 80);
+  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat);
+    parts.push(order.addressLine1);
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
+    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
+  } else {
+    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  }
+
+  doc.text(`Phone: ${order.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}`, 14, 60);
+  doc.text(`Email: ${order.email}`, 14, 64);
+  
+  const splitAddress = doc.splitTextToSize(displayAddressText, 80);
   doc.text(splitAddress, 14, 68);
 
   // Payment details (Right side)
@@ -493,7 +522,7 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
 
   doc.addImage(imgData, 'PNG', 14, footerY, mmWidth, mmHeight);
 
-  return doc;
+return doc;
 };
 
 const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
@@ -563,8 +592,21 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): P
   doc.setFontSize(8.5);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
-  const addressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  const splitAddress = doc.splitTextToSize(addressText, 91.6);
+  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat);
+    parts.push(order.addressLine1);
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
+    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
+  } else {
+    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+  }
+
+  const splitAddress = doc.splitTextToSize(displayAddressText, 91.6);
   doc.text(splitAddress, 5, 29.5);
 
   // Calculate position after address lines
@@ -574,7 +616,7 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): P
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Phone: ${order.phoneNumber}`, 5, addressY);
+  doc.text(`Phone: ${order.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}`, 5, addressY);
   addressY += 4;
 
   // Items summary line
@@ -4550,6 +4592,14 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [isDeletingOrders, setIsDeletingOrders] = React.useState(false);
   const [deleteOrderError, setDeleteOrderError] = React.useState('');
 
+  // COD Payment Status Authorization State
+  const [showPaymentAuthModal, setShowPaymentAuthModal] = React.useState(false);
+  const [paymentAuthOrderId, setPaymentAuthOrderId] = React.useState('');
+  const [paymentAuthTargetStatus, setPaymentAuthTargetStatus] = React.useState('');
+  const [paymentAuthPassword, setPaymentAuthPassword] = React.useState('');
+  const [isAuthorizingPayment, setIsAuthorizingPayment] = React.useState(false);
+  const [paymentAuthError, setPaymentAuthError] = React.useState('');
+
   const handleOpenDeleteModal = (ids: string[]) => {
     if (!ids || ids.length === 0) return;
     setOrdersToDelete(ids);
@@ -4888,34 +4938,91 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   };
 
   // Order payment status changes
-  const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string) => {
+  const handleUpdatePaymentStatus = async (orderId: string, paymentStatus: string, authPassword?: string) => {
+    const order = orders.find(o => o.orderId === orderId);
+    const isCod = order && (order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery');
+
+    if (isCod && !authPassword) {
+      setPaymentAuthOrderId(orderId);
+      setPaymentAuthTargetStatus(paymentStatus);
+      setPaymentAuthPassword('');
+      setPaymentAuthError('');
+      setShowPaymentAuthModal(true);
+      return;
+    }
+
     try {
       const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
-      if (paymentStatus === 'Confirmed') {
-        await callAdminApi('/api/admin/orders/confirm-legacy-payment', {
-          method: 'POST',
-          body: JSON.stringify({ orderId, adminToken })
-        });
+      const endpoint = paymentStatus === 'Confirmed' 
+        ? '/api/admin/orders/confirm-legacy-payment' 
+        : '/api/admin/orders/revert-legacy-payment';
+        
+      const resData = await callAdminApi(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          adminToken,
+          password: authPassword
+        })
+      });
+
+      if (resData && resData.error) {
+        throw new Error(resData.error);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to sync payment status with backend:', err);
+      if (authPassword) {
+        throw err;
+      } else {
+        triggerToast(`Failed to update status: ${err.message}`);
+        return;
+      }
     }
 
     setOrders(prev => prev.map(o => {
       if (o.orderId === orderId) {
-        return { ...o, paymentStatus, status: paymentStatus === 'Confirmed' ? 'Being Packed' : o.status };
+        const newStatus = paymentStatus === 'Confirmed' ? 'Being Packed' : o.status;
+        return { ...o, paymentStatus, status: newStatus };
       }
       return o;
     }));
 
     setSelectedOrderDetails(prev => {
       if (prev && prev.orderId === orderId) {
-        return { ...prev, paymentStatus, status: paymentStatus === 'Confirmed' ? 'Being Packed' : prev.status };
+        const newStatus = paymentStatus === 'Confirmed' ? 'Being Packed' : prev.status;
+        return { ...prev, paymentStatus, status: newStatus };
       }
       return prev;
     });
 
     triggerToast(`Order #${orderId} payment status set to ${paymentStatus}!`);
+  };
+
+  const handleConfirmPaymentAuth = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!paymentAuthPassword.trim()) {
+      setPaymentAuthError('Please enter your Super Admin password.');
+      return;
+    }
+    if (!paymentAuthOrderId || !paymentAuthTargetStatus) return;
+
+    setIsAuthorizingPayment(true);
+    setPaymentAuthError('');
+
+    try {
+      await handleUpdatePaymentStatus(paymentAuthOrderId, paymentAuthTargetStatus, paymentAuthPassword);
+      
+      // Close modal and reset state
+      setShowPaymentAuthModal(false);
+      setPaymentAuthOrderId('');
+      setPaymentAuthTargetStatus('');
+      setPaymentAuthPassword('');
+    } catch (err: any) {
+      setPaymentAuthError(err.message || 'Authorization failed. Check your password.');
+    } finally {
+      setIsAuthorizingPayment(false);
+    }
   };
 
   const handleDeclinePayment = async (orderId: string) => {
@@ -13548,10 +13655,29 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                     Fulfillment Destination
                   </h4>
                   <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{selectedOrderDetails.fullName}</p>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    {selectedOrderDetails.addressLine1}
-                    {selectedOrderDetails.addressLine2 ? `, ${selectedOrderDetails.addressLine2}` : ''}
-                  </p>
+                  {(() => {
+                    const parsedAddr = parseAddressLine2(selectedOrderDetails.addressLine2 || '');
+                    if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+                      return (
+                        <>
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            {parsedAddr.flat ? `${parsedAddr.flat}, ` : ''}{selectedOrderDetails.addressLine1}
+                          </p>
+                          {parsedAddr.landmark && (
+                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              Landmark: {parsedAddr.landmark}
+                            </p>
+                          )}
+                        </>
+                      );
+                    }
+                    return (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {selectedOrderDetails.addressLine1}
+                        {selectedOrderDetails.addressLine2 ? `, ${selectedOrderDetails.addressLine2}` : ''}
+                      </p>
+                    );
+                  })()}
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     {selectedOrderDetails.deliveryCity}, {selectedOrderDetails.deliveryState} - {selectedOrderDetails.pincode}
                   </p>
@@ -13571,9 +13697,15 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                     Email: {selectedOrderDetails.email}
                   </p>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Phone: {selectedOrderDetails.phoneNumber}
-                  </p>
+                  {(() => {
+                    const parsedAddr = parseAddressLine2(selectedOrderDetails.addressLine2 || '');
+                    return (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Phone: {selectedOrderDetails.phoneNumber}
+                        {parsedAddr.altPhone ? ` / Alt: ${parsedAddr.altPhone}` : ''}
+                      </p>
+                    );
+                  })()}
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     Payment Provider: <strong style={{ textTransform: 'capitalize' }}>{selectedOrderDetails.payment_provider || selectedOrderDetails.paymentMethod || 'Manual UPI'}</strong>
                   </p>
@@ -14245,6 +14377,180 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                   ) : (
                     <>
                       <Trash2 size={14} /> Confirm & Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Authorization Modal for COD Payment status confirm/revert */}
+      {showPaymentAuthModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            textAlign: 'left',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                backgroundColor: '#fff7ed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Lock size={22} style={{ color: '#f97316' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#111827', margin: 0 }}>
+                  Confirm Payment Action
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '2px 0 0 0' }}>
+                  Super Admin Authorization Required
+                </p>
+              </div>
+            </div>
+
+            {/* Alert Banner */}
+            <div style={{
+              backgroundColor: '#fff7ed',
+              border: '1px solid #ffedd5',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '20px',
+              fontSize: '0.82rem',
+              color: '#c2410c',
+              lineHeight: 1.45
+            }}>
+              <strong>⚠️ COD Payment Action:</strong> You are about to <strong>{paymentAuthTargetStatus === 'Confirmed' ? 'CONFIRM' : 'REVERT'}</strong> payment status for order <strong>#{paymentAuthOrderId}</strong>.
+            </div>
+
+            {/* Error Banner if any */}
+            {paymentAuthError && (
+              <div style={{
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#b91c1c',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                marginBottom: '16px'
+              }}>
+                ⚠️ {paymentAuthError}
+              </div>
+            )}
+
+            {/* Password Form */}
+            <form onSubmit={handleConfirmPaymentAuth}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  color: '#374151',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Super Admin Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  placeholder="Enter administrator password..."
+                  value={paymentAuthPassword}
+                  onChange={(e) => setPaymentAuthPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #d1d5db',
+                    outline: 'none',
+                    fontSize: '0.9rem',
+                    transition: 'border-color 0.15s'
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = '#f97316')}
+                  onBlur={(e) => (e.target.style.borderColor = '#d1d5db')}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  disabled={isAuthorizingPayment}
+                  onClick={() => {
+                    setShowPaymentAuthModal(false);
+                    setPaymentAuthOrderId('');
+                    setPaymentAuthTargetStatus('');
+                    setPaymentAuthPassword('');
+                    setPaymentAuthError('');
+                  }}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: '#ffffff',
+                    color: '#374151',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: isAuthorizingPayment ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAuthorizingPayment || !paymentAuthPassword.trim()}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#f97316',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    cursor: (isAuthorizingPayment || !paymentAuthPassword.trim()) ? 'not-allowed' : 'pointer',
+                    opacity: (isAuthorizingPayment || !paymentAuthPassword.trim()) ? 0.65 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {isAuthorizingPayment ? (
+                    <>
+                      <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Authorizing...
+                    </>
+                  ) : (
+                    <>
+                      <Shield size={14} /> Authorize & Update
                     </>
                   )}
                 </button>

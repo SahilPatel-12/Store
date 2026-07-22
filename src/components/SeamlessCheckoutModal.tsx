@@ -6,7 +6,6 @@ import {
   ChevronLeft, 
   Lock, 
   ShoppingBag, 
-  Ticket, 
   Phone, 
   ShieldCheck, 
   Plus, 
@@ -87,6 +86,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const { language } = useLanguage();
   const { t } = useTranslation('seamlessCheckout');
   const [isReady, setIsReady] = React.useState(false);
+  void onApplyCoupon;
 
   React.useEffect(() => {
     if (isOpen) {
@@ -126,6 +126,9 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const [email, setEmail] = React.useState('');
   const [addressLine1, setAddressLine1] = React.useState('');
   const [addressLine2, setAddressLine2] = React.useState('');
+  const [flatHouseBuilding, setFlatHouseBuilding] = React.useState('');
+  const [alternativePhone, setAlternativePhone] = React.useState('');
+  const [landmark, setLandmark] = React.useState('');
   const [city, setCity] = React.useState('');
   const [state, setState] = React.useState('');
   const [pincode, setPincode] = React.useState('');
@@ -167,10 +170,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
   const [isAddressLoading, setIsAddressLoading] = React.useState(false);
 
-  // Coupon code states
-  const [couponInput, setCouponInput] = React.useState(appliedCouponCode);
-  const [couponMsg, setCouponMsg] = React.useState({ text: '', type: '' });
-  const [isValidatingCoupon, setIsValidatingCoupon] = React.useState(false);
+
 
 
   // Payment fields
@@ -225,16 +225,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
   }, [isOpen, loggedInUser]);
 
-  // Toast auto-clearing for coupon messages
-  React.useEffect(() => {
-    if (appliedCouponCode && isReady) {
-      setCouponMsg({ text: t('coupon.success', { percent: discountPercent }), type: 'success' });
-      setCouponInput(appliedCouponCode);
-    } else {
-      setCouponMsg({ text: '', type: '' });
-      setCouponInput('');
-    }
-  }, [appliedCouponCode, discountPercent, isReady, t]);
+
 
   // OTP Countdown countdown timer
   React.useEffect(() => {
@@ -550,85 +541,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
   };
 
-  // Coupon validations
-  const handleApplyCouponCode = async () => {
-    setCouponMsg({ text: '', type: '' });
-    const formatted = couponInput.trim().toUpperCase();
-    if (!formatted) {
-      onApplyCoupon('', 0, null);
-      return;
-    }
 
-    if (!loggedInUser) {
-      setCouponMsg({ text: t('coupon.error.login'), type: 'error' });
-      return;
-    }
-
-    setIsValidatingCoupon(true);
-    try {
-      const { data: coupon, error } = await supabase
-        .from('website_store_coupons')
-        .select('*')
-        .eq('code', formatted)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!coupon) {
-        setCouponMsg({ text: t('coupon.error.invalid'), type: 'error' });
-        onApplyCoupon('', 0, null);
-        return;
-      }
-
-      if (coupon.user_limit !== null && coupon.redemptions_count >= coupon.user_limit) {
-        setCouponMsg({ text: t('coupon.error.limit'), type: 'error' });
-        onApplyCoupon('', 0, null);
-        return;
-      }
-
-      const { data: redeemed } = await supabase
-        .from('website_store_coupon_redemptions')
-        .select('id')
-        .eq('coupon_id', coupon.id)
-        .eq('user_id', loggedInUser.id)
-        .maybeSingle();
-
-      if (redeemed) {
-        setCouponMsg({ text: t('coupon.error.used'), type: 'error' });
-        onApplyCoupon('', 0, null);
-        return;
-      }
-
-      if (coupon.product_id) {
-        const hasProduct = cart.some(item => item.product.id === coupon.product_id);
-        if (!hasProduct) {
-          const { data: pData } = await supabase
-            .from('localized_website_pooja_products')
-            .select('name')
-            .eq('id', coupon.product_id)
-            .eq('locale', language)
-            .maybeSingle();
-          setCouponMsg({ text: t('coupon.error.product', { productName: pData?.name || t('coupon.error.defaultProduct') }), type: 'error' });
-          onApplyCoupon('', 0, null);
-          return;
-        }
-      }
-
-      onApplyCoupon(formatted, coupon.discount_percent, coupon.product_id || null);
-      setCouponMsg({ text: t('coupon.success', { percent: coupon.discount_percent }), type: 'success' });
-    } catch (err) {
-      console.error(err);
-      setCouponMsg({ text: t('coupon.error.generic'), type: 'error' });
-      onApplyCoupon('', 0, null);
-    } finally {
-      setIsValidatingCoupon(false);
-    }
-  };
-
-  const handleRemoveCouponCode = () => {
-    onApplyCoupon('', 0, null);
-    setCouponInput('');
-    setCouponMsg({ text: '', type: '' });
-  };
 
   // Dynamic calculations
   const subtotal = cart.reduce((t, i) => t + i.product.price * i.quantity, 0);
@@ -666,7 +579,27 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     if (addr) {
       setFullName(addr.name);
       setPhone(addr.phone);
-      setAddressLine1(addr.street);
+      
+      if (addr.street && addr.street.startsWith('__STRUCTURED_ADDR__:')) {
+        try {
+          const parsed = JSON.parse(addr.street.substring(20));
+          setFlatHouseBuilding(parsed.flat || '');
+          setAddressLine1(parsed.street || '');
+          setLandmark(parsed.landmark || '');
+          setAlternativePhone(parsed.altPhone || '');
+        } catch (e) {
+          setFlatHouseBuilding('');
+          setAddressLine1(addr.street);
+          setLandmark('');
+          setAlternativePhone('');
+        }
+      } else {
+        setFlatHouseBuilding('');
+        setAddressLine1(addr.street);
+        setLandmark('');
+        setAlternativePhone('');
+      }
+
       setAddressLine2('');
       setCity(addr.city);
       setState(addr.state);
@@ -679,6 +612,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     if (!fullName.trim()) errs.fullName = t('address.validation.fullName');
     if (!phone.trim() || phone.replace(/\D/g, '').length < 10) errs.phone = t('address.validation.phone');
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = t('address.validation.email');
+    if (!flatHouseBuilding.trim()) errs.flatHouseBuilding = language === 'hi' ? 'फ्लैट, हाउस नंबर, बिल्डिंग का नाम/नंबर आवश्यक है' : 'Flat, House, Building name/number is required';
     if (!addressLine1.trim()) errs.addressLine1 = t('address.validation.addressLine1');
     if (!city.trim()) errs.city = t('address.validation.city');
     if (!state.trim()) errs.state = t('address.validation.state');
@@ -745,7 +679,12 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       email,
       phoneNumber: phone,
       addressLine1,
-      addressLine2,
+      addressLine2: `__STRUCTURED_ADDR__:${JSON.stringify({
+        flat: flatHouseBuilding,
+        landmark: landmark,
+        altPhone: alternativePhone,
+        addressLine2: addressLine2
+      })}`,
       pincode,
       placedAt: new Date(),
       razorpayPaymentId,
@@ -1076,54 +1015,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
             </div>
           </div>
 
-          {/* Coupon Input Drawer */}
-          {step !== 'login' && step !== 'otp' && (
-            <div style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              border: '1px solid #e5e7eb',
-              padding: '12px',
-              marginBottom: '16px',
-              textAlign: 'left'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Ticket size={16} style={{ color: 'var(--primary-lime, #f97316)' }} />
-                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151' }}>{t('coupon.label')}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  placeholder={t('coupon.placeholder')}
-                  value={couponInput}
-                  onChange={e => setCouponInput(e.target.value.toUpperCase())}
-                  style={{
-                    flexGrow: 1,
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #d1d5db',
-                    fontSize: '0.82rem',
-                    outline: 'none'
-                  }}
-                />
-                {appliedCouponCode ? (
-                  <button onClick={handleRemoveCouponCode} style={{ padding: '8px 12px', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                    {t('coupon.remove')}
-                  </button>
-                ) : (
-                  <button onClick={handleApplyCouponCode} disabled={isValidatingCoupon} style={{ padding: '8px 12px', backgroundColor: 'var(--primary-lime, #f97316)', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', opacity: isValidatingCoupon ? 0.7 : 1 }}>
-                    {isValidatingCoupon ? '...' : t('coupon.apply')}
-                  </button>
-                )}
-              </div>
-              {couponMsg.text && (
-                <p style={{ fontSize: '0.74rem', marginTop: '4px', fontWeight: 650, color: couponMsg.type === 'success' ? '#10b981' : '#ef4444', margin: '4px 0 0' }}>
-                  {couponMsg.text}
-                </p>
-              )}
 
-
-            </div>
-          )}
 
           {/* ══════════════════════════════════════
               STEP 1: LOGIN (Phone input)
@@ -1426,6 +1318,17 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                     </div>
 
                     <div>
+                      <label style={labelStyle}>{language === 'hi' ? 'फ्लैट, हाउस नंबर, बिल्डिंग का नाम/नंबर *' : 'Flat, House, Building, Name or Number *'}</label>
+                      <input 
+                        style={{ ...inputStyle, borderColor: addressErrors.flatHouseBuilding ? '#ef4444' : '#e5e7eb' }}
+                        placeholder={language === 'hi' ? 'उदा. फ्लैट 402, शांति अपार्टमेंट' : 'e.g. Flat 402, Shanti Apartments'}
+                        value={flatHouseBuilding}
+                        onChange={e => setFlatHouseBuilding(e.target.value)}
+                      />
+                      {addressErrors.flatHouseBuilding && <p style={errorTextStyle}>{addressErrors.flatHouseBuilding}</p>}
+                    </div>
+
+                    <div>
                       <label style={labelStyle}>{t('address.form.addr1')}</label>
                       <input 
                         style={{ ...inputStyle, borderColor: addressErrors.addressLine1 ? '#ef4444' : '#e5e7eb' }}
@@ -1434,6 +1337,27 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                         onChange={e => setAddressLine1(e.target.value)}
                       />
                       {addressErrors.addressLine1 && <p style={errorTextStyle}>{addressErrors.addressLine1}</p>}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={labelStyle}>{language === 'hi' ? 'लैंडमार्क (वैकल्पिक)' : 'Landmark (Optional)'}</label>
+                        <input 
+                          style={inputStyle}
+                          placeholder={language === 'hi' ? 'उदा. शिव मंदिर के पास' : 'e.g. Near Shiv Temple'}
+                          value={landmark}
+                          onChange={e => setLandmark(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>{language === 'hi' ? 'वैकल्पिक फ़ोन (वैकल्पिक)' : 'Alternative Phone (Optional)'}</label>
+                        <input 
+                          style={inputStyle}
+                          placeholder={language === 'hi' ? 'वैकल्पिक फ़ोन' : 'Alternative Phone'}
+                          value={alternativePhone}
+                          onChange={e => setAlternativePhone(e.target.value)}
+                        />
+                      </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>

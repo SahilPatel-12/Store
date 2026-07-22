@@ -108,6 +108,7 @@ const PATH_MAP = {
   '/api/admin/orders/update-delivery-status': { file: 'admin.js', action: 'orders-update' },
   '/api/admin/orders/confirm-legacy-payment': { file: 'admin.js', action: 'orders-confirm' },
   '/api/admin/orders/decline-legacy-payment': { file: 'admin.js', action: 'orders-decline' },
+  '/api/admin/orders/revert-legacy-payment': { file: 'admin.js', action: 'orders-revert' },
   '/api/admin/orders/list': { file: 'admin.js', action: 'orders-list' },
   '/api/payments/razorpay/create-order': { file: 'payments.js', action: 'create-order' },
   '/api/payments/razorpay/verify': { file: 'payments.js', action: 'verify' },

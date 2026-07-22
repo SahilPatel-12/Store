@@ -5036,6 +5036,23 @@ function App() {
 
                     if (!alreadyExists) {
                       const isDefault = existingData.length === 0;
+                      const hasStructured = details.addressLine2 && details.addressLine2.includes('__STRUCTURED_ADDR__:');
+                      let streetVal = details.addressLine1;
+                      if (hasStructured) {
+                        try {
+                          const cleaned = (details.addressLine2 || '').split(' | ')[0];
+                          const parsed = JSON.parse(cleaned.substring(cleaned.indexOf('__STRUCTURED_ADDR__:') + 20));
+                          streetVal = `__STRUCTURED_ADDR__:${JSON.stringify({
+                            flat: parsed.flat || '',
+                            street: details.addressLine1 || '',
+                            landmark: parsed.landmark || '',
+                            altPhone: parsed.altPhone || ''
+                          })}`;
+                        } catch (e) {
+                          streetVal = details.addressLine1;
+                        }
+                      }
+
                       await fetch('/api/customer/addresses', {
                         method: 'POST',
                         headers: {
@@ -5046,7 +5063,7 @@ function App() {
                           type: 'Checkout Address',
                           name: details.fullName,
                           phone: details.phoneNumber,
-                          street: details.addressLine1,
+                          street: streetVal,
                           city: details.deliveryCity,
                           state: details.deliveryState,
                           zip: details.pincode,
@@ -5881,6 +5898,23 @@ function App() {
 
                   if (!alreadyExists) {
                     const isDefault = existingData.length === 0;
+                    const hasStructured = details.addressLine2 && details.addressLine2.includes('__STRUCTURED_ADDR__:');
+                    let streetVal = details.addressLine1;
+                    if (hasStructured) {
+                      try {
+                        const cleaned = (details.addressLine2 || '').split(' | ')[0];
+                        const parsed = JSON.parse(cleaned.substring(cleaned.indexOf('__STRUCTURED_ADDR__:') + 20));
+                        streetVal = `__STRUCTURED_ADDR__:${JSON.stringify({
+                          flat: parsed.flat || '',
+                          street: details.addressLine1 || '',
+                          landmark: parsed.landmark || '',
+                          altPhone: parsed.altPhone || ''
+                        })}`;
+                      } catch (e) {
+                        streetVal = details.addressLine1;
+                      }
+                    }
+
                     await fetch('/api/customer/addresses', {
                       method: 'POST',
                       headers: {
@@ -5891,7 +5925,7 @@ function App() {
                         type: 'Checkout Address',
                         name: details.fullName,
                         phone: details.phoneNumber,
-                        street: details.addressLine1,
+                        street: streetVal,
                         city: details.deliveryCity,
                         state: details.deliveryState,
                         zip: details.pincode,

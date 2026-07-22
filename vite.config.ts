@@ -62,6 +62,7 @@ function vercelDevPlugin() {
               'orders/update-delivery-status',
               'orders/confirm-legacy-payment',
               'orders/decline-legacy-payment',
+              'orders/revert-legacy-payment',
               'orders/list'
             ];
             if (legacyActions.includes(action)) {
@@ -72,6 +73,7 @@ function vercelDevPlugin() {
               else if (action === 'orders/update-delivery-status') query['action'] = 'orders-update';
               else if (action === 'orders/confirm-legacy-payment') query['action'] = 'orders-confirm';
               else if (action === 'orders/decline-legacy-payment') query['action'] = 'orders-decline';
+              else if (action === 'orders/revert-legacy-payment') query['action'] = 'orders-revert';
               else if (action === 'orders/list') query['action'] = 'orders-list';
             }
           } else if (pathname.startsWith('/api/payments/razorpay/')) {
