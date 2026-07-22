@@ -114,7 +114,9 @@ export default async function handler(req, res) {
               recipients: [
                 {
                   mobiles: formattedPhone,
-                  VAR1: otp
+                  VAR1: otp,
+                  var1: otp,
+                  otp: otp
                 }
               ]
             })
