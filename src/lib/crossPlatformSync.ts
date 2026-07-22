@@ -19,7 +19,7 @@ export async function fetchUserProfile(userPhone: string | null | undefined) {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, full_name, email, avatar_url')
-      .or(`phone.eq.${normPhone},phone.eq.${normPhone.replace('+', '')}`)
+      .in('phone', [normPhone, normPhone.replace('+', '')])
       .maybeSingle();
 
     if (error) {
@@ -72,7 +72,7 @@ export async function handleWebsiteCheckout(
     const { data: appUser, error: appUserError } = await supabase
       .from('app_users')
       .select('id')
-      .or(`phone.eq.${customerPhone},phone.eq.${customerPhone.replace('+', '')}`)
+      .in('phone', [customerPhone, customerPhone.replace('+', '')])
       .maybeSingle();
 
     if (appUserError) {

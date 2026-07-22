@@ -90,6 +90,7 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
   const [otpCountdown, setOtpCountdown] = React.useState(60);
   const [otpError, setOtpError] = React.useState('');
   const [otpTargetPhone, setOtpTargetPhone] = React.useState('');
+  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
 
   // Toast message
   const [toastMsg, setToastMsg] = React.useState('');
@@ -177,8 +178,6 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     }
     return cleaned;
   };
-
-  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
 
   // OTP Gateway
   const sendOtp = async (targetPhone: string) => {

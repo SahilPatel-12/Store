@@ -115,6 +115,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
   const [userEnteredOtp, setUserEnteredOtp] = React.useState('');
   const [otpCountdown, setOtpCountdown] = React.useState(60);
   const [otpTargetPhone, setOtpTargetPhone] = React.useState('');
+  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
   const [authError, setAuthError] = React.useState('');
   const [isAuthLoading, setIsAuthLoading] = React.useState(false);
   const [sendUpdates, setSendUpdates] = React.useState(true);
@@ -360,8 +361,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     }
     return cleaned;
   };
-
-  const [otpChannel, setOtpChannel] = React.useState<'sms' | 'whatsapp'>('whatsapp');
 
   React.useEffect(() => {
     console.log('[OTP] Active channel state updated:', otpChannel);
