@@ -33,14 +33,15 @@ import {
   Copy,
   EyeOff,
   Edit3,
+  RotateCcw,
   Save,
   QrCode,
   Lock,
-  AlertTriangle,
   Compass,
+  AlertTriangle as _AlertTriangle,
   Shield
 } from 'lucide-react';
-import type { Product, PoojaProduct, LocalOrder } from '../types';
+import type { Product, PoojaProduct, LocalOrder, CartItem, OrderDataSnapshot } from '../types';
 import { supabase, callAdminApi } from '../lib/supabase';
 import { hashPassword } from '../lib/crypto';
 
@@ -69,332 +70,76 @@ const parseAddressLine2 = (addrLine2: string) => {
     cleaned = parts.slice(0, -1).join(' | ');
   }
   
-  if (cleaned.startsWith('__STRUCTURED_ADDR__:')) {
+  const idx = cleaned.indexOf('__STRUCTURED_ADDR__:');
+  if (idx !== -1) {
     try {
-      return JSON.parse(cleaned.substring(20));
+      return JSON.parse(cleaned.substring(idx + 20));
     } catch (e) {
-      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim() };
     }
   }
   return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
 };
 
-const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
-  const doc = targetDoc || new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
+const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF, source?: 'primary' | 'corrected'): Promise<jsPDF> => {
+  const dataToUse: OrderDataSnapshot = (source === 'primary')
+    ? (order.originalData || {
+        fullName: order.fullName,
+        phoneNumber: order.phoneNumber,
+        email: order.email,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        deliveryCity: order.deliveryCity,
+        deliveryState: order.deliveryState,
+        pincode: order.pincode,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        total: order.total
+      })
+    : (order.activeData || {
+        fullName: order.fullName,
+        phoneNumber: order.phoneNumber,
+        email: order.email,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        deliveryCity: order.deliveryCity,
+        deliveryState: order.deliveryState,
+        pincode: order.pincode,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        total: order.total
+      });
 
-  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
-  const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
-  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
-  const lightGray = [229, 231, 235]; // #e5e7eb
-
-  // Header - Brand Left Side (With logo image load)
-  try {
-    const logoDataUrl = await getAssetAsDataUrl(logo);
-    doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('MANTRA PUJA', 29, 21);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray-500
-    doc.text('Spiritual & Temple Offerings', 29, 26);
-    doc.text('Email: support@mantrapuja.com', 29, 30);
-    doc.text('Web: www.mantrapuja.com', 29, 34);
-  } catch (e) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('MANTRA PUJA', 14, 20);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray-500
-    doc.text('Spiritual & Temple Offerings', 14, 25);
-    doc.text('Email: support@mantrapuja.com', 14, 29);
-    doc.text('Web: www.mantrapuja.com', 14, 33);
-  }
-
-  // Header - Invoice Info (Right side)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text('INVOICE', 196, 20, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(`Invoice ID: ${order.orderId}`, 196, 26, { align: 'right' });
-  doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}`, 196, 31, { align: 'right' });
-
-  // Divider Line
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.setLineWidth(0.5);
-  doc.line(14, 42, 196, 42);
-
-  // Billing Address Section (Left)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('BILL TO:', 14, 50);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(order.fullName, 14, 55);
-
-  // Format long address nicely
-  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
+  const parsedAddr = parseAddressLine2(dataToUse.addressLine2 || '');
   let displayAddressText = '';
   let altPhone = '';
-  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone || parsedAddr.addressLine2) {
     const parts = [];
-    if (parsedAddr.flat) parts.push(parsedAddr.flat);
-    parts.push(order.addressLine1);
-    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
-    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
+    if (parsedAddr.flat) parts.push(parsedAddr.flat.trim());
+    if (dataToUse.addressLine1) parts.push(dataToUse.addressLine1.trim());
+    if (parsedAddr.addressLine2) parts.push(parsedAddr.addressLine2.trim());
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark.trim()}`);
+    displayAddressText = parts.filter(Boolean).join(', ') + `, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone.trim();
   } else {
-    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
+    displayAddressText = `${dataToUse.addressLine1}${dataToUse.addressLine2 ? ', ' + dataToUse.addressLine2 : ''}, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
   }
-
-  doc.text(`Phone: ${order.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}`, 14, 60);
-  doc.text(`Email: ${order.email}`, 14, 64);
-  
-  const splitAddress = doc.splitTextToSize(displayAddressText, 80);
-  doc.text(splitAddress, 14, 68);
-
-  // Payment details (Right side)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('PAYMENT DETAILS:', 120, 50);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(75, 85, 99);
-  doc.text(`Method: ${order.paymentMethod}`, 120, 55);
-
-  let displayPaymentStatus = order.paymentStatus || 'Pending';
-  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
-    displayPaymentStatus = 'Confirmed';
-  }
-  doc.text(`Status: ${displayPaymentStatus}`, 120, 59);
 
   const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
-  if (isCodOrder) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(217, 119, 6); // Amber/Orange
-    doc.text(`Order payment detail: Please collect Rs. ${order.total.toFixed(2)} in Cash`, 120, 64);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+  let logoDataUrl = '';
+  try {
+    logoDataUrl = await getAssetAsDataUrl(logo);
+  } catch (e) {
+    console.error("Failed to fetch logo:", e);
   }
 
-  // Table header background block
-  let y = 85;
-  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(14, y, 182, 8, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text('Sacred Item Details', 18, y + 5.5);
-  doc.text('Qty', 115, y + 5.5, { align: 'center' });
-  doc.text('Price', 150, y + 5.5, { align: 'right' });
-  doc.text('Amount', 190, y + 5.5, { align: 'right' });
-
-  y += 8; // move past header row
-
-  // Table Rows
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-  order.items.forEach((item, index) => {
-    // Alternating row backgrounds
-    if (index % 2 === 1) {
-      doc.setFillColor(249, 250, 251); // gray-50
-      doc.rect(14, y, 182, 8, 'F');
-    }
-
-    doc.text(item.product.name, 18, y + 5.5);
-    doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
-    doc.text(`Rs. ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
-    doc.text(`Rs. ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
-
-    y += 8;
-  });
-
-  // Table border line below rows
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.line(14, y, 196, y);
-  y += 8;
-
-  // Pricing calculations block
-  const labelX = 135;
-  const valueX = 190;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-
-  doc.text('Subtotal:', labelX, y);
-  doc.text(`Rs. ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 6;
-
-  if (order.discount > 0) {
-    const discountPercent = order.discountPercent || Math.round((order.discount / (order.subtotal || 1)) * 100);
-    doc.setTextColor(16, 185, 129); // green
-    doc.text(`Discount (${discountPercent}%):`, labelX, y);
-    doc.text(`-Rs. ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    y += 6;
-  }
-
-  doc.text('Shipping:', labelX, y);
-  doc.text(order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 6;
-
-  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
-  if (codFeeAmount > 0) {
-    doc.setTextColor(234, 88, 12); // Orange / Amber
-    doc.setFont('helvetica', 'bold');
-    doc.text('COD Handling Charge:', labelX, y);
-    doc.text(`+Rs. ${Number(codFeeAmount).toFixed(2)}`, valueX, y, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    y += 6;
-  }
-
-  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
-
-  // Draw line for total
-  doc.setLineWidth(0.5);
-  doc.line(130, y, 196, y);
-  y += 6;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('Total Charged:', labelX, y);
-  doc.text(`Rs. ${pdfDisplayTotal.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 10;
-
-  // Check if order contains Vidya Rudraksh item
-  const hasVidyaRudraksha = order.items.some(item => {
-    const itemName = (item.product?.name || '').toLowerCase();
-    return itemName.includes('vidya') || itemName.includes('विद्या');
-  });
-
-  if (hasVidyaRudraksha) {
-    // 1. Vidya Rudraksha Dharan Vidhi Box (Rendered via html2canvas for Devanagari & Diya Emoji perfection)
-    const vidyaDiv = document.createElement('div');
-    vidyaDiv.style.position = 'absolute';
-    vidyaDiv.style.left = '-9999px';
-    vidyaDiv.style.top = '-9999px';
-    vidyaDiv.style.width = '760px';
-    vidyaDiv.innerHTML = `
-      <div id="invoice-vidya-rudraksha-capture" style="
-        width: 760px;
-        font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
-        background-color: #fffdfa;
-        border: 2px solid #f59e0b;
-        border-radius: 10px;
-        padding: 14px 18px;
-        color: #374151;
-        box-sizing: border-box;
-        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.1);
-      ">
-        <!-- Title Header -->
-        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; border-bottom: 1.5px dashed #fcd34d; padding-bottom: 6px;">
-          <span style="font-size: 18px;">🕉️</span>
-          <span style="font-size: 18px; font-weight: 800; color: #9a3412; letter-spacing: 0.5px;">विद्या रुद्राक्ष धारण विधि</span>
-          <span style="font-size: 18px;">🪔</span>
-        </div>
-
-        <!-- Steps List -->
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.45;">
-          <!-- Step 1 -->
-          <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
-            <div>
-              <strong style="color: #c2410c; font-size: 13px;">अष्टमी, नवमी और दशमी के दिन:</strong>
-              <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को शुद्ध देसी गाय के घी में रखें। (तीन दिन तक)</span>
-            </div>
-          </div>
-
-          <!-- Step 2 -->
-          <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
-            <div>
-              <strong style="color: #c2410c; font-size: 13px;">एकादशी के दिन:</strong>
-              <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को गंगाजल से धो लें और शुद्ध एवं स्वच्छ कपड़े से पोंछ लें। इसके बाद श्रद्धा भाव से रुद्राक्ष को धारण करें।</span>
-            </div>
-          </div>
-
-          <!-- Step 3 -->
-          <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
-            <div style="width: 100%;">
-              <strong style="color: #c2410c; font-size: 13px;">मंत्र जाप करें:</strong>
-              <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को हाथ में लेकर 11, 21 या 108 बार नीचे दिए गए मंत्र का जाप करें:</span>
-              <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 4px 10px; margin-top: 4px; font-weight: bold; color: #9a3412; font-size: 13.5px; text-align: center;">
-                ॐ ह्रीं नमः । ॐ रुद्राय नमः । ॐ नमः शिवाय ॥
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 4 -->
-          <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
-            <div>
-              <strong style="color: #c2410c; font-size: 13px;">लाल धागे में धारण करें:</strong>
-              <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को लाल धागे में पिरोकर तैयार करें।</span>
-            </div>
-          </div>
-
-          <!-- Step 5 -->
-          <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <span style="font-size: 15px; line-height: 1.2;">🪔</span>
-            <div>
-              <strong style="color: #c2410c; font-size: 13px;">बच्चे को धारण कराएं:</strong>
-              <span style="color: #374151; margin-left: 4px;">एकादशी के शुभ दिन बच्चे के गले में श्रद्धा और विश्वास के साथ विद्या रुद्राक्ष पहनाएं।</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(vidyaDiv);
-
-    try {
-      const vidyaCanvas = await html2canvas(vidyaDiv.querySelector('#invoice-vidya-rudraksha-capture') as HTMLElement, {
-        scale: 2.5,
-        useCORS: true,
-        logging: false
-      });
-      const vidyaImgData = vidyaCanvas.toDataURL('image/png');
-      const vidyaMmWidth = 182;
-      const vidyaMmHeight = (vidyaCanvas.height * vidyaMmWidth) / vidyaCanvas.width;
-
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y + vidyaMmHeight > pageHeight - 50) {
-        doc.addPage();
-        y = 15;
-      }
-
-      doc.addImage(vidyaImgData, 'PNG', 14, y, vidyaMmWidth, vidyaMmHeight);
-      y += vidyaMmHeight + 8;
-    } catch (e) {
-      console.error("Failed to render Vidya Rudraksha Dharan Vidhi box:", e);
-    } finally {
-      document.body.removeChild(vidyaDiv);
-    }
-  }
-
-  // Footer Blessings Box (Captures beautifully styled Hindi text & emojis via html2canvas)
   let footerQrDataUrl = '';
   try {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
@@ -403,333 +148,543 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise
     console.error("Failed to fetch QR data for footer:", e);
   }
 
-  // Create temporary HTML element to render Devanagari text and Emojis perfectly
-  const tempDiv = document.createElement('div');
-  tempDiv.style.position = 'absolute';
-  tempDiv.style.left = '-9999px';
-  tempDiv.style.top = '-9999px';
-  tempDiv.style.width = '760px';
-  tempDiv.innerHTML = `
-    <div id="invoice-footer-capture" style="
-      width: 760px;
+  let displayPaymentStatus = order.paymentStatus || 'Pending';
+  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+    displayPaymentStatus = 'Confirmed';
+  }
+
+  const discountPercent = order.discountPercent || Math.round(((dataToUse.discount || 0) / (dataToUse.subtotal || 1)) * 100);
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
+  const pdfDisplayTotal = Math.max(Number(dataToUse.total || 0), (Number(dataToUse.subtotal || 0) - Number(dataToUse.discount || 0) + Number(dataToUse.shipping || 0) + Number(dataToUse.tax || 0) + Number(codFeeAmount || 0)));
+
+  const hasVidyaRudraksha = dataToUse.items.some(item => {
+    const itemName = (item.product?.name || '').toLowerCase();
+    return itemName.includes('vidya') || itemName.includes('विद्या');
+  });
+
+  const invoiceDiv = document.createElement('div');
+  invoiceDiv.style.position = 'absolute';
+  invoiceDiv.style.left = '-9999px';
+  invoiceDiv.style.top = '-9999px';
+  invoiceDiv.style.width = '800px';
+
+  invoiceDiv.innerHTML = `
+    <div id="invoice-capture" style="
+      width: 800px;
+      min-height: 1060px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
-      background-color: #fdfbf7;
-      padding: 24px;
+      background-color: #ffffff;
       color: #374151;
-      display: grid;
-      grid-template-columns: 2.2fr 1fr 1.1fr 1.1fr;
-      gap: 20px;
+      padding: 40px;
       box-sizing: border-box;
-      border-top: 3px solid #fbbf24;
+      position: relative;
       line-height: 1.5;
     ">
-      <!-- Column 1: Brand & Thanks -->
       <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 20px;">🕉️</span>
-          <span style="font-size: 18px; font-weight: bold; color: #4a2010; letter-spacing: 0.5px;">MantraPuja</span>
-          <span style="font-size: 11px; color: #ea580c; background-color: #fef3c7; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 6px;">आस्था से आराधना तक</span>
+        <!-- Brand and Invoice Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            ${logoDataUrl ? `<img src="${logoDataUrl}" style="height: 48px; width: auto;" />` : ''}
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-size: 24px; font-weight: 800; color: #4a2010; line-height: 1.1;">MANTRA PUJA</span>
+              <span style="font-size: 10px; color: #6b7280; font-weight: 600; margin-top: 2px;">Spiritual & Temple Offerings</span>
+              <span style="font-size: 9px; color: #6b7280; font-weight: 500;">Email: support@mantrapuja.com</span>
+              <span style="font-size: 9px; color: #6b7280; font-weight: 500;">Web: www.mantrapuja.com</span>
+            </div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.3;">
+            <span style="font-size: 22px; font-weight: 800; color: #ea580c; letter-spacing: 0.5px;">INVOICE</span>
+            <span style="font-size: 10px; font-weight: bold; color: #374151; margin-top: 4px;">Invoice ID: ${order.orderId}</span>
+            <span style="font-size: 10px; color: #6b7280;">Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}</span>
+          </div>
         </div>
-        <div style="font-size: 12px; font-weight: bold; color: #4a2010; margin-bottom: 4px;">धन्यवाद! 🙏</div>
-        <div style="font-size: 11px; margin-bottom: 8px; color: #4b5563; text-align: justify;">
-          आपने MantraPuja पर विश्वास जताया, इसके लिए हम आपका हार्दिक आभार व्यक्त करते हैं।
-        </div>
-        <div style="font-size: 10.5px; color: #4b5563; margin-bottom: 12px; text-align: justify;">
-          हमारा उद्देश्य आपके घर तक प्रमाणित आध्यात्मिक उत्पाद, पूजा सामग्री, ऑनलाइन पूजा सेवाएँ एवं ज्योतिष परामर्श सरल, सुरक्षित और विश्वसनीय रूप से पहुँचाना है।
-        </div>
-        <div style="font-size: 11px; font-style: italic; color: #ea580c; font-weight: 600; border-left: 2.5px solid #ea580c; padding-left: 8px; margin-top: 4px;">
-          "मन से पूजा, मन से जुड़ाव, मन से मंत्रपूजा।"
-        </div>
-      </div>
 
-      <!-- Column 2: Services -->
-      <div>
-        <div style="font-size: 12px; font-weight: bold; color: #4a2010; border-bottom: 1.5px solid #fbbf24; padding-bottom: 4px; margin-bottom: 8px; letter-spacing: 0.5px;">
-          हमारी सेवाएँ
-        </div>
-        <ul style="list-style: none; padding: 0; margin: 0; font-size: 11px; display: flex; flex-direction: column; gap: 6px; color: #4b5563;">
-          <li style="display: flex; align-items: center; gap: 6px;"><span>📿</span> सिद्ध रुद्राक्ष एवं मालाएँ</li>
-          <li style="display: flex; align-items: center; gap: 6px;"><span>🛕</span> ऑनलाइन पूजा बुकिंग</li>
-          <li style="display: flex; align-items: center; gap: 6px;"><span>👨🏻‍🦳</span> प्रमाणित पंडित सेवा</li>
-          <li style="display: flex; align-items: center; gap: 6px;"><span>🔮</span> ज्योतिष एवं कुंडली परामर्श</li>
-          <li style="display: flex; align-items: center; gap: 6px;"><span>🛍️</span> आध्यात्मिक एवं पूजा उत्पाद</li>
-        </ul>
-      </div>
+        <div style="border-top: 1.5px solid #e5e7eb; margin-bottom: 20px;"></div>
 
-      <!-- Column 3: Info & Socials -->
-      <div>
-        <div style="font-size: 11px; font-weight: bold; color: #dc2626; margin-bottom: 6px;">
-          ⚠️ महत्वपूर्ण सूचना
+        <!-- Addresses & Payment Section -->
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; margin-bottom: 25px;">
+          <!-- Bill To Address -->
+          <div>
+            <div style="font-size: 11px; font-weight: bold; color: #4a2010; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px;">BILL TO:</div>
+            <div style="font-size: 13px; font-weight: 800; color: #111827; margin-bottom: 2px;">${dataToUse.fullName}</div>
+            <div style="font-size: 10px; color: #374151; line-height: 1.4; word-break: break-word; font-weight: 500;">
+              <strong style="color: #111827;">Phone:</strong> ${dataToUse.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}<br />
+              <strong style="color: #111827;">Email:</strong> ${dataToUse.email}<br />
+              ${displayAddressText}
+            </div>
+          </div>
+          
+          <!-- Payment Details -->
+          <div>
+            <div style="font-size: 11px; font-weight: bold; color: #4a2010; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px;">PAYMENT DETAILS:</div>
+            <div style="font-size: 10px; color: #374151; line-height: 1.4; font-weight: 500;">
+              <div>Method: <strong style="color: #111827;">${order.paymentMethod}</strong></div>
+              <div style="margin-top: 2px;">Status: <strong style="color: #111827;">${displayPaymentStatus}</strong></div>
+              
+              ${isCodOrder ? `
+                <div style="margin-top: 4px; font-size: 9.5px; font-weight: bold; color: #ea580c;">
+                  Order payment detail: Please collect Rs. ${dataToUse.total.toFixed(2)} in Cash
+                </div>
+              ` : ''}
+            </div>
+          </div>
         </div>
-        <ul style="padding: 0 0 0 12px; margin: 0 0 12px 0; font-size: 10px; color: #4b5563; line-height: 1.4;">
-          <li>उत्पाद प्राप्त होने पर पैकेज अवश्य जाँचें।</li>
-          <li>किसी भी सहायता के लिए हमारी टीम से संपर्क करें।</li>
-          <li>श्रद्धा एवं विश्वास के साथ उपयोग करें।</li>
-        </ul>
-        
-        <div style="font-size: 11px; font-weight: bold; color: #4a2010; margin-bottom: 6px;">
-          हमसे जुड़ें
-        </div>
-        <div style="font-size: 10px; color: #4b5563; display: flex; flex-direction: column; gap: 5px;">
-          <div style="display: flex; align-items: center; gap: 6px;"><span>📷</span> Instagram : @mantrapujaa</div>
-          <div style="display: flex; align-items: center; gap: 6px;"><span>📘</span> Facebook : @mantrapujaa</div>
-          <div style="display: flex; align-items: center; gap: 6px;"><span>▶️</span> YouTube : @MantraPujaOfficials</div>
-        </div>
-      </div>
 
-      <!-- Column 4: Big QR Code & Team -->
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border-left: 1px dashed #e5e7eb; padding-left: 12px; height: 100%;">
-        <div style="font-size: 11px; font-weight: bold; color: #ea580c; margin-bottom: 6px; letter-spacing: 0.5px;">
-          SCAN TO SHOP
+        <!-- Table Section -->
+        <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 25px; font-size: 11px;">
+          <thead>
+            <tr style="background-color: #4a2010; color: #ffffff; font-weight: bold;">
+              <th style="padding: 8px 12px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">Sacred Item Details</th>
+              <th style="padding: 8px 12px; text-align: center; width: 60px;">Qty</th>
+              <th style="padding: 8px 12px; text-align: right; width: 100px;">Price</th>
+              <th style="padding: 8px 12px; text-align: right; width: 110px; border-top-right-radius: 4px; border-bottom-right-radius: 4px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dataToUse.items.map((item, index) => `
+              <tr style="background-color: ${index % 2 === 1 ? '#f9fafb' : '#ffffff'}; border-bottom: 1px solid #e5e7eb; color: #374151;">
+                <td style="padding: 10px 12px; font-weight: 600;">${item.product.name}</td>
+                <td style="padding: 10px 12px; text-align: center; font-weight: 600;">${item.quantity}</td>
+                <td style="padding: 10px 12px; text-align: right;">Rs. ${item.product.price.toFixed(2)}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">Rs. ${(item.product.price * item.quantity).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- Pricing Details Section -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 25px;">
+          <div style="width: 320px; font-size: 11px; display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; justify-content: space-between; color: #4b5563;">
+              <span>Subtotal:</span>
+              <span style="font-weight: 600; color: #111827;">Rs. ${dataToUse.subtotal.toFixed(2)}</span>
+            </div>
+            
+            ${dataToUse.discount > 0 ? `
+              <div style="display: flex; justify-content: space-between; color: #10b981; font-weight: 500;">
+                <span>Discount (${discountPercent}%):</span>
+                <span>-Rs. ${dataToUse.discount.toFixed(2)}</span>
+              </div>
+            ` : ''}
+            
+            <div style="display: flex; justify-content: space-between; color: #4b5563;">
+              <span>Shipping:</span>
+              <span style="font-weight: 600; color: #111827;">${dataToUse.shipping === 0 ? 'FREE' : `Rs. ${dataToUse.shipping.toFixed(2)}`}</span>
+            </div>
+
+            ${codFeeAmount > 0 ? `
+              <div style="display: flex; justify-content: space-between; color: #ea580c; font-weight: 600;">
+                <span>COD Handling Charge:</span>
+                <span>+Rs. ${Number(codFeeAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            <div style="border-top: 1px solid #e5e7eb; margin: 4px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; color: #4a2010;">
+              <span>Total Charged:</span>
+              <span>Rs. ${pdfDisplayTotal.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
-        ${footerQrDataUrl ? `
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px;">
-          <img src="${footerQrDataUrl}" style="width: 85px; height: 85px; border: 1.5px solid #fbbf24; border-radius: 6px; padding: 3px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" />
-          <span style="font-size: 8.5px; font-weight: bold; color: #4a2010;">shop.mantrapuja.com</span>
-        </div>
+
+        <!-- Vidya Rudraksha Box -->
+        ${hasVidyaRudraksha ? `
+          <div style="
+            background-color: #fffdfa;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 14px 18px;
+            color: #374151;
+            box-sizing: border-box;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.05);
+          ">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; border-bottom: 1.5px dashed #fcd34d; padding-bottom: 6px;">
+              <span style="font-size: 16px;">🕉️</span>
+              <span style="font-size: 16px; font-weight: 800; color: #9a3412; letter-spacing: 0.5px;">विद्या रुद्राक्ष धारण विधि</span>
+              <span style="font-size: 16px;">🪔</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11.5px; line-height: 1.45;">
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">अष्टमी, नवमी और दशमी के दिन:</strong>
+                  <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को शुद्ध देसी गाय के घी में रखें। (तीन दिन तक)</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">एकादशी के दिन:</strong>
+                  <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को गंगाजल से धो लें और शुद्ध एवं स्वच्छ कपड़े से पोंछ लें। इसके बाद श्रद्धा भाव से रुद्राक्ष को धारण करें।</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div style="width: 100%;">
+                  <strong style="color: #c2410c; font-size: 12px;">मंत्र जाप करें:</strong>
+                  <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को हाथ में लेकर 11, 21 या 108 बार नीचे दिए गए मंत्र का जाप करें:</span>
+                  <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 4px 10px; margin-top: 4px; font-weight: bold; color: #9a3412; font-size: 12.5px; text-align: center;">
+                    ॐ ह्रीं नमः । ॐ रुद्राय नमः । ॐ नमः शिवाय ॥
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">लाल धागे में धारण करें:</strong>
+                  <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को लाल धागे में पिरोकर तैयार करें।</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">बच्चे को धारण कराएं:</strong>
+                  <span style="color: #374151; margin-left: 4px;">एकादशी के शुभ दिन बच्चे के गले में श्रद्धा और विश्वास के साथ विद्या रुद्राक्ष पहनाएं।</span>
+                </div>
+              </div>
+            </div>
+          </div>
         ` : ''}
-        <div style="font-size: 9.5px; color: #4a2010; font-weight: bold; line-height: 1.3; margin-top: auto;">
-          <span style="color: #ea580c; display: block; margin-bottom: 1px;">🙏 जय श्री महाकाल 🙏</span>
-          <span style="font-size: 8.5px; color: #6b7280; font-weight: normal;">MantraPuja Team</span>
+      </div>
+
+      <!-- Footer Blessings Box -->
+      <div style="
+        margin-top: auto;
+        background-color: #fdfbf7;
+        padding: 20px;
+        color: #374151;
+        display: grid;
+        grid-template-columns: 2.2fr 1fr 1.1fr 1.1fr;
+        gap: 15px;
+        box-sizing: border-box;
+        border-top: 3px solid #fbbf24;
+        border-radius: 4px;
+        line-height: 1.45;
+      ">
+        <!-- Column 1: Brand & Thanks -->
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <span style="font-size: 18px;">🕉️</span>
+            <span style="font-size: 15px; font-weight: bold; color: #4a2010; letter-spacing: 0.5px;">MantraPuja</span>
+            <span style="font-size: 10px; color: #ea580c; background-color: #fef3c7; padding: 1.5px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px;">आस्था से आराधना तक</span>
+          </div>
+          <div style="font-size: 11px; font-weight: bold; color: #4a2010; margin-bottom: 3px;">धन्यवाद! 🙏</div>
+          <div style="font-size: 10px; margin-bottom: 6px; color: #4b5563; text-align: justify;">
+            आपने MantraPuja पर विश्वास जताया, इसके लिए हम आपका हार्दिक आभार व्यक्त करते हैं।
+          </div>
+          <div style="font-size: 9.5px; color: #4b5563; text-align: justify;">
+            हमारा उद्देश्य आपके घर तक प्रमाणित आध्यात्मिक उत्पाद, पूजा सामग्री, ऑनलाइन पूजा सेवाएँ एवं ज्योतिष परामर्श सरल, सुरक्षित और विश्वसनीय रूप से पहुँचाना है।
+          </div>
+          <div style="font-size: 10px; font-style: italic; color: #ea580c; font-weight: 600; border-left: 2px solid #ea580c; padding-left: 6px; margin-top: 6px;">
+            "मन से पूजा, मन से जुड़ाव, मन से मंत्रपूजा।"
+          </div>
+        </div>
+
+        <!-- Column 2: Services -->
+        <div>
+          <div style="font-size: 11px; font-weight: bold; color: #4a2010; border-bottom: 1.5px solid #fbbf24; padding-bottom: 3px; margin-bottom: 6px; letter-spacing: 0.3px;">
+            हमारी सेवाएँ
+          </div>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 10px; display: flex; flex-direction: column; gap: 5px; color: #4b5563;">
+            <li style="display: flex; align-items: center; gap: 4px;"><span>📿</span> सिद्ध रुद्राक्ष एवं मालाएँ</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🛕</span> ऑनलाइन पूजा बुकिंग</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>👨🏻‍🦳</span> प्रमाणित पंडित सेवा</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🔮</span> ज्योतिष एवं कुंडली परामर्श</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🛍️</span> आध्यात्मिक एवं पूजा उत्पाद</li>
+          </ul>
+        </div>
+
+        <!-- Column 3: Info & Socials -->
+        <div>
+          <div style="font-size: 10px; font-weight: bold; color: #dc2626; margin-bottom: 5px;">
+            ⚠️ महत्वपूर्ण सूचना
+          </div>
+          <ul style="padding: 0 0 0 10px; margin: 0 0 10px 0; font-size: 9px; color: #4b5563; line-height: 1.35;">
+            <li>उत्पाद प्राप्त होने पर पैकेज अवश्य जाँचें।</li>
+            <li>किसी भी सहायता के लिए हमारी टीम से संपर्क करें।</li>
+            <li>श्रद्धा एवं विश्वास के साथ उपयोग करें।</li>
+          </ul>
+          
+          <div style="font-size: 10px; font-weight: bold; color: #4a2010; margin-bottom: 5px;">
+            हमसे जुड़ें
+          </div>
+          <div style="font-size: 9px; color: #4b5563; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 4px;"><span>📷</span> Instagram : @mantrapujaa</div>
+            <div style="display: flex; align-items: center; gap: 4px;"><span>📘</span> Facebook : @mantrapujaa</div>
+            <div style="display: flex; align-items: center; gap: 4px;"><span>▶️</span> YouTube : @MantraPujaOfficials</div>
+          </div>
+        </div>
+
+        <!-- Column 4: Big QR Code & Team -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border-left: 1.5px dashed #e5e7eb; padding-left: 10px; height: 100%;">
+          <div style="font-size: 10px; font-weight: bold; color: #ea580c; margin-bottom: 4px; letter-spacing: 0.3px;">
+            SCAN TO SHOP
+          </div>
+          ${footerQrDataUrl ? `
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; margin-bottom: 6px;">
+            <img src="${footerQrDataUrl}" style="width: 75px; height: 75px; border: 1.5px solid #fbbf24; border-radius: 6px; padding: 2px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.02);" />
+            <span style="font-size: 8px; font-weight: bold; color: #4a2010;">shop.mantrapuja.com</span>
+          </div>
+          ` : ''}
+          <div style="font-size: 9px; color: #4a2010; font-weight: bold; line-height: 1.2; margin-top: auto;">
+            <span style="color: #ea580c; display: block; margin-bottom: 1px;">🙏 जय श्री महाकाल 🙏</span>
+            <span style="font-size: 8px; color: #6b7280; font-weight: normal;">MantraPuja Team</span>
+          </div>
         </div>
       </div>
     </div>
   `;
-  document.body.appendChild(tempDiv);
+
+  document.body.appendChild(invoiceDiv);
 
   let canvas: HTMLCanvasElement;
   try {
-    canvas = await html2canvas(tempDiv.querySelector('#invoice-footer-capture') as HTMLElement, {
-      scale: 2.5, // High resolution print capture
+    canvas = await html2canvas(invoiceDiv.querySelector('#invoice-capture') as HTMLElement, {
+      scale: 2.2,
       useCORS: true,
       logging: false
     });
   } finally {
-    document.body.removeChild(tempDiv);
+    document.body.removeChild(invoiceDiv);
   }
+  const doc = targetDoc || new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
 
-  const imgData = canvas.toDataURL('image/png');
-  const mmWidth = 182;
-  const mmHeight = mmWidth * (canvas.height / canvas.width);
+  const imgWidth = 210;
+  const pageHeight = 297;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  const pageHeight = doc.internal.pageSize.getHeight();
-  let footerY = pageHeight - mmHeight - 14; // Position near the bottom of A4 page
-  if (y > footerY) {
-    // If the items list overflows the page content limit, insert a clean page break
+  let heightLeft = imgHeight;
+  let position = 0;
+  const pageData = canvas.toDataURL('image/png');
+
+  doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
     doc.addPage();
-    footerY = 15;
+    doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
   }
 
-  doc.addImage(imgData, 'PNG', 14, footerY, mmWidth, mmHeight);
-
-return doc;
+  return doc;
 };
 
-const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF): Promise<jsPDF> => {
+const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF, source?: 'primary' | 'corrected'): Promise<jsPDF> => {
   const doc = targetDoc || new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: [101.6, 101.6]
   });
 
-  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
-  const accentColor = [234, 88, 12]; // #ea580c (Orange)
-  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
-  const lightGray = [229, 231, 235]; // #e5e7eb
+  const dataToUse: OrderDataSnapshot = (source === 'primary')
+    ? (order.originalData || {
+        fullName: order.fullName,
+        phoneNumber: order.phoneNumber,
+        email: order.email,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        deliveryCity: order.deliveryCity,
+        deliveryState: order.deliveryState,
+        pincode: order.pincode,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        total: order.total
+      })
+    : (order.activeData || {
+        fullName: order.fullName,
+        phoneNumber: order.phoneNumber,
+        email: order.email,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        deliveryCity: order.deliveryCity,
+        deliveryState: order.deliveryState,
+        pincode: order.pincode,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        total: order.total
+      });
 
-  // Draw outer border (thick line for premium card look)
-  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setLineWidth(1.0);
-  doc.rect(2, 2, 97.6, 97.6); // 2mm margin all around
+  const parsedAddr = parseAddressLine2(dataToUse.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone || parsedAddr.addressLine2) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat.trim());
+    if (dataToUse.addressLine1) parts.push(dataToUse.addressLine1.trim());
+    if (parsedAddr.addressLine2) parts.push(parsedAddr.addressLine2.trim());
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark.trim()}`);
+    displayAddressText = parts.filter(Boolean).join(', ') + `, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone.trim();
+  } else {
+    const line2Text = (dataToUse.addressLine2 && parsedAddr.addressLine2) ? parsedAddr.addressLine2.trim() : '';
+    const parts = [dataToUse.addressLine1.trim(), line2Text].filter(Boolean);
+    displayAddressText = parts.join(', ') + `, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
+  }
 
-  // Header Brand & Logo
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+
+  let logoDataUrl = '';
   try {
-    const logoDataUrl = await getAssetAsDataUrl(logo);
-    doc.addImage(logoDataUrl, 'PNG', 5, 4.5, 20, 10);
+    logoDataUrl = await getAssetAsDataUrl(logo);
   } catch (e) {
     console.error("Failed to load logo in shipping label:", e);
   }
 
-  // Brand title and tagline
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('MANTRA PUJA', 27, 8.5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text('- SACRED BLESSINGS -', 27, 12.5);
-
-  // Top Right Order Info
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`#${order.orderId}`, 96.6, 8.5, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(107, 114, 128);
-  doc.text(new Date(order.placedAt).toLocaleDateString('en-IN'), 96.6, 12.5, { align: 'right' });
-
-  // Divider Line 1
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.setLineWidth(0.5);
-  doc.line(2, 16, 99.6, 16);
-
-  // Receiver Section
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-  doc.text('DELIVER TO (RECEIVER):', 5, 20.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11.5);
-  doc.setTextColor(0, 0, 0); // Solid black for readability
-  doc.text(order.fullName, 5, 25.5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
-  let displayAddressText = '';
-  let altPhone = '';
-  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
-    const parts = [];
-    if (parsedAddr.flat) parts.push(parsedAddr.flat);
-    parts.push(order.addressLine1);
-    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
-    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
-  } else {
-    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  }
-
-  const splitAddress = doc.splitTextToSize(displayAddressText, 91.6);
-  doc.text(splitAddress, 5, 29.5);
-
-  // Calculate position after address lines
-  let addressY = 29.5 + (splitAddress.length * 3.8);
-
-  // Phone number (Bold for shipping courier)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Phone: ${order.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}`, 5, addressY);
-  addressY += 4;
-
-  // Items summary line
-  const itemsText = `Items (${order.items.length}): ` + order.items.map(i => `${i.product.name} (x${i.quantity})`).join(', ');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(75, 85, 99);
-  const truncatedItems = doc.splitTextToSize(itemsText, 91.6);
-  doc.text(truncatedItems.slice(0, 1), 5, addressY);
-
-  // Payment & COD Cash Collection Box
-  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
-  const boxY = 49.5;
-  const boxHeight = 15;
-
-  if (isCodOrder) {
-    // High-visibility COD Amber/Red Box
-    doc.setFillColor(254, 242, 242); // Light red/amber tint (#fef2f2)
-    doc.setDrawColor(220, 38, 38); // Red border (#dc2626)
-    doc.setLineWidth(0.8);
-    doc.rect(4, boxY, 93.6, boxHeight, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(185, 28, 28); // Red-700
-    doc.text('CASH ON DELIVERY (COD) ORDER', 7, boxY + 5);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(185, 28, 28);
-    doc.text(`PLEASE COLLECT IN CASH: Rs. ${order.total.toFixed(2)}`, 7, boxY + 11);
-  } else {
-    // Prepaid Order Green Box
-    doc.setFillColor(240, 253, 244); // Light green (#f0fdf4)
-    doc.setDrawColor(22, 163, 74); // Green border (#16a34a)
-    doc.setLineWidth(0.6);
-    doc.rect(4, boxY, 93.6, boxHeight, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(21, 128, 61); // Green-700
-    doc.text('PREPAID ORDER (PAID ONLINE)', 7, boxY + 5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(55, 65, 81);
-    doc.text('Do NOT collect any cash upon delivery (Rs. 0.00)', 7, boxY + 11);
-  }
-
-  // Divider Line below Warning / Payment Box
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.setLineWidth(0.5);
-  doc.line(2, 67, 99.6, 67);
-
-  // Bottom half partition (Sender Left, QR Right)
-  const bottomSectionY = 71;
-
-  // Left side: FROM
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('FROM:', 5, bottomSectionY);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text('MantraPuja Store', 5, bottomSectionY + 3.5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(75, 85, 99);
-  const senderAddrLines = [
-    '501, Shagun Tower, Vijay Nagar,',
-    'Indore - 452010, Madhya Pradesh'
-  ];
-  doc.text(senderAddrLines, 5, bottomSectionY + 7.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Support: +91 90090 46430`, 5, bottomSectionY + 21.5);
-
-  // Vertical Separator
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.setLineWidth(0.3);
-  doc.line(60, 67, 60, 99.6);
-
-  // Right side: QR Code
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('SCAN TO SHOP:', 79.8, bottomSectionY, { align: 'center' });
-
-  // QR Code Image fetch & render
+  let qrDataUrl = '';
   try {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
-    const qrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
-    doc.addImage(qrDataUrl, 'PNG', 71.3, bottomSectionY + 2, 17, 17);
+    qrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
   } catch (e) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.rect(71.3, bottomSectionY + 2, 17, 17);
-    doc.text('QR CODE', 79.8, bottomSectionY + 11, { align: 'center' });
+    console.error("Failed to load QR code image in shipping label:", e);
   }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(107, 114, 128);
-  doc.text('shop.mantrapuja.com', 79.8, bottomSectionY + 21.5, { align: 'center' });
+  const labelDiv = document.createElement('div');
+  labelDiv.style.position = 'absolute';
+  labelDiv.style.left = '-9999px';
+  labelDiv.style.top = '-9999px';
+  labelDiv.style.width = '440px';
+  labelDiv.style.height = '440px';
+
+  const dateFormatted = new Date(order.placedAt).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric'
+  });
+
+  labelDiv.innerHTML = `
+    <div id="shipping-label-capture" style="
+      width: 440px;
+      height: 440px;
+      font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+      background-color: #ffffff;
+      box-sizing: border-box;
+      border: 4px solid #4a2010;
+      padding: 5px;
+    ">
+      <div style="
+        border: 2px solid #4a2010;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      ">
+        <!-- Header Brand & Logo -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${logoDataUrl ? `<img src="${logoDataUrl}" style="height: 38px; width: auto;" />` : ''}
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 18px; font-weight: 900; color: #4a2010; line-height: 1; letter-spacing: 0.5px;">MANTRA PUJA</span>
+                <span style="font-size: 9.5px; font-weight: 700; color: #6b7280; letter-spacing: 0.5px; margin-top: 2px;">- SACRED BLESSINGS -</span>
+              </div>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; justify-content: center; line-height: 1.2;">
+              <span style="font-size: 14px; font-weight: 900; color: #000000; letter-spacing: 0.3px;">#${order.orderId}</span>
+              <span style="font-size: 10px; color: #4b5563; font-weight: 700; margin-top: 2px;">${dateFormatted}</span>
+            </div>
+          </div>
+          <div style="border-bottom: 2px solid #e5e7eb; margin-top: 8px; margin-bottom: 8px;"></div>
+        </div>
+
+        <!-- Receiver Section -->
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;">
+          <div style="font-size: 11px; font-weight: 900; color: #d97706; text-transform: uppercase; letter-spacing: 0.4px;">DELIVER TO (RECEIVER):</div>
+          <div style="font-size: 18px; font-weight: 900; color: #000000; line-height: 1.2; margin-top: 1px;">${dataToUse.fullName}</div>
+          <div style="font-size: 11.5px; color: #1f2937; line-height: 1.38; word-break: break-word; font-weight: 600; margin-top: 2px;">
+            ${displayAddressText}
+          </div>
+          <div style="font-size: 12px; font-weight: 900; color: #000000; margin-top: 4px;">
+            Phone: ${dataToUse.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}
+          </div>
+          <div style="font-size: 10.5px; color: #374151; margin-top: 3px; line-height: 1.25; font-weight: 600;">
+            <strong style="color: #111827;">Items (${dataToUse.items.length}):</strong> ${dataToUse.items.map(i => `${i.product.name} (x${i.quantity})`).join(', ')}
+          </div>
+        </div>
+
+        <!-- Payment Warning Box -->
+        <div style="margin: 8px 0;">
+          ${isCodOrder ? `
+            <div style="background-color: #fff5f5; border: 2.2px solid #dc2626; border-radius: 5px; padding: 7px 10px; text-align: center; box-sizing: border-box; line-height: 1.25;">
+              <div style="font-size: 11px; font-weight: 900; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.4px;">CASH ON DELIVERY (COD) ORDER</div>
+              <div style="font-size: 14px; font-weight: 900; color: #b91c1c; margin-top: 2px;">PLEASE COLLECT IN CASH: Rs. ${dataToUse.total.toFixed(2)}</div>
+            </div>
+          ` : `
+            <div style="background-color: #f0fdf4; border: 2.2px solid #16a34a; border-radius: 5px; padding: 7px 10px; text-align: center; box-sizing: border-box; line-height: 1.25;">
+              <div style="font-size: 11px; font-weight: 900; color: #15803d; text-transform: uppercase; letter-spacing: 0.4px;">PREPAID ORDER (PAID ONLINE)</div>
+              <div style="font-size: 11px; font-weight: 800; color: #166534; margin-top: 2px;">Do NOT collect any cash upon delivery (Rs. 0.00)</div>
+            </div>
+          `}
+        </div>
+
+        <!-- Footer Section -->
+        <div>
+          <div style="border-top: 2px solid #e5e7eb; margin-bottom: 8px;"></div>
+          <div style="display: grid; grid-template-columns: 1.4fr 1fr; align-items: flex-end;">
+            <!-- Left Side: FROM Address -->
+            <div style="font-size: 9.5px; color: #374151; line-height: 1.32;">
+              <div style="font-weight: 900; color: #4a2010; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.4px; font-size: 9.5px;">FROM:</div>
+              <div style="font-weight: 900; color: #111827; font-size: 11.5px;">MantraPuja Store</div>
+              <div>501, Shagun Tower, Vijay Nagar,</div>
+              <div>Indore - 452010, Madhya Pradesh</div>
+              <div style="font-weight: 900; color: #000000; margin-top: 3px; font-size: 10.5px;">Support: +91 90090 46430</div>
+            </div>
+            <!-- Right Side: SCAN TO SHOP QR -->
+            <div style="display: flex; flex-direction: column; align-items: center; border-left: 1.5px solid #e5e7eb; padding-left: 10px;">
+              <span style="font-size: 8.5px; font-weight: 900; color: #4a2010; margin-bottom: 3px; letter-spacing: 0.4px;">SCAN TO SHOP:</span>
+              ${qrDataUrl ? `
+                <img src="${qrDataUrl}" style="width: 54px; height: 54px; border: 1.5px solid #fbbf24; border-radius: 4px; padding: 2px; background: white;" />
+              ` : `
+                <div style="width: 54px; height: 54px; border: 1.5px solid #fbbf24; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: bold; color: #9ca3af; background: white;">QR CODE</div>
+              `}
+              <span style="font-size: 8px; color: #4b5563; font-weight: 700; margin-top: 3px;">shop.mantrapuja.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(labelDiv);
+
+  try {
+    const canvas = await html2canvas(labelDiv.querySelector('#shipping-label-capture') as HTMLElement, {
+      scale: 2.5,
+      useCORS: true,
+      logging: false
+    });
+    const imgData = canvas.toDataURL('image/png');
+    doc.addImage(imgData, 'PNG', 0, 0, 101.6, 101.6);
+  } catch (err) {
+    console.error("Failed to render HTML Shipping Label:", err);
+  } finally {
+    document.body.removeChild(labelDiv);
+  }
 
   return doc;
-};
+};;
 
 // Local drop-in mock client that maps database operations to explicit backend API endpoints
 const getAdminSupabase = (): any => {
@@ -4551,6 +4506,190 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = React.useState<LocalOrder | null>(null);
 
+  // Order Corrections State
+  const [orderViewSource, setOrderViewSource] = React.useState<'primary' | 'corrected'>('corrected');
+  const [isEditingOrder, setIsEditingOrder] = React.useState<boolean>(false);
+  const [editedOrderData, setEditedOrderData] = React.useState<{
+    fullName: string;
+    phoneNumber: string;
+    email: string;
+    flat?: string;
+    addressLine1: string;
+    addressLine2: string;
+    landmark?: string;
+    altPhone?: string;
+    deliveryCity: string;
+    deliveryState: string;
+    pincode: string;
+    items: CartItem[];
+  } | null>(null);
+  const [editReasonInput, setEditReasonInput] = React.useState<string>('');
+  const [isSavingCorrection, setIsSavingCorrection] = React.useState<boolean>(false);
+
+  // Active Display Data computed from selected source
+  const activeDisplayData: OrderDataSnapshot = React.useMemo(() => {
+    if (!selectedOrderDetails) {
+      return {
+        fullName: '', phoneNumber: '', email: '', addressLine1: '', addressLine2: '',
+        deliveryCity: '', deliveryState: '', pincode: '', items: [], subtotal: 0,
+        discount: 0, shipping: 0, tax: 0, total: 0
+      };
+    }
+    if (orderViewSource === 'primary' && selectedOrderDetails.originalData) {
+      return selectedOrderDetails.originalData;
+    }
+    return selectedOrderDetails.activeData || selectedOrderDetails.originalData || {
+      fullName: selectedOrderDetails.fullName,
+      phoneNumber: selectedOrderDetails.phoneNumber,
+      email: selectedOrderDetails.email,
+      addressLine1: selectedOrderDetails.addressLine1,
+      addressLine2: selectedOrderDetails.addressLine2,
+      deliveryCity: selectedOrderDetails.deliveryCity,
+      deliveryState: selectedOrderDetails.deliveryState,
+      pincode: selectedOrderDetails.pincode,
+      items: selectedOrderDetails.items,
+      subtotal: selectedOrderDetails.subtotal,
+      discount: selectedOrderDetails.discount,
+      shipping: selectedOrderDetails.shipping,
+      tax: selectedOrderDetails.tax,
+      total: selectedOrderDetails.total
+    };
+  }, [selectedOrderDetails, orderViewSource]);
+
+  const handleStartEditOrder = () => {
+    if (!selectedOrderDetails) return;
+    const base = selectedOrderDetails.activeData || selectedOrderDetails.originalData || {
+      fullName: selectedOrderDetails.fullName,
+      phoneNumber: selectedOrderDetails.phoneNumber,
+      email: selectedOrderDetails.email,
+      addressLine1: selectedOrderDetails.addressLine1,
+      addressLine2: selectedOrderDetails.addressLine2 || '',
+      deliveryCity: selectedOrderDetails.deliveryCity,
+      deliveryState: selectedOrderDetails.deliveryState,
+      pincode: selectedOrderDetails.pincode,
+      items: selectedOrderDetails.items
+    };
+    const parsedAddr = parseAddressLine2(base.addressLine2 || '');
+    setEditedOrderData({
+      fullName: base.fullName,
+      phoneNumber: base.phoneNumber,
+      email: base.email,
+      flat: parsedAddr.flat || '',
+      addressLine1: base.addressLine1,
+      addressLine2: parsedAddr.addressLine2 || '',
+      landmark: parsedAddr.landmark || '',
+      altPhone: parsedAddr.altPhone || '',
+      deliveryCity: base.deliveryCity,
+      deliveryState: base.deliveryState,
+      pincode: base.pincode,
+      items: JSON.parse(JSON.stringify(base.items))
+    });
+    setEditReasonInput(selectedOrderDetails.adminCorrections?.edit_reason || '');
+    setIsEditingOrder(true);
+  };
+
+  const handleSaveOrderCorrection = async () => {
+    if (!selectedOrderDetails || !editedOrderData) return;
+    setIsSavingCorrection(true);
+    try {
+      let finalAddressLine2 = (editedOrderData.addressLine2 || '').trim();
+      if (editedOrderData.flat || editedOrderData.landmark || editedOrderData.altPhone || editedOrderData.addressLine2) {
+        finalAddressLine2 = `__STRUCTURED_ADDR__:${JSON.stringify({
+          flat: (editedOrderData.flat || '').trim(),
+          landmark: (editedOrderData.landmark || '').trim(),
+          altPhone: (editedOrderData.altPhone || '').trim(),
+          addressLine2: (editedOrderData.addressLine2 || '').trim()
+        })}`;
+      }
+
+      const res = await callAdminApi('/api/admin/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'save-correction',
+          orderId: selectedOrderDetails.orderId,
+          payload: {
+            fullName: editedOrderData.fullName,
+            phoneNumber: editedOrderData.phoneNumber,
+            email: editedOrderData.email,
+            addressLine1: editedOrderData.addressLine1,
+            addressLine2: finalAddressLine2,
+            deliveryCity: editedOrderData.deliveryCity,
+            deliveryState: editedOrderData.deliveryState,
+            pincode: editedOrderData.pincode,
+            items: editedOrderData.items,
+            editReason: editReasonInput
+          }
+        })
+      });
+      if (res.error) throw new Error(res.error);
+
+      triggerToast('Order correction saved successfully!');
+      setIsEditingOrder(false);
+      setOrderViewSource('corrected');
+
+      if (res.correction && selectedOrderDetails) {
+        const c = res.correction;
+        const newActiveData: OrderDataSnapshot = {
+          fullName: c.full_name,
+          phoneNumber: c.phone_number,
+          email: c.email,
+          addressLine1: c.address_line1,
+          addressLine2: c.address_line2,
+          deliveryCity: c.delivery_city,
+          deliveryState: c.delivery_state,
+          pincode: c.pincode,
+          items: c.items_snapshot || selectedOrderDetails.items,
+          subtotal: c.subtotal,
+          discount: c.discount,
+          shipping: c.shipping,
+          tax: c.tax,
+          total: c.total
+        };
+        setSelectedOrderDetails({
+          ...selectedOrderDetails,
+          adminCorrections: c,
+          activeData: newActiveData
+        });
+      }
+
+      if (onRefreshOrders) await onRefreshOrders();
+    } catch (err) {
+      console.error('Failed to save correction:', err);
+      alert('Save Correction Failed: ' + (err as Error).message);
+    } finally {
+      setIsSavingCorrection(false);
+    }
+  };
+
+  const handleRestoreOriginalOrder = async () => {
+    if (!selectedOrderDetails) return;
+    if (!window.confirm(`Are you sure you want to restore original customer details for order #${selectedOrderDetails.orderId}? All admin corrections will be deleted.`)) {
+      return;
+    }
+    setIsSavingCorrection(true);
+    try {
+      const res = await callAdminApi('/api/admin/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'delete-correction',
+          orderId: selectedOrderDetails.orderId
+        })
+      });
+      if (res.error) throw new Error(res.error);
+
+      triggerToast('Original order details restored!');
+      setIsEditingOrder(false);
+      setOrderViewSource('primary');
+      if (onRefreshOrders) await onRefreshOrders();
+      setSelectedOrderDetails(null);
+    } catch (err) {
+      console.error('Failed to restore original order:', err);
+      alert('Restore Failed: ' + (err as Error).message);
+    } finally {
+      setIsSavingCorrection(false);
+    }
+  };
+
   // Success Feedback Toast
   const [toastMsg, setToastMsg] = React.useState('');
 
@@ -4559,9 +4698,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  const handleDownloadInvoice = async (order: LocalOrder) => {
+  const handleDownloadInvoice = async (order: LocalOrder, source?: 'primary' | 'corrected') => {
     try {
-      const doc = await generateInvoiceDoc(order);
+      const doc = await generateInvoiceDoc(order, undefined, source);
       doc.save(`Invoice-${order.orderId}.pdf`);
       triggerToast(`Downloaded invoice for #${order.orderId}`);
     } catch (err) {
@@ -4570,9 +4709,9 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     }
   };
 
-  const handleDownloadShippingLabel = async (order: LocalOrder) => {
+  const handleDownloadShippingLabel = async (order: LocalOrder, source?: 'primary' | 'corrected') => {
     try {
-      const doc = await generateShippingLabelDoc(order);
+      const doc = await generateShippingLabelDoc(order, undefined, source);
       doc.save(`Shipping-Label-${order.orderId}.pdf`);
       triggerToast(`Downloaded shipping label for #${order.orderId}`);
     } catch (err) {
@@ -5022,57 +5161,6 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
       setPaymentAuthError(err.message || 'Authorization failed. Check your password.');
     } finally {
       setIsAuthorizingPayment(false);
-    }
-  };
-
-  const handleDeclinePayment = async (orderId: string) => {
-    const order = orders.find(o => o.orderId === orderId);
-    if (!order) return;
-
-    try {
-      const adminToken = adminSession?.token || localStorage.getItem('admin_session_token') || '';
-      const resData = await callAdminApi('/api/admin/orders/decline-legacy-payment', {
-        method: 'POST',
-        body: JSON.stringify({ orderId, adminToken })
-      });
-
-      const updatedOrder = resData.order;
-      const newCount = updatedOrder.payment_decline_count;
-      const isCancelled = updatedOrder.status === 'Cancelled';
-
-      triggerToast(
-        isCancelled
-          ? `Order #${orderId} payment declined (Attempt ${newCount}/3). Order has been automatically cancelled!`
-          : `Order #${orderId} payment declined (Attempt ${newCount}/3). User notified to re-upload.`
-      );
-
-      setOrders(prev => prev.map(o => {
-        if (o.orderId === orderId) {
-          return {
-            ...o,
-            paymentStatus: 'Declined',
-            paymentDeclineCount: newCount,
-            status: updatedOrder.status
-          };
-        }
-        return o;
-      }));
-
-      setSelectedOrderDetails(prev => {
-        if (prev && prev.orderId === orderId) {
-          return {
-            ...prev,
-            paymentStatus: 'Declined',
-            paymentDeclineCount: newCount,
-            status: updatedOrder.status
-          };
-        }
-        return prev;
-      });
-    } catch (err) {
-      console.error('Failed to decline payment:', err);
-      triggerToast(`Failed to decline payment: ${(err as Error).message}`);
-      return;
     }
   };
 
@@ -5970,7 +6058,25 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                             />
                             <div>
                               <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Order ID</span>
-                              <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-dark)' }}>#{order.orderId}</span>
+                                {order.adminCorrections && (
+                                  <span style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    backgroundColor: '#fef3c7',
+                                    color: '#b45309',
+                                    border: '1px solid #fde68a',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}>
+                                    ✎ Edited
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div>
@@ -13646,466 +13752,529 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
             {/* Content */}
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-              {/* Address details grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="form-grid-2col">
-
-                {/* Delivery address */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f9fafb' }}>
-                  <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    Fulfillment Destination
-                  </h4>
-                  <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{selectedOrderDetails.fullName}</p>
-                  {(() => {
-                    const parsedAddr = parseAddressLine2(selectedOrderDetails.addressLine2 || '');
-                    if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
-                      return (
-                        <>
-                          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                            {parsedAddr.flat ? `${parsedAddr.flat}, ` : ''}{selectedOrderDetails.addressLine1}
-                          </p>
-                          {parsedAddr.landmark && (
-                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              Landmark: {parsedAddr.landmark}
-                            </p>
-                          )}
-                        </>
-                      );
-                    }
-                    return (
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        {selectedOrderDetails.addressLine1}
-                        {selectedOrderDetails.addressLine2 ? `, ${selectedOrderDetails.addressLine2}` : ''}
-                      </p>
-                    );
-                  })()}
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    {selectedOrderDetails.deliveryCity}, {selectedOrderDetails.deliveryState} - {selectedOrderDetails.pincode}
-                  </p>
-                </div>
-
-                {/* Customer Contact */}
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f9fafb' }}>
-                  <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    Devotee Contacts
-                  </h4>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-dark)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={12} /> {selectedOrderDetails.fullName}
-                  </p>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    User ID: <code style={{ backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '4.5px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.userId || 'Guest'}</code>
-                  </p>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Email: {selectedOrderDetails.email}
-                  </p>
-                  {(() => {
-                    const parsedAddr = parseAddressLine2(selectedOrderDetails.addressLine2 || '');
-                    return (
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Phone: {selectedOrderDetails.phoneNumber}
-                        {parsedAddr.altPhone ? ` / Alt: ${parsedAddr.altPhone}` : ''}
-                      </p>
-                    );
-                  })()}
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Payment Provider: <strong style={{ textTransform: 'capitalize' }}>{selectedOrderDetails.payment_provider || selectedOrderDetails.paymentMethod || 'Manual UPI'}</strong>
-                  </p>
-                  {selectedOrderDetails.razorpay_mode && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Razorpay Mode: <span style={{ textTransform: 'uppercase', fontWeight: 'bold', color: selectedOrderDetails.razorpay_mode === 'live' ? '#ef4444' : '#3b82f6' }}>{selectedOrderDetails.razorpay_mode}</span>
-                    </p>
-                  )}
-                  {selectedOrderDetails.razorpay_order_id && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Razorpay Order ID: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.razorpay_order_id}</code>
-                    </p>
-                  )}
-                  {selectedOrderDetails.razorpay_payment_id && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Razorpay Payment ID: <code style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.razorpay_payment_id}</code>
-                    </p>
-                  )}
-                  {selectedOrderDetails.amount_paid_paise && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Amount Paid: <strong>₹{(Number(selectedOrderDetails.amount_paid_paise) / 100).toFixed(2)}</strong> ({selectedOrderDetails.currency || 'INR'})
-                    </p>
-                  )}
-                  {selectedOrderDetails.payment_verified_at && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Verified At: {new Date(selectedOrderDetails.payment_verified_at).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-              </div>
-
-              {/* Payment Screenshot Proof / Action Card */}
+              {/* Order Version / Source Selector & Action Toolbar */}
               <div style={{
-                border: '1px solid var(--border-light)',
+                padding: '12px 16px',
+                backgroundColor: '#fffbeb',
+                border: '1.5px solid #fde68a',
                 borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                backgroundColor: (selectedOrderDetails.paymentMethod === 'COD' || selectedOrderDetails.paymentMethod === 'Cash on Delivery') ? '#fff7ed' : '#f8fafc',
                 display: 'flex',
-                flexDirection: 'column',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '12px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{
-                    fontSize: '0.78rem',
-                    color: 'var(--text-muted)',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    margin: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    {(selectedOrderDetails.paymentMethod === 'COD' || selectedOrderDetails.paymentMethod === 'Cash on Delivery') ? (
-                      <>
-                        <Truck size={14} style={{ color: '#ea580c' }} />
-                        Cash on Delivery (COD) Status
-                      </>
-                    ) : (
-                      <>
-                        <Eye size={14} style={{ color: 'var(--primary-forest)' }} />
-                        Payment Verification ({selectedOrderDetails.paymentMethod || 'Online'})
-                      </>
-                    )}
-                  </h4>
-
-                  {/* Payment Status Badge */}
-                  <span style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    backgroundColor: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#dcfce7' : '#fee2e2',
-                    color: selectedOrderDetails.paymentStatus === 'Confirmed' ? '#15803d' : '#dc2626',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    textTransform: 'uppercase'
-                  }}>
-                    {selectedOrderDetails.paymentStatus || 'Pending'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    ORDER SOURCE:
                   </span>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 750,
+                    cursor: 'pointer',
+                    color: orderViewSource === 'primary' ? '#92400e' : '#4b5563',
+                    backgroundColor: orderViewSource === 'primary' ? '#fef3c7' : 'transparent',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: orderViewSource === 'primary' ? '1px solid #f59e0b' : '1px solid transparent',
+                    transition: 'all 0.15s'
+                  }}>
+                    <input
+                      type="radio"
+                      name="orderSource"
+                      value="primary"
+                      checked={orderViewSource === 'primary'}
+                      onChange={() => { setOrderViewSource('primary'); setIsEditingOrder(false); }}
+                      style={{ accentColor: '#ea580c', cursor: 'pointer' }}
+                    />
+                    <span>Primary (Original)</span>
+                    <span style={{ fontSize: '0.72rem', backgroundColor: '#d97706', color: '#ffffff', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>✓ Immutable</span>
+                  </label>
+
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 750,
+                    cursor: 'pointer',
+                    color: orderViewSource === 'corrected' ? '#92400e' : '#4b5563',
+                    backgroundColor: orderViewSource === 'corrected' ? '#fef3c7' : 'transparent',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: orderViewSource === 'corrected' ? '1px solid #f59e0b' : '1px solid transparent',
+                    transition: 'all 0.15s'
+                  }}>
+                    <input
+                      type="radio"
+                      name="orderSource"
+                      value="corrected"
+                      checked={orderViewSource === 'corrected'}
+                      onChange={() => setOrderViewSource('corrected')}
+                      style={{ accentColor: '#ea580c', cursor: 'pointer' }}
+                    />
+                    <span>Corrected (Admin)</span>
+                    {selectedOrderDetails.adminCorrections ? (
+                      <span style={{ fontSize: '0.72rem', backgroundColor: '#10b981', color: '#ffffff', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>✓ Active</span>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', backgroundColor: '#9ca3af', color: '#ffffff', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>(Not Added)</span>
+                    )}
+                  </label>
                 </div>
 
-                {/* Decline warning alert */}
-                {selectedOrderDetails.paymentDeclineCount !== undefined && selectedOrderDetails.paymentDeclineCount > 0 && (
-                  <div style={{
-                    padding: '10px 12px',
-                    backgroundColor: '#fffbeb',
-                    border: '1.5px solid #fef3c7',
-                    borderRadius: '6px',
-                    color: '#b45309',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
-                    <span>
-                      Payment declined {selectedOrderDetails.paymentDeclineCount} time(s). (Attempt {selectedOrderDetails.paymentDeclineCount}/3)
-                    </span>
-                  </div>
-                )}
-
-                {/* Approve/Confirm & Decline Buttons */}
-                {selectedOrderDetails.payment_provider === 'razorpay' ? (
-                  selectedOrderDetails.paymentStatus === 'Confirmed' ? (
-                    <div style={{
-                      padding: '12px 14px',
-                      backgroundColor: '#f0fdf4',
-                      color: '#15803d',
-                      borderRadius: '6px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      textAlign: 'center',
-                      border: '1px solid #bbf7d0'
-                    }}>
-                      Online Payment Confirmed via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
-                    </div>
-                  ) : (
-                    <div style={{
-                      padding: '12px 14px',
-                      backgroundColor: '#eff6ff',
-                      color: '#1e40af',
-                      borderRadius: '6px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      textAlign: 'center',
-                      border: '1px solid #bfdbfe'
-                    }}>
-                      Payment is Pending via Razorpay ({selectedOrderDetails.razorpay_mode || 'test'}). Overrides disabled.
-                    </div>
-                  )
-                ) : selectedOrderDetails.status === 'Cancelled' ? (
-                  <div style={{
-                    padding: '10px',
-                    backgroundColor: '#fee2e2',
-                    color: '#dc2626',
-                    borderRadius: '6px',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    textAlign: 'center',
-                    border: '1px solid #fca5a5'
-                  }}>
-                    Order has been Cancelled. No payment actions available.
-                  </div>
-                ) : selectedOrderDetails.paymentStatus === 'Confirmed' ? (
-                  <button
-                    onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Pending')}
-                    style={{
-                      padding: '10px',
-                      justifyContent: 'center',
-                      fontSize: '0.82rem',
-                      fontWeight: 800,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      width: '100%',
-                      backgroundColor: '#fee2e2',
-                      color: '#dc2626',
-                      border: 'none',
-                      boxShadow: 'var(--shadow-sm)'
-                    }}
-                  >
-                    Revert Payment to Pending
-                  </button>
-                ) : (
-                  <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                    <button
-                      onClick={() => handleUpdatePaymentStatus(selectedOrderDetails.orderId, 'Confirmed')}
-                      className="btn-lime"
-                      style={{
-                        flex: 1,
-                        padding: '10px',
-                        justifyContent: 'center',
-                        fontSize: '0.82rem',
-                        fontWeight: 800,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        border: 'none',
-                        boxShadow: 'var(--shadow-sm)',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff'
-                      }}
-                    >
-                      <CheckCircle size={16} /> Confirm Payment Received
-                    </button>
-                    {(selectedOrderDetails.paymentMethod === 'Scan & Pay (UPI)' || selectedOrderDetails.paymentScreenshot) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {!isEditingOrder ? (
+                    <>
                       <button
-                        onClick={() => handleDeclinePayment(selectedOrderDetails.orderId)}
+                        onClick={() => {
+                          setOrderViewSource('corrected');
+                          handleStartEditOrder();
+                        }}
                         style={{
-                          flex: 1,
-                          padding: '10px',
-                          justifyContent: 'center',
-                          fontSize: '0.82rem',
+                          padding: '6px 12px',
+                          fontSize: '0.78rem',
                           fontWeight: 800,
                           borderRadius: '6px',
-                          cursor: 'pointer',
-                          backgroundColor: '#ef4444',
+                          backgroundColor: '#ea580c',
                           color: '#ffffff',
                           border: 'none',
-                          boxShadow: 'var(--shadow-sm)'
-                        }}
-                      >
-                        Decline Payment
-                      </button>
-                    )}
-                  </div>
-                )}
-                  <div style={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-light)',
-                    backgroundColor: '#ffffff',
-                    textAlign: 'center',
-                    padding: '8px'
-                  }}>
-                    <img
-                      src={selectedOrderDetails.paymentScreenshot}
-                      alt="Payment Screenshot Proof"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '220px',
-                        objectFit: 'contain',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s ease-in-out'
-                      }}
-                      onClick={() => window.open(selectedOrderDetails.paymentScreenshot, '_blank')}
-                      onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
-                      onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                    />
-                    <div style={{ marginTop: '8px', fontSize: '0.78rem' }}>
-                      <a
-                        href={selectedOrderDetails.paymentScreenshot}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          color: 'var(--primary-forest)',
-                          fontWeight: 700,
-                          textDecoration: 'underline',
-                          display: 'inline-flex',
+                          cursor: 'pointer',
+                          display: 'flex',
                           alignItems: 'center',
                           gap: '4px'
                         }}
                       >
-                        View Full Screen
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-              {/* Items Table list */}
-              <div>
-                <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-                  Order items list
-                </h4>
-                <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                  {selectedOrderDetails.items.map((item, idx) => (
-                    <div
-                      key={idx}
+                        <Edit3 size={13} />
+                        {selectedOrderDetails.adminCorrections ? 'Edit Corrected Address' : '+ Add Admin Address Correction'}
+                      </button>
+                      {selectedOrderDetails.adminCorrections && (
+                        <button
+                          onClick={handleRestoreOriginalOrder}
+                          disabled={isSavingCorrection}
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            borderRadius: '6px',
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <RotateCcw size={13} /> Restore Original
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditingOrder(false)}
                       style={{
-                        padding: '12px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderBottom: idx < selectedOrderDetails.items.length - 1 ? '1px solid var(--border-light)' : 'none',
-                        backgroundColor: '#ffffff'
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        backgroundColor: '#6b7280',
+                        color: '#ffffff',
+                        border: 'none',
+                        cursor: 'pointer'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {isImageUrl(item.product.image) ? (
-                          <img src={getDisplayImageUrl(item.product.image)} alt={item.product.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
-                        ) : (
-                          <span style={{ fontSize: '2rem' }}>{item.product.image || '📿'}</span>
-                        )}
-                        <div>
-                          <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{item.product.name}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Quantity: {item.quantity} • price: ₹{item.product.price} each
-                          </p>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 800 }}>
-                        ₹{(item.product.price * item.quantity).toFixed(2)}
-                      </span>
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {isEditingOrder && editedOrderData ? (
+                /* INLINE ORDER EDITOR */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: '#fdfbf7', padding: '16px', borderRadius: 'var(--radius-md)', border: '1.5px solid #fed7aa' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary-forest)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                    <Edit3 size={16} /> Edit Customer & Shipping Address Details
+                  </h3>
+
+                  {/* Customer Details Form */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="form-grid-2col">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Full Name *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.fullName}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, fullName: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pricing breakdown summary */}
-              <div style={{
-                borderTop: '1.5px solid var(--border-light)',
-                paddingTop: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
-                  <span style={{ fontWeight: 700 }}>₹{selectedOrderDetails.subtotal.toFixed(2)}</span>
-                </div>
-                {selectedOrderDetails.discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#10b981' }}>
-                    <span>Coupon Discount</span>
-                    <span style={{ fontWeight: 700 }}>- ₹{selectedOrderDetails.discount.toFixed(2)}</span>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Phone Number *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.phoneNumber}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, phoneNumber: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Email Address *</label>
+                      <input
+                        type="email"
+                        value={editedOrderData.email}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, email: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Flat, House No., Building Name/No</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 21 B Vijaynagar"
+                        value={editedOrderData.flat || ''}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, flat: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Address Line 1 (Street) *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.addressLine1}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, addressLine1: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Landmark (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Near Dmart"
+                        value={editedOrderData.landmark || ''}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, landmark: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Alternative Phone (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Alternative contact number"
+                        value={editedOrderData.altPhone || ''}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, altPhone: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Address Line 2 (Optional)</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.addressLine2}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, addressLine2: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>City *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.deliveryCity}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, deliveryCity: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>State *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.deliveryState}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, deliveryState: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Pincode *</label>
+                      <input
+                        type="text"
+                        value={editedOrderData.pincode}
+                        onChange={(e) => setEditedOrderData({ ...editedOrderData, pincode: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}
+                      />
+                    </div>
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Sacred Shipping</span>
-                  <span style={{ fontWeight: 700 }}>{selectedOrderDetails.shipping === 0 ? 'FREE' : `₹${selectedOrderDetails.shipping.toFixed(2)}`}</span>
-                </div>
-                {selectedOrderDetails.tax > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Tax ({selectedOrderDetails.gstPercentSnapshot !== undefined && selectedOrderDetails.gstPercentSnapshot !== null ? selectedOrderDetails.gstPercentSnapshot : 8}%)</span>
-                    <span style={{ fontWeight: 700 }}>₹{selectedOrderDetails.tax.toFixed(2)}</span>
+
+                  {/* Reason Input */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>Edit Reason / Audit Note</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Customer requested address correction via WhatsApp"
+                      value={editReasonInput}
+                      onChange={(e) => setEditReasonInput(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '0.82rem' }}
+                    />
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>Grand Total Charged</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{selectedOrderDetails.total.toFixed(2)}</span>
+
+                  {/* Save Buttons */}
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={handleSaveOrderCorrection}
+                      disabled={isSavingCorrection}
+                      className="btn-lime"
+                      style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: 800 }}
+                    >
+                      {isSavingCorrection ? 'Saving Correction...' : 'Save Order Correction'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingOrder(false)}
+                      style={{ padding: '10px 16px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* DISPLAY MODE */
+                <>
+                  {/* Address details grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="form-grid-2col">
 
-              {/* Action Downloads */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '4px' }}>
-                <button
-                  onClick={() => handleDownloadInvoice(selectedOrderDetails)}
-                  className="btn-lime"
-                  style={{
-                    padding: '10px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  <ArrowDown size={14} /> Invoice PDF
-                </button>
-                <button
-                  onClick={() => handleDownloadShippingLabel(selectedOrderDetails)}
-                  style={{
-                    padding: '10px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    backgroundColor: '#ea580c',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#c2410c')}
-                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
-                >
-                  <Truck size={14} /> Shipping Sticker
-                </button>
-                <button
-                  onClick={() => handleOpenDeleteModal([selectedOrderDetails.orderId])}
-                  style={{
-                    padding: '10px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    backgroundColor: '#fee2e2',
-                    color: '#dc2626',
-                    border: '1px solid #fecaca',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#dc2626';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#fee2e2';
-                    e.currentTarget.style.color = '#dc2626';
-                  }}
-                >
-                  <Trash2 size={14} /> Delete Order
-                </button>
-              </div>
+                    {/* Delivery address */}
+                    <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f9fafb' }}>
+                      <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Fulfillment Destination {orderViewSource === 'corrected' && selectedOrderDetails.adminCorrections ? '(Corrected)' : '(Original)'}
+                      </h4>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{activeDisplayData.fullName}</p>
+                      {(() => {
+                        const parsedAddr = parseAddressLine2(activeDisplayData.addressLine2 || '');
+                        if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone || parsedAddr.addressLine2) {
+                          return (
+                            <>
+                              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                {parsedAddr.flat ? `${parsedAddr.flat}, ` : ''}
+                                {activeDisplayData.addressLine1}
+                                {parsedAddr.addressLine2 ? `, ${parsedAddr.addressLine2}` : ''}
+                              </p>
+                              {parsedAddr.landmark && (
+                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  Landmark: {parsedAddr.landmark}
+                                </p>
+                              )}
+                            </>
+                          );
+                        }
+                        return (
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            {activeDisplayData.addressLine1}
+                            {parsedAddr.addressLine2 ? `, ${parsedAddr.addressLine2}` : ''}
+                          </p>
+                        );
+                      })()}
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {activeDisplayData.deliveryCity}, {activeDisplayData.deliveryState} - {activeDisplayData.pincode}
+                      </p>
+                    </div>
 
-              {/* Close Button */}
+                    {/* Customer Contact */}
+                    <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '14px', backgroundColor: '#f9fafb' }}>
+                      <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Devotee Contacts
+                      </h4>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-dark)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <User size={12} /> {activeDisplayData.fullName}
+                      </p>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        User ID: <code style={{ backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '4.5px', fontSize: '0.75rem', fontWeight: 'bold' }}>{selectedOrderDetails.userId || 'Guest'}</code>
+                      </p>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Email: {activeDisplayData.email}
+                      </p>
+                      {(() => {
+                        const parsedAddr = parseAddressLine2(activeDisplayData.addressLine2 || '');
+                        return (
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Phone: {activeDisplayData.phoneNumber}
+                            {parsedAddr.altPhone ? ` / Alt: ${parsedAddr.altPhone}` : ''}
+                          </p>
+                        );
+                      })()}
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        Payment Provider: <strong style={{ textTransform: 'capitalize' }}>{selectedOrderDetails.payment_provider || selectedOrderDetails.paymentMethod || 'Manual UPI'}</strong>
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* Audit Note Banner if Corrected */}
+                  {orderViewSource === 'corrected' && selectedOrderDetails.adminCorrections && (
+                    <div style={{ padding: '10px 14px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px', color: '#b45309', fontSize: '0.82rem' }}>
+                      <strong>✎ Active Admin Correction:</strong> {selectedOrderDetails.adminCorrections.edit_reason ? selectedOrderDetails.adminCorrections.edit_reason : 'Edited by admin'} (Updated {new Date(selectedOrderDetails.adminCorrections.updated_at).toLocaleString()})
+                    </div>
+                  )}
+
+                  {/* Items Table list */}
+                  <div>
+                    <h4 style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                      Order items list ({activeDisplayData.items.length})
+                    </h4>
+                    <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                      {activeDisplayData.items.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: '12px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: idx < activeDisplayData.items.length - 1 ? '1px solid var(--border-light)' : 'none',
+                            backgroundColor: '#ffffff'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {isImageUrl(item.product.image) ? (
+                              <img src={getDisplayImageUrl(item.product.image)} alt={item.product.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
+                            ) : (
+                              <span style={{ fontSize: '2rem' }}>{item.product.image || '📿'}</span>
+                            )}
+                            <div>
+                              <p style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-dark)' }}>{item.product.name}</p>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                Quantity: {item.quantity} • price: ₹{item.product.price} each
+                              </p>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 800 }}>
+                            ₹{(item.product.price * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pricing breakdown summary */}
+                  <div style={{
+                    borderTop: '1.5px solid var(--border-light)',
+                    paddingTop: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                      <span style={{ fontWeight: 700 }}>₹{activeDisplayData.subtotal.toFixed(2)}</span>
+                    </div>
+                    {activeDisplayData.discount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#10b981' }}>
+                        <span>Coupon Discount</span>
+                        <span style={{ fontWeight: 700 }}>- ₹{activeDisplayData.discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Sacred Shipping</span>
+                      <span style={{ fontWeight: 700 }}>{activeDisplayData.shipping === 0 ? 'FREE' : `₹${activeDisplayData.shipping.toFixed(2)}`}</span>
+                    </div>
+                    {activeDisplayData.tax > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Tax ({selectedOrderDetails.gstPercentSnapshot !== undefined && selectedOrderDetails.gstPercentSnapshot !== null ? selectedOrderDetails.gstPercentSnapshot : 8}%)</span>
+                        <span style={{ fontWeight: 700 }}>₹{activeDisplayData.tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-dark)' }}>Grand Total</span>
+                      <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary-forest)' }}>₹{activeDisplayData.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Downloads */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => handleDownloadInvoice(selectedOrderDetails, orderViewSource)}
+                      className="btn-lime"
+                      style={{
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      <ArrowDown size={14} /> Invoice PDF
+                    </button>
+                    <button
+                      onClick={() => handleDownloadShippingLabel(selectedOrderDetails, orderViewSource)}
+                      style={{
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        backgroundColor: '#ea580c',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#c2410c')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                    >
+                      <Truck size={14} /> Shipping Sticker
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal([selectedOrderDetails.orderId])}
+                      style={{
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = '#dc2626';
+                        e.currentTarget.style.color = '#ffffff';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fee2e2';
+                        e.currentTarget.style.color = '#dc2626';
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete Order
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid var(--border-light)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              backgroundColor: '#f9fafb'
+            }}>
               <button
                 onClick={() => setSelectedOrderDetails(null)}
-                className="btn-lime"
-                style={{ width: '100%', padding: '12px', justifyContent: 'center', backgroundColor: '#f3f4f6', color: 'var(--text-dark)', border: '1px solid var(--border-light)', marginTop: '8px' }}
+                className="btn-outline"
+                style={{ padding: '8px 20px', fontSize: '0.85rem' }}
               >
-                Close
+                Close Details
               </button>
-
             </div>
           </div>
         </div>

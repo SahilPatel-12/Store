@@ -171,6 +171,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     email,
     addressLine1,
     addressLine2,
+    flatHouseBuilding,
+    landmark,
+    alternativePhone,
+    selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
     city,
     state,
     pincode,
@@ -245,16 +249,42 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             }));
             setSavedAddresses(mapped);
 
-            const defaultAddress = mapped.find(a => a.isDefault);
-            if (defaultAddress) {
-              setFullName(defaultAddress.name);
-              setPhone(defaultAddress.phone);
-              setAddressLine1(defaultAddress.street);
+            const applyAddressToForm = (targetAddress: Address) => {
+              let flatVal = '';
+              let streetVal = targetAddress.street || '';
+              let landmarkVal = '';
+              let altPhoneVal = '';
+
+              if (streetVal && streetVal.includes('__STRUCTURED_ADDR__:')) {
+                try {
+                  const idx = streetVal.indexOf('__STRUCTURED_ADDR__:');
+                  const parsed = JSON.parse(streetVal.substring(idx + 20));
+                  flatVal = parsed.flat || '';
+                  streetVal = parsed.street || parsed.addressLine1 || '';
+                  landmarkVal = parsed.landmark || '';
+                  altPhoneVal = parsed.altPhone || '';
+                } catch (e) {
+                  const cleaned = streetVal.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+                  streetVal = cleaned.startsWith('__STRUCTURED_ADDR__:') ? '' : cleaned;
+                }
+              }
+
+              setFullName(targetAddress.name);
+              setPhone(targetAddress.phone);
+              setFlatHouseBuilding(flatVal);
+              setAddressLine1(streetVal);
+              setLandmark(landmarkVal);
+              setAlternativePhone(altPhoneVal);
               setAddressLine2('');
-              setCity(defaultAddress.city);
-              setState(defaultAddress.state);
-              setPincode(defaultAddress.zip);
-              setSelectedAddressId(defaultAddress.id);
+              setCity(targetAddress.city);
+              setState(targetAddress.state);
+              setPincode(targetAddress.zip);
+              setSelectedAddressId(targetAddress.id);
+            };
+
+            const defaultAddress = mapped.find(a => a.isDefault) || (mapped.length > 0 ? mapped[0] : null);
+            if (defaultAddress) {
+              applyAddressToForm(defaultAddress);
             }
           }
         } catch (err) {
@@ -291,29 +321,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setSelectedAddressId(id);
     const addr = savedAddresses.find(a => a.id === id);
     if (addr) {
-      setFullName(addr.name);
-      setPhone(addr.phone);
-      
-      if (addr.street && addr.street.startsWith('__STRUCTURED_ADDR__:')) {
+      let flatVal = '';
+      let streetVal = addr.street || '';
+      let landmarkVal = '';
+      let altPhoneVal = '';
+
+      if (streetVal && streetVal.includes('__STRUCTURED_ADDR__:')) {
         try {
-          const parsed = JSON.parse(addr.street.substring(20));
-          setFlatHouseBuilding(parsed.flat || '');
-          setAddressLine1(parsed.street || '');
-          setLandmark(parsed.landmark || '');
-          setAlternativePhone(parsed.altPhone || '');
+          const idx = streetVal.indexOf('__STRUCTURED_ADDR__:');
+          const parsed = JSON.parse(streetVal.substring(idx + 20));
+          flatVal = parsed.flat || '';
+          streetVal = parsed.street || parsed.addressLine1 || '';
+          landmarkVal = parsed.landmark || '';
+          altPhoneVal = parsed.altPhone || '';
         } catch (e) {
-          setFlatHouseBuilding('');
-          setAddressLine1(addr.street);
-          setLandmark('');
-          setAlternativePhone('');
+          const cleaned = streetVal.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+          streetVal = cleaned.startsWith('__STRUCTURED_ADDR__:') ? '' : cleaned;
         }
-      } else {
-        setFlatHouseBuilding('');
-        setAddressLine1(addr.street);
-        setLandmark('');
-        setAlternativePhone('');
       }
 
+      setFullName(addr.name);
+      setPhone(addr.phone);
+      setFlatHouseBuilding(flatVal);
+      setAddressLine1(streetVal);
+      setLandmark(landmarkVal);
+      setAlternativePhone(altPhoneVal);
       setAddressLine2('');
       setCity(addr.city);
       setState(addr.state);
@@ -615,6 +647,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       })}`,
       pincode,
       placedAt: new Date(),
+      selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
       razorpayPaymentId,
       paymentScreenshot: paymentScreenshotUrl || undefined,
       appliedCouponCode: appliedCouponCode || undefined,
@@ -806,84 +839,109 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                 {savedAddresses.length > 0 && (
                   <div style={{
-                    marginBottom: '24px',
-                    padding: '16px',
-                    backgroundColor: 'var(--primary-lime-light)',
+                    marginBottom: '20px',
+                    padding: '12px 14px',
+                    backgroundColor: '#fff7ed',
                     borderRadius: 'var(--radius-lg)',
-                    border: '1px solid var(--primary-lime)',
+                    border: '1px solid #fed7aa',
                   }}>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '10px' }}>
-                      {t('address.saved')}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                        📍 {t('address.saved')}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: '#9a3412', fontWeight: 700 }}>
+                        ({savedAddresses.length})
+                      </span>
+                    </div>
                     <div style={{
                       display: 'flex',
-                      gap: '12px',
+                      gap: '10px',
                       overflowX: 'auto',
-                      paddingBottom: '8px',
+                      paddingBottom: '4px',
                     }} className="no-scrollbar">
-                      {savedAddresses.map((addr) => (
-                        <button
-                          key={addr.id}
-                          type="button"
-                          onClick={() => handleSelectSavedAddress(addr.id)}
-                          style={{
-                            flexShrink: 0,
-                            width: '200px',
-                            padding: '12px',
-                            borderRadius: 'var(--radius-md)',
-                            border: selectedAddressId === addr.id ? '2px solid var(--primary-lime)' : '1px solid var(--border-light)',
-                            backgroundColor: '#ffffff',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 800, backgroundColor: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
-                              {addr.type}
-                            </span>
-                            {addr.isDefault && <span style={{ fontSize: '0.65rem', color: 'var(--primary-lime)', fontWeight: 800 }}>{t('address.default')}</span>}
-                          </div>
-                          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {addr.name}
-                          </p>
-                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {addr.street}, {addr.city}
-                          </p>
-                        </button>
-                      ))}
+                      {savedAddresses.map((addr) => {
+                        let displayStreet = addr.street || '';
+                        let displayFlat = '';
+
+                        if (displayStreet.includes('__STRUCTURED_ADDR__:')) {
+                          try {
+                            const idx = displayStreet.indexOf('__STRUCTURED_ADDR__:');
+                            const parsed = JSON.parse(displayStreet.substring(idx + 20));
+                            displayFlat = parsed.flat || '';
+                            displayStreet = parsed.street || parsed.addressLine1 || '';
+                          } catch (e) {
+                            displayStreet = displayStreet.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+                          }
+                        }
+
+                        const addressPreview = [displayFlat, displayStreet, addr.city].filter(Boolean).join(', ');
+                        const isSelected = selectedAddressId === addr.id;
+
+                        return (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => handleSelectSavedAddress(addr.id)}
+                            style={{
+                              flexShrink: 0,
+                              width: '180px',
+                              padding: '10px',
+                              borderRadius: 'var(--radius-md)',
+                              border: isSelected ? '2px solid #ea580c' : '1px solid #fed7aa',
+                              backgroundColor: isSelected ? '#ffffff' : '#fffcf8',
+                              boxShadow: isSelected ? '0 2px 6px rgba(234, 88, 12, 0.12)' : 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isSelected ? '#c2410c' : '#6b7280', backgroundColor: isSelected ? '#ffedd5' : '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
+                                {addr.type || 'Home'}
+                              </span>
+                              {addr.isDefault && <span style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: 800 }}>{t('address.default')}</span>}
+                            </div>
+                            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {addr.name}
+                            </p>
+                            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {addressPreview}
+                            </p>
+                          </button>
+                        );
+                      })}
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedAddressId('custom');
                           setFullName('');
                           setPhone('');
-                          setAddressLine1('');
-                          setAddressLine2('');
                           setFlatHouseBuilding('');
+                          setAddressLine1('');
                           setLandmark('');
                           setAlternativePhone('');
+                          setAddressLine2('');
                           setCity('');
                           setState('');
                           setPincode('');
                         }}
                         style={{
                           flexShrink: 0,
-                          width: '120px',
-                          padding: '12px',
+                          width: '100px',
+                          padding: '10px',
                           borderRadius: 'var(--radius-md)',
-                          border: selectedAddressId === 'custom' ? '2px solid var(--primary-lime)' : '1px dashed var(--border-light)',
-                          backgroundColor: '#ffffff',
+                          border: selectedAddressId === 'custom' ? '2px solid #ea580c' : '1px dashed #fdba74',
+                          backgroundColor: selectedAddressId === 'custom' ? '#ffffff' : '#fffcf8',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
-                          gap: '6px',
+                          gap: '4px'
                         }}
                       >
-                        <Plus size={16} />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t('address.custom')}</span>
+                        <Plus size={14} style={{ color: selectedAddressId === 'custom' ? '#ea580c' : '#c2410c' }} />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: selectedAddressId === 'custom' ? '#ea580c' : '#c2410c' }}>{t('address.custom')}</span>
                       </button>
                     </div>
                   </div>

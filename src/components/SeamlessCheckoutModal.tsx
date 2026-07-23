@@ -189,6 +189,10 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     email,
     addressLine1,
     addressLine2,
+    flatHouseBuilding,
+    landmark,
+    alternativePhone,
+    selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
     city,
     state,
     pincode,
@@ -267,29 +271,42 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
             zip: item.zip,
             isDefault: item.is_default
           }));
-          setSavedAddresses(mapped);
+          const applyAddressToForm = (targetAddr: Address) => {
+            let flatVal = '';
+            let streetVal = targetAddr.street || '';
+            let landmarkVal = '';
+            let altPhoneVal = '';
 
-          const defaultAddr = mapped.find(a => a.isDefault);
+            if (streetVal && streetVal.includes('__STRUCTURED_ADDR__:')) {
+              try {
+                const idx = streetVal.indexOf('__STRUCTURED_ADDR__:');
+                const parsed = JSON.parse(streetVal.substring(idx + 20));
+                flatVal = parsed.flat || '';
+                streetVal = parsed.street || parsed.addressLine1 || '';
+                landmarkVal = parsed.landmark || '';
+                altPhoneVal = parsed.altPhone || '';
+              } catch (e) {
+                streetVal = streetVal.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+              }
+            }
+
+            setFullName(targetAddr.name);
+            setPhone(targetAddr.phone);
+            setFlatHouseBuilding(flatVal);
+            setAddressLine1(streetVal);
+            setLandmark(landmarkVal);
+            setAlternativePhone(altPhoneVal);
+            setAddressLine2('');
+            setCity(targetAddr.city);
+            setState(targetAddr.state);
+            setPincode(targetAddr.zip);
+            setSelectedAddressId(targetAddr.id);
+          };
+
+          setSavedAddresses(mapped);
+          const defaultAddr = mapped.find(a => a.isDefault) || (mapped.length > 0 ? mapped[0] : null);
           if (defaultAddr) {
-            setFullName(defaultAddr.name);
-            setPhone(defaultAddr.phone);
-            setAddressLine1(defaultAddr.street);
-            setAddressLine2('');
-            setCity(defaultAddr.city);
-            setState(defaultAddr.state);
-            setPincode(defaultAddr.zip);
-            setSelectedAddressId(defaultAddr.id);
-          } else if (mapped.length > 0) {
-            // fallback to first
-            const first = mapped[0];
-            setFullName(first.name);
-            setPhone(first.phone);
-            setAddressLine1(first.street);
-            setAddressLine2('');
-            setCity(first.city);
-            setState(first.state);
-            setPincode(first.zip);
-            setSelectedAddressId(first.id);
+            applyAddressToForm(defaultAddr);
           }
         }
       } catch (err) {
@@ -583,22 +600,24 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       setFullName(addr.name);
       setPhone(addr.phone);
       
-      if (addr.street && addr.street.startsWith('__STRUCTURED_ADDR__:')) {
+      if (addr.street && addr.street.includes('__STRUCTURED_ADDR__:')) {
         try {
-          const parsed = JSON.parse(addr.street.substring(20));
+          const idx = addr.street.indexOf('__STRUCTURED_ADDR__:');
+          const parsed = JSON.parse(addr.street.substring(idx + 20));
           setFlatHouseBuilding(parsed.flat || '');
-          setAddressLine1(parsed.street || '');
+          setAddressLine1(parsed.street || parsed.addressLine1 || '');
           setLandmark(parsed.landmark || '');
           setAlternativePhone(parsed.altPhone || '');
         } catch (e) {
+          const cleaned = addr.street.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
           setFlatHouseBuilding('');
-          setAddressLine1(addr.street);
+          setAddressLine1(cleaned.startsWith('__STRUCTURED_ADDR__:') ? '' : cleaned);
           setLandmark('');
           setAlternativePhone('');
         }
       } else {
         setFlatHouseBuilding('');
-        setAddressLine1(addr.street);
+        setAddressLine1(addr.street || '');
         setLandmark('');
         setAlternativePhone('');
       }
@@ -690,6 +709,7 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       })}`,
       pincode,
       placedAt: new Date(),
+      selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
       razorpayPaymentId,
       paymentScreenshot: paymentScreenshotUrl || undefined,
       appliedCouponCode: appliedCouponCode || undefined,
@@ -1121,6 +1141,11 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
               </h3>
               <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0 0 16px 0', lineHeight: 1.4 }}>
                 {t('otp.info', { phone: otpTargetPhone })}
+                {import.meta.env.DEV && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                  <span style={{ display: 'block', color: '#4338ca', fontWeight: 700, marginTop: '6px', fontSize: '0.78rem', backgroundColor: '#e0e7ff', padding: '6px 10px', borderRadius: '6px' }}>
+                    ⚡ Local Dev Mode: Use OTP code set in <code>.env.local</code> (e.g. 777777)
+                  </span>
+                )}
               </p>
 
               {authError && (
@@ -1216,47 +1241,85 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                 <>
                   {savedAddresses.length > 0 && (
                     <div style={{
-                      backgroundColor: 'var(--primary-lime-light)',
-                      border: '1px solid var(--primary-lime)',
-                      borderRadius: '8px',
-                      padding: '10px',
-                      marginBottom: '14px'
+                      backgroundColor: '#fff7ed',
+                      border: '1px solid #ffedd5',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      marginBottom: '12px'
                     }}>
-                      <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#374151', marginBottom: '6px' }}>
-                        {t('address.savedList')}
-                      </p>
-                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
-                        {savedAddresses.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => handleSelectSavedAddress(a.id)}
-                            style={{
-                              flexShrink: 0,
-                              width: '180px',
-                              padding: '10px',
-                              borderRadius: '6px',
-                              border: selectedAddressId === a.id ? '2px solid var(--primary-lime)' : '1px solid #d1d5db',
-                              backgroundColor: '#ffffff',
-                              textAlign: 'left',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '0.62rem', fontWeight: 800, backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '3px' }}>{a.type}</span>
-                              {a.isDefault && <span style={{ fontSize: '0.6rem', color: 'var(--primary-lime)', fontWeight: 800 }}>{t('address.default')}</span>}
-                            </div>
-                            <p style={{ fontSize: '0.74rem', fontWeight: 700, color: '#1f2937', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</p>
-                            <p style={{ fontSize: '0.68rem', color: '#6b7280', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.street}, {a.city}</p>
-                          </button>
-                        ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          📍 {t('address.savedList')}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: '#9a3412', fontWeight: 700 }}>
+                          ({savedAddresses.length})
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                        {savedAddresses.map((a) => {
+                          let displayStreet = a.street || '';
+                          let displayFlat = '';
+
+                          if (displayStreet.includes('__STRUCTURED_ADDR__:')) {
+                            try {
+                              const idx = displayStreet.indexOf('__STRUCTURED_ADDR__:');
+                              const parsed = JSON.parse(displayStreet.substring(idx + 20));
+                              displayFlat = parsed.flat || '';
+                              displayStreet = parsed.street || parsed.addressLine1 || '';
+                            } catch (e) {
+                              displayStreet = displayStreet.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+                            }
+                          }
+
+                          const addressPreview = [displayFlat, displayStreet, a.city].filter(Boolean).join(', ');
+                          const isSelected = selectedAddressId === a.id;
+
+                          return (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => handleSelectSavedAddress(a.id)}
+                              style={{
+                                flexShrink: 0,
+                                width: '155px',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: isSelected ? '2px solid #ea580c' : '1px solid #fed7aa',
+                                backgroundColor: isSelected ? '#ffffff' : '#fffcf8',
+                                boxShadow: isSelected ? '0 2px 6px rgba(234, 88, 12, 0.12)' : 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                <span style={{
+                                  fontSize: '0.6rem',
+                                  fontWeight: 800,
+                                  color: isSelected ? '#c2410c' : '#6b7280',
+                                  backgroundColor: isSelected ? '#ffedd5' : '#f3f4f6',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px'
+                                }}>
+                                  {a.type || 'Home'}
+                                </span>
+                                {a.isDefault && <span style={{ fontSize: '0.6rem', color: '#16a34a', fontWeight: 800 }}>{t('address.default')}</span>}
+                              </div>
+                              <p style={{ fontSize: '0.76rem', fontWeight: 800, color: '#1f2937', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</p>
+                              <p style={{ fontSize: '0.68rem', color: '#6b7280', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{addressPreview}</p>
+                            </button>
+                          );
+                        })}
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedAddressId('custom');
                             setFullName('');
                             setPhone('');
+                            setFlatHouseBuilding('');
                             setAddressLine1('');
+                            setLandmark('');
+                            setAlternativePhone('');
                             setAddressLine2('');
                             setCity('');
                             setState('');
@@ -1264,21 +1327,21 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
                           }}
                           style={{
                             flexShrink: 0,
-                            width: '100px',
-                            padding: '10px',
-                            borderRadius: '6px',
-                            border: selectedAddressId === 'custom' ? '2px solid var(--primary-lime)' : '1px dashed #d1d5db',
-                            backgroundColor: '#ffffff',
+                            width: '90px',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: selectedAddressId === 'custom' ? '2px solid #ea580c' : '1px dashed #fdba74',
+                            backgroundColor: selectedAddressId === 'custom' ? '#ffffff' : '#fffcf8',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
-                            gap: '4px'
+                            gap: '2px'
                           }}
                         >
-                          <Plus size={14} />
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{t('address.custom')}</span>
+                          <Plus size={13} style={{ color: selectedAddressId === 'custom' ? '#ea580c' : '#c2410c' }} />
+                          <span style={{ fontSize: '0.65rem', fontWeight: 800, color: selectedAddressId === 'custom' ? '#ea580c' : '#c2410c' }}>{t('address.custom')}</span>
                         </button>
                       </div>
                     </div>

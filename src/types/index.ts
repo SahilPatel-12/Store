@@ -83,8 +83,49 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface OrderCorrection {
+  id: string;
+  order_id: string;
+  full_name: string;
+  phone_number: string;
+  email: string;
+  address_line1: string;
+  address_line2?: string;
+  delivery_city: string;
+  delivery_state: string;
+  pincode: string;
+  items_snapshot: CartItem[];
+  subtotal: number;
+  discount: number;
+  shipping: number;
+  tax: number;
+  total: number;
+  edited_by?: string;
+  edit_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderDataSnapshot {
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  addressLine1: string;
+  addressLine2?: string;
+  deliveryCity: string;
+  deliveryState: string;
+  pincode: string;
+  items: CartItem[];
+  subtotal: number;
+  discount: number;
+  shipping: number;
+  tax: number;
+  total: number;
+}
+
 export interface LocalOrder {
   orderId: string;
+  dbUuid?: string;
   userId?: string;
   placedAt: Date;
   total: number;
@@ -120,4 +161,7 @@ export interface LocalOrder {
   gstAmountSnapshot?: number;
   deliveryAmountSnapshot?: number;
   freeDeliveryEligibleSnapshot?: boolean;
+  adminCorrections?: OrderCorrection;
+  originalData?: OrderDataSnapshot;
+  activeData?: OrderDataSnapshot;
 }

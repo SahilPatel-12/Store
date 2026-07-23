@@ -2305,33 +2305,108 @@ function App() {
       }
       
       if (data) {
-        const mappedOrders: LocalOrder[] = data.map((o: any) => ({
-          orderId: o.order_id,
-          userId: o.user_id,
-          placedAt: new Date(o.created_at),
-          total: typeof o.total === 'string' ? parseFloat(o.total) : o.total,
-          subtotal: typeof o.subtotal === 'string' ? parseFloat(o.subtotal) : o.subtotal,
-          discount: typeof o.discount === 'string' ? parseFloat(o.discount) : o.discount,
-          discountPercent: o.discount_percent,
-          shipping: typeof o.shipping === 'string' ? parseFloat(o.shipping) : o.shipping,
-          tax: typeof o.tax === 'string' ? parseFloat(o.tax) : o.tax,
-          paymentMethod: o.payment_method,
-          deliveryCity: o.delivery_city,
-          deliveryState: o.delivery_state,
-          fullName: o.full_name,
-          email: o.email,
-          phoneNumber: o.phone_number,
-          addressLine1: o.address_line1,
-          addressLine2: o.address_line2 || undefined,
-          pincode: o.pincode,
-          status: ((o.payment_method === 'COD' || o.payment_method === 'Cash on Delivery') && o.status === 'Payment Pending') ? 'Being Packed' : o.status,
-          items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
-          razorpayPaymentId: o.razorpay_payment_id || undefined,
-          paymentScreenshot: o.payment_screenshot || undefined,
-          paymentStatus: o.payment_status || 'Pending',
-          codFee: typeof o.cod_fee === 'string' ? parseFloat(o.cod_fee) : (o.cod_fee || 0),
-          paymentDeclineCount: o.payment_decline_count || 0
-        }));
+        const mappedOrders: LocalOrder[] = data.map((o: any) => {
+          const rawCorrection = Array.isArray(o.order_corrections) ? o.order_corrections[0] : o.order_corrections;
+          let adminCorrections: OrderCorrection | undefined = undefined;
+
+          if (rawCorrection && typeof rawCorrection === 'object' && rawCorrection.id) {
+            adminCorrections = {
+              id: rawCorrection.id,
+              order_id: rawCorrection.order_id,
+              full_name: rawCorrection.full_name,
+              phone_number: rawCorrection.phone_number,
+              email: rawCorrection.email,
+              address_line1: rawCorrection.address_line1,
+              address_line2: rawCorrection.address_line2 || undefined,
+              delivery_city: rawCorrection.delivery_city,
+              delivery_state: rawCorrection.delivery_state,
+              pincode: rawCorrection.pincode,
+              items_snapshot: typeof rawCorrection.items_snapshot === 'string' ? JSON.parse(rawCorrection.items_snapshot) : rawCorrection.items_snapshot,
+              subtotal: typeof rawCorrection.subtotal === 'string' ? parseFloat(rawCorrection.subtotal) : rawCorrection.subtotal,
+              discount: typeof rawCorrection.discount === 'string' ? parseFloat(rawCorrection.discount) : rawCorrection.discount,
+              shipping: typeof rawCorrection.shipping === 'string' ? parseFloat(rawCorrection.shipping) : rawCorrection.shipping,
+              tax: typeof rawCorrection.tax === 'string' ? parseFloat(rawCorrection.tax) : rawCorrection.tax,
+              total: typeof rawCorrection.total === 'string' ? parseFloat(rawCorrection.total) : rawCorrection.total,
+              edited_by: rawCorrection.edited_by || undefined,
+              edit_reason: rawCorrection.edit_reason || undefined,
+              created_at: rawCorrection.created_at,
+              updated_at: rawCorrection.updated_at
+            };
+          }
+
+          const itemsParsed = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+          const origSubtotal = typeof o.subtotal === 'string' ? parseFloat(o.subtotal) : o.subtotal;
+          const origDiscount = typeof o.discount === 'string' ? parseFloat(o.discount) : o.discount;
+          const origShipping = typeof o.shipping === 'string' ? parseFloat(o.shipping) : o.shipping;
+          const origTax = typeof o.tax === 'string' ? parseFloat(o.tax) : o.tax;
+          const origTotal = typeof o.total === 'string' ? parseFloat(o.total) : o.total;
+
+          const originalData: OrderDataSnapshot = {
+            fullName: o.full_name,
+            phoneNumber: o.phone_number,
+            email: o.email,
+            addressLine1: o.address_line1,
+            addressLine2: o.address_line2 || undefined,
+            deliveryCity: o.delivery_city,
+            deliveryState: o.delivery_state,
+            pincode: o.pincode,
+            items: itemsParsed,
+            subtotal: origSubtotal,
+            discount: origDiscount,
+            shipping: origShipping,
+            tax: origTax,
+            total: origTotal
+          };
+
+          const activeData: OrderDataSnapshot = adminCorrections ? {
+            fullName: adminCorrections.full_name,
+            phoneNumber: adminCorrections.phone_number,
+            email: adminCorrections.email,
+            addressLine1: adminCorrections.address_line1,
+            addressLine2: adminCorrections.address_line2,
+            deliveryCity: adminCorrections.delivery_city,
+            deliveryState: adminCorrections.delivery_state,
+            pincode: adminCorrections.pincode,
+            items: adminCorrections.items_snapshot,
+            subtotal: adminCorrections.subtotal,
+            discount: adminCorrections.discount,
+            shipping: adminCorrections.shipping,
+            tax: adminCorrections.tax,
+            total: adminCorrections.total
+          } : originalData;
+
+          return {
+            orderId: o.order_id,
+            dbUuid: o.id,
+            userId: o.user_id,
+            placedAt: new Date(o.created_at),
+            total: activeData.total,
+            subtotal: activeData.subtotal,
+            discount: activeData.discount,
+            discountPercent: o.discount_percent,
+            shipping: activeData.shipping,
+            tax: activeData.tax,
+            paymentMethod: o.payment_method,
+            deliveryCity: activeData.deliveryCity,
+            deliveryState: activeData.deliveryState,
+            fullName: activeData.fullName,
+            email: activeData.email,
+            phoneNumber: activeData.phoneNumber,
+            addressLine1: activeData.addressLine1,
+            addressLine2: activeData.addressLine2,
+            pincode: activeData.pincode,
+            status: ((o.payment_method === 'COD' || o.payment_method === 'Cash on Delivery') && o.status === 'Payment Pending') ? 'Being Packed' : o.status,
+            items: activeData.items,
+            razorpayPaymentId: o.razorpay_payment_id || undefined,
+            paymentScreenshot: o.payment_screenshot || undefined,
+            paymentStatus: o.payment_status || 'Pending',
+            codFee: typeof o.cod_fee === 'string' ? parseFloat(o.cod_fee) : (o.cod_fee || 0),
+            paymentDeclineCount: o.payment_decline_count || 0,
+            adminCorrections,
+            originalData,
+            activeData
+          };
+        });
         setOrdersState(mappedOrders);
       }
     } catch (err) {
@@ -5027,37 +5102,72 @@ function App() {
                   const existingResponse = await fetch(`/api/customer/addresses?sessionToken=${token}`);
                   if (existingResponse.ok) {
                     const existingData = await existingResponse.json();
-                    const alreadyExists = existingData.some((addr: any) =>
-                      addr.street === details.addressLine1 &&
-                      addr.city === details.deliveryCity &&
-                      addr.state === details.deliveryState &&
-                      addr.zip === details.pincode
-                    );
 
-                    if (!alreadyExists) {
-                      const isDefault = existingData.length === 0;
-                      const hasStructured = details.addressLine2 && details.addressLine2.includes('__STRUCTURED_ADDR__:');
-                      let streetVal = details.addressLine1;
-                      if (hasStructured) {
-                        try {
-                          const cleaned = (details.addressLine2 || '').split(' | ')[0];
-                          const parsed = JSON.parse(cleaned.substring(cleaned.indexOf('__STRUCTURED_ADDR__:') + 20));
-                          streetVal = `__STRUCTURED_ADDR__:${JSON.stringify({
-                            flat: parsed.flat || '',
-                            street: details.addressLine1 || '',
-                            landmark: parsed.landmark || '',
-                            altPhone: parsed.altPhone || ''
-                          })}`;
-                        } catch (e) {
-                          streetVal = details.addressLine1;
-                        }
+                    const hasStructured = details.addressLine2 && details.addressLine2.includes('__STRUCTURED_ADDR__:');
+                    let streetVal = details.addressLine1;
+                    if (hasStructured) {
+                      try {
+                        const cleaned = (details.addressLine2 || '').split(' | ')[0];
+                        const parsed = JSON.parse(cleaned.substring(cleaned.indexOf('__STRUCTURED_ADDR__:') + 20));
+                        streetVal = `__STRUCTURED_ADDR__:${JSON.stringify({
+                          flat: parsed.flat || '',
+                          street: details.addressLine1 || '',
+                          landmark: parsed.landmark || '',
+                          altPhone: parsed.altPhone || '',
+                          addressLine2: parsed.addressLine2 || ''
+                        })}`;
+                      } catch (e) {
+                        streetVal = details.addressLine1;
                       }
+                    }
 
+                    let targetAddressId: string | undefined = details.selectedAddressId;
+                    if (!targetAddressId && Array.isArray(existingData)) {
+                      const matchedAddr = existingData.find((addr: any) => {
+                        let cleanAddrStreet = addr.street || '';
+                        if (cleanAddrStreet.includes('__STRUCTURED_ADDR__:')) {
+                          try {
+                            const idx = cleanAddrStreet.indexOf('__STRUCTURED_ADDR__:');
+                            const parsed = JSON.parse(cleanAddrStreet.substring(idx + 20));
+                            cleanAddrStreet = parsed.street || parsed.addressLine1 || '';
+                          } catch (e) {
+                            cleanAddrStreet = cleanAddrStreet.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim();
+                          }
+                        }
+                        return (
+                          cleanAddrStreet.toLowerCase().trim() === details.addressLine1.toLowerCase().trim() &&
+                          (addr.city || '').toLowerCase().trim() === details.deliveryCity.toLowerCase().trim() &&
+                          (addr.state || '').toLowerCase().trim() === details.deliveryState.toLowerCase().trim() &&
+                          (addr.zip || '').trim() === details.pincode.trim()
+                        );
+                      });
+                      if (matchedAddr) {
+                        targetAddressId = matchedAddr.id;
+                      }
+                    }
+
+                    if (targetAddressId) {
                       await fetch('/api/customer/addresses', {
                         method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          sessionToken: token,
+                          id: targetAddressId,
+                          type: 'Checkout Address',
+                          name: details.fullName,
+                          phone: details.phoneNumber,
+                          street: streetVal,
+                          city: details.deliveryCity,
+                          state: details.deliveryState,
+                          zip: details.pincode,
+                          is_default: true
+                        })
+                      });
+                    } else {
+                      const isDefault = existingData.length === 0;
+                      await fetch('/api/customer/addresses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           sessionToken: token,
                           type: 'Checkout Address',

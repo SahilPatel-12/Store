@@ -32,49 +32,65 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Fetch latest active OTP record within the 5-minute expiry window
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: record, error: fetchErr } = await supabaseAdmin
-      .from('website_store_msg91_test_otps')
-      .select('*')
-      .eq('phone_number', formattedPhone)
-      .is('used_at', null)
-      .gt('created_at', fiveMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // ==========================================
+    // Security Check: Localhost Dev OTP Bypass
+    // Only active when running on localhost AND DEV_OTP_BYPASS_CODE is set in .env.local
+    // ==========================================
+    const reqHost = req.headers['host'] || req.headers['x-forwarded-host'] || '';
+    const isLocalhostEnv = (
+      process.env.NODE_ENV !== 'production' &&
+      (ipAddress === '127.0.0.1' || ipAddress === '::1' || reqHost.includes('localhost') || reqHost.includes('127.0.0.1'))
+    );
+    const devBypassCode = process.env.DEV_OTP_BYPASS_CODE || process.env.VITE_DEV_OTP_BYPASS_CODE;
+    const isDevBypassMatch = Boolean(isLocalhostEnv && devBypassCode && otp === devBypassCode);
 
-    if (fetchErr) {
-      console.error('[verify-otp] Database fetch error:', fetchErr);
-      return res.status(500).json({ error: 'Database connection failed.' });
+    if (!isDevBypassMatch) {
+      // 1. Fetch latest active OTP record within the 5-minute expiry window
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: record, error: fetchErr } = await supabaseAdmin
+        .from('website_store_msg91_test_otps')
+        .select('*')
+        .eq('phone_number', formattedPhone)
+        .is('used_at', null)
+        .gt('created_at', fiveMinutesAgo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchErr) {
+        console.error('[verify-otp] Database fetch error:', fetchErr);
+        return res.status(500).json({ error: 'Database connection failed.' });
+      }
+
+      if (!record) {
+        return res.status(400).json({ error: 'Access Denied: No active verification session found.' });
+      }
+
+      // 2. Enforce brute-force threshold lockout (max 5 attempts)
+      if (record.attempt_count >= 5) {
+        return res.status(400).json({ error: 'Access Denied: Too many failed verification attempts.' });
+      }
+
+      // 3. Increment database attempt counter
+      const currentAttempts = (record.attempt_count || 0) + 1;
+      await supabaseAdmin
+        .from('website_store_msg91_test_otps')
+        .update({ attempt_count: currentAttempts })
+        .eq('id', record.id);
+
+      // 4. Compare entered OTP code
+      if (otp !== record.otp_hash) {
+        return res.status(400).json({ error: 'Access Denied: Invalid OTP verification code.' });
+      }
+
+      // 5. Mark the code as verified/used
+      await supabaseAdmin
+        .from('website_store_msg91_test_otps')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', record.id);
+    } else {
+      console.log(`[verify-otp] ⚡ Local Dev OTP Bypass executed for phone: ${formattedPhone}`);
     }
-
-    if (!record) {
-      return res.status(400).json({ error: 'Access Denied: No active verification session found.' });
-    }
-
-    // 2. Enforce brute-force threshold lockout (max 5 attempts)
-    if (record.attempt_count >= 5) {
-      return res.status(400).json({ error: 'Access Denied: Too many failed verification attempts.' });
-    }
-
-    // 3. Increment database attempt counter
-    const currentAttempts = (record.attempt_count || 0) + 1;
-    await supabaseAdmin
-      .from('website_store_msg91_test_otps')
-      .update({ attempt_count: currentAttempts })
-      .eq('id', record.id);
-
-    // 4. Compare entered OTP code
-    if (otp !== record.otp_hash) {
-      return res.status(400).json({ error: 'Access Denied: Invalid OTP verification code.' });
-    }
-
-    // 5. Mark the code as verified/used
-    await supabaseAdmin
-      .from('website_store_msg91_test_otps')
-      .update({ used_at: new Date().toISOString() })
-      .eq('id', record.id);
 
     // 6. Retrieve or auto-create devotee user record
     let user;

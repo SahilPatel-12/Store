@@ -20,6 +20,7 @@ import type { CartItem, Product } from '../types';
 import { isImageUrl, getDisplayImageUrl } from '../lib/imageHelper';
 import { supabase } from '../lib/supabase';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import logo from '../assets/My_logo/Frame 16.png';
 import { uploadToR2 } from '../lib/cloudflare/r2';
 import { createProductShareCard } from '../lib/shareHelper';
@@ -51,244 +52,402 @@ const parseAddressLine2 = (addrLine2: string) => {
     cleaned = parts.slice(0, -1).join(' | ');
   }
   
-  if (cleaned.startsWith('__STRUCTURED_ADDR__:')) {
+  const idx = cleaned.indexOf('__STRUCTURED_ADDR__:');
+  if (idx !== -1) {
     try {
-      return JSON.parse(cleaned.substring(20));
+      return JSON.parse(cleaned.substring(idx + 20));
     } catch (e) {
-      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
+      return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned.replace(/__STRUCTURED_ADDR__:\s*\{[^}]*\}/g, '').trim() };
     }
   }
   return { flat: '', landmark: '', altPhone: '', addressLine2: cleaned };
 };
 
-const generateInvoiceDoc = async (order: OrderDetails, t: any): Promise<jsPDF> => {
+const generateInvoiceDoc = async (order: OrderDetails, _t?: any, source?: 'primary' | 'corrected'): Promise<jsPDF> => {
+  const dataToUse: any = (source === 'primary' && (order as any).originalData)
+    ? (order as any).originalData
+    : ((order as any).activeData || {
+        fullName: order.fullName,
+        phoneNumber: order.phoneNumber,
+        email: order.email,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        deliveryCity: order.deliveryCity,
+        deliveryState: order.deliveryState,
+        pincode: order.pincode,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        total: order.total
+      });
+
+  const parsedAddr = parseAddressLine2(dataToUse.addressLine2 || '');
+  let displayAddressText = '';
+  let altPhone = '';
+  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone || parsedAddr.addressLine2) {
+    const parts = [];
+    if (parsedAddr.flat) parts.push(parsedAddr.flat.trim());
+    if (dataToUse.addressLine1) parts.push(dataToUse.addressLine1.trim());
+    if (parsedAddr.addressLine2) parts.push(parsedAddr.addressLine2.trim());
+    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark.trim()}`);
+    displayAddressText = parts.filter(Boolean).join(', ') + `, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
+    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone.trim();
+  } else {
+    displayAddressText = `${dataToUse.addressLine1}${dataToUse.addressLine2 ? ', ' + dataToUse.addressLine2 : ''}, ${dataToUse.deliveryCity}, ${dataToUse.deliveryState} - ${dataToUse.pincode}`;
+  }
+
+  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
+
+  let logoDataUrl = '';
+  try {
+    logoDataUrl = await getAssetAsDataUrl(logo);
+  } catch (e) {
+    console.error("Failed to fetch logo:", e);
+  }
+
+  let footerQrDataUrl = '';
+  try {
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://shop.mantrapuja.com`;
+    footerQrDataUrl = await getAssetAsDataUrl(qrCodeUrl);
+  } catch (e) {
+    console.error("Failed to fetch QR data for footer:", e);
+  }
+
+  let displayPaymentStatus = order.paymentStatus || 'Pending';
+  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
+    displayPaymentStatus = 'Confirmed';
+  }
+
+  const discountPercent = order.discountPercent || Math.round((order.discount / (order.subtotal || 1)) * 100);
+  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
+  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
+
+  const hasVidyaRudraksha = order.items.some(item => {
+    const itemName = (item.product?.name || '').toLowerCase();
+    return itemName.includes('vidya') || itemName.includes('विद्या');
+  });
+
+  const invoiceDiv = document.createElement('div');
+  invoiceDiv.style.position = 'absolute';
+  invoiceDiv.style.left = '-9999px';
+  invoiceDiv.style.top = '-9999px';
+  invoiceDiv.style.width = '800px';
+
+  invoiceDiv.innerHTML = `
+    <div id="invoice-capture" style="
+      width: 800px;
+      min-height: 1060px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-family: 'Segoe UI', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+      background-color: #ffffff;
+      color: #374151;
+      padding: 40px;
+      box-sizing: border-box;
+      position: relative;
+      line-height: 1.5;
+    ">
+      <div>
+        <!-- Brand and Invoice Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            ${logoDataUrl ? `<img src="${logoDataUrl}" style="height: 48px; width: auto;" />` : ''}
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-size: 24px; font-weight: 800; color: #4a2010; line-height: 1.1;">MANTRA PUJA</span>
+              <span style="font-size: 10px; color: #6b7280; font-weight: 600; margin-top: 2px;">Spiritual & Temple Offerings</span>
+              <span style="font-size: 9px; color: #6b7280; font-weight: 500;">Email: support@mantrapuja.com</span>
+              <span style="font-size: 9px; color: #6b7280; font-weight: 500;">Web: www.mantrapuja.com</span>
+            </div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.3;">
+            <span style="font-size: 22px; font-weight: 800; color: #ea580c; letter-spacing: 0.5px;">INVOICE</span>
+            <span style="font-size: 10px; font-weight: bold; color: #374151; margin-top: 4px;">Invoice ID: ${order.orderId}</span>
+            <span style="font-size: 10px; color: #6b7280;">Date: ${new Date(order.placedAt).toLocaleDateString('en-IN')}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1.5px solid #e5e7eb; margin-bottom: 20px;"></div>
+
+        <!-- Addresses & Payment Section -->
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; margin-bottom: 25px;">
+          <!-- Bill To Address -->
+          <div>
+            <div style="font-size: 11px; font-weight: bold; color: #4a2010; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px;">BILL TO:</div>
+            <div style="font-size: 13px; font-weight: 800; color: #111827; margin-bottom: 2px;">${dataToUse.fullName}</div>
+            <div style="font-size: 10px; color: #374151; line-height: 1.4; word-break: break-word; font-weight: 500;">
+              <strong style="color: #111827;">Phone:</strong> ${dataToUse.phoneNumber}${altPhone ? ' / Alt: ' + altPhone : ''}<br />
+              <strong style="color: #111827;">Email:</strong> ${dataToUse.email}<br />
+              ${displayAddressText}
+            </div>
+          </div>
+          
+          <!-- Payment Details -->
+          <div>
+            <div style="font-size: 11px; font-weight: bold; color: #4a2010; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px;">PAYMENT DETAILS:</div>
+            <div style="font-size: 10px; color: #374151; line-height: 1.4; font-weight: 500;">
+              <div>Method: <strong style="color: #111827;">${order.paymentMethod}</strong></div>
+              <div style="margin-top: 2px;">Status: <strong style="color: #111827;">${displayPaymentStatus}</strong></div>
+              
+              ${isCodOrder ? `
+                <div style="margin-top: 4px; font-size: 9.5px; font-weight: bold; color: #ea580c;">
+                  Order payment detail: Please collect Rs. ${dataToUse.total.toFixed(2)} in Cash
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Table Section -->
+        <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 25px; font-size: 11px;">
+          <thead>
+            <tr style="background-color: #4a2010; color: #ffffff; font-weight: bold;">
+              <th style="padding: 8px 12px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">Sacred Item Details</th>
+              <th style="padding: 8px 12px; text-align: center; width: 60px;">Qty</th>
+              <th style="padding: 8px 12px; text-align: right; width: 100px;">Price</th>
+              <th style="padding: 8px 12px; text-align: right; width: 110px; border-top-right-radius: 4px; border-bottom-right-radius: 4px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${order.items.map((item, index) => `
+              <tr style="background-color: ${index % 2 === 1 ? '#f9fafb' : '#ffffff'}; border-bottom: 1px solid #e5e7eb; color: #374151;">
+                <td style="padding: 10px 12px; font-weight: 600;">${item.product.name}</td>
+                <td style="padding: 10px 12px; text-align: center; font-weight: 600;">${item.quantity}</td>
+                <td style="padding: 10px 12px; text-align: right;">Rs. ${item.product.price.toFixed(2)}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">Rs. ${(item.product.price * item.quantity).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- Pricing Details Section -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 25px;">
+          <div style="width: 320px; font-size: 11px; display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; justify-content: space-between; color: #4b5563;">
+              <span>Subtotal:</span>
+              <span style="font-weight: 600; color: #111827;">Rs. ${order.subtotal.toFixed(2)}</span>
+            </div>
+            
+            ${order.discount > 0 ? `
+              <div style="display: flex; justify-content: space-between; color: #10b981; font-weight: 500;">
+                <span>Discount (${discountPercent}%):</span>
+                <span>-Rs. ${order.discount.toFixed(2)}</span>
+              </div>
+            ` : ''}
+            
+            <div style="display: flex; justify-content: space-between; color: #4b5563;">
+              <span>Shipping:</span>
+              <span style="font-weight: 600; color: #111827;">${order.shipping === 0 ? 'FREE' : `Rs. ${order.shipping.toFixed(2)}`}</span>
+            </div>
+
+            ${codFeeAmount > 0 ? `
+              <div style="display: flex; justify-content: space-between; color: #ea580c; font-weight: 600;">
+                <span>COD Handling Charge:</span>
+                <span>+Rs. ${Number(codFeeAmount).toFixed(2)}</span>
+              </div>
+            ` : ''}
+
+            <div style="border-top: 1px solid #e5e7eb; margin: 4px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; color: #4a2010;">
+              <span>Total Charged:</span>
+              <span>Rs. ${pdfDisplayTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vidya Rudraksha Box -->
+        ${hasVidyaRudraksha ? `
+          <div style="
+            background-color: #fffdfa;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 14px 18px;
+            color: #374151;
+            box-sizing: border-box;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.05);
+          ">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; border-bottom: 1.5px dashed #fcd34d; padding-bottom: 6px;">
+              <span style="font-size: 16px;">🕉️</span>
+              <span style="font-size: 16px; font-weight: 800; color: #9a3412; letter-spacing: 0.5px;">विद्या रुद्राक्ष धारण विधि</span>
+              <span style="font-size: 16px;">🪔</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11.5px; line-height: 1.45;">
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">अष्टमी, नवमी और दशमी के दिन:</strong>
+                  <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को शुद्ध देसी गाय के घी में रखें। (तीन दिन तक)</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">एकादशी के दिन:</strong>
+                  <span style="color: #374151; margin-left: 4px;">विद्या रुद्राक्ष को गंगाजल से धो लें और शुद्ध एवं स्वच्छ कपड़े से पोंछ लें। इसके बाद श्रद्धा भाव से रुद्राक्ष को धारण करें।</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div style="width: 100%;">
+                  <strong style="color: #c2410c; font-size: 12px;">मंत्र जाप करें:</strong>
+                  <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को हाथ में लेकर 11, 21 या 108 बार नीचे दिए गए मंत्र का जाप करें:</span>
+                  <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 4px 10px; margin-top: 4px; font-weight: bold; color: #9a3412; font-size: 12.5px; text-align: center;">
+                    ॐ ह्रीं नमः । ॐ रुद्राय नमः । ॐ नमः शिवाय ॥
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">लाल धागे में धारण करें:</strong>
+                  <span style="color: #374151; margin-left: 4px;">रुद्राक्ष को लाल धागे में पिरोकर तैयार करें।</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <span style="font-size: 13px; line-height: 1.2;">🪔</span>
+                <div>
+                  <strong style="color: #c2410c; font-size: 12px;">बच्चे को धारण कराएं:</strong>
+                  <span style="color: #374151; margin-left: 4px;">एकादशी के शुभ दिन बच्चे के गले में श्रद्धा और विश्वास के साथ विद्या रुद्राक्ष पहनाएं।</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Footer Blessings Box -->
+      <div style="
+        margin-top: auto;
+        background-color: #fdfbf7;
+        padding: 20px;
+        color: #374151;
+        display: grid;
+        grid-template-columns: 2.2fr 1fr 1.1fr 1.1fr;
+        gap: 15px;
+        box-sizing: border-box;
+        border-top: 3px solid #fbbf24;
+        border-radius: 4px;
+        line-height: 1.45;
+      ">
+        <!-- Column 1: Brand & Thanks -->
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <span style="font-size: 18px;">🕉️</span>
+            <span style="font-size: 15px; font-weight: bold; color: #4a2010; letter-spacing: 0.5px;">MantraPuja</span>
+            <span style="font-size: 10px; color: #ea580c; background-color: #fef3c7; padding: 1.5px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px;">आस्था से आराधना तक</span>
+          </div>
+          <div style="font-size: 11px; font-weight: bold; color: #4a2010; margin-bottom: 3px;">धन्यवाद! 🙏</div>
+          <div style="font-size: 10px; margin-bottom: 6px; color: #4b5563; text-align: justify;">
+            आपने MantraPuja पर विश्वास जताया, इसके लिए हम आपका हार्दिक आभार व्यक्त करते हैं।
+          </div>
+          <div style="font-size: 9.5px; color: #4b5563; text-align: justify;">
+            हमारा उद्देश्य आपके घर तक प्रमाणित आध्यात्मिक उत्पाद, पूजा सामग्री, ऑनलाइन पूजा सेवाएँ एवं ज्योतिष परामर्श सरल, सुरक्षित और विश्वसनीय रूप से पहुँचाना है।
+          </div>
+          <div style="font-size: 10px; font-style: italic; color: #ea580c; font-weight: 600; border-left: 2px solid #ea580c; padding-left: 6px; margin-top: 6px;">
+            "मन से पूजा, मन से जुड़ाव, मन से मंत्रपूजा।"
+          </div>
+        </div>
+
+        <!-- Column 2: Services -->
+        <div>
+          <div style="font-size: 11px; font-weight: bold; color: #4a2010; border-bottom: 1.5px solid #fbbf24; padding-bottom: 3px; margin-bottom: 6px; letter-spacing: 0.3px;">
+            हमारी सेवाएँ
+          </div>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 10px; display: flex; flex-direction: column; gap: 5px; color: #4b5563;">
+            <li style="display: flex; align-items: center; gap: 4px;"><span>📿</span> सिद्ध रुद्राक्ष एवं मालाएँ</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🛕</span> ऑनलाइन पूजा बुकिंग</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>👨🏻‍🦳</span> प्रमाणित पंडित सेवा</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🔮</span> ज्योतिष एवं कुंडली परामर्श</li>
+            <li style="display: flex; align-items: center; gap: 4px;"><span>🛍️</span> आध्यात्मिक एवं पूजा उत्पाद</li>
+          </ul>
+        </div>
+
+        <!-- Column 3: Info & Socials -->
+        <div>
+          <div style="font-size: 10px; font-weight: bold; color: #dc2626; margin-bottom: 5px;">
+            ⚠️ महत्वपूर्ण सूचना
+          </div>
+          <ul style="padding: 0 0 0 10px; margin: 0 0 10px 0; font-size: 9px; color: #4b5563; line-height: 1.35;">
+            <li>उत्पाद प्राप्त होने पर पैकेज अवश्य जाँचें।</li>
+            <li>किसी भी सहायता के लिए हमारी टीम से संपर्क करें।</li>
+            <li>श्रद्धा एवं विश्वास के साथ उपयोग करें।</li>
+          </ul>
+          
+          <div style="font-size: 10px; font-weight: bold; color: #4a2010; margin-bottom: 5px;">
+            हमसे जुड़ें
+          </div>
+          <div style="font-size: 9px; color: #4b5563; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 4px;"><span>📷</span> Instagram : @mantrapujaa</div>
+            <div style="display: flex; align-items: center; gap: 4px;"><span>📘</span> Facebook : @mantrapujaa</div>
+            <div style="display: flex; align-items: center; gap: 4px;"><span>▶️</span> YouTube : @MantraPujaOfficials</div>
+          </div>
+        </div>
+
+        <!-- Column 4: Big QR Code & Team -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border-left: 1.5px dashed #e5e7eb; padding-left: 10px; height: 100%;">
+          <div style="font-size: 10px; font-weight: bold; color: #ea580c; margin-bottom: 4px; letter-spacing: 0.3px;">
+            SCAN TO SHOP
+          </div>
+          ${footerQrDataUrl ? `
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; margin-bottom: 6px;">
+            <img src="${footerQrDataUrl}" style="width: 75px; height: 75px; border: 1.5px solid #fbbf24; border-radius: 6px; padding: 2px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.02);" />
+            <span style="font-size: 8px; font-weight: bold; color: #4a2010;">shop.mantrapuja.com</span>
+          </div>
+          ` : ''}
+          <div style="font-size: 9px; color: #4a2010; font-weight: bold; line-height: 1.2; margin-top: auto;">
+            <span style="color: #ea580c; display: block; margin-bottom: 1px;">🙏 जय श्री महाकाल 🙏</span>
+            <span style="font-size: 8px; color: #6b7280; font-weight: normal;">MantraPuja Team</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(invoiceDiv);
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(invoiceDiv.querySelector('#invoice-capture') as HTMLElement, {
+      scale: 2.2,
+      useCORS: true,
+      logging: false
+    });
+  } finally {
+    document.body.removeChild(invoiceDiv);
+  }
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
 
-  const primaryColor = [74, 32, 16]; // #4a2010 (Dark Brown)
-  const secondaryColor = [234, 88, 12]; // #ea580c (Orange)
-  const textColor = [55, 65, 81]; // #374151 (Dark Gray)
-  const lightGray = [229, 231, 235]; // #e5e7eb
+  const imgWidth = 210;
+  const pageHeight = 297;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  // Header - Brand Left Side (With logo image load)
-  try {
-    const logoDataUrl = await getAssetAsDataUrl(logo);
-    doc.addImage(logoDataUrl, 'PNG', 14, 12, 12, 12);
+  let heightLeft = imgHeight;
+  let position = 0;
+  const pageData = canvas.toDataURL('image/png');
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(t('pdf.title'), 29, 21);
+  doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray-500
-    doc.text(t('pdf.subtitle'), 29, 26);
-    doc.text(t('pdf.email'), 29, 30);
-    doc.text(t('pdf.web'), 29, 34);
-  } catch (e) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(t('pdf.title'), 14, 20);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128); // gray-500
-    doc.text(t('pdf.subtitle'), 14, 25);
-    doc.text(t('pdf.email'), 14, 29);
-    doc.text(t('pdf.web'), 14, 33);
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
+    doc.addPage();
+    doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
   }
-
-  // Header - Invoice Info (Right side)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text(t('pdf.invoice'), 196, 20, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(t('pdf.invoiceId', { orderId: order.orderId }), 196, 26, { align: 'right' });
-  doc.text(t('pdf.date', { date: new Date(order.placedAt).toLocaleDateString('en-IN') }), 196, 31, { align: 'right' });
-
-  // Divider Line
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.setLineWidth(0.5);
-  doc.line(14, 42, 196, 42);
-
-  // Billing Address Section (Left)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(t('pdf.billTo'), 14, 50);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(order.fullName, 14, 55);
-
-  // Format long address nicely
-  const parsedAddr = parseAddressLine2(order.addressLine2 || '');
-  let displayAddressText = '';
-  let altPhone = '';
-  if (parsedAddr.flat || parsedAddr.landmark || parsedAddr.altPhone) {
-    const parts = [];
-    if (parsedAddr.flat) parts.push(parsedAddr.flat);
-    parts.push(order.addressLine1);
-    if (parsedAddr.landmark) parts.push(`Landmark: ${parsedAddr.landmark}`);
-    displayAddressText = parts.join(', ') + `, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-    if (parsedAddr.altPhone) altPhone = parsedAddr.altPhone;
-  } else {
-    displayAddressText = `${order.addressLine1}${order.addressLine2 ? ', ' + order.addressLine2 : ''}, ${order.deliveryCity}, ${order.deliveryState} - ${order.pincode}`;
-  }
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(75, 85, 99); // gray-600
-  doc.text(t('pdf.phone', { phone: order.phoneNumber }) + (altPhone ? ` / Alt: ${altPhone}` : ''), 14, 60);
-  doc.text(t('pdf.emailLabel', { email: order.email }), 14, 64);
-  
-  const splitAddress = doc.splitTextToSize(displayAddressText, 80);
-  doc.text(splitAddress, 14, 68);
-
-  // Payment details (Right side)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(t('pdf.paymentDetails'), 120, 50);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(75, 85, 99);
-  doc.text(t('pdf.method', { method: order.paymentMethod }), 120, 55);
-
-  let displayPaymentStatus = order.paymentStatus || 'Pending';
-  if (order.paymentMethod?.toLowerCase().includes('razorpay')) {
-    displayPaymentStatus = 'Confirmed';
-  }
-  const translatedStatus = displayPaymentStatus === 'Confirmed' ? t('tracking.confirmed.time') : t('tracking.confirmedAwaiting.time');
-  doc.text(t('pdf.status', { status: translatedStatus }), 120, 59);
-
-  const isCodOrder = order.paymentMethod === 'COD' || order.paymentMethod === 'Cash on Delivery';
-  if (isCodOrder) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(217, 119, 6); // Amber/Orange
-    doc.text(`Order payment detail: Please collect Rs. ${order.total.toFixed(2)} in Cash`, 120, 64);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  }
-
-  // Table header background block
-  let y = 85;
-  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(14, y, 182, 8, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text(t('pdf.sacredItemDetails'), 18, y + 5.5);
-  doc.text(t('pdf.qty'), 115, y + 5.5, { align: 'center' });
-  doc.text(t('pdf.price'), 150, y + 5.5, { align: 'right' });
-  doc.text(t('pdf.amount'), 190, y + 5.5, { align: 'right' });
-
-  y += 8; // move past header row
-
-  // Table Rows
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  
-  order.items.forEach((item, index) => {
-    // Alternating row backgrounds
-    if (index % 2 === 1) {
-      doc.setFillColor(249, 250, 251); // gray-50
-      doc.rect(14, y, 182, 8, 'F');
-    }
-    
-    doc.text(item.product.name, 18, y + 5.5);
-    doc.text(item.quantity.toString(), 115, y + 5.5, { align: 'center' });
-    doc.text(`${t('pdf.currency')} ${item.product.price.toFixed(2)}`, 150, y + 5.5, { align: 'right' });
-    doc.text(`${t('pdf.currency')} ${(item.product.price * item.quantity).toFixed(2)}`, 190, y + 5.5, { align: 'right' });
-    
-    y += 8;
-  });
-
-  // Table border line below rows
-  doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.line(14, y, 196, y);
-  y += 8;
-
-  // Pricing calculations block
-  const labelX = 135;
-  const valueX = 190;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-
-  doc.text(t('pdf.subtotal'), labelX, y);
-  doc.text(`${t('pdf.currency')} ${order.subtotal.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 6;
-
-  if (order.discount > 0) {
-    doc.setTextColor(16, 185, 129); // green
-    doc.text(t('pdf.discount', { percent: order.discountPercent }), labelX, y);
-    doc.text(`-${t('pdf.currency')} ${order.discount.toFixed(2)}`, valueX, y, { align: 'right' });
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    y += 6;
-  }
-
-  doc.text(t('pdf.shipping'), labelX, y);
-  doc.text(order.shipping === 0 ? t('pdf.free') : `${t('pdf.currency')} ${order.shipping.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 6;
-
-  const codFeeAmount = (order as any).codFee || (order as any).cod_fee || (isCodOrder ? 50 : 0);
-  if (codFeeAmount > 0) {
-    doc.setTextColor(234, 88, 12); // Orange / Amber
-    doc.setFont('helvetica', 'bold');
-    doc.text('COD Handling Charge:', labelX, y);
-    doc.text(`+${t('pdf.currency')} ${Number(codFeeAmount).toFixed(2)}`, valueX, y, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    y += 6;
-  }
-
-  const pdfDisplayTotal = Math.max(Number(order.total || 0), (Number(order.subtotal || 0) - Number(order.discount || 0) + Number(order.shipping || 0) + Number(order.tax || 0) + Number(codFeeAmount || 0)));
-
-  // Draw line for total
-  doc.setLineWidth(0.5);
-  doc.line(130, y, 196, y);
-  y += 6;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(t('pdf.totalCharged'), labelX, y);
-  doc.text(`${t('pdf.currency')} ${pdfDisplayTotal.toFixed(2)}`, valueX, y, { align: 'right' });
-  y += 15;
-
-  // Footer Blessings Box
-  const pageHeight = doc.internal.pageSize.getHeight();
-  let footerY = pageHeight - 35; // Position near the bottom of A4 page
-  if (y > footerY) {
-    footerY = y + 10;
-  }
-
-  // Draw decorative line
-  doc.setDrawColor(251, 191, 36); // Gold border
-  doc.setLineWidth(0.7);
-  doc.line(20, footerY, 190, footerY);
-
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9.5);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(t('pdf.blessingsText'), 105, footerY + 7, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(107, 114, 128); // gray
-  doc.text(t('pdf.thankYou'), 105, footerY + 13, { align: 'center' });
 
   return doc;
 };
@@ -313,6 +472,7 @@ export interface OrderDetails {
   addressLine2?: string;
   pincode: string;
   placedAt: Date;
+  selectedAddressId?: string;
   razorpayPaymentId?: string;
   paymentScreenshot?: string;
   appliedCouponCode?: string;

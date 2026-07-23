@@ -24,13 +24,47 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { data, error } = await supabaseAdmin
+      let data;
+      const { data: rawOrders, error } = await supabaseAdmin
         .from('website_store_orders')
-        .select('*')
+        .select('*, order_corrections(*)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('[Customer Orders API] Relationship embedding fallback triggered:', error.message);
+
+        const { data: simpleOrders, error: simpleErr } = await supabaseAdmin
+          .from('website_store_orders')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (simpleErr) throw simpleErr;
+
+        try {
+          const { data: corrections } = await supabaseAdmin
+            .from('order_corrections')
+            .select('*');
+
+          if (corrections && corrections.length > 0) {
+            const corrMap = new Map();
+            corrections.forEach(c => corrMap.set(c.order_id, c));
+            simpleOrders.forEach(o => {
+              if (corrMap.has(o.id)) {
+                o.order_corrections = corrMap.get(o.id);
+              }
+            });
+          }
+        } catch (corrErr) {
+          console.warn('[Customer Orders API] order_corrections table fallback:', corrErr.message);
+        }
+
+        data = simpleOrders;
+      } else {
+        data = rawOrders;
+      }
+
       return res.status(200).json(data);
     } catch (err) {
       console.error('[Orders API] Fetch failed:', err);

@@ -504,9 +504,9 @@ export const UserAuthPage: React.FC<UserAuthPageProps> = ({
               </h3>
               <p style={{ fontSize: '0.84rem', color: '#6b7280', marginTop: '6px', lineHeight: '1.4' }}>
                 We've sent a 6-digit OTP code to <strong style={{ color: 'var(--text-primary, #111827)' }}>{otpTargetPhone}</strong> via {otpChannel === 'sms' ? 'SMS' : 'WhatsApp'}.
-                {!import.meta.env.PROD && (
-                  <span style={{ display: 'block', color: 'var(--primary-accent, #ea580c)', fontWeight: 800, marginTop: '8px', fontSize: '0.9rem' }}>
-                    [DEV MODE] Use test number (+91 99999 99999) with code 111111 for offline login.
+                {import.meta.env.DEV && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                  <span style={{ display: 'block', color: '#4338ca', fontWeight: 700, marginTop: '8px', fontSize: '0.8rem', backgroundColor: '#e0e7ff', padding: '6px 10px', borderRadius: '6px' }}>
+                    ⚡ Local Dev Mode: Use OTP code set in <code>.env.local</code> (e.g. 777777)
                   </span>
                 )}
               </p>
