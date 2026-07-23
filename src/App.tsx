@@ -4,7 +4,7 @@ import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
 import { SeamlessCheckoutModal } from './components/SeamlessCheckoutModal';
 import type { OrderDetails } from './components/OrderSuccessPage';
-import type { Product, CartItem, LocalOrder } from './types';
+import type { Product, CartItem, LocalOrder, OrderCorrection, OrderDataSnapshot } from './types';
 import { supabase } from './lib/supabase';
 import { fetchUserProfile, handleWebsiteCheckout } from './lib/crossPlatformSync';
 import { isImageUrl, getDisplayImageUrl } from './lib/imageHelper';
