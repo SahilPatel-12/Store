@@ -1,6 +1,6 @@
-import { supabaseAdmin } from './_lib/supabase-admin.js';
-import { decryptTextServer, decryptTextWithCustomKey } from './_lib/crypto-server.js';
 import crypto from 'crypto';
+import { decryptTextServer, decryptTextWithCustomKey } from './_lib/crypto-server.js';
+import { supabaseAdmin } from './_lib/supabase-admin.js';
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -248,14 +248,14 @@ export default async function handler(req, res) {
       if (val.endpoint.includes('bhashsms.com')) {
         const urlObj = new URL(val.endpoint);
         urlObj.searchParams.set('pass', decryptedToken);
-        
+
         // Strip 91 prefix for BhashSMS (expects 10 digit number) to prevent routing delay
         let bhashPhone = formattedPhone;
         if (bhashPhone.startsWith('91') && bhashPhone.length === 12) {
           bhashPhone = bhashPhone.substring(2);
         }
         urlObj.searchParams.set('phone', bhashPhone);
-        
+
         // Dynamically set Params based on template name
         const textParam = urlObj.searchParams.get('text') || '';
         if (textParam === 'service_rejected_hindi') {
@@ -265,7 +265,7 @@ export default async function handler(req, res) {
         }
 
         console.log('[send-otp] Firing BhashSMS gateway request');
-        
+
         const resGateway = await fetch(urlObj.toString());
         gatewayStatus = resGateway.status;
         gatewayResponseText = await resGateway.text();
@@ -296,7 +296,7 @@ export default async function handler(req, res) {
       }
     } catch (fetchErr) {
       console.warn('[send-otp] WhatsApp gateway request failed:', fetchErr.message);
-      
+
       const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development';
       if (isDev) {
         console.log('\n========================================');
@@ -304,14 +304,14 @@ export default async function handler(req, res) {
         console.log(`Phone: ${phone}`);
         console.log(`Generated OTP: ${generatedOtp}`);
         console.log('========================================\n');
-        
+
         gatewayStatus = 200;
         gatewayResponseText = 'mock_dev_success';
       } else {
         throw fetchErr;
       }
     }
-    
+
     // Log request asynchronously in background to speed up HTTP response time
     logOtpRequest(formattedPhone, ipAddress).catch(err => {
       console.warn('[send-otp] Background log update failed:', err.message);
