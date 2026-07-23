@@ -60,6 +60,18 @@ export function useRazorpayCheckout({
     setIsPlacingOrder(true);
 
     try {
+      // Build structured addressLine2 so flat, landmark, and altPhone are preserved in DB & PDFs
+      const formattedAddressLine2 = (flatHouseBuilding || landmark || alternativePhone || addressLine2)
+        ? (addressLine2 && addressLine2.includes('__STRUCTURED_ADDR__:')
+            ? addressLine2
+            : `__STRUCTURED_ADDR__:${JSON.stringify({
+                flat: flatHouseBuilding || '',
+                landmark: landmark || '',
+                altPhone: alternativePhone || '',
+                addressLine2: addressLine2 || ''
+              })}`)
+        : (addressLine2 || '');
+
       // 1. Ensure Razorpay Checkout script is loaded
       const isLoaded = await loadRazorpayScript();
       if (!isLoaded) {
@@ -70,15 +82,6 @@ export function useRazorpayCheckout({
       if (!sessionToken) {
         throw new Error('Customer session not found. Please log in.');
       }
-
-      const formattedAddressLine2 = addressLine2 && addressLine2.includes('__STRUCTURED_ADDR__:')
-        ? addressLine2
-        : `__STRUCTURED_ADDR__:${JSON.stringify({
-            flat: flatHouseBuilding || '',
-            landmark: landmark || '',
-            altPhone: alternativePhone || '',
-            addressLine2: addressLine2 || ''
-          })}`;
 
       // 2. Create internal order in the database via Vercel serverless API
       const orderCreateRes = await fetch('/api/orders/create', {
@@ -152,8 +155,8 @@ export function useRazorpayCheckout({
           addressLine1,
           addressLine2: formattedAddressLine2,
           pincode,
+          selectedAddressId,
           placedAt: orderResult.placedAt ? new Date(orderResult.placedAt) : new Date(),
-          selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
           razorpayPaymentId: 'rzp_bypass_mocked',
           appliedCouponCode: appliedCouponCode || undefined,
           paymentStatus: 'Confirmed',
@@ -216,8 +219,8 @@ export function useRazorpayCheckout({
               addressLine1,
               addressLine2: formattedAddressLine2,
               pincode,
+              selectedAddressId,
               placedAt: new Date(),
-              selectedAddressId: selectedAddressId !== 'custom' ? selectedAddressId : undefined,
               razorpayPaymentId: response.razorpay_payment_id,
               appliedCouponCode: appliedCouponCode || undefined,
               paymentStatus: 'Confirmed',

@@ -1714,80 +1714,109 @@ function App() {
 
       if (error) throw error;
       if (data) {
-        const mappedData: Product[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-          originalPrice: item.original_price ? (typeof item.original_price === 'string' ? parseFloat(item.original_price) : item.original_price) : undefined,
-          rating: typeof item.rating === 'string' ? parseFloat(item.rating) : (item.rating || 5.0),
-          reviewsCount: item.reviews_count || 0,
-          image: item.image || '📿',
-          category: item.category,
-          inStock: item.in_stock ?? true,
-          benefits: item.benefits || [],
-          popularity: item.popularity || 80,
-          spiritualType: getSpiritualTypeForProduct(item.name, item.category, item.tags, item.spiritual_type),
-          // custom fields to keep compatibility with PoojaProduct:
-          sanskritName: item.sanskrit_name,
-          shortName: item.short_name,
-          slug: item.slug,
-          subtitle: item.subtitle,
-          shortDescription: item.short_description,
-          spiritualSignificance: item.spiritual_significance,
-          material: item.material,
-          weight: item.weight,
-          dimensions: item.dimensions,
-          origin: item.origin,
-          customIcons: item.custom_icons || {},
-          ritualsIncluded: item.rituals_included || [],
-          samagriList: item.samagri_list || [],
-          priestDetails: item.priest_details || { name: '', experience: '', bio: '', qualification: '' },
-          duration: item.duration,
-          idealOccasions: item.ideal_occasions || [],
-          templeAssociation: item.temple_association,
-          whoShouldPerform: item.who_should_perform,
-          offers: item.offers || [],
-          badges: item.badges || [],
-          testimonials: item.testimonials || [],
-          faqs: item.faqs || [],
-          bookingInstructions: item.booking_instructions,
-          ctaLabels: item.cta_labels || { primary: '', secondary: '' },
-          seoTitle: item.seo_title,
-          seoDescription: item.seo_description,
-          canonicalUrl: item.canonical_url,
-          ogData: item.og_data || { title: '', description: '', image: '' },
-          schemaMarkup: item.schema_markup || {},
-          imageAlt: item.image_alt,
-          imageCaption: item.image_caption,
-          isFeatured: item.is_featured || false,
-          isTrending: item.is_trending || false,
-          recommendationLogic: item.recommendation_logic,
-          relatedProducts: item.related_products || [],
-          videoUrl: item.video_url,
-          translations: item.translations || {},
-          uiLabels: item.ui_labels || {},
-          publishedAt: item.published_at,
-          isPublished: item.is_published || false,
-          bannerImage: item.banner_image,
-          galleryImages: item.gallery_images || [],
-          ritualImages: item.ritual_images || [],
-          priestImage: item.priest_image,
-          certificates: item.certificates || [],
-          iconImage: item.icon_image,
-          promoCreatives: item.promo_creatives || [],
-          purchaseLimit: (parseFloat(item.price?.toString()) === 1 || 
-            item.id === 'vidya-rudraksh' || 
-            (item.slug || '').toLowerCase() === 'vidya-rudraksh' || 
-            (item.slug || '').toLowerCase() === 'vidya-rudraksha' || 
-            (item.slug || '').toLowerCase() === 'विद्या-रुद्राक्ष')
-            ? 1
-            : (item.purchase_limit ? Number(item.purchase_limit) : undefined),
-          gstOverrideEnabled: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? true : (item.gst_override_enabled || false),
-          customGst: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? 0 : (item.custom_gst !== undefined && item.custom_gst !== null ? parseFloat(item.custom_gst.toString()) : undefined),
-          deliveryOverrideEnabled: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? true : (item.delivery_override_enabled || false),
-          customDelivery: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? 0 : (item.custom_delivery !== undefined && item.custom_delivery !== null ? parseFloat(item.custom_delivery.toString()) : undefined),
-        }));
+        let baseOverridesMap = new Map<string, any>();
+        try {
+          const { data: baseOverrides } = await supabase
+            .from('website_pooja_products')
+            .select('id, gst_override_enabled, custom_gst, delivery_override_enabled, custom_delivery');
+          if (baseOverrides) {
+            baseOverrides.forEach((b: any) => baseOverridesMap.set(b.id, b));
+          }
+        } catch (overrideErr) {
+          console.warn('Could not fetch base product overrides:', overrideErr);
+        }
+
+        const mappedData: Product[] = data.map((item: any) => {
+          const base = baseOverridesMap.get(item.id) || {};
+          const deliveryOverride = item.delivery_override_enabled !== undefined
+            ? item.delivery_override_enabled
+            : (base.delivery_override_enabled || false);
+          const customDeliveryVal = item.custom_delivery !== undefined && item.custom_delivery !== null
+            ? parseFloat(item.custom_delivery.toString())
+            : (base.custom_delivery !== undefined && base.custom_delivery !== null ? parseFloat(base.custom_delivery.toString()) : undefined);
+
+          const gstOverride = item.gst_override_enabled !== undefined
+            ? item.gst_override_enabled
+            : (base.gst_override_enabled || false);
+          const customGstVal = item.custom_gst !== undefined && item.custom_gst !== null
+            ? parseFloat(item.custom_gst.toString())
+            : (base.custom_gst !== undefined && base.custom_gst !== null ? parseFloat(base.custom_gst.toString()) : undefined);
+
+          return {
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
+            originalPrice: item.original_price ? (typeof item.original_price === 'string' ? parseFloat(item.original_price) : item.original_price) : undefined,
+            rating: typeof item.rating === 'string' ? parseFloat(item.rating) : (item.rating || 5.0),
+            reviewsCount: item.reviews_count || 0,
+            image: item.image || '📿',
+            category: item.category,
+            inStock: item.in_stock ?? true,
+            benefits: item.benefits || [],
+            popularity: item.popularity || 80,
+            spiritualType: getSpiritualTypeForProduct(item.name, item.category, item.tags, item.spiritual_type),
+            // custom fields to keep compatibility with PoojaProduct:
+            sanskritName: item.sanskrit_name,
+            shortName: item.short_name,
+            slug: item.slug,
+            subtitle: item.subtitle,
+            shortDescription: item.short_description,
+            spiritualSignificance: item.spiritual_significance,
+            material: item.material,
+            weight: item.weight,
+            dimensions: item.dimensions,
+            origin: item.origin,
+            customIcons: item.custom_icons || {},
+            ritualsIncluded: item.rituals_included || [],
+            samagriList: item.samagri_list || [],
+            priestDetails: item.priest_details || { name: '', experience: '', bio: '', qualification: '' },
+            duration: item.duration,
+            idealOccasions: item.ideal_occasions || [],
+            templeAssociation: item.temple_association,
+            whoShouldPerform: item.who_should_perform,
+            offers: item.offers || [],
+            badges: item.badges || [],
+            testimonials: item.testimonials || [],
+            faqs: item.faqs || [],
+            bookingInstructions: item.booking_instructions,
+            ctaLabels: item.cta_labels || { primary: '', secondary: '' },
+            seoTitle: item.seo_title,
+            seoDescription: item.seo_description,
+            canonicalUrl: item.canonical_url,
+            ogData: item.og_data || { title: '', description: '', image: '' },
+            schemaMarkup: item.schema_markup || {},
+            imageAlt: item.image_alt,
+            imageCaption: item.image_caption,
+            isFeatured: item.is_featured || false,
+            isTrending: item.is_trending || false,
+            recommendationLogic: item.recommendation_logic,
+            relatedProducts: item.related_products || [],
+            videoUrl: item.video_url,
+            translations: item.translations || {},
+            uiLabels: item.ui_labels || {},
+            publishedAt: item.published_at,
+            isPublished: item.is_published || false,
+            bannerImage: item.banner_image,
+            galleryImages: item.gallery_images || [],
+            ritualImages: item.ritual_images || [],
+            priestImage: item.priest_image,
+            certificates: item.certificates || [],
+            iconImage: item.icon_image,
+            promoCreatives: item.promo_creatives || [],
+            purchaseLimit: (parseFloat(item.price?.toString()) === 1 || 
+              item.id === 'vidya-rudraksh' || 
+              (item.slug || '').toLowerCase() === 'vidya-rudraksh' || 
+              (item.slug || '').toLowerCase() === 'vidya-rudraksha' || 
+              (item.slug || '').toLowerCase() === 'विद्या-रुद्राक्ष')
+              ? 1
+              : (item.purchase_limit ? Number(item.purchase_limit) : undefined),
+            gstOverrideEnabled: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? true : gstOverride,
+            customGst: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? 0 : customGstVal,
+            deliveryOverrideEnabled: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? true : deliveryOverride,
+            customDelivery: (item.slug === 'vidya-rudraksh-101' || item.slug === 'vidya-rudraksh-1001') ? 0 : customDeliveryVal,
+          };
+        });
 
         // Merge Supabase products with local products from localStorage to ensure locally added custom items persist and show up
         let localProducts: Product[] = [];
