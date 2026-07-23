@@ -181,6 +181,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('[Admin Payments Verify] Operation failed:', err);
-    return res.status(500).json({ error: 'Internal server error verifying transaction: ' + err.message });
+    const errMsg = err && (err.message || err.description || (typeof err === 'object' ? JSON.stringify(err) : String(err)));
+    return res.status(500).json({ error: 'Internal server error verifying transaction: ' + errMsg });
   }
 }

@@ -182,21 +182,37 @@ export function useRazorpayCheckout({
         handler: async function (response: any) {
           setIsPlacingOrder(true);
           try {
-            // 5. Send tokens to Payment Verification API
-            const verifyRes = await fetch('/api/payments/razorpay/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sessionToken,
-                orderId: internalOrderId,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature
-              })
-            });
+            // 5. Send tokens to Payment Verification API with a retry loop
+            // This prevents network failure errors (Failed to fetch) when the browser resumes from a UPI payment app.
+            let verifyRes: Response | undefined = undefined;
+            const maxAttempts = 3;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                // Add a delay (especially on retry) to allow the network interface to fully resume
+                await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 500 : 1500));
+                
+                verifyRes = await fetch('/api/payments/razorpay/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    sessionToken,
+                    orderId: internalOrderId,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_signature: response.razorpay_signature
+                  })
+                });
+                break; // Break loop if fetch succeeded (even if status is 4xx/5xx, ok property will be handled below)
+              } catch (fetchErr: any) {
+                console.warn(`[Razorpay Verify] Attempt ${attempt} failed:`, fetchErr);
+                if (attempt === maxAttempts) {
+                  throw fetchErr; // Re-throw error on the last attempt
+                }
+              }
+            }
 
-            if (!verifyRes.ok) {
-              const errJson = await verifyRes.json().catch(() => ({}));
+            if (!verifyRes || !verifyRes.ok) {
+              const errJson = verifyRes ? await verifyRes.json().catch(() => ({})) : {};
               throw new Error(errJson.error || 'Verification signature mismatch.');
             }
 
