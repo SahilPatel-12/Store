@@ -652,7 +652,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   // Filters calculation
   const filteredOrders = React.useMemo(() => {
     return orders.filter((o) => {
-      if (filterTab === 'Active') return o.status === 'Being Packed' || o.status === 'Shipped';
+      if (filterTab === 'Active') return o.status === 'Being Packed' || o.status === 'Ready for Dispatch' || o.status === 'Shipped';
       if (filterTab === 'Completed') return o.status === 'Delivered';
       if (filterTab === 'Cancelled') return o.status === 'Cancelled';
       return true;
@@ -825,6 +825,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         return { bg: '#dcfce7', text: '#15803d', icon: <CheckCircle size={14} />, label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }) };
       case 'Shipped':
         return { bg: '#dbeafe', text: '#1d4ed8', icon: <Truck size={14} />, label: t('orders.tracking.dispatched', { defaultValue: 'Shipped' }) };
+      case 'Ready for Dispatch':
+        return { bg: '#fef3c7', text: '#d97706', icon: <Package size={14} />, label: t('orders.tracking.readyForDispatch', { defaultValue: 'Packed & Ready for Dispatch' }) };
       default:
         return { bg: 'var(--primary-lime-light)', text: 'var(--primary-lime)', icon: <Clock size={14} />, label: t('orders.actions.preparingPackage', { defaultValue: 'Preparing Package' }) };
     }
@@ -928,7 +930,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: '#6ee7b7' }}>
-                    {orders.filter((o) => o.status === 'Being Packed' || o.status === 'Shipped').length}
+                    {orders.filter((o) => o.status === 'Being Packed' || o.status === 'Ready for Dispatch' || o.status === 'Shipped').length}
                   </span>
                   <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>{t('orders.activeOrders', { defaultValue: 'Active' })}</span>
                 </div>
@@ -1038,7 +1040,14 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                 { label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }), sublabel: t('orders.tracking.awaiting', { defaultValue: 'Awaiting' }), done: false, inProgress: false },
               ] : [
                 { label: t('orders.tracking.confirmed', { defaultValue: 'Confirmed' }), sublabel: t('orders.tracking.verified', { defaultValue: 'Verified' }), done: true, inProgress: false },
-                { label: t('orders.tracking.prepared', { defaultValue: 'Prepared' }), sublabel: t('orders.tracking.blessed', { defaultValue: 'Blessed' }), done: order.status !== 'Being Packed' && order.status !== 'Cancelled', inProgress: order.status === 'Being Packed' },
+                { 
+                  label: t('orders.tracking.prepared', { defaultValue: 'Prepared' }), 
+                  sublabel: order.status === 'Ready for Dispatch' 
+                    ? t('orders.tracking.readyForDispatchSub', { defaultValue: 'Ready for Dispatch' })
+                    : (order.status === 'Being Packed' ? t('orders.tracking.blessing', { defaultValue: 'Blessing items...' }) : t('orders.tracking.blessed', { defaultValue: 'Blessed' })), 
+                  done: order.status !== 'Being Packed' && order.status !== 'Cancelled', 
+                  inProgress: order.status === 'Being Packed' 
+                },
                 { label: t('orders.tracking.dispatched', { defaultValue: 'Dispatched' }), sublabel: t('orders.tracking.hub', { defaultValue: 'Varanasi Hub' }), done: order.status === 'Shipped' || order.status === 'Delivered', inProgress: order.status === 'Shipped' },
                 { label: t('orders.tracking.inTransit', { defaultValue: 'In Transit' }), sublabel: t('orders.tracking.nearCity', { defaultValue: 'Near City' }), done: order.status === 'Delivered', inProgress: false },
                 { label: t('orders.tracking.delivered', { defaultValue: 'Delivered' }), sublabel: t('orders.tracking.handedOver', { defaultValue: 'Handed over' }), done: order.status === 'Delivered', inProgress: false },

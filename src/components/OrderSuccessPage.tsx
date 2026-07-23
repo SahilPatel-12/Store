@@ -629,7 +629,14 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
       return [
         { icon: <Check size={16} />, label: t('tracking.confirmedPayment.title'), desc: t('tracking.confirmedPayment.description'), done: true, inProgress: false, time: t('tracking.confirmedPayment.time') },
         { icon: <Check size={16} />, label: t('tracking.confirmed.title'), desc: t('tracking.confirmed.description'), done: true, inProgress: false, time: t('tracking.confirmed.time') },
-        { icon: <Package size={16} />, label: t('tracking.packing.title'), desc: t('tracking.packing.description'), done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : t('tracking.packing.timeCompleted') },
+        { 
+          icon: <Package size={16} />, 
+          label: liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyTitle', { defaultValue: 'Ready for Dispatch' }) : t('tracking.packing.title'), 
+          desc: liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyDesc', { defaultValue: 'Package is packed and ready for dispatch.' }) : t('tracking.packing.description'), 
+          done: liveStatus !== 'Being Packed', 
+          inProgress: liveStatus === 'Being Packed', 
+          time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : (liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyTime', { defaultValue: 'Ready' }) : t('tracking.packing.timeCompleted')) 
+        },
         { icon: <Truck size={16} />, label: t('tracking.delivery.title'), desc: t('tracking.delivery.description'), done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? t('tracking.delivery.timeExpected') : liveStatus === 'Delivered' ? t('tracking.delivery.timeCompleted') : t('tracking.delivery.timeAwaiting') },
         { icon: <MapPin size={16} />, label: t('tracking.delivered.title'), desc: t('tracking.delivered.description'), done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? t('tracking.delivered.timeCompleted') : t('tracking.delivered.timeEstimated') },
       ];
@@ -638,7 +645,14 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({
     // Default flow (e.g. COD)
     return [
       { icon: <Check size={16} />, label: t('tracking.confirmed.title'), desc: t('tracking.confirmed.description'), done: true, inProgress: false, time: t('tracking.confirmed.time') },
-      { icon: <Package size={16} />, label: t('tracking.packing.title'), desc: t('tracking.packing.description'), done: liveStatus !== 'Being Packed', inProgress: liveStatus === 'Being Packed', time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : t('tracking.packing.timeCompleted') },
+      { 
+        icon: <Package size={16} />, 
+        label: liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyTitle', { defaultValue: 'Ready for Dispatch' }) : t('tracking.packing.title'), 
+        desc: liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyDesc', { defaultValue: 'Package is packed and ready for dispatch.' }) : t('tracking.packing.description'), 
+        done: liveStatus !== 'Being Packed', 
+        inProgress: liveStatus === 'Being Packed', 
+        time: liveStatus === 'Being Packed' ? t('tracking.packing.timeToday') : (liveStatus === 'Ready for Dispatch' ? t('tracking.packing.readyTime', { defaultValue: 'Ready' }) : t('tracking.packing.timeCompleted')) 
+      },
       { icon: <Truck size={16} />, label: t('tracking.delivery.title'), desc: t('tracking.delivery.description'), done: liveStatus === 'Delivered', inProgress: liveStatus === 'Shipped', time: liveStatus === 'Shipped' ? t('tracking.delivery.timeExpected') : liveStatus === 'Delivered' ? t('tracking.delivery.timeCompleted') : t('tracking.delivery.timeAwaiting') },
       { icon: <MapPin size={16} />, label: t('tracking.delivered.title'), desc: t('tracking.delivered.description'), done: liveStatus === 'Delivered', inProgress: false, time: liveStatus === 'Delivered' ? t('tracking.delivered.timeCompleted') : t('tracking.delivered.timeEstimated') },
     ];

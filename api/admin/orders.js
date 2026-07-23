@@ -56,7 +56,7 @@ async function syncOrderStatusToPublicOrders(orderId, websiteStatus, websitePaym
     if (addressRecord?.order_id) {
       const updateData = {};
       if (websiteStatus) {
-        if (websiteStatus === 'Being Packed') {
+        if (websiteStatus === 'Being Packed' || websiteStatus === 'Ready for Dispatch') {
           updateData.order_status = 'Confirmed';
         } else if (websiteStatus === 'Shipped') {
           updateData.order_status = 'Shipped';
@@ -391,7 +391,7 @@ export default async function handler(req, res) {
       }
 
       if (action === 'update-delivery-status') {
-        const allowedStatuses = ['Being Packed', 'Shipped', 'Delivered', 'Cancelled'];
+        const allowedStatuses = ['Being Packed', 'Ready for Dispatch', 'Shipped', 'Delivered', 'Cancelled'];
         if (!allowedStatuses.includes(status)) {
           return res.status(400).json({ error: `Invalid order status. Must be one of: ${allowedStatuses.join(', ')}` });
         }

@@ -52,7 +52,10 @@
       "description": "Sacred items being prepared",
       "timeToday": "Expected: Today",
       "timeCompleted": "Completed",
-      "timeAwaiting": "Awaiting"
+      "timeAwaiting": "Awaiting",
+      "readyTitle": "Ready for Dispatch",
+      "readyDesc": "Package is packed and ready for dispatch.",
+      "readyTime": "Ready"
     },
     "delivery": {
       "title": "Out for Delivery",

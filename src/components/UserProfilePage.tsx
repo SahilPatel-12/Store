@@ -1739,6 +1739,8 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         return { bg: '#dcfce7', text: '#15803d' };
       case 'Shipped':
         return { bg: '#dbeafe', text: '#1d4ed8' };
+      case 'Ready for Dispatch':
+        return { bg: '#fef3c7', text: '#d97706' }; // Amber/Yellow
       case 'Payment Pending':
         return { bg: '#fff7ed', text: '#c2410c' };
       default:
@@ -2780,12 +2782,12 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                        width: '16px',
                                        height: '16px',
                                        borderRadius: '50%',
-                                       backgroundColor: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--border-light)',
+                                       backgroundColor: ['Being Packed', 'Ready for Dispatch', 'Shipped', 'Delivered'].includes(order.status) ? 'var(--primary-lime)' : 'var(--border-light)',
                                        border: '3px solid #ffffff',
-                                       boxShadow: order.status === 'Being Packed' ? '0 0 0 1px var(--primary-lime)' : 'none',
+                                       boxShadow: ['Being Packed', 'Ready for Dispatch'].includes(order.status) ? '0 0 0 1px var(--primary-lime)' : 'none',
                                        margin: '0 auto 6px auto'
                                      }} />
-                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: order.status === 'Being Packed' ? 800 : 500, color: order.status === 'Being Packed' ? 'var(--primary-lime)' : 'var(--text-muted)', lineHeight: 1.1 }}>Packed</span>
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: ['Being Packed', 'Ready for Dispatch'].includes(order.status) ? 800 : 500, color: ['Being Packed', 'Ready for Dispatch', 'Shipped', 'Delivered'].includes(order.status) ? 'var(--primary-lime)' : 'var(--text-muted)', lineHeight: 1.1 }}>{order.status === 'Ready for Dispatch' ? 'Ready to Dispatch' : 'Packed'}</span>
                                    </div>
 
                                    {/* Shipped */}
@@ -2794,11 +2796,11 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                        width: '16px',
                                        height: '16px',
                                        borderRadius: '50%',
-                                       backgroundColor: 'var(--border-light)',
-                                       border: '3px solid #ffffff',
+                                       backgroundColor: ['Shipped', 'Delivered'].includes(order.status) ? 'var(--primary-lime)' : 'var(--border-light)',
+                                       border: '3px solid #ffffff', boxShadow: order.status === 'Shipped' ? '0 0 0 1px var(--primary-lime)' : 'none',
                                        margin: '0 auto 6px auto'
                                      }} />
-                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: 500, color: 'var(--text-muted)', lineHeight: 1.1 }}>In Transit</span>
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: order.status === 'Shipped' ? 800 : 500, color: ['Shipped', 'Delivered'].includes(order.status) ? 'var(--primary-lime)' : 'var(--text-muted)', lineHeight: 1.1 }}>In Transit</span>
                                    </div>
 
                                    {/* Delivered */}
@@ -2807,11 +2809,11 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                        width: '16px',
                                        height: '16px',
                                        borderRadius: '50%',
-                                       backgroundColor: 'var(--border-light)',
-                                       border: '3px solid #ffffff',
+                                       backgroundColor: order.status === 'Delivered' ? 'var(--primary-lime)' : 'var(--border-light)',
+                                       border: '3px solid #ffffff', boxShadow: order.status === 'Delivered' ? '0 0 0 1px var(--primary-lime)' : 'none',
                                        margin: '0 auto 6px auto'
                                      }} />
-                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: 500, color: 'var(--text-muted)', lineHeight: 1.1 }}>Delivered</span>
+                                     <span style={{ display: 'block', fontSize: isMobile ? '0.62rem' : '0.7rem', fontWeight: order.status === 'Delivered' ? 800 : 500, color: order.status === 'Delivered' ? 'var(--primary-lime)' : 'var(--text-muted)', lineHeight: 1.1 }}>Delivered</span>
                                    </div>
 
                                  </div>

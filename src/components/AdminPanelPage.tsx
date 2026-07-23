@@ -4920,7 +4920,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
     // Delivered + Shipped + Packing orders contribute to revenue
     const paidOrders = orders.filter(o => o.status !== 'Cancelled');
     const totalSales = paidOrders.reduce((sum, o) => sum + o.total, 0);
-    const activeFulfillments = orders.filter(o => o.status === 'Being Packed' || o.status === 'Shipped').length;
+    const activeFulfillments = orders.filter(o => o.status === 'Being Packed' || o.status === 'Ready for Dispatch' || o.status === 'Shipped').length;
     const aov = paidOrders.length > 0 ? totalSales / paidOrders.length : 0;
 
     return {
@@ -5205,6 +5205,8 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
         return { bg: '#fee2e2', text: '#dc2626' };
       case 'Shipped':
         return { bg: '#dbeafe', text: '#1d4ed8' };
+      case 'Ready for Dispatch':
+        return { bg: '#fef3c7', text: '#d97706' }; // Amber/Yellow
       default:
         return { bg: '#fff7ed', text: '#c2410c' }; // Being Packed
     }
@@ -5846,7 +5848,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
               {/* Status Tabs filters */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['All', 'Being Packed', 'Shipped', 'Delivered', 'Cancelled', 'Failed', 'Confirmed'].map(status => (
+                  {['All', 'Being Packed', 'Ready for Dispatch', 'Shipped', 'Delivered', 'Cancelled', 'Failed', 'Confirmed'].map(status => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -5860,7 +5862,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                         color: statusFilter === status ? 'var(--primary-lime)' : 'var(--text-muted)'
                       }}
                     >
-                      {status === 'Being Packed' ? 'Packing' : status}
+                      {status === 'Being Packed' ? 'Packing' : status === 'Ready for Dispatch' ? 'Dispatch Ready' : status}
                     </button>
                   ))}
                 </div>
@@ -6218,6 +6220,7 @@ export const AdminPanelPage: React.FC<AdminPanelPageProps> = ({
                                 <option value="Payment Pending">Payment Pending / Failed</option>
                               )}
                               <option value="Being Packed">Preparing Package</option>
+                              <option value="Ready for Dispatch">Packed & Ready for Dispatch</option>
                               <option value="Shipped">Shipped / In Transit</option>
                               <option value="Delivered">Delivered</option>
                               <option value="Cancelled">Cancelled</option>

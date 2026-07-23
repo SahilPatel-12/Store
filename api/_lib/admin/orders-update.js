@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   // Strict field value allowlist validation
-  const allowedStatuses = ['Being Packed', 'Shipped', 'Delivered', 'Cancelled'];
+  const allowedStatuses = ['Being Packed', 'Ready for Dispatch', 'Shipped', 'Delivered', 'Cancelled'];
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({ error: `Invalid order status. Must be one of: ${allowedStatuses.join(', ')}` });
   }

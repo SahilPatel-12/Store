@@ -52,7 +52,10 @@
       "description": "पवित्र सामग्रियां तैयार की जा रही हैं",
       "timeToday": "अपेक्षित: आज",
       "timeCompleted": "पूरा हुआ",
-      "timeAwaiting": "प्रतीक्षा में"
+      "timeAwaiting": "प्रतीक्षा में",
+      "readyTitle": "प्रेषण के लिए तैयार",
+      "readyDesc": "पैकेज पैक कर दिया गया है और प्रेषण के लिए तैयार है।",
+      "readyTime": "तैयार"
     },
     "delivery": {
       "title": "वितरण के लिए बाहर",
