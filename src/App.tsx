@@ -2528,10 +2528,10 @@ function App() {
       const pSlug = (selectedProduct as any).slug || '';
       const pName = selectedProduct.name || '';
       const pPrice = selectedProduct.price || 0;
-      const slugMatch = pSlug === 'vidya-rudraksh';
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
       const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
                         (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
-      const priceMatch = pPrice === 1;
+      const priceMatch = pPrice === 1 || pPrice === 101;
       if (slugMatch || (priceMatch && nameMatch)) {
         setCameFromLockdown(true);
         setActiveLockdownProduct(selectedProduct);
@@ -2565,10 +2565,10 @@ function App() {
         const pSlug = p.slug || item.slug || '';
         const pName = p.name || item.name || '';
         const pPrice = p.price || item.price || 0;
-        const slugMatch = pSlug === 'vidya-rudraksh';
+        const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
         const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
                           (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
-        const priceMatch = pPrice === 1;
+        const priceMatch = pPrice === 1 || pPrice === 101;
         return slugMatch || (priceMatch && nameMatch);
       });
       if (hasHiddenInOrder) return true;
@@ -2590,10 +2590,10 @@ function App() {
     const pSlug = (selectedProduct as any).slug || '';
     const pName = selectedProduct.name || '';
     const pPrice = selectedProduct.price || 0;
-    const slugMatch = pSlug === 'vidya-rudraksh';
+    const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
     const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
                       (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
-    const priceMatch = pPrice === 1;
+    const priceMatch = pPrice === 1 || pPrice === 101;
     return slugMatch || (priceMatch && nameMatch);
   }, [selectedProduct]);
 
@@ -2605,10 +2605,10 @@ function App() {
       const pSlug = (selectedProduct as any).slug || '';
       const pName = selectedProduct.name || '';
       const pPrice = selectedProduct.price || 0;
-      const slugMatch = pSlug === 'vidya-rudraksh';
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
       const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
                         (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
-      const priceMatch = pPrice === 1;
+      const priceMatch = pPrice === 1 || pPrice === 101;
       if (slugMatch || (priceMatch && nameMatch)) {
         return selectedProduct;
       }
@@ -2618,10 +2618,10 @@ function App() {
       const pSlug = p.slug || '';
       const pName = p.name || '';
       const pPrice = p.price || 0;
-      const slugMatch = pSlug === 'vidya-rudraksh';
+      const slugMatch = pSlug === 'vidya-rudraksh' || pSlug === 'vidya-rudraksh-101';
       const nameMatch = (pName.toLowerCase().includes('vidya') || pName.includes('विद्या')) && 
                         (pName.toLowerCase().includes('rudraksh') || pName.includes('रुद्राक्ष'));
-      const priceMatch = pPrice === 1;
+      const priceMatch = pPrice === 1 || pPrice === 101;
       return slugMatch || (priceMatch && nameMatch);
     });
     if (cartLockdown && cartLockdown.product) {
