@@ -23,6 +23,7 @@ import { fetchUserProfile, handleWebsiteCheckout } from '../lib/crossPlatformSyn
 import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
 import { useLanguage } from '../lib/i18n';
 import { useTranslation } from 'react-i18next';
+import { normalizePhoneNumber } from '../lib/phoneHelper';
 
 interface Address {
   id: string;
@@ -366,23 +367,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     );
   }
 
-  // Clean numbers for international sending compatibility
-  const formatPhoneNumber = (num: string) => {
-    let cleaned = num.replace(/[^\d]/g, '');
-    if (cleaned.startsWith('966')) {
-      cleaned = cleaned.substring(3);
-    }
-    if (cleaned.startsWith('05') && cleaned.length === 10) {
-      return '+966' + cleaned.substring(1);
-    } else if (cleaned.startsWith('5') && cleaned.length === 9) {
-      return '+966' + cleaned;
-    }
-    if (cleaned.length >= 10) {
-      return cleaned.slice(-10);
-    }
-    return cleaned;
-  };
-
   // Gateway Sender via backend endpoint
   const sendOtp = async (targetPhone: string) => {
     try {
@@ -413,8 +397,8 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     setAuthError('');
     setIsAuthLoading(true);
     try {
-      const formatted = formatPhoneNumber(phoneNumber);
-      if (!formatted || formatted.length < 9) {
+      const formatted = normalizePhoneNumber(phoneNumber);
+      if (!formatted) {
         throw new Error(t('login.error.invalidPhone'));
       }
 
@@ -457,40 +441,6 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
     setAuthError('');
     setIsAuthLoading(true);
     try {
-      if (isNewUser) {
-        const { data: newUser, error: regErr } = await supabase
-          .from('website_store_users')
-          .insert({
-            full_name: '',
-            phone_number: otpTargetPhone,
-            password_hash: '',
-            last_login_at: new Date().toISOString()
-          })
-          .select('*')
-          .single();
-
-        if (regErr) throw regErr;
-
-        // Apply referral code silently if present
-        try {
-          const refCode = localStorage.getItem('mantra_referral_code');
-          const refTimeStr = localStorage.getItem('mantra_referral_time');
-          if (refCode && refTimeStr) {
-            const refTime = parseInt(refTimeStr, 10);
-            if (Date.now() - refTime <= 30 * 24 * 60 * 60 * 1000) {
-              await supabase.rpc('bind_referral_on_signup', {
-                p_referred_id: newUser.id,
-                p_referrer_code: refCode
-              });
-            }
-          }
-          localStorage.removeItem('mantra_referral_code');
-          localStorage.removeItem('mantra_referral_time');
-        } catch (refErr) {
-          console.error('Silent referral link error:', refErr);
-        }
-      }
-
       // Login token serverless session call
       const response = await fetch('/api/verify-otp', {
         method: 'POST',
@@ -510,6 +460,28 @@ export const SeamlessCheckoutModal: React.FC<SeamlessCheckoutModalProps> = ({
       }
 
       const row = await response.json();
+
+      // Apply referral code silently if present and user is new
+      if (isNewUser) {
+        try {
+          const refCode = localStorage.getItem('mantra_referral_code');
+          const refTimeStr = localStorage.getItem('mantra_referral_time');
+          if (refCode && refTimeStr) {
+            const refTime = parseInt(refTimeStr, 10);
+            if (Date.now() - refTime <= 30 * 24 * 60 * 60 * 1000) {
+              await supabase.rpc('bind_referral_on_signup', {
+                p_referred_id: row.user_id,
+                p_referrer_code: refCode
+              });
+            }
+          }
+          localStorage.removeItem('mantra_referral_code');
+          localStorage.removeItem('mantra_referral_time');
+        } catch (refErr) {
+          console.error('Silent referral link error:', refErr);
+        }
+      }
+
       let resolvedFullName = row.full_name || '';
       try {
         const profile = await fetchUserProfile(row.phone_number || otpTargetPhone);

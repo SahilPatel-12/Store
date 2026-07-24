@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './_lib/supabase-admin.js';
+import { normalizePhoneNumber } from './_lib/phoneHelper.js';
 import crypto from 'crypto';
 
 function getClientIp(req) {
@@ -25,10 +26,9 @@ export default async function handler(req, res) {
   const userAgent = req.headers['user-agent'] || 'unknown';
   const deviceId = device_id || 'browser_client';
 
-  const cleanPhone = phone.replace(/[^\d]/g, '');
-  let formattedPhone = cleanPhone;
-  if (formattedPhone.length === 10) {
-    formattedPhone = '91' + formattedPhone;
+  const formattedPhone = normalizePhoneNumber(phone);
+  if (!formattedPhone) {
+    return res.status(400).json({ error: 'Invalid phone number format.' });
   }
 
   try {
@@ -119,10 +119,25 @@ export default async function handler(req, res) {
         .single();
 
       if (createErr) {
-        console.error('[verify-otp] Failed to create devotee profile:', createErr);
-        return res.status(500).json({ error: 'Account registration failed.' });
+        if (createErr.code === '23505') {
+          const { data: retriedUser, error: retryErr } = await supabaseAdmin
+            .from('website_store_users')
+            .select('*')
+            .eq('phone_number', formattedPhone)
+            .maybeSingle();
+          if (!retryErr && retriedUser) {
+            user = retriedUser;
+          } else {
+            console.error('[verify-otp] Failed to fetch devotee profile after concurrent insert:', retryErr || 'User not found');
+            return res.status(500).json({ error: 'Account registration failed.' });
+          }
+        } else {
+          console.error('[verify-otp] Failed to create devotee profile:', createErr);
+          return res.status(500).json({ error: 'Account registration failed.' });
+        }
+      } else {
+        user = newUser;
       }
-      user = newUser;
     } else {
       if (existingUser.is_suspended) {
         return res.status(403).json({ error: 'Access Denied: Your account has been suspended.' });

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { decryptTextServer, decryptTextWithCustomKey } from './_lib/crypto-server.js';
 import { supabaseAdmin } from './_lib/supabase-admin.js';
+import { normalizePhoneNumber } from './_lib/phoneHelper.js';
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -23,10 +24,9 @@ export default async function handler(req, res) {
   }
 
   const ipAddress = getClientIp(req);
-  const cleanPhone = phone.replace(/[^\d]/g, '');
-  let formattedPhone = cleanPhone;
-  if (formattedPhone.length === 10) {
-    formattedPhone = '91' + formattedPhone;
+  const formattedPhone = normalizePhoneNumber(phone);
+  if (!formattedPhone) {
+    return res.status(400).json({ error: 'Invalid phone number format.' });
   }
 
   const isDevProfile = formattedPhone.includes('9999999999');

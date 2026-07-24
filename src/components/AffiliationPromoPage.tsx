@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createReferralShareCard, uploadReferralShareCard } from '../lib/shareHelper';
+import { normalizePhoneNumber } from '../lib/phoneHelper';
 
 const FacebookIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -162,23 +163,6 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     );
   }
 
-  // Clean numbers for international sending compatibility
-  const formatPhoneNumber = (num: string) => {
-    let cleaned = num.replace(/[^\d]/g, '');
-    if (cleaned.startsWith('966')) {
-      cleaned = cleaned.substring(3);
-    }
-    if (cleaned.startsWith('05') && cleaned.length === 10) {
-      return '+966' + cleaned.substring(1);
-    } else if (cleaned.startsWith('5') && cleaned.length === 9) {
-      return '+966' + cleaned;
-    }
-    if (cleaned.length >= 10) {
-      return cleaned.slice(-10);
-    }
-    return cleaned;
-  };
-
   // OTP Gateway
   const sendOtp = async (targetPhone: string) => {
     try {
@@ -208,8 +192,8 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     setIsLoadingAuth(true);
     setOtpError('');
     try {
-      const formatted = formatPhoneNumber(phoneNumber);
-      if (!formatted || formatted.length < 9) {
+      const formatted = normalizePhoneNumber(phoneNumber);
+      if (!formatted) {
         throw new Error('Please enter a valid phone number.');
       }
 
@@ -286,48 +270,6 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
     setIsLoadingAuth(true);
     setOtpError('');
     try {
-      if (isNewUser) {
-        let newUser;
-        try {
-          const res = await supabase
-            .from('website_store_users')
-            .insert({
-              full_name: '',
-              phone_number: otpTargetPhone,
-              password_hash: '',
-              last_login_at: new Date().toISOString()
-            })
-            .select('*')
-            .single();
-          if (res.error) throw res.error;
-          newUser = res.data;
-        } catch (dbErr) {
-          throw new Error('Registration failed due to a database connection issue: ' + (dbErr as Error).message, { cause: dbErr });
-        }
-
-        // Apply referral binding silently
-        try {
-          const refCode = localStorage.getItem('mantra_referral_code');
-          const refTimeStr = localStorage.getItem('mantra_referral_time');
-          
-          if (refCode && refTimeStr) {
-            const refTime = parseInt(refTimeStr, 10);
-            const isExpired = Date.now() - refTime > 30 * 24 * 60 * 60 * 1000;
-            
-            if (!isExpired) {
-              await supabase.rpc('bind_referral_on_signup', {
-                p_referred_id: newUser.id,
-                p_referrer_code: refCode
-              });
-            }
-          }
-          localStorage.removeItem('mantra_referral_code');
-          localStorage.removeItem('mantra_referral_time');
-        } catch (refErr) {
-          console.error('[Referral Engine] Referral binding failed silently:', refErr);
-        }
-      }
-
       const response = await fetch('/api/verify-otp', {
         method: 'POST',
         headers: {
@@ -347,7 +289,31 @@ export const AffiliationPromoPage: React.FC<AffiliationPromoPageProps> = ({
 
       const row = await response.json();
       triggerToast(isNewUser ? 'Account registered successfully!' : 'Logged in successfully!');
-      
+
+      // Apply referral binding silently on successful signup
+      if (isNewUser) {
+        try {
+          const refCode = localStorage.getItem('mantra_referral_code');
+          const refTimeStr = localStorage.getItem('mantra_referral_time');
+          
+          if (refCode && refTimeStr) {
+            const refTime = parseInt(refTimeStr, 10);
+            const isExpired = Date.now() - refTime > 30 * 24 * 60 * 60 * 1000;
+            
+            if (!isExpired) {
+              await supabase.rpc('bind_referral_on_signup', {
+                p_referred_id: row.user_id,
+                p_referrer_code: refCode
+              });
+            }
+          }
+          localStorage.removeItem('mantra_referral_code');
+          localStorage.removeItem('mantra_referral_time');
+        } catch (refErr) {
+          console.error('[Referral Engine] Referral binding failed silently:', refErr);
+        }
+      }
+
       const userSession = {
         id: row.user_id,
         fullName: row.full_name || '',
