@@ -505,15 +505,15 @@ const generateInvoiceDoc = async (order: LocalOrder, source?: 'primary' | 'corre
 
   let heightLeft = imgHeight;
   let position = 0;
-  const pageData = canvas.toDataURL('image/png');
+  const pageData = canvas.toDataURL('image/jpeg', 0.95);
 
-  doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+  doc.addImage(pageData, 'JPEG', 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     doc.addPage();
-    doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+    doc.addImage(pageData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 

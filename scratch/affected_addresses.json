@@ -1,0 +1,332 @@
+[
+  {
+    "normalizedPhone": "919234133572",
+    "userId": "acf583eb-6ef9-4031-9df5-ba742a1824c9",
+    "addressId": "918ee76b-b9aa-4336-9760-7b1a4b8ae340",
+    "phone": "919234133572",
+    "address": "",
+    "city": "Giridh",
+    "state": "Jharkhand",
+    "createdAt": "2026-07-23T02:55:30.449419+00:00"
+  },
+  {
+    "normalizedPhone": "919009046430",
+    "userId": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+    "addressId": "0e92a370-2341-4fe8-990b-b24a9576ba2a",
+    "phone": "9009046430",
+    "address": "",
+    "city": "ind",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-13T19:06:38.675213+00:00"
+  },
+  {
+    "normalizedPhone": "919009046430",
+    "userId": "bb82366c-ee99-4c4f-a6e7-9a1612479aa1",
+    "addressId": "68291e3f-dc72-408d-90bf-022507e4fa21",
+    "phone": "919009046430",
+    "address": "",
+    "city": "Indore",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T13:49:27.364971+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "6f91280a-d400-4cf4-85ee-b6014d5b5917",
+    "addressId": "5fb55232-e7aa-4b8b-9e5d-81e3de81b1ed",
+    "phone": "7974478098",
+    "address": "",
+    "city": "ujjain",
+    "state": "Bihar",
+    "createdAt": "2026-07-13T19:39:12.676934+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "6f91280a-d400-4cf4-85ee-b6014d5b5917",
+    "addressId": "806d7c63-d281-45c7-ac1e-7f52c091ec3a",
+    "phone": "7974478098",
+    "address": "",
+    "city": "Indore",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-22T11:00:21.522886+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "5555912b-ee69-4f96-af42-22605d36584a",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-22T18:50:58.556526+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "12c977ae-01c4-44c5-a3bd-2357279dcf59",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T09:34:23.338614+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "51ccb0f6-cdd6-4ff9-a32e-22e71f182887",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T11:30:05.775168+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "970a897e-558e-4704-8f2d-c971af3a1c4a",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T14:29:06.418035+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "dcecbdce-3dc5-419a-aa3d-a63d6448f1f5",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T14:37:27.98834+00:00"
+  },
+  {
+    "normalizedPhone": "917974478098",
+    "userId": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+    "addressId": "c0e1cc8d-62a7-4517-b90c-02bae3178725",
+    "phone": "917974478098",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T15:05:07.671019+00:00"
+  },
+  {
+    "normalizedPhone": "918109422241",
+    "userId": "8fcbfb52-022c-4f03-8225-650127cc090a",
+    "addressId": "885bef2c-8ad4-410a-8505-cddd7f08d871",
+    "phone": "8109422241",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-21T08:08:33.468848+00:00"
+  },
+  {
+    "normalizedPhone": "918109422241",
+    "userId": "53496531-dcc4-45e6-9442-8922efc4cb85",
+    "addressId": "e8878e5a-9b76-40b9-824c-52be1f125403",
+    "phone": "918109422241",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T12:19:56.804304+00:00"
+  },
+  {
+    "normalizedPhone": "918109422241",
+    "userId": "53496531-dcc4-45e6-9442-8922efc4cb85",
+    "addressId": "8b9150ea-eec1-4a56-b063-465cd63c4901",
+    "phone": "918109422241",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T12:47:10.047266+00:00"
+  },
+  {
+    "normalizedPhone": "918109422241",
+    "userId": "53496531-dcc4-45e6-9442-8922efc4cb85",
+    "addressId": "df08f0ac-f801-460a-b7da-f5f06258dd94",
+    "phone": "918109422241",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T13:58:43.980201+00:00"
+  },
+  {
+    "normalizedPhone": "918819897434",
+    "userId": "4bc8cc36-ab55-4db7-85ba-ab0803923a19",
+    "addressId": "34271669-3e1c-4bef-8fd0-0a52d5bd9715",
+    "phone": "8819897434",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-21T15:51:56.683301+00:00"
+  },
+  {
+    "normalizedPhone": "919899383485",
+    "userId": "07197577-6d3e-4cf8-a55d-8a8ca5ad37ef",
+    "addressId": "106c2bfc-735d-4fdd-ad9b-365bff39abd7",
+    "phone": "919899383485",
+    "address": "",
+    "city": "Gautam Buddha Nagar",
+    "state": "Uttar Pradesh",
+    "createdAt": "2026-07-23T07:42:36.619689+00:00"
+  },
+  {
+    "normalizedPhone": "919689120412",
+    "userId": "61a0e405-6204-4015-840d-6ad93873901d",
+    "addressId": "7afaf635-74bd-4d17-a4f4-76eb4139d66a",
+    "phone": "919689120412",
+    "address": "",
+    "city": "Akola",
+    "state": "Maharashtra",
+    "createdAt": "2026-07-23T10:02:39.257683+00:00"
+  },
+  {
+    "normalizedPhone": "917999279610",
+    "userId": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+    "addressId": "b5ec49ce-2b3d-44e4-80d8-056153be7833",
+    "phone": "7999279610",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-21T07:49:58.439042+00:00"
+  },
+  {
+    "normalizedPhone": "917999279610",
+    "userId": "4d2a11ad-e7c0-4af7-af7a-af5789fa267d",
+    "addressId": "8a3b053d-f77a-44da-b5f1-631707e69ec1",
+    "phone": "917999279610",
+    "address": "",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T12:49:46.466839+00:00"
+  },
+  {
+    "normalizedPhone": "918299138372",
+    "userId": "1274ce5d-6fe7-4663-902e-ff6a2f54f80c",
+    "addressId": "4acd6d0a-5938-4654-ab28-07c7653f7033",
+    "phone": "8299138372",
+    "address": "",
+    "city": "Kanpur",
+    "state": "Uttar Pradesh",
+    "createdAt": "2026-07-23T07:57:40.533317+00:00"
+  },
+  {
+    "normalizedPhone": "919312369843",
+    "userId": "49db3db3-2224-494e-8aaa-756dfbd6342a",
+    "addressId": "40de5b7a-0b84-41ef-8eda-dbd193cb0c58",
+    "phone": "919312369843",
+    "address": "",
+    "city": "Patna",
+    "state": "Bihar",
+    "createdAt": "2026-07-23T08:01:50.815425+00:00"
+  },
+  {
+    "normalizedPhone": "917383130148",
+    "userId": "e7978155-f476-455d-b700-dfa9863c8c87",
+    "addressId": "4096643c-3a82-4a69-8f68-a9bb6279114b",
+    "phone": "917383130148",
+    "address": "",
+    "city": "Ahmedabad",
+    "state": "Gujarat",
+    "createdAt": "2026-07-23T10:03:22.995692+00:00"
+  },
+  {
+    "normalizedPhone": "917874980572",
+    "userId": "a604fbb9-6c3f-4d04-8e5f-1fc79a5b314e",
+    "addressId": "a2374e3e-09a3-4829-8db3-929046f17cfc",
+    "phone": "917874980572",
+    "address": "",
+    "city": "Mumbai ",
+    "state": "Maharashtra",
+    "createdAt": "2026-07-23T09:40:17.772948+00:00"
+  },
+  {
+    "normalizedPhone": "919685787200",
+    "userId": "77aef8fd-1f35-4f98-b8a4-c2d16ab5d5e0",
+    "addressId": "50e31791-1268-4dd3-a9cd-fdcd2ef8c9ec",
+    "phone": "9685787200",
+    "address": "",
+    "city": "Durg",
+    "state": "Chhattisgarh",
+    "createdAt": "2026-07-24T00:31:46.893427+00:00"
+  },
+  {
+    "normalizedPhone": "919685787200",
+    "userId": "77aef8fd-1f35-4f98-b8a4-c2d16ab5d5e0",
+    "addressId": "0193186e-be18-4184-abf1-f9bb12d089c0",
+    "phone": "9685787200",
+    "address": "",
+    "city": "Durg",
+    "state": "Chhattisgarh",
+    "createdAt": "2026-07-24T00:33:32.918968+00:00"
+  },
+  {
+    "normalizedPhone": "917631598563",
+    "userId": "5e872698-10e8-492c-9fcd-c2bb47f145ba",
+    "addressId": "98593bda-016e-4ee4-8e0e-73dec73887e2",
+    "phone": "917631598563",
+    "address": "",
+    "city": "Lakhisarai",
+    "state": "Bihar",
+    "createdAt": "2026-07-23T10:53:46.75797+00:00"
+  },
+  {
+    "normalizedPhone": "916203288535",
+    "userId": "be26646b-bf95-4082-9e1c-47e11d910c68",
+    "addressId": "36dab8ae-e210-4f70-9b2e-dd177c848be1",
+    "phone": "6203288535",
+    "address": "",
+    "city": "East Singhbhum",
+    "state": "Jharkhand",
+    "createdAt": "2026-07-24T03:20:16.349937+00:00"
+  },
+  {
+    "normalizedPhone": "919806254050",
+    "userId": "ca6f6e3a-8a2d-4fcb-a876-7835cc1da692",
+    "addressId": "467ae244-7e7c-4cc0-888d-e4f5a4bd25c6",
+    "phone": "919806254050",
+    "address": "",
+    "city": "Mandla",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-23T14:51:29.011387+00:00"
+  },
+  {
+    "normalizedPhone": "919580793778",
+    "userId": "e206c26f-7fc8-4863-b971-edb61b374767",
+    "addressId": "a3e2965d-ccf2-42c3-973c-da6d43a0e2ee",
+    "phone": "919580793778",
+    "address": "",
+    "city": "Lucknow",
+    "state": "Uttar Pradesh",
+    "createdAt": "2026-07-24T06:02:06.365609+00:00"
+  },
+  {
+    "normalizedPhone": "919764566466",
+    "userId": "8e4397b0-c581-4853-b537-5b3eceb75c6b",
+    "addressId": "4b5e0400-f6e2-4847-ba39-d037a1f4127e",
+    "phone": "919764566466",
+    "address": "",
+    "city": "Pune",
+    "state": "Maharashtra",
+    "createdAt": "2026-07-23T14:28:20.819247+00:00"
+  },
+  {
+    "normalizedPhone": "919617658659",
+    "userId": "be60c847-98d0-4511-9557-3d38babd5361",
+    "addressId": "06f4023f-575f-43ec-96fd-11d9173147c4",
+    "phone": "919617658659",
+    "address": "",
+    "city": "Gwalior",
+    "state": "Madhya Pradesh",
+    "createdAt": "2026-07-24T05:38:14.913757+00:00"
+  },
+  {
+    "normalizedPhone": "919569521972",
+    "userId": "5db94409-93c1-4c9f-b7b5-d350667ec528",
+    "addressId": "5fbfeff5-f81d-4921-a1d7-cb7593317f6c",
+    "phone": "919569521972",
+    "address": "",
+    "city": "Jalandhar",
+    "state": "Punjab",
+    "createdAt": "2026-07-23T15:39:31.042031+00:00"
+  }
+]

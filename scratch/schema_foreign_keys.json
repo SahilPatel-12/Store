@@ -1,0 +1,746 @@
+[
+  {
+    "sourceTable": "user_referrals",
+    "sourceColumn": "referrer_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_referrals",
+    "sourceColumn": "referee_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_relationships",
+    "sourceColumn": "referrer_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_relationships",
+    "sourceColumn": "referred_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "ledger_entries",
+    "sourceColumn": "transaction_id",
+    "targetTable": "financial_transactions",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daan_translations",
+    "sourceColumn": "daan_id",
+    "targetTable": "daans",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "astrologer_chat_messages",
+    "sourceColumn": "booking_id",
+    "targetTable": "astrologer_bookings",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_section_translations",
+    "sourceColumn": "day_of_week",
+    "targetTable": "daily_sections",
+    "targetColumn": "day_of_week"
+  },
+  {
+    "sourceTable": "customer_refunds",
+    "sourceColumn": "transaction_id",
+    "targetTable": "financial_transactions",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_refunds",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "category_translations",
+    "sourceColumn": "category_id",
+    "targetTable": "categories",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "puja_booking_details",
+    "sourceColumn": "order_id",
+    "targetTable": "orders",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_daily_puja_details",
+    "sourceColumn": "puja_id",
+    "targetTable": "daily_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_daily_puja_details",
+    "sourceColumn": "daily_puja_id",
+    "targetTable": "daily_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_puja_details",
+    "sourceColumn": "puja_id",
+    "targetTable": "offer_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_unlocked_flowers",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_unlocked_flowers",
+    "sourceColumn": "flower_id",
+    "targetTable": "god_flowers",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_sync_logs",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "user_wallets",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_pujas",
+    "sourceColumn": "day_of_week",
+    "targetTable": "daily_sections",
+    "targetColumn": "day_of_week"
+  },
+  {
+    "sourceTable": "daily_pujas",
+    "sourceColumn": "general_pooja_id",
+    "targetTable": "general_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_pujas",
+    "sourceColumn": "one_rupee_pooja_id",
+    "targetTable": "one_rupee_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_coupons",
+    "sourceColumn": "product_id",
+    "targetTable": "website_pooja_products",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_admin",
+    "sourceColumn": "created_by",
+    "targetTable": "website_store_admin",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "orders",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "order_corrections",
+    "sourceColumn": "order_id",
+    "targetTable": "website_store_orders",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "order_corrections",
+    "sourceColumn": "edited_by",
+    "targetTable": "website_store_admin",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_commissions",
+    "sourceColumn": "order_id",
+    "targetTable": "website_store_orders",
+    "targetColumn": "order_id"
+  },
+  {
+    "sourceTable": "affiliate_commissions",
+    "sourceColumn": "referrer_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_commissions",
+    "sourceColumn": "buyer_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "problem_pooja_translations",
+    "sourceColumn": "problem_pooja_id",
+    "targetTable": "problem_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "pooja_translations",
+    "sourceColumn": "pooja_id",
+    "targetTable": "general_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_auth_attributes",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "affiliate_clicks",
+    "sourceColumn": "referrer_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "festival_translations",
+    "sourceColumn": "festival_date",
+    "targetTable": "spiritual_calendar",
+    "targetColumn": "date_key"
+  },
+  {
+    "sourceTable": "website_store_astrologers",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "god_thali_translations",
+    "sourceColumn": "god_thali_id",
+    "targetTable": "god_thalis",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_pooja_product_translations",
+    "sourceColumn": "product_id",
+    "targetTable": "website_pooja_products",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_coupon_redemptions",
+    "sourceColumn": "coupon_id",
+    "targetTable": "website_store_coupons",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_coupon_redemptions",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "offer_pooja_translations",
+    "sourceColumn": "offer_pooja_id",
+    "targetTable": "offer_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "one_rupee_pooja_translations",
+    "sourceColumn": "one_rupee_pooja_id",
+    "targetTable": "one_rupee_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "profiles",
+    "sourceColumn": "id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_daily_pujas",
+    "sourceColumn": "day_of_week",
+    "targetTable": "daily_sections",
+    "targetColumn": "day_of_week"
+  },
+  {
+    "sourceTable": "localized_daily_pujas",
+    "sourceColumn": "general_pooja_id",
+    "targetTable": "general_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_daily_pujas",
+    "sourceColumn": "one_rupee_pooja_id",
+    "targetTable": "one_rupee_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_pooja_translations",
+    "sourceColumn": "daily_pooja_id",
+    "targetTable": "daily_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "astrologer_bookings",
+    "sourceColumn": "astrologer_id",
+    "targetTable": "website_store_astrologers",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "astrologer_bookings",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "v_unified_product_orders",
+    "sourceColumn": "web_profile_id",
+    "targetTable": "profiles",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "v_unified_product_orders",
+    "sourceColumn": "mobile_user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "home_feed_translations",
+    "sourceColumn": "feed_id",
+    "targetTable": "homepage_hero",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "puja_detail_translations",
+    "sourceColumn": "puja_detail_id",
+    "targetTable": "puja_details",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_push_tokens",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "financial_transactions",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "user_unlocked_thalis",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_unlocked_thalis",
+    "sourceColumn": "thali_id",
+    "targetTable": "god_thalis",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "god_flower_translations",
+    "sourceColumn": "god_flower_id",
+    "targetTable": "god_flowers",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_affiliate_commissions",
+    "sourceColumn": "affiliate_id",
+    "targetTable": "website_store_affiliates",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_affiliate_commissions",
+    "sourceColumn": "referee_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_astrologer_translations",
+    "sourceColumn": "astrologer_id",
+    "targetTable": "website_store_astrologers",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "blog_translations",
+    "sourceColumn": "blog_id",
+    "targetTable": "blogs",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "video_review_translations",
+    "sourceColumn": "video_review_id",
+    "targetTable": "video_reviews",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_pundits",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_website_store_astrologers",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "shipping_addresses",
+    "sourceColumn": "order_id",
+    "targetTable": "orders",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_wallets",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "admin_sessions",
+    "sourceColumn": "admin_id",
+    "targetTable": "website_store_admin",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_commerce_profiles",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "customer_commerce_profiles",
+    "sourceColumn": "preferred_shipping_address_id",
+    "targetTable": "customer_addresses",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_commerce_events",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "life_problem_translations",
+    "sourceColumn": "problem_id",
+    "targetTable": "life_problems",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "coin_transactions",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_orders",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_orders",
+    "sourceColumn": "referrer_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_wallets",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "temple_translations",
+    "sourceColumn": "temple_id",
+    "targetTable": "temples",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "store_products",
+    "sourceColumn": "store_id",
+    "targetTable": "stores",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_wallet_transactions",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "order_items",
+    "sourceColumn": "order_id",
+    "targetTable": "orders",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "notification_delivery_status",
+    "sourceColumn": "notification_id",
+    "targetTable": "push_notifications",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "notification_delivery_status",
+    "sourceColumn": "user_id",
+    "targetTable": "profiles",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_puja_detail_translations",
+    "sourceColumn": "daily_puja_detail_id",
+    "targetTable": "daily_puja_details",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "cart_items",
+    "sourceColumn": "cart_id",
+    "targetTable": "carts",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_affiliate_withdrawals",
+    "sourceColumn": "affiliate_id",
+    "targetTable": "website_store_affiliates",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_addresses",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_sync_events",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "customer_sync_locks",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "offer_section_translations",
+    "sourceColumn": "section_id",
+    "targetTable": "offer_sections",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_sync_conflicts",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "customer_sync_conflicts",
+    "sourceColumn": "web_profile_id",
+    "targetTable": "profiles",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_sync_conflicts",
+    "sourceColumn": "mobile_user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "offer_pujas",
+    "sourceColumn": "section_id",
+    "targetTable": "offer_sections",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "offer_pujas",
+    "sourceColumn": "general_pooja_id",
+    "targetTable": "general_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "offer_pujas",
+    "sourceColumn": "one_rupee_pooja_id",
+    "targetTable": "one_rupee_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "affiliate_withdrawals",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_financial_events",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "website_store_affiliates",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "notification_versions",
+    "sourceColumn": "notification_id",
+    "targetTable": "push_notifications",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "product_translations",
+    "sourceColumn": "product_id",
+    "targetTable": "website_pooja_products",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_website_store_pundits",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_pundit_translations",
+    "sourceColumn": "pundit_id",
+    "targetTable": "website_store_pundits",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_users",
+    "sourceColumn": "referred_by",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "notification_delivery_summary_view",
+    "sourceColumn": "notification_id",
+    "targetTable": "push_notifications",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "notification_scheduler_logs",
+    "sourceColumn": "template_id",
+    "targetTable": "notification_templates",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_addresses",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "faq_translations",
+    "sourceColumn": "faq_id",
+    "targetTable": "faqs",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "god_category_translations",
+    "sourceColumn": "god_category_id",
+    "targetTable": "god_categories",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "user_sessions",
+    "sourceColumn": "user_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "website_store_pundit_bookings",
+    "sourceColumn": "pundit_id",
+    "targetTable": "website_store_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daan_bookings",
+    "sourceColumn": "daan_id",
+    "targetTable": "daans",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daan_bookings",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "puja_details",
+    "sourceColumn": "puja_id",
+    "targetTable": "offer_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "god_images",
+    "sourceColumn": "category",
+    "targetTable": "god_categories",
+    "targetColumn": "name"
+  },
+  {
+    "sourceTable": "admin_audit_logs",
+    "sourceColumn": "admin_id",
+    "targetTable": "website_store_admin",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_identity_map",
+    "sourceColumn": "customer_id",
+    "targetTable": "customer_identities",
+    "targetColumn": "customer_id"
+  },
+  {
+    "sourceTable": "customer_identity_map",
+    "sourceColumn": "web_profile_id",
+    "targetTable": "profiles",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "customer_identity_map",
+    "sourceColumn": "mobile_user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "daily_puja_details",
+    "sourceColumn": "puja_id",
+    "targetTable": "daily_pujas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "categories",
+    "sourceColumn": "parent_id",
+    "targetTable": "categories",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "carts",
+    "sourceColumn": "user_id",
+    "targetTable": "app_users",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_offer_pujas",
+    "sourceColumn": "section_id",
+    "targetTable": "offer_sections",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_offer_pujas",
+    "sourceColumn": "general_pooja_id",
+    "targetTable": "general_poojas",
+    "targetColumn": "id"
+  },
+  {
+    "sourceTable": "localized_offer_pujas",
+    "sourceColumn": "one_rupee_pooja_id",
+    "targetTable": "one_rupee_poojas",
+    "targetColumn": "id"
+  }
+]

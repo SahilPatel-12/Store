@@ -1,0 +1,820 @@
+{
+  "successTables": [
+    {
+      "table": "admin_audit_logs",
+      "count": 284,
+      "error": null
+    },
+    {
+      "table": "admin_login_attempts",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "admin_roles",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "admin_sessions",
+      "count": 17,
+      "error": null
+    },
+    {
+      "table": "admins",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "affiliate_audit_logs",
+      "count": 60,
+      "error": null
+    },
+    {
+      "table": "affiliate_clicks",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "affiliate_commissions",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "affiliate_levels",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "affiliate_relationships",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "affiliate_settings",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "affiliate_wallets",
+      "count": 19,
+      "error": null
+    },
+    {
+      "table": "affiliate_withdrawals",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "api_configs",
+      "count": 7,
+      "error": null
+    },
+    {
+      "table": "app_users",
+      "count": 50,
+      "error": null
+    },
+    {
+      "table": "astrologer_bookings",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "astrologer_chat_messages",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "banners",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "blog_translations",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "blogs",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "cart_items",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "carts",
+      "count": 13,
+      "error": null
+    },
+    {
+      "table": "categories",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "category_by_product",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "category_translations",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "choghadiyas",
+      "count": 27,
+      "error": null
+    },
+    {
+      "table": "coin_transactions",
+      "count": 92,
+      "error": null
+    },
+    {
+      "table": "combo_poojas",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_addresses",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_auth_attributes",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_commerce_events",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_commerce_profiles",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_financial_events",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_identities",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_identity_map",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_refunds",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_sync_conflicts",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_sync_events",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_sync_locks",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_sync_logs",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_wallet_transactions",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "customer_wallets",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "daan_bookings",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "daan_translations",
+      "count": 38,
+      "error": null
+    },
+    {
+      "table": "daans",
+      "count": 19,
+      "error": null
+    },
+    {
+      "table": "daily_pooja_translations",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "daily_puja_detail_translations",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "daily_puja_details",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "daily_pujas",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "daily_section_translations",
+      "count": 14,
+      "error": null
+    },
+    {
+      "table": "daily_sections",
+      "count": 7,
+      "error": null
+    },
+    {
+      "table": "faq_translations",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "faqs",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "festival_translations",
+      "count": 21,
+      "error": null
+    },
+    {
+      "table": "financial_transactions",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "general_poojas",
+      "count": 14,
+      "error": null
+    },
+    {
+      "table": "god_categories",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "god_category_translations",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "god_flower_translations",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "god_flowers",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "god_images",
+      "count": 17,
+      "error": null
+    },
+    {
+      "table": "god_thali_translations",
+      "count": 7,
+      "error": null
+    },
+    {
+      "table": "god_thalis",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "home_feed_translations",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "homepage_hero",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "horoscopes",
+      "count": 37,
+      "error": null
+    },
+    {
+      "table": "kundlis",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "ledger_entries",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "life_problem_translations",
+      "count": 10,
+      "error": null
+    },
+    {
+      "table": "life_problems",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "localized_blogs",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "localized_categories",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "localized_daans",
+      "count": 19,
+      "error": null
+    },
+    {
+      "table": "localized_daily_puja_details",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "localized_daily_pujas",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "localized_daily_sections",
+      "count": 7,
+      "error": null
+    },
+    {
+      "table": "localized_faqs",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "localized_general_poojas",
+      "count": 14,
+      "error": null
+    },
+    {
+      "table": "localized_god_categories",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "localized_god_flowers",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "localized_god_thalis",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "localized_homepage_hero",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "localized_life_problems",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "localized_offer_pujas",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "localized_offer_sections",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "localized_one_rupee_poojas",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "localized_problem_poojas",
+      "count": 18,
+      "error": null
+    },
+    {
+      "table": "localized_puja_details",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "localized_spiritual_calendar",
+      "count": 20,
+      "error": null
+    },
+    {
+      "table": "localized_temples",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "localized_video_reviews",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "localized_website_pooja_products",
+      "count": 64,
+      "error": null
+    },
+    {
+      "table": "localized_website_store_astrologers",
+      "count": 10,
+      "error": null
+    },
+    {
+      "table": "localized_website_store_pundits",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "notification_dashboard_view",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "notification_delivery_status",
+      "count": 183,
+      "error": null
+    },
+    {
+      "table": "notification_delivery_summary_view",
+      "count": 11,
+      "error": null
+    },
+    {
+      "table": "notification_history_view",
+      "count": 32,
+      "error": null
+    },
+    {
+      "table": "notification_scheduler_health",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "notification_scheduler_logs",
+      "count": 19,
+      "error": null
+    },
+    {
+      "table": "notification_segments",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "notification_sounds",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "notification_templates",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "notification_versions",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "notification_worker_heartbeats",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "offer_pooja_translations",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "offer_pujas",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "offer_section_translations",
+      "count": 3,
+      "error": null
+    },
+    {
+      "table": "offer_sections",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "one_rupee_pooja_translations",
+      "count": 30,
+      "error": null
+    },
+    {
+      "table": "one_rupee_poojas",
+      "count": 15,
+      "error": null
+    },
+    {
+      "table": "order_corrections",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "order_items",
+      "count": 124,
+      "error": null
+    },
+    {
+      "table": "orders",
+      "count": 118,
+      "error": null
+    },
+    {
+      "table": "panchangs",
+      "count": 20,
+      "error": null
+    },
+    {
+      "table": "pandit_videos",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "pooja_translations",
+      "count": 28,
+      "error": null
+    },
+    {
+      "table": "problem_pooja_translations",
+      "count": 36,
+      "error": null
+    },
+    {
+      "table": "problem_poojas",
+      "count": 18,
+      "error": null
+    },
+    {
+      "table": "product_translations",
+      "count": 31,
+      "error": null
+    },
+    {
+      "table": "profiles",
+      "count": 50,
+      "error": null
+    },
+    {
+      "table": "puja_banners",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "puja_booking_details",
+      "count": 11,
+      "error": null
+    },
+    {
+      "table": "puja_detail_translations",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "puja_details",
+      "count": 8,
+      "error": null
+    },
+    {
+      "table": "push_notifications",
+      "count": 32,
+      "error": null
+    },
+    {
+      "table": "razorpay_configuration",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "razorpay_webhook_events",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "shipping_addresses",
+      "count": 21,
+      "error": null
+    },
+    {
+      "table": "spiritual_calendar",
+      "count": 20,
+      "error": null
+    },
+    {
+      "table": "store_products",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "stores",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "temple_translations",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "temples",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "user_push_tokens",
+      "count": 27,
+      "error": null
+    },
+    {
+      "table": "user_referrals",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "user_sessions",
+      "count": 148,
+      "error": null
+    },
+    {
+      "table": "user_unlocked_flowers",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "user_unlocked_thalis",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "user_wallets",
+      "count": 50,
+      "error": null
+    },
+    {
+      "table": "v_unified_product_orders",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "video_review_translations",
+      "count": 10,
+      "error": null
+    },
+    {
+      "table": "video_reviews",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "website_pooja_product_translations",
+      "count": 32,
+      "error": null
+    },
+    {
+      "table": "website_pooja_products",
+      "count": 32,
+      "error": null
+    },
+    {
+      "table": "website_settings",
+      "count": 23,
+      "error": null
+    },
+    {
+      "table": "website_store_addresses",
+      "count": 56,
+      "error": null
+    },
+    {
+      "table": "website_store_admin",
+      "count": 5,
+      "error": null
+    },
+    {
+      "table": "website_store_affiliate_commissions",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "website_store_affiliate_settings",
+      "count": 1,
+      "error": null
+    },
+    {
+      "table": "website_store_affiliate_withdrawals",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "website_store_affiliates",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "website_store_astrologer_translations",
+      "count": 10,
+      "error": null
+    },
+    {
+      "table": "website_store_astrologers",
+      "count": 10,
+      "error": null
+    },
+    {
+      "table": "website_store_coupon_redemptions",
+      "count": 0,
+      "error": null
+    },
+    {
+      "table": "website_store_coupons",
+      "count": 4,
+      "error": null
+    },
+    {
+      "table": "website_store_msg91_test_otps",
+      "count": 117,
+      "error": null
+    },
+    {
+      "table": "website_store_orders",
+      "count": 104,
+      "error": null
+    },
+    {
+      "table": "website_store_otp_logs",
+      "count": 85,
+      "error": null
+    },
+    {
+      "table": "website_store_pundit_bookings",
+      "count": 2,
+      "error": null
+    },
+    {
+      "table": "website_store_pundit_translations",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "website_store_pundits",
+      "count": 6,
+      "error": null
+    },
+    {
+      "table": "website_store_users",
+      "count": 152,
+      "error": null
+    }
+  ],
+  "failedTables": []
+}

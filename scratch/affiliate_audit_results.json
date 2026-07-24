@@ -1,0 +1,257 @@
+{
+  "wallets": [
+    {
+      "user_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "total_earned": 0,
+      "pending_earnings": 30.3,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-07-13T19:06:29.042623+00:00"
+    },
+    {
+      "user_id": "385ebf22-f5eb-43ad-8c83-a72cc8a8efa1",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-22T11:01:05.125878+00:00"
+    },
+    {
+      "user_id": "8bcb63e9-f1f3-42f8-9fe8-42ff255dd5c9",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-25T13:42:56.464156+00:00"
+    },
+    {
+      "user_id": "bd0d7dd0-fba6-4f67-98ab-504b3e2ced46",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T05:43:30.475084+00:00"
+    },
+    {
+      "user_id": "4a101554-c275-4adf-a881-e3a38ba83d08",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:02:44.990244+00:00"
+    },
+    {
+      "user_id": "b01315b8-8d10-4e2c-b8d2-cbbe97077c5d",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:22:53.247146+00:00"
+    },
+    {
+      "user_id": "33a15ea1-189d-40a7-8a65-82acd5bbc80a",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:29:48.725566+00:00"
+    },
+    {
+      "user_id": "1243366d-6c17-4667-a693-19bc0c10ac05",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:34:01.068387+00:00"
+    },
+    {
+      "user_id": "90738da9-cdde-47e1-87dc-b8b2ba319e38",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:37:22.768683+00:00"
+    },
+    {
+      "user_id": "dadd7b35-8145-4766-9c29-311a7402682c",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:46:21.432059+00:00"
+    },
+    {
+      "user_id": "bc06475e-466f-4913-83b9-967b82561db8",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:51:31.130588+00:00"
+    },
+    {
+      "user_id": "31797902-ce76-409a-bc15-e7042d0b9325",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:54:46.281213+00:00"
+    },
+    {
+      "user_id": "00c355a6-4f62-4217-b978-99a4e269fce9",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T06:57:55.565247+00:00"
+    },
+    {
+      "user_id": "b5447e09-5365-4ec1-8863-892cbe9956bf",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T07:11:29.204962+00:00"
+    },
+    {
+      "user_id": "3d17c32b-16c0-4b70-8e3a-f7e158ec9a38",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T09:34:54.944598+00:00"
+    },
+    {
+      "user_id": "fdbae3c6-da41-4cca-82ab-d3c2c81bcf25",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T09:39:12.801414+00:00"
+    },
+    {
+      "user_id": "68093946-1e05-4293-ba08-1d104b4b0383",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T09:44:38.261779+00:00"
+    },
+    {
+      "user_id": "5c2d72f2-aff6-43a0-8c86-ad5d737adced",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-26T09:50:05.694285+00:00"
+    },
+    {
+      "user_id": "e63dbbc8-500f-4ca2-9edc-b1a61af51055",
+      "total_earned": 0,
+      "pending_earnings": 0,
+      "approved_earnings": 0,
+      "withdrawn_amount": 0,
+      "available_balance": 0,
+      "updated_at": "2026-06-29T12:39:39.854487+00:00"
+    }
+  ],
+  "commissions": [
+    {
+      "id": "9a017b51-54ae-4640-99b3-c301c7662092",
+      "order_id": "MANTRA-396069",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "buyer_id": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+      "level": 1,
+      "order_total": 101,
+      "commission_percent": 10,
+      "commission_amount": 10.1,
+      "status": "pending",
+      "created_at": "2026-07-13T19:01:32.050101+00:00",
+      "updated_at": "2026-07-13T19:01:32.050101+00:00"
+    },
+    {
+      "id": "3d7ff6e6-0444-47f3-9f89-4e80546e5db8",
+      "order_id": "MANTRA-296888",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "buyer_id": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+      "level": 1,
+      "order_total": 101,
+      "commission_percent": 10,
+      "commission_amount": 10.1,
+      "status": "pending",
+      "created_at": "2026-07-13T19:06:29.042623+00:00",
+      "updated_at": "2026-07-13T19:06:29.042623+00:00"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "7ad6f9a5-7a9b-4948-9975-207a76704d00",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "referred_id": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+      "created_at": "2026-07-13T19:01:01.578855+00:00"
+    }
+  ],
+  "clicks": [
+    {
+      "id": "7d083e14-cb9f-494e-974f-e51b035bec39",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "referral_code": "MPER73US",
+      "landing_page": "/?ref=MPER73US",
+      "device_id": "browser_client",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "created_at": "2026-07-13T18:59:15.948216+00:00"
+    },
+    {
+      "id": "05289c6c-510d-4385-a943-ae75db73318e",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "referral_code": "MPER73US",
+      "landing_page": "/?ref=MPER73US",
+      "device_id": "browser_client",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "created_at": "2026-07-13T19:00:02.594848+00:00"
+    },
+    {
+      "id": "70628c6e-aa7d-434f-9414-6fc8726c7a9c",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "referral_code": "MPER73US",
+      "landing_page": "/?ref=MPER73US",
+      "device_id": "browser_client",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "created_at": "2026-07-13T19:04:42.989645+00:00"
+    },
+    {
+      "id": "0d501cce-3c03-4c10-acb9-ba4c69fc3b72",
+      "referrer_id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+      "referral_code": "MPER73US",
+      "landing_page": "/?ref=MPER73US",
+      "device_id": "browser_client",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "created_at": "2026-07-13T19:04:42.994137+00:00"
+    }
+  ],
+  "duplicates": {
+    "wallets": [],
+    "commissions": []
+  }
+}

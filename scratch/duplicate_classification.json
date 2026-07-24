@@ -1,0 +1,1240 @@
+{
+  "safeToMerge": [
+    {
+      "normalizedPhone": "9234133572",
+      "canonicalId": "acf583eb-6ef9-4031-9df5-ba742a1824c9",
+      "canonicalPhone": "919234133572",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "70ba19bf-93de-4afd-8df8-bbb03746a829",
+          "phone": "9234133572",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9193833159",
+      "canonicalId": "20362a06-2966-466e-8ef9-a73b345c518c",
+      "canonicalPhone": "919193833159",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "4defde13-cd29-4eb0-8cf9-e0dd779244f6",
+          "phone": "9193833159",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9828387166",
+      "canonicalId": "05e37eb2-d2a5-4f0a-a644-cf469693c475",
+      "canonicalPhone": "919828387166",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "6c87a88b-1038-4cf2-8a82-b662121aab4d",
+          "phone": "9828387166",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9935895884",
+      "canonicalId": "b33ea620-1420-4420-8261-92d530614f6b",
+      "canonicalPhone": "919935895884",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "16930cda-89a5-47e8-9868-3cb5507bdf55",
+          "phone": "9935895884",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8819897434",
+      "canonicalId": "4bc8cc36-ab55-4db7-85ba-ab0803923a19",
+      "canonicalPhone": "8819897434",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 2,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "b7231561-31c6-40de-ba4a-0e1062b691b5",
+          "phone": "918819897434",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 1,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9712932302",
+      "canonicalId": "9a24bd0c-476b-448f-97bd-70e08960f904",
+      "canonicalPhone": "919712932302",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "f6b9f983-fcf5-4ba4-ab5c-17471db979fd",
+          "phone": "9712932302",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8103314636",
+      "canonicalId": "94d8d30a-c5fe-40d2-bc88-65ccd637577b",
+      "canonicalPhone": "918103314636",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "b9c1008f-e529-4809-8d4d-e70c443777ee",
+          "phone": "8103314636",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9899383485",
+      "canonicalId": "07197577-6d3e-4cf8-a55d-8a8ca5ad37ef",
+      "canonicalPhone": "919899383485",
+      "canonicalCounts": {
+        "orders": 2,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "d4abff7c-70bb-44cb-ad2f-a5c2cc697dd3",
+          "phone": "9899383485",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9689120412",
+      "canonicalId": "61a0e405-6204-4015-840d-6ad93873901d",
+      "canonicalPhone": "919689120412",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "a497fcd3-0734-4135-961c-61b57ec69ed2",
+          "phone": "9689120412",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9999999999",
+      "canonicalId": "aad66182-bd3c-428d-bfc8-62b6017ac840",
+      "canonicalPhone": "919999999999",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "b8cd2d08-988e-4e9e-abb8-20482986e5ce",
+          "phone": "9999999999",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8299138372",
+      "canonicalId": "1274ce5d-6fe7-4663-902e-ff6a2f54f80c",
+      "canonicalPhone": "918299138372",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "5f4ec778-bb2c-402c-b46c-f2d83f10ef33",
+          "phone": "8299138372",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "6376206618",
+      "canonicalId": "fd72dd3c-50a0-448d-8909-6ff17a14d5c5",
+      "canonicalPhone": "916376206618",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "353a4f7a-50bf-4726-9263-835826bd59f6",
+          "phone": "6376206618",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7978935494",
+      "canonicalId": "9322afbf-f0e0-43d2-a05f-4ae2eb547218",
+      "canonicalPhone": "917978935494",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "d3100829-f9b0-4163-967c-3f9bcbd3451f",
+          "phone": "7978935494",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9312369843",
+      "canonicalId": "49db3db3-2224-494e-8aaa-756dfbd6342a",
+      "canonicalPhone": "919312369843",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "a35a50e5-2974-43d9-b13e-7e2001d0f441",
+          "phone": "9312369843",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7383130148",
+      "canonicalId": "e7978155-f476-455d-b700-dfa9863c8c87",
+      "canonicalPhone": "917383130148",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "ff824a1b-e0a1-4249-8c75-2c9362e33f1e",
+          "phone": "7383130148",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9813886201",
+      "canonicalId": "21dacd91-75d6-4321-a368-19f4416c2add",
+      "canonicalPhone": "919813886201",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "beaf6128-9fb8-40cc-94fc-b03c7fdd1a32",
+          "phone": "9813886201",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9431457166",
+      "canonicalId": "c49aef24-6c11-45ba-83bc-c4231d386c99",
+      "canonicalPhone": "919431457166",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "68841aa1-4133-4102-bcb3-1e4bb5d56a9d",
+          "phone": "9431457166",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7874980572",
+      "canonicalId": "a604fbb9-6c3f-4d04-8e5f-1fc79a5b314e",
+      "canonicalPhone": "917874980572",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 2,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "e63adc0a-5875-4e6f-9169-9b14169754ca",
+          "phone": "7874980572",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9685787200",
+      "canonicalId": "77aef8fd-1f35-4f98-b8a4-c2d16ab5d5e0",
+      "canonicalPhone": "919685787200",
+      "canonicalCounts": {
+        "orders": 2,
+        "addresses": 2,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "0f60b1eb-3e26-4ddc-bd34-880c977a2ae8",
+          "phone": "9685787200",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7631598563",
+      "canonicalId": "5e872698-10e8-492c-9fcd-c2bb47f145ba",
+      "canonicalPhone": "917631598563",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "9ecc1ec5-e311-49c7-b6d0-b4e6f776236f",
+          "phone": "7631598563",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9604812161",
+      "canonicalId": "1486d221-9d16-4347-b3b2-815d1ad2a892",
+      "canonicalPhone": "919604812161",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "548d3850-9f2f-4aeb-949f-f21efdcd984a",
+          "phone": "9604812161",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9644896049",
+      "canonicalId": "5a9e2012-401b-4be6-8ddd-e7687b964566",
+      "canonicalPhone": "919644896049",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "061f8f18-23dd-49a8-be31-8c504576ba1f",
+          "phone": "9644896049",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8320782942",
+      "canonicalId": "8b455565-4b4d-43eb-9dec-68d788f2cd66",
+      "canonicalPhone": "918320782942",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "d9dfbd7a-ba07-480d-835f-3d28ab2fda00",
+          "phone": "8320782942",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8521600214",
+      "canonicalId": "17bdace1-d33e-4990-b3e0-83497aa69a1d",
+      "canonicalPhone": "918521600214",
+      "canonicalCounts": {
+        "orders": 3,
+        "addresses": 0,
+        "sessions": 2,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "528565be-2a51-4055-818d-5fad9669be5c",
+          "phone": "8521600214",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "6203288535",
+      "canonicalId": "be26646b-bf95-4082-9e1c-47e11d910c68",
+      "canonicalPhone": "916203288535",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "a58c33e1-a616-418c-9daf-1c6ead76fbf2",
+          "phone": "6203288535",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7742422277",
+      "canonicalId": "faf2bc3c-b15a-43d7-b31e-3f044813788e",
+      "canonicalPhone": "917742422277",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "e53441ea-8046-456d-9fb1-162dcf19feb8",
+          "phone": "7742422277",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9806254050",
+      "canonicalId": "ca6f6e3a-8a2d-4fcb-a876-7835cc1da692",
+      "canonicalPhone": "919806254050",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 2,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "544927e1-5073-4faa-84d1-bb56b303e386",
+          "phone": "9806254050",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7408405612",
+      "canonicalId": "a32964ed-b361-4105-ba0e-550e30c825f6",
+      "canonicalPhone": "917408405612",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "ce5fd7ff-d400-4869-a598-dd13c63ce510",
+          "phone": "7408405612",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7017308966",
+      "canonicalId": "ffacfb93-fa3a-4e10-9a0f-4cb6ddaf13e7",
+      "canonicalPhone": "917017308966",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "9c95dcf1-6ff7-44e8-aef3-f719ad2a04cc",
+          "phone": "7017308966",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9580793778",
+      "canonicalId": "e206c26f-7fc8-4863-b971-edb61b374767",
+      "canonicalPhone": "919580793778",
+      "canonicalCounts": {
+        "orders": 2,
+        "addresses": 1,
+        "sessions": 2,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "1f8b15d1-826d-48ef-b7f0-4d404565f628",
+          "phone": "9580793778",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9764566466",
+      "canonicalId": "8e4397b0-c581-4853-b537-5b3eceb75c6b",
+      "canonicalPhone": "919764566466",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "b3269e2c-a569-4a93-ba24-ecbacf54590d",
+          "phone": "9764566466",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9617658659",
+      "canonicalId": "be60c847-98d0-4511-9557-3d38babd5361",
+      "canonicalPhone": "919617658659",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "3053c4c0-bd0a-401b-80ca-b1621593d8d7",
+          "phone": "9617658659",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "6204175088",
+      "canonicalId": "3b5b751f-bbdb-4438-8ff1-f33e08518543",
+      "canonicalPhone": "916204175088",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "cbb6a1d2-6c0b-4e3f-be29-ddc20ffa457e",
+          "phone": "6204175088",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9967244573",
+      "canonicalId": "b18c4898-f7c2-4a5f-919e-32507775512d",
+      "canonicalPhone": "919967244573",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "af2f3d4b-4b03-4c9c-9b06-074161a98dae",
+          "phone": "9967244573",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9548417559",
+      "canonicalId": "ce8a070c-ce3e-46e2-8a73-ecdbdc1845a4",
+      "canonicalPhone": "919548417559",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "1f939b6e-9ad7-4a40-95eb-f1dbe8205cf0",
+          "phone": "9548417559",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9569521972",
+      "canonicalId": "5db94409-93c1-4c9f-b7b5-d350667ec528",
+      "canonicalPhone": "919569521972",
+      "canonicalCounts": {
+        "orders": 1,
+        "addresses": 1,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "0ba5d1d4-4d3e-4d89-b9b5-212e4cd30bbe",
+          "phone": "9569521972",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9460195466",
+      "canonicalId": "ef11e80b-c824-4c5a-9b9e-1654c652c56b",
+      "canonicalPhone": "919460195466",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "4407a333-2f21-48e1-a6f2-1c8dcb83365d",
+          "phone": "9460195466",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "9065524534",
+      "canonicalId": "780c445c-a3ff-4caf-b64e-80c65a7e6568",
+      "canonicalPhone": "919065524534",
+      "canonicalCounts": {
+        "orders": 0,
+        "addresses": 0,
+        "sessions": 1,
+        "affiliates": 0,
+        "couponRedemptions": 0,
+        "devoteeBookings": 0,
+        "punditBookings": 0
+      },
+      "removedUsers": [
+        {
+          "id": "1631e59a-e552-48e8-ae61-88f7bb856abb",
+          "phone": "9065524534",
+          "counts": {
+            "orders": 0,
+            "addresses": 0,
+            "sessions": 0,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    }
+  ],
+  "requiresReview": [
+    {
+      "normalizedPhone": "9009046430",
+      "users": [
+        {
+          "id": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+          "phone": "9009046430",
+          "email": "udaipurtrip333@gmail.com",
+          "counts": {
+            "orders": 2,
+            "addresses": 1,
+            "sessions": 2,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        },
+        {
+          "id": "bb82366c-ee99-4c4f-a6e7-9a1612479aa1",
+          "phone": "919009046430",
+          "email": "mantrapuja7@gmail.com",
+          "counts": {
+            "orders": 0,
+            "addresses": 1,
+            "sessions": 2,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7974478098",
+      "users": [
+        {
+          "id": "6f91280a-d400-4cf4-85ee-b6014d5b5917",
+          "phone": "7974478098",
+          "email": "patelsahil797447@gmail.com",
+          "counts": {
+            "orders": 4,
+            "addresses": 2,
+            "sessions": 5,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        },
+        {
+          "id": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+          "phone": "917974478098",
+          "email": null,
+          "counts": {
+            "orders": 6,
+            "addresses": 6,
+            "sessions": 4,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "8109422241",
+      "users": [
+        {
+          "id": "8fcbfb52-022c-4f03-8225-650127cc090a",
+          "phone": "8109422241",
+          "email": "purab.sharma@avantika.ed.in",
+          "counts": {
+            "orders": 3,
+            "addresses": 1,
+            "sessions": 3,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        },
+        {
+          "id": "53496531-dcc4-45e6-9442-8922efc4cb85",
+          "phone": "918109422241",
+          "email": "purabs640@gmail.com",
+          "counts": {
+            "orders": 3,
+            "addresses": 3,
+            "sessions": 1,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    },
+    {
+      "normalizedPhone": "7999279610",
+      "users": [
+        {
+          "id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+          "phone": "7999279610",
+          "email": "tradinghack3@gmail.com",
+          "counts": {
+            "orders": 2,
+            "addresses": 1,
+            "sessions": 5,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        },
+        {
+          "id": "4d2a11ad-e7c0-4af7-af7a-af5789fa267d",
+          "phone": "917999279610",
+          "email": "udaipurmountabu8@gmail.com",
+          "counts": {
+            "orders": 0,
+            "addresses": 1,
+            "sessions": 3,
+            "affiliates": 0,
+            "couponRedemptions": 0,
+            "devoteeBookings": 0,
+            "punditBookings": 0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3649 @@
+[
+  {
+    "normalizedPhone": "9234133572",
+    "users": [
+      {
+        "id": "acf583eb-6ef9-4031-9df5-ba742a1824c9",
+        "rawPhone": "919234133572",
+        "email": "pihusharma2501@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T02:50:44.678427+00:00",
+        "lastLoginAt": "2026-07-23T02:50:44.897+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "284be8c4-b3c7-4a82-ac08-bc27b446e7a5",
+              "order_id": "MANTRA-481123",
+              "total": 302,
+              "status": "Shipped",
+              "created_at": "2026-07-23T02:55:28.506187+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "918ee76b-b9aa-4336-9760-7b1a4b8ae340",
+              "city": "Giridh",
+              "state": "Jharkhand"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "27f3f8b3-afb0-4af1-8ce1-b9771abf92b9",
+              "expires_at": "2026-08-22T02:50:44.693+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "70ba19bf-93de-4afd-8df8-bbb03746a829",
+        "rawPhone": "9234133572",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T02:48:10.909174+00:00",
+        "lastLoginAt": "2026-07-23T02:48:10.015+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9193833159",
+    "users": [
+      {
+        "id": "4defde13-cd29-4eb0-8cf9-e0dd779244f6",
+        "rawPhone": "9193833159",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T04:35:44.593617+00:00",
+        "lastLoginAt": "2026-07-23T04:35:44.228+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "20362a06-2966-466e-8ef9-a73b345c518c",
+        "rawPhone": "919193833159",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T04:35:45.415978+00:00",
+        "lastLoginAt": "2026-07-23T04:35:45.701+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "b472de9c-2d70-43a2-b32f-4d1dc0bd1f0e",
+              "order_id": "MANTRA-716989",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T04:38:10.985169+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "e178bcbf-6ec7-42ce-9996-ac1f4ff89345",
+              "expires_at": "2026-08-22T04:35:45.475+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9009046430",
+    "users": [
+      {
+        "id": "6c386c97-bd16-444c-84fa-d0a4e73c4530",
+        "rawPhone": "9009046430",
+        "email": "udaipurtrip333@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-13T19:01:01.279225+00:00",
+        "lastLoginAt": "2026-07-13T19:05:43.937687+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 2,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "4e686ccf-b065-467d-bfde-ef20c1cc53d6",
+              "order_id": "MANTRA-296888",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-13T19:06:29.042623+00:00"
+            },
+            {
+              "id": "0a4328f4-b36e-41a7-bc2e-2d02b0153192",
+              "order_id": "MANTRA-396069",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-13T19:01:32.050101+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "0e92a370-2341-4fe8-990b-b24a9576ba2a",
+              "city": "ind",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "653c3144-e649-4c63-825b-f2aa44bb3b02",
+              "expires_at": "2026-08-12T19:01:01.855457+00:00"
+            },
+            {
+              "id": "35edc5ce-1fbf-49e5-a9c9-5b9a4362f932",
+              "expires_at": "2026-08-12T19:05:43.937687+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "bb82366c-ee99-4c4f-a6e7-9a1612479aa1",
+        "rawPhone": "919009046430",
+        "email": "mantrapuja7@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T11:42:22.548668+00:00",
+        "lastLoginAt": "2026-07-23T13:48:55.412+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [
+            {
+              "id": "68291e3f-dc72-408d-90bf-022507e4fa21",
+              "city": "Indore",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "9e71940d-0fb5-4acd-a40a-59dba23cfb86",
+              "expires_at": "2026-08-22T11:42:22.595+00:00"
+            },
+            {
+              "id": "4ab8c328-1fd0-4307-ac7b-cd32ac3bc6c0",
+              "expires_at": "2026-08-22T13:48:55.195+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7974478098",
+    "users": [
+      {
+        "id": "6f91280a-d400-4cf4-85ee-b6014d5b5917",
+        "rawPhone": "7974478098",
+        "email": "patelsahil797447@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-13T19:38:20.381452+00:00",
+        "lastLoginAt": "2026-07-22T17:20:14.748012+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 4,
+          "addresses": 2,
+          "sessions": 5,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "2f616d5d-9565-4447-9cc5-135ed7754ee0",
+              "order_id": "MANTRA-870014",
+              "total": 401,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T11:21:38.384848+00:00"
+            },
+            {
+              "id": "6d76e6cf-69bd-41e7-839d-f7745819d4df",
+              "order_id": "MANTRA-682469",
+              "total": 401,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T08:07:49.643152+00:00"
+            },
+            {
+              "id": "7dc5dfcd-d1a8-4ec8-907a-c3aec0781411",
+              "order_id": "MANTRA-295544",
+              "total": 1001,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T08:09:05.804772+00:00"
+            },
+            {
+              "id": "c349342b-8500-4aaa-a612-712d1c53ed49",
+              "order_id": "MANTRA-195098",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T08:10:30.570021+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "5fb55232-e7aa-4b8b-9e5d-81e3de81b1ed",
+              "city": "ujjain",
+              "state": "Bihar"
+            },
+            {
+              "id": "806d7c63-d281-45c7-ac1e-7f52c091ec3a",
+              "city": "Indore",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "0d1ae1ff-b452-44a8-99cb-120c448d8627",
+              "expires_at": "2026-08-20T07:17:33.307539+00:00"
+            },
+            {
+              "id": "0d4b39d4-9805-47d1-b0a5-885ae23aab94",
+              "expires_at": "2026-08-15T13:01:45.482431+00:00"
+            },
+            {
+              "id": "10949617-8da9-4aa4-9c60-c102990ce60e",
+              "expires_at": "2026-08-13T09:44:45.443465+00:00"
+            },
+            {
+              "id": "315fd2b0-1b93-42d8-a16c-2f13a7766779",
+              "expires_at": "2026-08-20T07:01:13.867568+00:00"
+            },
+            {
+              "id": "3658b268-fef5-4a98-99fa-bfe7fb62648b",
+              "expires_at": "2026-08-21T17:20:14.748012+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "d9d433bc-dd57-4563-8e78-9a0fbd37b59d",
+        "rawPhone": "917974478098",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-22T18:35:03.302985+00:00",
+        "lastLoginAt": "2026-07-23T14:36:47.179+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 6,
+          "addresses": 6,
+          "sessions": 4,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "6eefc9ae-3c51-4ef8-af0f-ecb05a77443f",
+              "order_id": "MANTRA-550767",
+              "total": 601,
+              "status": "Cancelled",
+              "created_at": "2026-07-22T18:50:21.940238+00:00"
+            },
+            {
+              "id": "65e6550c-46be-4c16-b2d1-d870882977d2",
+              "order_id": "MANTRA-883065",
+              "total": 601,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T11:36:33.77845+00:00"
+            },
+            {
+              "id": "8e0e668b-e93a-4d0b-97ca-242ee8d7ce30",
+              "order_id": "MANTRA-875760",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T12:04:00.227162+00:00"
+            },
+            {
+              "id": "8c7aeb66-5de3-4ab3-b64b-1366070c1763",
+              "order_id": "MANTRA-400075",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T14:29:04.488728+00:00"
+            },
+            {
+              "id": "6907a1b2-b928-48b8-9ad4-fe3df78ae902",
+              "order_id": "MANTRA-923247",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T14:36:57.458643+00:00"
+            },
+            {
+              "id": "1a8b1c04-ead9-4626-9181-40dfecf34ab1",
+              "order_id": "MANTRA-463333",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T15:05:05.866889+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "5555912b-ee69-4f96-af42-22605d36584a",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "12c977ae-01c4-44c5-a3bd-2357279dcf59",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "51ccb0f6-cdd6-4ff9-a32e-22e71f182887",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "970a897e-558e-4704-8f2d-c971af3a1c4a",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "dcecbdce-3dc5-419a-aa3d-a63d6448f1f5",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "c0e1cc8d-62a7-4517-b90c-02bae3178725",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "9802c3d3-0da3-4327-9efe-e3f7cbf9dddc",
+              "expires_at": "2026-08-22T10:53:58.357+00:00"
+            },
+            {
+              "id": "90bd0ec5-bc41-4815-8424-a890af900ddf",
+              "expires_at": "2026-08-22T11:56:57.639+00:00"
+            },
+            {
+              "id": "b3c9540e-1445-401f-b530-ddddbdc62d6a",
+              "expires_at": "2026-08-22T14:28:51.176+00:00"
+            },
+            {
+              "id": "9720ea20-5dc7-4dbc-8ca4-f78097e3b64c",
+              "expires_at": "2026-08-22T14:36:46.853+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8109422241",
+    "users": [
+      {
+        "id": "8fcbfb52-022c-4f03-8225-650127cc090a",
+        "rawPhone": "8109422241",
+        "email": "purab.sharma@avantika.ed.in",
+        "name": "",
+        "createdAt": "2026-07-08T15:22:00.016195+00:00",
+        "lastLoginAt": "2026-07-22T12:22:53.584528+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 3,
+          "addresses": 1,
+          "sessions": 3,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "90028d56-8090-4370-ad90-711f71799705",
+              "order_id": "MANTRA-381905",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T11:24:16.157121+00:00"
+            },
+            {
+              "id": "30010217-ba9e-4403-9dae-a15313fe6069",
+              "order_id": "MANTRA-237237",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-08T15:23:03.368254+00:00"
+            },
+            {
+              "id": "13c756c3-302c-4592-b404-6eadbfaa70c4",
+              "order_id": "MANTRA-831185",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T08:10:04.605712+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "885bef2c-8ad4-410a-8505-cddd7f08d871",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "508cc7c9-5b12-4db4-bf60-897167aeffbb",
+              "expires_at": "2026-08-07T15:22:00.23668+00:00"
+            },
+            {
+              "id": "3144db05-d1d9-4f07-9964-ed1057db9889",
+              "expires_at": "2026-08-20T08:08:14.847686+00:00"
+            },
+            {
+              "id": "bcd57599-02f2-4992-83b8-ebda2f3e8b03",
+              "expires_at": "2026-08-21T12:22:53.584528+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "53496531-dcc4-45e6-9442-8922efc4cb85",
+        "rawPhone": "918109422241",
+        "email": "purabs640@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T12:17:30.277627+00:00",
+        "lastLoginAt": "2026-07-23T12:17:30.517+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 3,
+          "addresses": 3,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "6132d877-24b5-4859-9668-6a4ae4f7efb6",
+              "order_id": "MANTRA-126578",
+              "total": 51,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T13:58:36.82717+00:00"
+            },
+            {
+              "id": "e2e2829c-ecb2-4547-8a73-44996e2953bf",
+              "order_id": "MANTRA-529258",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T13:57:08.481801+00:00"
+            },
+            {
+              "id": "be51ea98-c38f-48e1-a013-07d36fc26719",
+              "order_id": "MANTRA-377319",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T12:19:06.924777+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "e8878e5a-9b76-40b9-824c-52be1f125403",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "8b9150ea-eec1-4a56-b063-465cd63c4901",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            },
+            {
+              "id": "df08f0ac-f801-460a-b7da-f5f06258dd94",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "03da4bc9-d8bd-4069-a88d-d97f0eeeaffa",
+              "expires_at": "2026-08-22T12:17:30.294+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9828387166",
+    "users": [
+      {
+        "id": "6c87a88b-1038-4cf2-8a82-b662121aab4d",
+        "rawPhone": "9828387166",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T03:35:27.997898+00:00",
+        "lastLoginAt": "2026-07-23T03:35:24.778+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "05e37eb2-d2a5-4f0a-a644-cf469693c475",
+        "rawPhone": "919828387166",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T03:35:28.818808+00:00",
+        "lastLoginAt": "2026-07-23T03:35:29.066+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "cc77444a-8e63-4545-9456-e1f96e8ba91a",
+              "expires_at": "2026-08-22T03:35:28.838+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9935895884",
+    "users": [
+      {
+        "id": "16930cda-89a5-47e8-9868-3cb5507bdf55",
+        "rawPhone": "9935895884",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T04:45:27.848363+00:00",
+        "lastLoginAt": "2026-07-23T04:45:27.109+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "b33ea620-1420-4420-8261-92d530614f6b",
+        "rawPhone": "919935895884",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T04:45:28.545826+00:00",
+        "lastLoginAt": "2026-07-23T04:45:28.813+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "738925db-173f-4730-a6df-da2ef9cd0f68",
+              "order_id": "MANTRA-636487",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T04:47:05.312932+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "1ca9bdbe-d550-4db3-855e-4ce4e1a72391",
+              "expires_at": "2026-08-22T04:45:28.601+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8819897434",
+    "users": [
+      {
+        "id": "4bc8cc36-ab55-4db7-85ba-ab0803923a19",
+        "rawPhone": "8819897434",
+        "email": "sahilInstitute@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-21T15:51:09.865636+00:00",
+        "lastLoginAt": "2026-07-22T10:01:05.782006+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "a3b27dc5-9cbb-46a0-84da-3ebef261431a",
+              "order_id": "MANTRA-689646",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-21T19:51:15.640948+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "34271669-3e1c-4bef-8fd0-0a52d5bd9715",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "daeeb5cc-2321-414c-ba01-a1fc6be4f3de",
+              "expires_at": "2026-08-21T10:01:05.782006+00:00"
+            },
+            {
+              "id": "60f0a612-7741-4ed6-8f62-507b183d7fa1",
+              "expires_at": "2026-08-20T15:51:10.143885+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "b7231561-31c6-40de-ba4a-0e1062b691b5",
+        "rawPhone": "918819897434",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:29:18.90359+00:00",
+        "lastLoginAt": "2026-07-23T09:29:19.276+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "dc7ca46c-f93d-47d3-964f-8b4fc6e01082",
+              "expires_at": "2026-08-22T09:29:18.983+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9712932302",
+    "users": [
+      {
+        "id": "f6b9f983-fcf5-4ba4-ab5c-17471db979fd",
+        "rawPhone": "9712932302",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T05:00:52.983031+00:00",
+        "lastLoginAt": "2026-07-23T05:00:52.47+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "9a24bd0c-476b-448f-97bd-70e08960f904",
+        "rawPhone": "919712932302",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T05:00:54.255105+00:00",
+        "lastLoginAt": "2026-07-23T05:00:54.536+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "be5fda21-0279-4b7a-84cc-d11b6c74edaa",
+              "expires_at": "2026-08-22T05:00:54.307+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8103314636",
+    "users": [
+      {
+        "id": "b9c1008f-e529-4809-8d4d-e70c443777ee",
+        "rawPhone": "8103314636",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T05:54:06.166002+00:00",
+        "lastLoginAt": "2026-07-23T05:54:02.049+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "94d8d30a-c5fe-40d2-bc88-65ccd637577b",
+        "rawPhone": "918103314636",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T05:54:07.206642+00:00",
+        "lastLoginAt": "2026-07-23T05:54:07.492+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "11083e07-9d49-4daf-9827-af6d3249477b",
+              "order_id": "MANTRA-992977",
+              "total": 151,
+              "status": "Shipped",
+              "created_at": "2026-07-23T05:55:42.775133+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "99860cf0-9a8b-4fc5-a287-f5563f5863b4",
+              "expires_at": "2026-08-22T05:54:07.263+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9899383485",
+    "users": [
+      {
+        "id": "d4abff7c-70bb-44cb-ad2f-a5c2cc697dd3",
+        "rawPhone": "9899383485",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T07:39:47.829622+00:00",
+        "lastLoginAt": "2026-07-23T07:39:47.921+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "07197577-6d3e-4cf8-a55d-8a8ca5ad37ef",
+        "rawPhone": "919899383485",
+        "email": "parveenpanwar1986@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T07:39:48.466296+00:00",
+        "lastLoginAt": "2026-07-23T07:39:48.689+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 2,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "bfb4d764-181b-4aa3-b7aa-d41978cc6ae5",
+              "order_id": "MANTRA-915010",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T07:41:56.002724+00:00"
+            },
+            {
+              "id": "f7d34fdc-7019-4952-a767-9b96ebdc7885",
+              "order_id": "MANTRA-760268",
+              "total": 1351,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T07:46:08.097125+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "106c2bfc-735d-4fdd-ad9b-365bff39abd7",
+              "city": "Gautam Buddha Nagar",
+              "state": "Uttar Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "5d90e8ec-f3fc-4195-802d-60682cff380d",
+              "expires_at": "2026-08-22T07:39:48.479+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9689120412",
+    "users": [
+      {
+        "id": "a497fcd3-0734-4135-961c-61b57ec69ed2",
+        "rawPhone": "9689120412",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:58:02.623865+00:00",
+        "lastLoginAt": "2026-07-23T09:58:00.143+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "61a0e405-6204-4015-840d-6ad93873901d",
+        "rawPhone": "919689120412",
+        "email": "ramtirthkaramol12@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T09:58:03.622564+00:00",
+        "lastLoginAt": "2026-07-23T09:58:03.875+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "9e99bec2-e9cd-482e-8c35-87603b8457ed",
+              "order_id": "MANTRA-398261",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T10:01:38.638621+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "7afaf635-74bd-4d17-a4f4-76eb4139d66a",
+              "city": "Akola",
+              "state": "Maharashtra"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "f3d4c2e9-c02e-4433-b90a-b56c57910da9",
+              "expires_at": "2026-08-22T09:58:03.653+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7999279610",
+    "users": [
+      {
+        "id": "2d2aa0e1-dca2-4928-8ed4-cc92506d80b8",
+        "rawPhone": "7999279610",
+        "email": "tradinghack3@gmail.com",
+        "name": "Navneet",
+        "createdAt": "2026-07-13T18:57:59.012638+00:00",
+        "lastLoginAt": "2026-07-22T18:21:59.213084+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "active",
+        "affiliateCode": "MPER73US",
+        "counts": {
+          "orders": 2,
+          "addresses": 1,
+          "sessions": 5,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "50d4ecb7-94a0-466a-8f84-63304563f4d7",
+              "order_id": "MANTRA-932212",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T11:24:06.443449+00:00"
+            },
+            {
+              "id": "7bdcb0c0-950f-4549-adcc-163899abb268",
+              "order_id": "MANTRA-857313",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-21T07:22:29.340074+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "b5ec49ce-2b3d-44e4-80d8-056153be7833",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "f84bd63b-4764-4946-9002-0b37221af3a3",
+              "expires_at": "2026-08-21T12:33:52.087348+00:00"
+            },
+            {
+              "id": "32d27d02-2441-42ed-bc97-c13a5a8c0338",
+              "expires_at": "2026-08-20T07:21:46.057679+00:00"
+            },
+            {
+              "id": "ac6ac0c6-ca53-48b6-88c7-ef15a3e9a015",
+              "expires_at": "2026-08-21T18:21:59.213084+00:00"
+            },
+            {
+              "id": "76756722-bb93-412c-b743-eafa03280fc2",
+              "expires_at": "2026-08-21T14:02:51.810498+00:00"
+            },
+            {
+              "id": "3b50e0d8-aa92-4e4a-af6d-5ac3d16e75bd",
+              "expires_at": "2026-08-21T17:45:30.096157+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "4d2a11ad-e7c0-4af7-af7a-af5789fa267d",
+        "rawPhone": "917999279610",
+        "email": "udaipurmountabu8@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T12:23:59.153188+00:00",
+        "lastLoginAt": "2026-07-23T12:49:21.907+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 1,
+          "sessions": 3,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [
+            {
+              "id": "8a3b053d-f77a-44da-b5f1-631707e69ec1",
+              "city": "Ujjain",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "04e1654b-4699-4345-964a-202fcc76f852",
+              "expires_at": "2026-08-22T12:23:59.18+00:00"
+            },
+            {
+              "id": "1587f416-c1a4-42cf-b6a6-71b7cd85f6bc",
+              "expires_at": "2026-08-22T12:28:03.545+00:00"
+            },
+            {
+              "id": "a43014ff-dce7-487a-ab41-97c0fe4a2444",
+              "expires_at": "2026-08-22T12:49:21.673+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9999999999",
+    "users": [
+      {
+        "id": "aad66182-bd3c-428d-bfc8-62b6017ac840",
+        "rawPhone": "919999999999",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-22T18:30:49.286298+00:00",
+        "lastLoginAt": "2026-07-22T18:30:49.574+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "84d875f5-5f6f-4b75-9fbe-68021d44e673",
+              "expires_at": "2026-08-21T18:30:49.327+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "b8cd2d08-988e-4e9e-abb8-20482986e5ce",
+        "rawPhone": "9999999999",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:07:25.849606+00:00",
+        "lastLoginAt": "2026-07-23T09:07:25.691+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8299138372",
+    "users": [
+      {
+        "id": "5f4ec778-bb2c-402c-b46c-f2d83f10ef33",
+        "rawPhone": "8299138372",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T07:42:42.874687+00:00",
+        "lastLoginAt": "2026-07-23T07:42:35.113+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "1274ce5d-6fe7-4663-902e-ff6a2f54f80c",
+        "rawPhone": "918299138372",
+        "email": "gdolly863@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T07:42:45.231571+00:00",
+        "lastLoginAt": "2026-07-23T07:42:45.462+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "a5f1d7c0-b36d-4c21-bc7c-c860b2392bd3",
+              "order_id": "MANTRA-645577",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T07:46:44.520772+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "4acd6d0a-5938-4654-ab28-07c7653f7033",
+              "city": "Kanpur",
+              "state": "Uttar Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "cfccb3b8-9909-4245-ac74-0a1af48b972d",
+              "expires_at": "2026-08-22T07:42:45.258+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "6376206618",
+    "users": [
+      {
+        "id": "353a4f7a-50bf-4726-9263-835826bd59f6",
+        "rawPhone": "6376206618",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T02:01:44.864608+00:00",
+        "lastLoginAt": "2026-07-23T02:01:43.627+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "fd72dd3c-50a0-448d-8909-6ff17a14d5c5",
+        "rawPhone": "916376206618",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T02:01:45.720167+00:00",
+        "lastLoginAt": "2026-07-23T02:01:46.021+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "d76430a8-7753-456e-9035-a80290039b1a",
+              "order_id": "MANTRA-755020",
+              "total": 302,
+              "status": "Shipped",
+              "created_at": "2026-07-23T02:09:33.834464+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "b2ad047d-2be8-4759-964d-98a0d982ea0d",
+              "expires_at": "2026-08-22T02:01:45.765+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7978935494",
+    "users": [
+      {
+        "id": "d3100829-f9b0-4163-967c-3f9bcbd3451f",
+        "rawPhone": "7978935494",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T02:47:40.291604+00:00",
+        "lastLoginAt": "2026-07-23T02:47:38.681+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "9322afbf-f0e0-43d2-a05f-4ae2eb547218",
+        "rawPhone": "917978935494",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T02:47:41.077771+00:00",
+        "lastLoginAt": "2026-07-23T02:47:41.296+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "2a628acc-0210-44f1-bc3f-900540b36230",
+              "order_id": "MANTRA-815210",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T02:50:12.521121+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "5cbd9ce9-d8bb-47df-8d73-6c0e11c1e86f",
+              "expires_at": "2026-08-22T02:47:41.093+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9312369843",
+    "users": [
+      {
+        "id": "a35a50e5-2974-43d9-b13e-7e2001d0f441",
+        "rawPhone": "9312369843",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T07:58:37.836869+00:00",
+        "lastLoginAt": "2026-07-23T07:58:36.133+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "49db3db3-2224-494e-8aaa-756dfbd6342a",
+        "rawPhone": "919312369843",
+        "email": "padmajalawassociates@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T07:58:38.618576+00:00",
+        "lastLoginAt": "2026-07-23T07:58:38.844+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "37727fe8-c62b-4b35-8722-d6121bb61de1",
+              "order_id": "MANTRA-877539",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T08:01:08.661558+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "40de5b7a-0b84-41ef-8eda-dbd193cb0c58",
+              "city": "Patna",
+              "state": "Bihar"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "4ee66016-eaf2-4425-b0dc-b75f3660ae2e",
+              "expires_at": "2026-08-22T07:58:38.629+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7383130148",
+    "users": [
+      {
+        "id": "ff824a1b-e0a1-4249-8c75-2c9362e33f1e",
+        "rawPhone": "7383130148",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:59:45.475991+00:00",
+        "lastLoginAt": "2026-07-23T09:59:44.5+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "e7978155-f476-455d-b700-dfa9863c8c87",
+        "rawPhone": "917383130148",
+        "email": "heena1234567890789@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T09:59:46.317221+00:00",
+        "lastLoginAt": "2026-07-23T09:59:46.557+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "c5d37847-d2fb-41a3-9c82-1e0983ab2c14",
+              "order_id": "MANTRA-765822",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T10:02:35.142251+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "4096643c-3a82-4a69-8f68-a9bb6279114b",
+              "city": "Ahmedabad",
+              "state": "Gujarat"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "d1e925f4-23aa-4d17-9ac4-bc226cb41077",
+              "expires_at": "2026-08-22T09:59:46.344+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9813886201",
+    "users": [
+      {
+        "id": "beaf6128-9fb8-40cc-94fc-b03c7fdd1a32",
+        "rawPhone": "9813886201",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T08:13:44.134887+00:00",
+        "lastLoginAt": "2026-07-23T08:13:14.765+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "21dacd91-75d6-4321-a368-19f4416c2add",
+        "rawPhone": "919813886201",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T08:13:45.844182+00:00",
+        "lastLoginAt": "2026-07-23T08:13:46.086+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "13123d74-5a95-4d6c-b493-06920bff705b",
+              "order_id": "MANTRA-306833",
+              "total": 302,
+              "status": "Ready for Dispatch",
+              "created_at": "2026-07-23T08:18:36.265762+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "8d6a50b5-459a-4f3c-8f8e-a718e3b91c25",
+              "expires_at": "2026-08-22T08:13:45.857+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9431457166",
+    "users": [
+      {
+        "id": "68841aa1-4133-4102-bcb3-1e4bb5d56a9d",
+        "rawPhone": "9431457166",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T08:35:57.05847+00:00",
+        "lastLoginAt": "2026-07-23T08:35:56.221+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "c49aef24-6c11-45ba-83bc-c4231d386c99",
+        "rawPhone": "919431457166",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T08:35:57.97377+00:00",
+        "lastLoginAt": "2026-07-23T08:35:58.204+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "2961243e-e80d-4363-988e-9ea32425a762",
+              "expires_at": "2026-08-22T08:35:57.987+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7874980572",
+    "users": [
+      {
+        "id": "e63adc0a-5875-4e6f-9169-9b14169754ca",
+        "rawPhone": "7874980572",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:17:06.335126+00:00",
+        "lastLoginAt": "2026-07-23T09:17:04.905+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "a604fbb9-6c3f-4d04-8e5f-1fc79a5b314e",
+        "rawPhone": "917874980572",
+        "email": "ektab1991@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T09:17:07.727303+00:00",
+        "lastLoginAt": "2026-07-23T09:38:16.184+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "9e8fa45d-00f4-4fa0-8078-1704bb5189bc",
+              "order_id": "MANTRA-274293",
+              "total": 151,
+              "status": "Ready for Dispatch",
+              "created_at": "2026-07-23T09:40:15.599321+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "a2374e3e-09a3-4829-8db3-929046f17cfc",
+              "city": "Mumbai ",
+              "state": "Maharashtra"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "47c850b3-67c3-4d89-b44b-42ccec460186",
+              "expires_at": "2026-08-22T09:17:07.802+00:00"
+            },
+            {
+              "id": "95614acd-86b9-4e7e-b5b6-c8890d1aa88a",
+              "expires_at": "2026-08-22T09:38:15.963+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9685787200",
+    "users": [
+      {
+        "id": "0f60b1eb-3e26-4ddc-bd34-880c977a2ae8",
+        "rawPhone": "9685787200",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T09:46:10.190636+00:00",
+        "lastLoginAt": "2026-07-23T09:46:09.441+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "77aef8fd-1f35-4f98-b8a4-c2d16ab5d5e0",
+        "rawPhone": "919685787200",
+        "email": "ravindranathyogi@1988gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T09:46:12.049095+00:00",
+        "lastLoginAt": "2026-07-23T09:46:12.366+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 2,
+          "addresses": 2,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "08004377-45a9-4820-bfe0-9020288d93a5",
+              "order_id": "MANTRA-592503",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-24T00:32:59.066341+00:00"
+            },
+            {
+              "id": "535bb3a1-cafc-4103-ae81-554622631bf1",
+              "order_id": "MANTRA-107887",
+              "total": 1,
+              "status": "Cancelled",
+              "created_at": "2026-07-24T00:30:53.791514+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "50e31791-1268-4dd3-a9cd-fdcd2ef8c9ec",
+              "city": "Durg",
+              "state": "Chhattisgarh"
+            },
+            {
+              "id": "0193186e-be18-4184-abf1-f9bb12d089c0",
+              "city": "Durg",
+              "state": "Chhattisgarh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "d150404e-3d2f-443a-9445-099684a07b88",
+              "expires_at": "2026-08-22T09:46:12.119+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7631598563",
+    "users": [
+      {
+        "id": "9ecc1ec5-e311-49c7-b6d0-b4e6f776236f",
+        "rawPhone": "7631598563",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T10:44:55.653657+00:00",
+        "lastLoginAt": "2026-07-23T10:44:55.023+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "5e872698-10e8-492c-9fcd-c2bb47f145ba",
+        "rawPhone": "917631598563",
+        "email": "kumar5687899@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T10:44:56.349543+00:00",
+        "lastLoginAt": "2026-07-23T10:44:56.626+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "f5f3a61e-4fa7-4322-bb33-f75d00e88ca2",
+              "order_id": "MANTRA-723723",
+              "total": 151,
+              "status": "Ready for Dispatch",
+              "created_at": "2026-07-23T10:53:44.578664+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "98593bda-016e-4ee4-8e0e-73dec73887e2",
+              "city": "Lakhisarai",
+              "state": "Bihar"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "7aa19a3e-f27f-40ea-8f07-cec85759db6d",
+              "expires_at": "2026-08-22T10:44:56.404+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9604812161",
+    "users": [
+      {
+        "id": "548d3850-9f2f-4aeb-949f-f21efdcd984a",
+        "rawPhone": "9604812161",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T11:37:50.655309+00:00",
+        "lastLoginAt": "2026-07-23T11:37:50.147+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "1486d221-9d16-4347-b3b2-815d1ad2a892",
+        "rawPhone": "919604812161",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T12:57:09.042761+00:00",
+        "lastLoginAt": "2026-07-23T12:57:09.32+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "21ac2b7c-411b-4466-99e5-47da387d4226",
+              "order_id": "MANTRA-181539",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T13:00:15.891691+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "ccde620f-f5c4-4f7c-bd4a-f3edf0dbe0b9",
+              "expires_at": "2026-08-22T12:57:09.104+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9644896049",
+    "users": [
+      {
+        "id": "061f8f18-23dd-49a8-be31-8c504576ba1f",
+        "rawPhone": "9644896049",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T11:37:57.246741+00:00",
+        "lastLoginAt": "2026-07-23T11:37:56.661+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "5a9e2012-401b-4be6-8ddd-e7687b964566",
+        "rawPhone": "919644896049",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:22:54.291971+00:00",
+        "lastLoginAt": "2026-07-23T13:22:54.554+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "6873d6e2-05df-47fe-9120-87fe15ac2a32",
+              "order_id": "MANTRA-868231",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T15:37:25.036284+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "40ce114c-9ca6-4944-8966-1ca87dc5739d",
+              "expires_at": "2026-08-22T13:22:54.335+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8320782942",
+    "users": [
+      {
+        "id": "d9dfbd7a-ba07-480d-835f-3d28ab2fda00",
+        "rawPhone": "8320782942",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T03:06:13.480794+00:00",
+        "lastLoginAt": "2026-07-24T03:06:11.782+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "8b455565-4b4d-43eb-9dec-68d788f2cd66",
+        "rawPhone": "918320782942",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T03:06:14.341652+00:00",
+        "lastLoginAt": "2026-07-24T03:06:14.634+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "99bd84f5-70a0-4ea3-a31b-8377b4c6a758",
+              "order_id": "MANTRA-237979",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-24T03:08:14.686925+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "58683d99-87ef-4590-908d-e1ab10baddd4",
+              "expires_at": "2026-08-23T03:06:14.417+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "8521600214",
+    "users": [
+      {
+        "id": "528565be-2a51-4055-818d-5fad9669be5c",
+        "rawPhone": "8521600214",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T11:55:28.61074+00:00",
+        "lastLoginAt": "2026-07-23T11:55:27.269+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "17bdace1-d33e-4990-b3e0-83497aa69a1d",
+        "rawPhone": "918521600214",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T11:55:29.575259+00:00",
+        "lastLoginAt": "2026-07-23T12:42:54.358+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 3,
+          "addresses": 0,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "4700ea4c-c1d8-42bf-81dc-18e6f6b4bd5a",
+              "order_id": "MANTRA-158461",
+              "total": 202,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T11:58:21.847266+00:00"
+            },
+            {
+              "id": "d23388c9-e05c-4693-86bb-867ab17786ce",
+              "order_id": "MANTRA-113231",
+              "total": 202,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T12:45:08.835699+00:00"
+            },
+            {
+              "id": "eb789d96-41b1-48b7-ba9e-d6e3421ca88a",
+              "order_id": "MANTRA-320301",
+              "total": 202,
+              "status": "Cancelled",
+              "created_at": "2026-07-23T13:56:43.039512+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "3da78107-0788-44b9-a314-9e9bb8844033",
+              "expires_at": "2026-08-22T11:55:29.585+00:00"
+            },
+            {
+              "id": "d76b6544-43d5-481b-97f7-e363b3ea57a6",
+              "expires_at": "2026-08-22T12:42:54.153+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "6203288535",
+    "users": [
+      {
+        "id": "a58c33e1-a616-418c-9daf-1c6ead76fbf2",
+        "rawPhone": "6203288535",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T03:15:48.056661+00:00",
+        "lastLoginAt": "2026-07-24T03:15:48.44+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "be26646b-bf95-4082-9e1c-47e11d910c68",
+        "rawPhone": "916203288535",
+        "email": "pritamrajak16@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-24T03:15:48.978458+00:00",
+        "lastLoginAt": "2026-07-24T03:15:49.302+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "dffcb89d-b3f5-4766-af3a-37ed59519281",
+              "order_id": "MANTRA-964505",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-24T03:19:22.907712+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "36dab8ae-e210-4f70-9b2e-dd177c848be1",
+              "city": "East Singhbhum",
+              "state": "Jharkhand"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "b39aec03-ccd1-42ea-8060-533b0eb9a6a2",
+              "expires_at": "2026-08-23T03:15:49.041+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7742422277",
+    "users": [
+      {
+        "id": "e53441ea-8046-456d-9fb1-162dcf19feb8",
+        "rawPhone": "7742422277",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T12:34:40.590638+00:00",
+        "lastLoginAt": "2026-07-23T12:34:39.987+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "faf2bc3c-b15a-43d7-b31e-3f044813788e",
+        "rawPhone": "917742422277",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T12:34:41.384964+00:00",
+        "lastLoginAt": "2026-07-23T12:34:41.606+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "3ba262da-bfd5-4ccb-ab5f-fc93a1183cd0",
+              "expires_at": "2026-08-22T12:34:41.396+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9806254050",
+    "users": [
+      {
+        "id": "544927e1-5073-4faa-84d1-bb56b303e386",
+        "rawPhone": "9806254050",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:03:05.784244+00:00",
+        "lastLoginAt": "2026-07-23T13:03:04.189+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "ca6f6e3a-8a2d-4fcb-a876-7835cc1da692",
+        "rawPhone": "919806254050",
+        "email": "dpadwar@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T13:03:06.564657+00:00",
+        "lastLoginAt": "2026-07-23T14:49:39.583+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "a94a7613-7286-4a99-b217-75050308f0f4",
+              "order_id": "MANTRA-276707",
+              "total": 302,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T14:51:26.709983+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "467ae244-7e7c-4cc0-888d-e4f5a4bd25c6",
+              "city": "Mandla",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "15abef24-87e7-45d6-8f75-b6d39e36f540",
+              "expires_at": "2026-08-22T13:03:06.619+00:00"
+            },
+            {
+              "id": "f47d4549-a799-4c4e-b5d8-aeef78fa3a57",
+              "expires_at": "2026-08-22T14:49:39.335+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7408405612",
+    "users": [
+      {
+        "id": "ce5fd7ff-d400-4869-a598-dd13c63ce510",
+        "rawPhone": "7408405612",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:04:19.959888+00:00",
+        "lastLoginAt": "2026-07-23T13:04:18.659+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "a32964ed-b361-4105-ba0e-550e30c825f6",
+        "rawPhone": "917408405612",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:04:21.949903+00:00",
+        "lastLoginAt": "2026-07-23T13:04:22.28+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "22d2573b-f62c-40f0-a5d5-e029acd955f3",
+              "order_id": "MANTRA-606459",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-23T13:08:01.172324+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "d3dea057-181d-4a8d-919e-5e9f0a42378c",
+              "expires_at": "2026-08-22T13:04:22.031+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "7017308966",
+    "users": [
+      {
+        "id": "9c95dcf1-6ff7-44e8-aef3-f719ad2a04cc",
+        "rawPhone": "7017308966",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:43:51.789812+00:00",
+        "lastLoginAt": "2026-07-23T13:43:48.943+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "ffacfb93-fa3a-4e10-9a0f-4cb6ddaf13e7",
+        "rawPhone": "917017308966",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T13:43:53.576185+00:00",
+        "lastLoginAt": "2026-07-23T13:43:53.831+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "79741037-6793-45d4-995f-ba21ea91daef",
+              "order_id": "MANTRA-837561",
+              "total": 202,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T13:45:03.232678+00:00"
+            }
+          ],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "2c3b5978-24c8-4dc8-8332-13ef5812231e",
+              "expires_at": "2026-08-22T13:43:53.594+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9580793778",
+    "users": [
+      {
+        "id": "1f8b15d1-826d-48ef-b7f0-4d404565f628",
+        "rawPhone": "9580793778",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T04:25:07.603833+00:00",
+        "lastLoginAt": "2026-07-24T04:25:06.225+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "e206c26f-7fc8-4863-b971-edb61b374767",
+        "rawPhone": "919580793778",
+        "email": "neharastogi953@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-24T04:25:08.246527+00:00",
+        "lastLoginAt": "2026-07-24T05:55:33.4+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 2,
+          "addresses": 1,
+          "sessions": 2,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "0dedfc78-7ca8-4925-b03f-8c0c93015ebb",
+              "order_id": "MANTRA-353360",
+              "total": 101,
+              "status": "Payment Pending",
+              "created_at": "2026-07-24T04:31:27.87636+00:00"
+            },
+            {
+              "id": "39fb4d0e-e446-4856-88ad-c4e7f035d75b",
+              "order_id": "MANTRA-395338",
+              "total": 101,
+              "status": "Being Packed",
+              "created_at": "2026-07-24T06:01:11.990075+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "a3e2965d-ccf2-42c3-973c-da6d43a0e2ee",
+              "city": "Lucknow",
+              "state": "Uttar Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "a3345c3c-3d09-4f91-8ffc-bc0a7b139dc1",
+              "expires_at": "2026-08-23T04:25:08.277+00:00"
+            },
+            {
+              "id": "b4abf57a-962d-4010-b226-ac7d16c79a25",
+              "expires_at": "2026-08-23T05:55:33.108+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9764566466",
+    "users": [
+      {
+        "id": "b3269e2c-a569-4a93-ba24-ecbacf54590d",
+        "rawPhone": "9764566466",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T14:24:54.335835+00:00",
+        "lastLoginAt": "2026-07-23T14:24:51.899+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "8e4397b0-c581-4853-b537-5b3eceb75c6b",
+        "rawPhone": "919764566466",
+        "email": "vishalmakhamale84@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T14:25:35.575702+00:00",
+        "lastLoginAt": "2026-07-23T14:25:35.819+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "e3908cdd-a71d-492b-8854-670826d7e75c",
+              "order_id": "MANTRA-478581",
+              "total": 202,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T14:27:23.304665+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "4b5e0400-f6e2-4847-ba39-d037a1f4127e",
+              "city": "Pune",
+              "state": "Maharashtra"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "1088f731-0da0-48a2-915b-cb5b9c560a30",
+              "expires_at": "2026-08-22T14:25:35.602+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9617658659",
+    "users": [
+      {
+        "id": "be60c847-98d0-4511-9557-3d38babd5361",
+        "rawPhone": "919617658659",
+        "email": "prajapatirenu779@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-24T02:05:49.279324+00:00",
+        "lastLoginAt": "2026-07-24T02:05:49.555+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "c15bf4da-467f-474b-83fc-7e28de3e373c",
+              "order_id": "MANTRA-197285",
+              "total": 202,
+              "status": "Being Packed",
+              "created_at": "2026-07-24T05:37:24.471333+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "06f4023f-575f-43ec-96fd-11d9173147c4",
+              "city": "Gwalior",
+              "state": "Madhya Pradesh"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "9c85b2f6-45c7-40b7-a360-e7738b2cfc34",
+              "expires_at": "2026-08-23T02:05:49.29+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "3053c4c0-bd0a-401b-80ca-b1621593d8d7",
+        "rawPhone": "9617658659",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T02:05:48.123441+00:00",
+        "lastLoginAt": "2026-07-24T02:05:46.296+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "6204175088",
+    "users": [
+      {
+        "id": "cbb6a1d2-6c0b-4e3f-be29-ddc20ffa457e",
+        "rawPhone": "6204175088",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T14:56:18.84586+00:00",
+        "lastLoginAt": "2026-07-23T14:56:18.466+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "3b5b751f-bbdb-4438-8ff1-f33e08518543",
+        "rawPhone": "916204175088",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T14:59:33.661209+00:00",
+        "lastLoginAt": "2026-07-23T14:59:33.986+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "9e338dd3-3dd3-461c-93b9-d3ced7f82c84",
+              "expires_at": "2026-08-22T14:59:33.737+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9967244573",
+    "users": [
+      {
+        "id": "af2f3d4b-4b03-4c9c-9b06-074161a98dae",
+        "rawPhone": "9967244573",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T15:10:04.909113+00:00",
+        "lastLoginAt": "2026-07-23T15:09:53.388+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "b18c4898-f7c2-4a5f-919e-32507775512d",
+        "rawPhone": "919967244573",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T15:10:12.74955+00:00",
+        "lastLoginAt": "2026-07-23T15:10:13.041+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "404b22a4-b0f0-497c-95e1-3b6b33a0c543",
+              "expires_at": "2026-08-22T15:10:12.814+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9548417559",
+    "users": [
+      {
+        "id": "1f939b6e-9ad7-4a40-95eb-f1dbe8205cf0",
+        "rawPhone": "9548417559",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T15:10:35.154634+00:00",
+        "lastLoginAt": "2026-07-23T15:10:34.491+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "ce8a070c-ce3e-46e2-8a73-ecdbdc1845a4",
+        "rawPhone": "919548417559",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T15:10:35.980458+00:00",
+        "lastLoginAt": "2026-07-23T15:10:36.283+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "2a2a7e5d-f8c5-4dd8-8d1b-64b9f3be6e50",
+              "expires_at": "2026-08-22T15:10:36.043+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9569521972",
+    "users": [
+      {
+        "id": "0ba5d1d4-4d3e-4d89-b9b5-212e4cd30bbe",
+        "rawPhone": "9569521972",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T15:36:56.182695+00:00",
+        "lastLoginAt": "2026-07-23T15:36:55.048+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "5db94409-93c1-4c9f-b7b5-d350667ec528",
+        "rawPhone": "919569521972",
+        "email": "harishhema023@gmail.com",
+        "name": "",
+        "createdAt": "2026-07-23T15:36:57.160775+00:00",
+        "lastLoginAt": "2026-07-23T15:36:57.438+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 1,
+          "addresses": 1,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [
+            {
+              "id": "3c784fc7-75bf-4b81-9871-8bf7831db295",
+              "order_id": "MANTRA-228614",
+              "total": 302,
+              "status": "Being Packed",
+              "created_at": "2026-07-23T15:39:28.714472+00:00"
+            }
+          ],
+          "addresses": [
+            {
+              "id": "5fbfeff5-f81d-4921-a1d7-cb7593317f6c",
+              "city": "Jalandhar",
+              "state": "Punjab"
+            }
+          ],
+          "sessions": [
+            {
+              "id": "b7df30b2-0d2e-4b7e-8366-8c1af0b3ccb1",
+              "expires_at": "2026-08-22T15:36:57.219+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9460195466",
+    "users": [
+      {
+        "id": "4407a333-2f21-48e1-a6f2-1c8dcb83365d",
+        "rawPhone": "9460195466",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T22:21:36.0743+00:00",
+        "lastLoginAt": "2026-07-23T22:21:31.712+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "ef11e80b-c824-4c5a-9b9e-1654c652c56b",
+        "rawPhone": "919460195466",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-23T22:21:39.005568+00:00",
+        "lastLoginAt": "2026-07-23T22:21:39.226+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "953c971f-9d18-41b0-8cfd-5d9cf517968b",
+              "expires_at": "2026-08-22T22:21:39+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  },
+  {
+    "normalizedPhone": "9065524534",
+    "users": [
+      {
+        "id": "1631e59a-e552-48e8-ae61-88f7bb856abb",
+        "rawPhone": "9065524534",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T00:32:03.493517+00:00",
+        "lastLoginAt": "2026-07-24T00:32:02.766+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 0,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      },
+      {
+        "id": "780c445c-a3ff-4caf-b64e-80c65a7e6568",
+        "rawPhone": "919065524534",
+        "email": null,
+        "name": "",
+        "createdAt": "2026-07-24T00:32:04.280708+00:00",
+        "lastLoginAt": "2026-07-24T00:32:04.513+00:00",
+        "isPundit": false,
+        "isSuspended": false,
+        "affiliateStatus": "inactive",
+        "affiliateCode": null,
+        "counts": {
+          "orders": 0,
+          "addresses": 0,
+          "sessions": 1,
+          "affiliates": 0,
+          "couponRedemptions": 0,
+          "devoteeBookings": 0,
+          "punditBookings": 0
+        },
+        "details": {
+          "orders": [],
+          "addresses": [],
+          "sessions": [
+            {
+              "id": "ff52a167-5a93-42f5-9653-1f0e2da31cd0",
+              "expires_at": "2026-08-23T00:32:04.306+00:00"
+            }
+          ],
+          "affiliates": [],
+          "couponRedemptions": [],
+          "devoteeBookings": [],
+          "punditBookings": []
+        }
+      }
+    ]
+  }
+]

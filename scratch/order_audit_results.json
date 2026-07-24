@@ -1,0 +1,10 @@
+{
+  "total": 104,
+  "paymentMethods": {
+    "Razorpay": 85,
+    "COD": 19
+  },
+  "dupAttempts": [],
+  "dupRzpOrders": [],
+  "dupRzpPayments": []
+}

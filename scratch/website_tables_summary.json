@@ -1,0 +1,2114 @@
+{
+  "website_store_users": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "full_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "email": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "phone_number": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "password_hash": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "last_login_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "affiliate_code": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "referred_by": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "affiliate_status": {
+        "type": "string",
+        "format": "text",
+        "default": "inactive",
+        "description": ""
+      },
+      "affiliate_joined_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "is_pundit": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "is_suspended": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      }
+    }
+  },
+  "user_sessions": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "session_token": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "device_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ip_address": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "user_agent": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "last_activity": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_orders": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "order_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "items": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "subtotal": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "discount": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "discount_percent": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": ""
+      },
+      "shipping": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "tax": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "total": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "payment_method": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "delivery_city": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "delivery_state": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "full_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "email": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "address_line1": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "address_line2": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "pincode": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "phone_number": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "Being Packed",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "now()",
+        "description": ""
+      },
+      "referrer_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "affiliate_snapshot": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "gst_percent_snapshot": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "gst_amount_snapshot": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "delivery_amount_snapshot": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "free_delivery_eligible_snapshot": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": null,
+        "description": ""
+      },
+      "payment_status": {
+        "type": "string",
+        "format": "text",
+        "default": "Pending",
+        "description": "Direct barcode/QR payment approval status: Pending or Confirmed"
+      },
+      "payment_screenshot": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": "CDN URL of the direct barcode/QR payment screenshot uploaded by the customer for admin verification"
+      },
+      "payment_decline_count": {
+        "type": "integer",
+        "format": "integer",
+        "default": 0,
+        "description": ""
+      },
+      "checkout_attempt_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "payment_provider": {
+        "type": "string",
+        "format": "text",
+        "default": "manual_upi",
+        "description": ""
+      },
+      "razorpay_order_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "razorpay_payment_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "payment_verified_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "amount_paid_paise": {
+        "type": "integer",
+        "format": "bigint",
+        "default": null,
+        "description": ""
+      },
+      "currency": {
+        "type": "string",
+        "format": "text",
+        "default": "INR",
+        "description": ""
+      },
+      "payment_failure_reason": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "razorpay_mode": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "cod_fee": {
+        "type": "number",
+        "format": "numeric",
+        "default": 0,
+        "description": ""
+      }
+    }
+  },
+  "website_store_addresses": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "type": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "phone": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "street": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "city": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "state": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "zip": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "is_default": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "now()",
+        "description": ""
+      }
+    }
+  },
+  "website_store_pundits": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "full_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "spiritual_title": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "languages": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "gotra": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "experience_years": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": ""
+      },
+      "city": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "state": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "latitude": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "longitude": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "service_modes": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "temple_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "service_area": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "specialties": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "profile_photo": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "bio": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "verified_badge": {
+        "type": "string",
+        "format": "text",
+        "default": "Registered Partner",
+        "description": ""
+      },
+      "verification_uploaded": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "aadhaar_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "certificate_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "temple_auth_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "pending",
+        "description": ""
+      },
+      "onboarded_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_pundit_bookings": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "pundit_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": ""
+      },
+      "puja_name": {
+        "type": "string",
+        "format": "text",
+        "default": "Sacred Ritual",
+        "description": ""
+      },
+      "devotee_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "gotra": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "devotee_phone": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "booking_date": {
+        "type": "string",
+        "format": "date",
+        "default": null,
+        "description": ""
+      },
+      "booking_time": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "venue_type": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "venue_address": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "special_request": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "dakshina": {
+        "type": "number",
+        "format": "numeric",
+        "default": 0,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "Pending Confirmation",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_affiliates": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "code": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "enabled": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": true,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_affiliate_commissions": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "affiliate_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_affiliates.id`.<fk table='website_store_affiliates' column='id'/>"
+      },
+      "referee_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "order_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "order_subtotal": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "commission_percent": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": ""
+      },
+      "commission_amount": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "Pending",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_affiliate_withdrawals": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "affiliate_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_affiliates.id`.<fk table='website_store_affiliates' column='id'/>"
+      },
+      "amount": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "upi_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "bank_details": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "Pending",
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_affiliate_settings": {
+    "description": "",
+    "properties": {
+      "key": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "value": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_coupon_redemptions": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "coupon_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_coupons.id`.<fk table='website_store_coupons' column='id'/>"
+      },
+      "user_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_store_users.id`.<fk table='website_store_users' column='id'/>"
+      },
+      "order_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_store_msg91_test_otps": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "admin_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": ""
+      },
+      "phone_number": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "otp_hash": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "attempt_count": {
+        "type": "integer",
+        "format": "integer",
+        "default": 0,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "now()",
+        "description": ""
+      },
+      "used_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      }
+    }
+  },
+  "website_store_otp_logs": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "phone_number": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ip_address": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "requested_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "website_pooja_products": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "sanskrit_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "slug": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "category": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "tags": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "subtitle": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "spiritual_significance": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "benefits": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "rituals_included": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "samagri_list": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "priest_details": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "duration": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ideal_occasions": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "temple_association": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "who_should_perform": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "price": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "original_price": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "offers": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "badges": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "rating": {
+        "type": "number",
+        "format": "numeric",
+        "default": 5,
+        "description": ""
+      },
+      "reviews_count": {
+        "type": "integer",
+        "format": "integer",
+        "default": 0,
+        "description": ""
+      },
+      "testimonials": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "faqs": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "booking_instructions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "cta_labels": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "seo_title": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "seo_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "canonical_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "og_data": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "schema_markup": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "image_alt": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "image_caption": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "is_featured": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "is_trending": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "in_stock": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": true,
+        "description": ""
+      },
+      "recommendation_logic": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "related_products": {
+        "type": "array",
+        "format": "uuid[]",
+        "default": null,
+        "description": ""
+      },
+      "video_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "translations": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "ui_labels": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "published_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "is_published": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": true,
+        "description": ""
+      },
+      "image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "banner_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "gallery_images": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "ritual_images": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "priest_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "certificates": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "icon_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "promo_creatives": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "material": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "weight": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "dimensions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "origin": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "custom_icons": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "commission_percent": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": ""
+      },
+      "invoice_settings": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "purchase_limit": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": "Maximum quantity of this product allowed in a single order (null or <=0 means no limit)"
+      },
+      "gst_override_enabled": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "custom_gst": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "delivery_override_enabled": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": false,
+        "description": ""
+      },
+      "custom_delivery": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      }
+    }
+  },
+  "website_pooja_product_translations": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "product_id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Foreign Key to `website_pooja_products.id`.<fk table='website_pooja_products' column='id'/>"
+      },
+      "locale": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "status": {
+        "type": "string",
+        "format": "text",
+        "default": "published",
+        "description": ""
+      },
+      "name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "sanskrit_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "category": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "tags": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "subtitle": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "spiritual_significance": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "benefits": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "rituals_included": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "samagri_list": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "priest_details": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "duration": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ideal_occasions": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "temple_association": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "who_should_perform": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "offers": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "badges": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "testimonials": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "faqs": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "booking_instructions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "cta_labels": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "seo_title": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "seo_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "og_data": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "image_alt": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "image_caption": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "gallery_images": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "certificates": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "material": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "weight": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "dimensions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "origin": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "localized_website_pooja_products": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": null,
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "slug": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "price": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "original_price": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "rating": {
+        "type": "number",
+        "format": "numeric",
+        "default": null,
+        "description": ""
+      },
+      "reviews_count": {
+        "type": "integer",
+        "format": "integer",
+        "default": null,
+        "description": ""
+      },
+      "canonical_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "schema_markup": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "is_featured": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": null,
+        "description": ""
+      },
+      "is_trending": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": null,
+        "description": ""
+      },
+      "in_stock": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": null,
+        "description": ""
+      },
+      "recommendation_logic": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "related_products": {
+        "type": "array",
+        "format": "uuid[]",
+        "default": null,
+        "description": ""
+      },
+      "video_url": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "published_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "is_published": {
+        "type": "boolean",
+        "format": "boolean",
+        "default": null,
+        "description": ""
+      },
+      "image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "banner_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ritual_images": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "priest_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "icon_image": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "promo_creatives": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "custom_icons": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "locale": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "translation_status": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "sanskrit_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_name": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "category": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "tags": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "subtitle": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "short_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "spiritual_significance": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "benefits": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "rituals_included": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "samagri_list": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "priest_details": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "duration": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "ideal_occasions": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "temple_association": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "who_should_perform": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "offers": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "badges": {
+        "type": "array",
+        "format": "text[]",
+        "default": null,
+        "description": ""
+      },
+      "testimonials": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "faqs": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "booking_instructions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "cta_labels": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "seo_title": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "seo_description": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "og_data": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "image_alt": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "image_caption": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "gallery_images": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "certificates": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "material": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "weight": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "dimensions": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "origin": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      }
+    }
+  },
+  "website_settings": {
+    "description": "",
+    "properties": {
+      "key": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "value": {
+        "type": "",
+        "format": "jsonb",
+        "default": null,
+        "description": ""
+      },
+      "created_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      }
+    }
+  },
+  "razorpay_webhook_events": {
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>"
+      },
+      "deduplication_key": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "event_type": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "razorpay_order_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "razorpay_payment_id": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      },
+      "processing_status": {
+        "type": "string",
+        "format": "text",
+        "default": "Pending",
+        "description": ""
+      },
+      "received_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": "timezone('utc'::text, now())",
+        "description": ""
+      },
+      "processed_at": {
+        "type": "string",
+        "format": "timestamp with time zone",
+        "default": null,
+        "description": ""
+      },
+      "safe_error_code": {
+        "type": "string",
+        "format": "text",
+        "default": null,
+        "description": ""
+      }
+    }
+  }
+}

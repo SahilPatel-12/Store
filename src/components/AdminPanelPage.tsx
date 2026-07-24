@@ -469,15 +469,15 @@ const generateInvoiceDoc = async (order: LocalOrder, targetDoc?: jsPDF, source?:
 
   let heightLeft = imgHeight;
   let position = 0;
-  const pageData = canvas.toDataURL('image/png');
+  const pageData = canvas.toDataURL('image/jpeg', 0.95);
 
-  doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+  doc.addImage(pageData, 'JPEG', 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     doc.addPage();
-    doc.addImage(pageData, 'PNG', 0, position, imgWidth, imgHeight);
+    doc.addImage(pageData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
@@ -675,8 +675,8 @@ const generateShippingLabelDoc = async (order: LocalOrder, targetDoc?: jsPDF, so
       useCORS: true,
       logging: false
     });
-    const imgData = canvas.toDataURL('image/png');
-    doc.addImage(imgData, 'PNG', 0, 0, 101.6, 101.6);
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    doc.addImage(imgData, 'JPEG', 0, 0, 101.6, 101.6);
   } catch (err) {
     console.error("Failed to render HTML Shipping Label:", err);
   } finally {
