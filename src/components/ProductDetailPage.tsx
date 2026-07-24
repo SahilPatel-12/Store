@@ -4244,7 +4244,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const activeProducts = productsProp || [];
   const isVidyaRudraksh = (product.name?.toLowerCase().includes('vidya') || product.name?.includes('विद्या')) && (product.name?.toLowerCase().includes('rudraksh') || product.name?.includes('रुद्राक्ष') || product.category?.toLowerCase() === 'rudraksha' || product.category === 'रुद्राक्ष');
   const isOneRupeeProd = (product.price === 1 || isVidyaRudraksh) && (product as any).slug !== 'vidya-rudraksh-101';
-  const isLockdownMode = (product as any).slug === 'vidya-rudraksh';
+  const isLockdownMode = (product as any).slug === 'vidya-rudraksh' || (product as any).slug === 'vidya-rudraksh-101';
   const [activeTab, setActiveTab] = React.useState<'specs' | 'shipping'>('specs');
   const [quantity, setQuantity] = React.useState<number>(1);
   const [activeImageIndex, setActiveImageIndex] = React.useState<number>(0);
