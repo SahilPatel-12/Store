@@ -93,8 +93,29 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing userId parameter.' });
       }
 
+      // Resolve admin session token
+      let adminToken = req.body.adminToken || '';
+      if (!adminToken) {
+        const cookies = req.headers.cookie || '';
+        const sessionCookie = cookies
+          .split(';')
+          .map(c => c.trim())
+          .find(c => c.startsWith('__Host-admin_session='));
+        if (sessionCookie) {
+          adminToken = sessionCookie.split('=')[1] || '';
+        }
+      }
+      if (!adminToken) {
+        adminToken = req.headers['x-admin-token'] || '';
+      }
+      if (!adminToken && req.headers['authorization']) {
+        const parts = req.headers['authorization'].split(' ');
+        adminToken = (parts.length === 2 && parts[0].toLowerCase() === 'bearer') ? parts[1] : req.headers['authorization'];
+      }
+
       const { error: rpcErr } = await supabaseAdmin.rpc('admin_delete_user_cascade', {
-        p_user_id: userId
+        p_admin_token: adminToken,
+        p_target_user_id: userId
       });
 
       if (rpcErr) throw rpcErr;

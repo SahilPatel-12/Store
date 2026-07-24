@@ -899,7 +899,11 @@ const mockSupabaseRpc = async (fn: string, params: any = {}) => {
       body = { action: 'set-affiliate-status', userId: params.p_user_id, status: params.p_status };
     } else if (fn === 'admin_delete_user_cascade') {
       endpoint = '/api/admin/astrologers';
-      body = { action: 'delete-cascade', userId: params.p_user_id };
+      body = { 
+        action: 'delete-cascade', 
+        userId: params.p_target_user_id || params.p_user_id,
+        adminToken: params.p_admin_token
+      };
     } else if (fn === 'admin_get_all_withdrawals') {
       body = { action: 'get-withdrawals' };
     } else if (fn === 'admin_approve_withdrawal') {
